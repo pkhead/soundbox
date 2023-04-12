@@ -63,6 +63,9 @@ app.whenReady().then(() => {
             submenu: [
                 { role: "undo" },
                 { role: "redo" },
+
+                { type: "separator" },
+                
                 {
                     label: "Select All",
                     accelerator: "A"
