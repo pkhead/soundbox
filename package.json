@@ -1,0 +1,19 @@
+{
+  "name": "soundbox",
+  "version": "1.0.0",
+  "description": "",
+  "main": "out/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "tsc",
+    "build-app": "tsc -p appconfig.jsonc"
+  },
+  "author": "pkhead",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^24.1.0"
+  },
+  "dependencies": {
+    "typescript": "^5.0.4"
+  }
+}

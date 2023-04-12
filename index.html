@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'"> -->
+
+    <link href="style.css" rel="stylesheet">
+    <script src="dojo.js"></script>
+
+    <title>Soundbox</title>
+  </head>
+  <body>
+    <div id="container">
+      <div class="content-row">
+        <div class="panel" id="settings-panel">
+            <div class="panel-title">Song Settings</div>
+
+            <div id="playback-controls">
+              <button>Play</button>
+              <button>&lt;</button>
+              <button>&gt;</button>
+            </div>
+
+            <div class="row-option">
+              <span class="label row-item">Scale</span>
+              <select class="row-item">
+                <option>Major</option>
+                <option>Minor</option>
+              </select>
+            </div>
+
+            <div class="row-option">
+              <span class="label row-item">Key</span>
+              <select class="row-item">
+                <option>C</option>
+                <option>C#</option>
+                <option>D</option>
+                <option>D#</option>
+              </select>
+            </div>
+
+            <div class="row-option">
+              <span class="label row-item">Tempo</span>
+              <input type="number" class="row-item" value="120">
+            </div>
+        </div>
+
+        <div class="panel" id="instrument-panel">
+          <div class="panel-title">Instrument Settings</div>
+        </div>
+
+        <div class="panel" id="pattern-panel">
+          Pattern Editor
+        </div>
+      </div>
+
+      <div class="content-row">
+        <div class="panel" id="song-panel">
+          <canvas id="song-editor"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
