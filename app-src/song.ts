@@ -1,6 +1,8 @@
 export class Pattern {
-    constructor() {
+    public length: number;
 
+    constructor(length: number = 1) {
+        this.length = length;
     }
 }
 
@@ -17,7 +19,7 @@ export class Channel {
         }
 
         for (let i = 0; i < maxPatterns; i++) {
-            this.patterns.push(new Pattern());
+            this.patterns.push(new Pattern(i + 1));
         }
     }
 }

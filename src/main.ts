@@ -11,7 +11,8 @@ const createWindow = () => {
     });
 
     win.loadFile("index.html");
-
+    win.webContents.openDevTools();
+    
     win.on("close", (e) => {
         const choice = dialog.showMessageBoxSync(win, {
             type: "question",
