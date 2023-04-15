@@ -79,7 +79,7 @@ export class TrackEditor {
     private redraw() {
         const ctx = this.ctx;
 
-        let start = performance.now();
+        let start = Date.now();
 
         ctx.fillStyle = "#040410";
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -94,7 +94,7 @@ export class TrackEditor {
             }
         }
 
-        console.log(performance.now() - start);
+        console.log(`track editor redraw: ${Date.now() - start}ms`);
     }
 
     private drawCursor() {
@@ -236,8 +236,6 @@ export class TrackEditor {
         window.addEventListener("keydown", (ev) => {
             if (document.activeElement && (document.activeElement.nodeName === "input" || document.activeElement.nodeName == "textbox")) return;
 
-            console.log(ev.code);
-
             let prevBar = SONG.selectedBar;
             let prevCh = SONG.selectedChannel;
 
@@ -326,7 +324,6 @@ export class TrackEditor {
 
                 case "Equal":
                     if (ev.ctrlKey) {
-                        console.log("increment");
                         ev.preventDefault();
 
                         let channel = SONG.channels[SONG.selectedChannel];
@@ -341,7 +338,6 @@ export class TrackEditor {
 
                 case "Minus":
                     if (ev.ctrlKey) {
-                        console.log("decrement");
                         ev.preventDefault();
 
                         let channel = SONG.channels[SONG.selectedChannel];

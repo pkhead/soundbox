@@ -15,6 +15,7 @@ export class PatternEditor {
 
     private mouseGridX: number | null = null;
     private mouseGridY: number | null = null;
+    private mouseNoteX: number | null = null;
     private cursorWidth: number = 0.5;
 
     private selectedNote: Note | null = null; // the note currently hovered over
@@ -22,6 +23,7 @@ export class PatternEditor {
     private mouseStartX: number = 0; // the mouse x when drag started
     private activeNoteStart: number = 0; // the length of the note when drag started
     private noteDragMode: number = 0; // 0 = left, 1 = right
+    private mouseMoved: boolean = false; // if mouse did move on a drag
 
     constructor(canvas: HTMLCanvasElement) {
         const ctx = canvas.getContext("2d");
@@ -49,13 +51,14 @@ export class PatternEditor {
             this.redraw();
         }
 
-        window.addEventListener("mousemove", (ev) => {
-            let increment = Math.min(this.cursorWidth, 0.25);
+        const onMouseMove = (ev: MouseEvent) => {
+            const snapping = 0.25;
+
+            let increment = Math.min(this.cursorWidth, snapping);
             const pattern = this.getPattern();
 
-            let gridX = Math.floor(((ev.pageX - canvas.offsetLeft) / this.cellWidth - this.cursorWidth / 2) / increment) * increment;
-            gridX = Math.max(gridX, 0);
             let gridFreeX = (ev.pageX - canvas.offsetLeft) / this.cellWidth;
+            let gridX = Math.floor((gridFreeX - this.cursorWidth / 2) / increment + 0.5) * increment;
             let gridY = Math.floor((canvas.height - ev.pageY - canvas.offsetTop) / this.cellHeight + 0.5);
 
             // prevent note collision/overlapping
@@ -77,22 +80,62 @@ export class PatternEditor {
                 }
             }
 
+            gridX = Math.max(gridX, 0);
+
             const mouseGridX = this.mouseGridX;
             const mouseGridY = this.mouseGridY;
 
-            if (this.activeNote) {
-                if (this.noteDragMode === 0) {
-                    this.activeNote.length = (gridX - this.mouseStartX) + this.activeNoteStart;
+            // note dragging
+            if (this.activeNote && mouseGridX) {
+                if (
+                    Math.floor((gridFreeX - this.mouseStartX) / snapping) * snapping !==
+                    Math.floor((mouseGridX - this.mouseStartX) / snapping) * snapping
+                ) {
+                    this.mouseMoved = true;
+                    console.log("mouse moved");
+                }
+
+                if (this.noteDragMode === 1) {
+                    this.activeNote.length = Math.floor((gridFreeX - this.mouseStartX) / snapping) * snapping + this.activeNoteStart;
+                    
+                    if (this.activeNote.length < 0) {
+                        // if length becomes negative, swap sides
+                        this.activeNote.time += this.activeNote.length;
+                        this.activeNote.length = -this.activeNote.length;
+                        this.activeNoteStart = this.activeNote.length;
+                        this.noteDragMode = 0;
+                        this.mouseStartX = gridFreeX;
+                    }
+                    
+                    // make sure length can't = 0
+                    else if (this.activeNote.length < snapping) this.activeNote.length = snapping;
+                    
+                } else if (this.noteDragMode === 0) {
+                    let end = this.activeNote.time + this.activeNote.length;
+                    this.activeNote.length = Math.floor((this.mouseStartX - gridFreeX) / snapping) * snapping + this.activeNoteStart;
+                    
+                    if (this.activeNote.length < 0) {
+                        // if length becomes negative, swap sides
+                        this.activeNote.time -= this.activeNote.length;
+                        this.activeNote.length = -this.activeNote.length;
+                        this.activeNoteStart = this.activeNote.length;
+                        this.noteDragMode = 1;
+                        this.mouseStartX = gridFreeX;
+                    }
+                    
+                    // make sure length can't = 0
+                    else if (this.activeNote.length < snapping) this.activeNote.length = snapping;
+                    else this.activeNote.time = end - this.activeNote.length;
                 }
             }
 
-            if (mouseGridX !== null && mouseGridY !== null) {
+            if (mouseGridX !== null && mouseGridY !== null && this.mouseNoteX !== null) {
                 // draw area around old cursor position
                 // so that there only appears to be one cursor outline at a time
                 if (this.activeNote) {
                     this.redraw();
                 } else {
-                    let mouseGridX_int = Math.floor(mouseGridX);
+                    let mouseGridX_int = Math.floor(this.mouseNoteX);
 
                     for (let x = mouseGridX_int - 1; x <= Math.floor(mouseGridX_int + this.cursorWidth) + 1; x++) {
                         this.drawCell(mouseGridY - 1, x);
@@ -106,9 +149,10 @@ export class PatternEditor {
                 this.redraw();
             }
 
-            if (gridX >= 0 && gridX < this.numDivisions && gridY >= 0 && gridY < 12 * this.octaveRange + 1) {
+            if (gridFreeX >= 0 && gridFreeX < this.numDivisions && gridY >= 0 && gridY < 12 * this.octaveRange + 1) {
                 // mouse is inside of pattern editor
-                this.mouseGridX = gridX;
+                this.mouseGridX = gridFreeX;
+                this.mouseNoteX = gridX;
                 this.mouseGridY = gridY;
                 
                 this.selectedNote = null;
@@ -127,12 +171,15 @@ export class PatternEditor {
             } else {
                 // mouse is not within inside pattern editor
                 this.mouseGridX = null;
+                this.mouseNoteX = null;
                 this.mouseGridY = null;
             }
-        });
+        };
+
+        window.addEventListener("mousemove", onMouseMove);
 
         window.addEventListener("mousedown", (ev) => {
-            if (this.mouseGridX !== null && this.mouseGridY !== null) {
+            if (this.mouseGridX !== null && this.mouseGridY !== null && this.mouseNoteX !== null) {
                 let pattern = this.getPattern();
 
                 // if pattern is 0, create new pattern
@@ -145,22 +192,47 @@ export class PatternEditor {
                 }
 
                 if (this.selectedNote) {
+                    // change the length of an existing note
                     this.activeNote = this.selectedNote;
+                    this.mouseMoved = false;
+
+                    // detect if dragging left/right sides of note
+                    if (this.mouseGridX > this.activeNote.time + this.activeNote.length / 2) {
+                        this.noteDragMode = 1;
+                    } else {
+                        this.noteDragMode = 0;
+                    }
                 } else {
-                    this.activeNote = pattern.addNote(this.mouseGridX, this.mouseGridY, this.cursorWidth);
+                    // add a new note
+                    this.activeNote = pattern.addNote(this.mouseNoteX, this.mouseGridY, this.cursorWidth);
+                    this.noteDragMode = 1;
+                    this.mouseMoved = true;
                 }
 
                 this.mouseStartX = this.mouseGridX;
                 this.activeNoteStart = this.activeNote.length;
+                
                 this.redraw();
             }
         });
 
         window.addEventListener("mouseup", (ev) => {
             if (this.activeNote) {
-                this.cursorWidth = this.activeNote.length;
+                if (this.mouseMoved) {
+                    this.cursorWidth = this.activeNote.length;
+                } else {
+                    // remove active note if mouse did not move
+                    const pattern = this.getPattern();
+
+                    if (pattern) {
+                        pattern.notes.splice(pattern.notes.indexOf(this.activeNote), 1);
+                    }
+                }
+
                 this.activeNote = null;
                 this.redraw();
+
+                onMouseMove(ev);
             }
         });
 
@@ -222,8 +294,8 @@ export class PatternEditor {
 
         const {canvas, ctx} = this;
         
-        if (this.mouseGridX !== null && this.mouseGridY !== null) {
-            let x = this.mouseGridX;
+        if (this.mouseNoteX !== null && this.mouseGridY !== null) {
+            let x = this.mouseNoteX;
             let y = this.mouseGridY;
             let w = this.cursorWidth;
 
