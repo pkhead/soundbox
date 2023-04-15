@@ -1,5 +1,5 @@
 
-import { Channel, Pattern, SONG } from "./song";
+import { Channel, Pattern, Song } from "./song";
 import { Colors } from "./colors";
 
 const CELL_WIDTH = 32;
@@ -9,6 +9,8 @@ const CELL_WPAD = CELL_WIDTH + CELL_PADDING;
 const CELL_HPAD = CELL_HEIGHT + CELL_PADDING;
 
 export class TrackEditor {
+    public song: Song;
+    
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
 
@@ -21,8 +23,8 @@ export class TrackEditor {
     private drawCell(channel_i: number, bar: number) {
         const ctx = this.ctx;
 
-        if (bar < 0 || bar >= SONG.length) return;
-        const channel = SONG.channels[channel_i];
+        if (bar < 0 || bar >= this.song.length) return;
+        const channel = this.song.channels[channel_i];
         if (!channel) return;
 
         ctx.font = "bold 18px monospace";
@@ -38,15 +40,15 @@ export class TrackEditor {
         let cellX = bar * CELL_WPAD + CELL_PADDING;
         let cellY = channel_i * CELL_HPAD + CELL_PADDING;
         
-        let isSelected = bar === SONG.selectedBar && channel_i === SONG.selectedChannel;
+        let isSelected = bar === this.song.selectedBar && channel_i === this.song.selectedChannel;
         let pid = channel.sequence[bar] || 0;
         const pattern = channel.patterns[pid - 1];
         //let patternLength = channel.patterns[pid - 1]?.length || 1;
         const patternLength = 1;
         
         /*
-        if (bar + patternLength > SONG.length) {
-            patternLength = SONG.length - bar;
+        if (bar + patternLength > this.song.length) {
+            patternLength = this.song.length - bar;
         }
         */
 
@@ -84,10 +86,10 @@ export class TrackEditor {
         ctx.fillStyle = Colors.background;
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        for (let channel = 0; channel < SONG.channels.length; channel++) {
+        for (let channel = 0; channel < this.song.channels.length; channel++) {
             if (channel * CELL_HPAD + CELL_PADDING > this.canvas.height) break;
 
-            for (let bar = 0; bar < SONG.length; bar++) {
+            for (let bar = 0; bar < this.song.length; bar++) {
                 if (bar * CELL_WPAD + CELL_PADDING > this.canvas.width) break;
 
                 this.drawCell(channel, bar);
@@ -110,7 +112,7 @@ export class TrackEditor {
     }
 
     private setPattern(channel_i: number, bar: number, pid: number) {
-        const channel = SONG.channels[channel_i];
+        const channel = this.song.channels[channel_i];
 
         /*
         // get max size between old and new pattern
@@ -119,7 +121,7 @@ export class TrackEditor {
         channel.sequence[bar] = pid;
 
         for (let i = newSize - 1; i > 0; i--) {
-            if (bar + i < SONG.length) {
+            if (bar + i < this.song.length) {
                 this.setPattern(channel_i, bar + i, 0);
             }
         }
@@ -135,12 +137,13 @@ export class TrackEditor {
     // returns the length of the pattern at a bar
     // if pattern = 0, then return 1
     private getBarLength(channel_i: number, bar: number) {
-        const channel = SONG.channels[channel_i];
+        const channel = this.song.channels[channel_i];
         return channel.patterns[channel.sequence[bar] - 1]?.length || 1;
     }
 
-    constructor(canvas: HTMLCanvasElement) {
-        this.cursorX = SONG.selectedBar;
+    constructor(song: Song, canvas: HTMLCanvasElement) {
+        this.song = song;
+        this.cursorX = this.song.selectedBar;
 
         const canvasContainer = canvas.parentElement;
         const ctx = canvas.getContext("2d");
@@ -194,7 +197,7 @@ export class TrackEditor {
                 this.drawCell(mouseGridY + 1, mouseGridX + 1);
             }
 
-            if (gridX >= 0 && gridX < SONG.length && gridY >= 0 && gridY < SONG.channels.length) {
+            if (gridX >= 0 && gridX < this.song.length && gridY >= 0 && gridY < this.song.channels.length) {
                 this.mouseGridX = gridX;
                 this.mouseGridY = gridY;
                 this.drawCursor();
@@ -205,13 +208,13 @@ export class TrackEditor {
         });
 
         canvas.addEventListener("mousedown", (ev) => {
-            let prevCh = SONG.selectedChannel;
-            let prevBar = SONG.selectedBar;
+            let prevCh = this.song.selectedChannel;
+            let prevBar = this.song.selectedBar;
             
             if (this.mouseGridX !== null && this.mouseGridY !== null) {
-                SONG.selectedChannel = this.mouseGridY;
-                SONG.selectedBar = this.mouseGridX;
-                SONG.dispatchEvent("selectionChanged");
+                this.song.selectedChannel = this.mouseGridY;
+                this.song.selectedBar = this.mouseGridX;
+                this.song.dispatchEvent("selectionChanged");
                 
                 this.drawCell(prevCh, prevBar);
                 this.drawCell(this.mouseGridY, this.mouseGridX);
@@ -222,10 +225,10 @@ export class TrackEditor {
 
         const fixPatternOverlap = () => {
             // if selection is in the middle of a pattern, go to its beginning
-            for (let i = 0; i < SONG.selectedBar;) {
-                let patternLen = this.getBarLength(SONG.selectedChannel, i);
-                if (patternLen > 1 && SONG.selectedBar <= i + patternLen - 1) {
-                    SONG.selectedBar = i;
+            for (let i = 0; i < this.song.selectedBar;) {
+                let patternLen = this.getBarLength(this.song.selectedChannel, i);
+                if (patternLen > 1 && this.song.selectedBar <= i + patternLen - 1) {
+                    this.song.selectedBar = i;
                     break;
                 }
 
@@ -236,22 +239,22 @@ export class TrackEditor {
         window.addEventListener("keydown", (ev) => {
             if (document.activeElement && (document.activeElement.nodeName === "input" || document.activeElement.nodeName == "textbox")) return;
 
-            let prevBar = SONG.selectedBar;
-            let prevCh = SONG.selectedChannel;
+            let prevBar = this.song.selectedBar;
+            let prevCh = this.song.selectedChannel;
 
             switch (ev.code) {
                 case "ArrowRight":
                     ev.preventDefault();
 
                     typeBuf = "";
-                    SONG.selectedBar += this.getBarLength(SONG.selectedChannel, SONG.selectedBar);
-                    if (SONG.selectedBar >= SONG.length) SONG.selectedBar = 0;
-                    SONG.dispatchEvent("selectionChanged");
+                    this.song.selectedBar += this.getBarLength(this.song.selectedChannel, this.song.selectedBar);
+                    if (this.song.selectedBar >= this.song.length) this.song.selectedBar = 0;
+                    this.song.dispatchEvent("selectionChanged");
 
                     this.drawCell(prevCh, prevBar);
-                    this.drawCell(SONG.selectedChannel, SONG.selectedBar);
+                    this.drawCell(this.song.selectedChannel, this.song.selectedBar);
                     this.drawCursor();
-                    this.cursorX = SONG.selectedBar;
+                    this.cursorX = this.song.selectedBar;
 
 
                     break;
@@ -260,15 +263,15 @@ export class TrackEditor {
                     ev.preventDefault();
 
                     typeBuf = "";
-                    SONG.selectedBar--;
-                    if (SONG.selectedBar < 0) SONG.selectedBar = SONG.length - 1;
-                    SONG.dispatchEvent("selectionChanged");
+                    this.song.selectedBar--;
+                    if (this.song.selectedBar < 0) this.song.selectedBar = this.song.length - 1;
+                    this.song.dispatchEvent("selectionChanged");
                     //fixPatternOverlap();
                     
                     this.drawCell(prevCh, prevBar);
-                    this.drawCell(SONG.selectedChannel, SONG.selectedBar);
+                    this.drawCell(this.song.selectedChannel, this.song.selectedBar);
                     this.drawCursor();
-                    this.cursorX = SONG.selectedBar;
+                    this.cursorX = this.song.selectedBar;
 
 
                     break;
@@ -277,14 +280,14 @@ export class TrackEditor {
                     ev.preventDefault();
 
                     typeBuf = "";
-                    SONG.selectedChannel++;
-                    if (SONG.selectedChannel >= SONG.channels.length) SONG.selectedChannel = 0;
+                    this.song.selectedChannel++;
+                    if (this.song.selectedChannel >= this.song.channels.length) this.song.selectedChannel = 0;
 
-                    SONG.selectedBar = this.cursorX;
-                    SONG.dispatchEvent("selectionChanged");
+                    this.song.selectedBar = this.cursorX;
+                    this.song.dispatchEvent("selectionChanged");
                     
                     this.drawCell(prevCh, prevBar);
-                    this.drawCell(SONG.selectedChannel, SONG.selectedBar);
+                    this.drawCell(this.song.selectedChannel, this.song.selectedBar);
                     this.drawCursor();
                     break;
                 
@@ -292,14 +295,14 @@ export class TrackEditor {
                     ev.preventDefault();
 
                     typeBuf = "";
-                    SONG.selectedChannel--;
-                    if (SONG.selectedChannel < 0) SONG.selectedChannel = SONG.channels.length - 1;
+                    this.song.selectedChannel--;
+                    if (this.song.selectedChannel < 0) this.song.selectedChannel = this.song.channels.length - 1;
 
-                    SONG.selectedBar = this.cursorX;
-                    SONG.dispatchEvent("selectionChanged");
+                    this.song.selectedBar = this.cursorX;
+                    this.song.dispatchEvent("selectionChanged");
                     
                     this.drawCell(prevCh, prevBar);
-                    this.drawCell(SONG.selectedChannel, SONG.selectedBar);
+                    this.drawCell(this.song.selectedChannel, this.song.selectedBar);
                     this.drawCursor();
                     break;
 
@@ -326,12 +329,12 @@ export class TrackEditor {
                     if (ev.ctrlKey) {
                         ev.preventDefault();
 
-                        let channel = SONG.channels[SONG.selectedChannel];
-                        let pid = channel.sequence[SONG.selectedBar] + 1;
-                        if (pid > SONG.maxPatterns) pid = 0;
+                        let channel = this.song.channels[this.song.selectedChannel];
+                        let pid = channel.sequence[this.song.selectedBar] + 1;
+                        if (pid > this.song.maxPatterns) pid = 0;
 
-                        this.setPattern(SONG.selectedChannel, SONG.selectedBar, pid);
-                        SONG.dispatchEvent("trackChanged", SONG.selectedChannel, SONG.selectedBar);
+                        this.setPattern(this.song.selectedChannel, this.song.selectedBar, pid);
+                        this.song.dispatchEvent("trackChanged", this.song.selectedChannel, this.song.selectedBar);
                     }
 
                     break;
@@ -340,40 +343,40 @@ export class TrackEditor {
                     if (ev.ctrlKey) {
                         ev.preventDefault();
 
-                        let channel = SONG.channels[SONG.selectedChannel];
-                        let pid = channel.sequence[SONG.selectedBar] - 1;
-                        if (pid < 0) pid = SONG.maxPatterns - 1;
+                        let channel = this.song.channels[this.song.selectedChannel];
+                        let pid = channel.sequence[this.song.selectedBar] - 1;
+                        if (pid < 0) pid = this.song.maxPatterns - 1;
 
-                        this.setPattern(SONG.selectedChannel, SONG.selectedBar, pid);
-                        SONG.dispatchEvent("trackChanged", SONG.selectedChannel, SONG.selectedBar);
+                        this.setPattern(this.song.selectedChannel, this.song.selectedBar, pid);
+                        this.song.dispatchEvent("trackChanged", this.song.selectedChannel, this.song.selectedBar);
                     }
 
                     break;
 
                 default:
                     {
-                        let channel = SONG.channels[SONG.selectedChannel];
-                        let pi = channel.sequence[SONG.selectedBar];
+                        let channel = this.song.channels[this.song.selectedChannel];
+                        let pi = channel.sequence[this.song.selectedBar];
                         
                         if (ev.code.slice(0, 5) === "Digit") {
                             typeBuf += ev.code.slice(5);
 
-                            if (+typeBuf > SONG.maxPatterns) {
+                            if (+typeBuf > this.song.maxPatterns) {
                                 typeBuf = ev.code.slice(5);
 
-                                if (+typeBuf > SONG.maxPatterns) {
+                                if (+typeBuf > this.song.maxPatterns) {
                                     break;
                                 }
                             }
 
-                            this.setPattern(SONG.selectedChannel, SONG.selectedBar, +typeBuf);
-                            SONG.dispatchEvent("trackChanged", SONG.selectedChannel, SONG.selectedBar);
+                            this.setPattern(this.song.selectedChannel, this.song.selectedBar, +typeBuf);
+                            this.song.dispatchEvent("trackChanged", this.song.selectedChannel, this.song.selectedBar);
                         }
                     }
             }
         });
 
-        SONG.addEventListener("trackChanged", (channel_i: number, bar: number) => {
+        this.song.addEventListener("trackChanged", (channel_i: number, bar: number) => {
             this.drawCell(channel_i, bar);
             this.drawCursor();
         });

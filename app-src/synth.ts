@@ -1,3 +1,5 @@
+import { Song } from "./song";
+
 export class Synthesizer {
     audioContext: AudioContext;
     audioProcessor: AudioWorkletNode | null = null;

@@ -1,10 +1,14 @@
 import { Colors } from "./colors";
-import { SONG, Pattern, Note } from "./song";
+import { Song, Pattern, Note } from "./song";
+import { Synthesizer } from "./synth";
 
 const CELL_MARGIN = 2;
 const KEY_WIDTH = 40;
 
 export class PatternEditor {
+    private song: Song;
+    private synth: Synthesizer;
+
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
 
@@ -29,7 +33,10 @@ export class PatternEditor {
 
     private curPattern: Pattern | null = null;
 
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(song: Song, synth: Synthesizer, canvas: HTMLCanvasElement) {
+        this.song = song;
+        this.synth = synth;
+
         const ctx = canvas.getContext("2d");
 
         if (!ctx) {
@@ -204,11 +211,11 @@ export class PatternEditor {
 
                 // if pattern is 0, create new pattern
                 if (!pattern) {
-                    let channel = SONG.channels[SONG.selectedChannel];
-                    let pid = SONG.newPattern(SONG.selectedChannel);
-                    channel.sequence[SONG.selectedBar] = pid;
+                    let channel = this.song.channels[this.song.selectedChannel];
+                    let pid = this.song.newPattern(this.song.selectedChannel);
+                    channel.sequence[this.song.selectedBar] = pid;
                     pattern = channel.patterns[pid - 1];
-                    SONG.dispatchEvent("trackChanged", SONG.selectedChannel, SONG.selectedBar);
+                    this.song.dispatchEvent("trackChanged", this.song.selectedChannel, this.song.selectedBar);
                 }
 
                 if (this.selectedNote) {
@@ -263,8 +270,8 @@ export class PatternEditor {
 
     // get the current pattern from the song data
     private getPattern(): Pattern | null {
-        const channel = SONG.channels[SONG.selectedChannel];
-        const pattern = channel.patterns[channel.sequence[SONG.selectedBar] - 1] || null;
+        const channel = this.song.channels[this.song.selectedChannel];
+        const pattern = channel.patterns[channel.sequence[this.song.selectedBar] - 1] || null;
 
         // if pattern had changed, clear active/selected note data
         if (pattern !== this.curPattern) {
@@ -306,7 +313,7 @@ export class PatternEditor {
     private drawNotes() {
         const {canvas, ctx} = this;
         const pattern = this.getPattern();
-        ctx.fillStyle = Colors.pitch[SONG.selectedChannel % Colors.pitch.length][1];
+        ctx.fillStyle = Colors.pitch[this.song.selectedChannel % Colors.pitch.length][1];
 
         if (pattern) {
             for (let note of pattern.notes) {

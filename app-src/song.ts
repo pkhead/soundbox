@@ -62,7 +62,7 @@ export class Song {
     constructor(numChannels: number, length: number, maxPatterns: number) {
         this._length = length;
         this._maxPatterns = maxPatterns;
-
+        
         for (let ch_i = 0; ch_i < numChannels; ch_i++) {
             let ch = new Channel(this._length, this._maxPatterns);
             this.channels.push(ch);
@@ -148,4 +148,3 @@ export class Song {
     }
 }
 
-export var SONG = new Song(4, 16, 4);
