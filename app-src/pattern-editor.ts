@@ -14,6 +14,7 @@ export class PatternEditor {
 
     private octaveRange: number;
     private numDivisions: number;
+    private scroll: number = 48;
 
     private cellWidth: number = 0;
     private cellHeight: number = 0;
@@ -22,6 +23,7 @@ export class PatternEditor {
     private mouseGridY: number | null = null;
     private mouseNoteX: number | null = null;
     private mouseInPianoKey: boolean = false;
+    private playPianoKey: boolean = false;
     private cursorWidth: number = 0.5;
 
     private selectedNote: Note | null = null; // the note currently hovered over
@@ -201,49 +203,72 @@ export class PatternEditor {
             }
 
             if (this.mouseInPianoKey || oldMouseInPianoKey !== this.mouseInPianoKey) this.drawPianoKeys();
+
+            // piano key glissando
+            if (this.playPianoKey && gridY !== null && mouseGridY !== null) {
+                if (gridY !== mouseGridY) {
+                    this.synth.endNote(mouseGridY + this.scroll);
+                    this.synth.beginNote(gridY + this.scroll);
+                }
+            }
         };
 
         window.addEventListener("mousemove", onMouseMove);
 
         window.addEventListener("mousedown", (ev) => {
-            if (this.mouseGridX !== null && this.mouseGridY !== null && this.mouseNoteX !== null) {
-                let pattern = this.getPattern();
+            const mouseX = ev.pageX - canvas.offsetLeft;
+            const mouseY = ev.pageY - canvas.offsetTop;
 
-                // if pattern is 0, create new pattern
-                if (!pattern) {
-                    let channel = this.song.channels[this.song.selectedChannel];
-                    let pid = this.song.newPattern(this.song.selectedChannel);
-                    channel.sequence[this.song.selectedBar] = pid;
-                    pattern = channel.patterns[pid - 1];
-                    this.song.dispatchEvent("trackChanged", this.song.selectedChannel, this.song.selectedBar);
-                }
+            if (mouseX >= 0 && mouseY >= 0 && mouseX < canvas.width && mouseY < canvas.height) {
+                if (this.mouseGridX !== null && this.mouseGridY !== null && this.mouseNoteX !== null) {
+                    let pattern = this.getPattern();
 
-                if (this.selectedNote) {
-                    // change the length of an existing note
-                    this.activeNote = this.selectedNote;
-                    this.mouseMoved = false;
-
-                    // detect if dragging left/right sides of note
-                    if (this.mouseGridX > this.activeNote.time + this.activeNote.length / 2) {
-                        this.noteDragMode = 1;
-                    } else {
-                        this.noteDragMode = 0;
+                    // if pattern is 0, create new pattern
+                    if (!pattern) {
+                        let channel = this.song.channels[this.song.selectedChannel];
+                        let pid = this.song.newPattern(this.song.selectedChannel);
+                        channel.sequence[this.song.selectedBar] = pid;
+                        pattern = channel.patterns[pid - 1];
+                        this.song.dispatchEvent("trackChanged", this.song.selectedChannel, this.song.selectedBar);
                     }
-                } else {
-                    // add a new note
-                    this.activeNote = pattern.addNote(this.mouseNoteX, this.mouseGridY, this.cursorWidth);
-                    this.noteDragMode = 1;
-                    this.mouseMoved = true;
+
+                    if (this.selectedNote) {
+                        // change the length of an existing note
+                        this.activeNote = this.selectedNote;
+                        this.mouseMoved = false;
+
+                        // detect if dragging left/right sides of note
+                        if (this.mouseGridX > this.activeNote.time + this.activeNote.length / 2) {
+                            this.noteDragMode = 1;
+                        } else {
+                            this.noteDragMode = 0;
+                        }
+                    } else {
+                        // add a new note
+                        this.activeNote = pattern.addNote(this.mouseNoteX, this.mouseGridY, this.cursorWidth);
+                        this.noteDragMode = 1;
+                        this.mouseMoved = true;
+                    }
+
+                    this.mouseStartX = this.mouseGridX;
+                    this.activeNoteStart = this.activeNote.length;
+                    
+                    this.redraw();
                 }
 
-                this.mouseStartX = this.mouseGridX;
-                this.activeNoteStart = this.activeNote.length;
-                
-                this.redraw();
+                if (this.mouseInPianoKey && this.mouseGridY !== null) {
+                    this.playPianoKey = true;
+                    this.synth.beginNote(this.mouseGridY + this.scroll, 0.1);
+                }
             }
         });
 
         window.addEventListener("mouseup", (ev) => {
+            if (this.playPianoKey && this.mouseGridY !== null) {
+                this.playPianoKey = false;
+                this.synth.endNote(this.mouseGridY + this.scroll);
+            }
+
             if (this.activeNote) {
                 if (this.mouseMoved) {
                     this.cursorWidth = this.activeNote.length;

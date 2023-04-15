@@ -1,5 +1,30 @@
+class Voice {
+    public freq: number;
+    public time: number;
+    public volume: number;
+    public key: number;
+
+    constructor(key: number, freq: number, volume: number) {
+        this.freq = freq;
+        this.time = 0;
+        this.volume = volume;
+        this.key = key;
+    }
+
+    public compute(buf: Float32Array) {
+        const val = Math.sin(this.time) * this.volume;
+
+        buf[0] = val;
+        buf[1] = val;
+
+        this.time += (this.freq * 2 * Math.PI) / sampleRate;
+    }
+}
+
 class AudioProcessor extends AudioWorkletProcessor {
     private time: number;
+    private voices: Voice[];
+    private voiceBuf: Float32Array; // buffer for voice output
 
     static get parameterDescriptors() {
         return [
@@ -16,19 +41,44 @@ class AudioProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
         this.time = 0;
+        this.voices = [];
+        this.voiceBuf = new Float32Array(2); 
+
+        this.port.onmessage = (e) => {
+            const data = e.data;
+
+            switch (data.msg) {
+                case "start":
+                    this.voices.push(new Voice(data.key, data.freq, data.volume));
+                    break;
+
+                case "end":
+                    for (let i = 0; i < this.voices.length; i++) {
+                        if (this.voices[i].key === data.key) {
+                            this.voices.splice(i, 1);
+                            break;
+                        }
+                    }
+                    break;
+            }
+        }
     }
 
     process(inputs: Float32Array[][], outputs: Float32Array[][], parameters: Record<string, Float32Array>): boolean {
         const output = outputs[0];
 
         for (let i = 0; i < output[0].length; i++) {
-            let val = Math.sin(this.time) * 0.5;
+            let valL = 0;
+            let valR = 0;
 
-            output[0][i] = val;
-            output[1][i] = val;
+            for (let voice of this.voices) {
+                voice.compute(this.voiceBuf);
+                valL += this.voiceBuf[0];
+                valR += this.voiceBuf[1];
+            }
 
-            const freq = (parameters.freq.length > 1 ? parameters.freq[i] : parameters.freq[0]);
-            this.time += (freq * Math.PI * 2) / sampleRate;
+            output[0][i] = valL;
+            output[1][i] = valR;
         }
 
         return true;
