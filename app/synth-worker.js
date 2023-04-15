@@ -1,0 +1,31 @@
+"use strict";
+class AudioProcessor extends AudioWorkletProcessor {
+    static get parameterDescriptors() {
+        return [
+            {
+                name: "freq",
+                defaultValue: 440,
+                minValue: 0,
+                maxValue: 100000,
+                automationRate: "a-rate"
+            }
+        ];
+    }
+    constructor() {
+        super();
+        this.time = 0;
+    }
+    process(inputs, outputs, parameters) {
+        const output = outputs[0];
+        for (let i = 0; i < output[0].length; i++) {
+            let val = Math.sin(this.time) * 0.5;
+            output[0][i] = val;
+            output[1][i] = val;
+            const freq = (parameters.freq.length > 1 ? parameters.freq[i] : parameters.freq[0]);
+            this.time += (freq * Math.PI * 2) / sampleRate;
+        }
+        return true;
+    }
+}
+registerProcessor("audio-processor", AudioProcessor);
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoic3ludGgtd29ya2VyLmpzIiwic291cmNlUm9vdCI6IiIsInNvdXJjZXMiOlsiLi4vd29ya2VyLXNyYy9tYWluLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7QUFBQSxNQUFNLGNBQWUsU0FBUSxxQkFBcUI7SUFHOUMsTUFBTSxLQUFLLG9CQUFvQjtRQUMzQixPQUFPO1lBQ0g7Z0JBQ0ksSUFBSSxFQUFFLE1BQU07Z0JBQ1osWUFBWSxFQUFFLEdBQUc7Z0JBQ2pCLFFBQVEsRUFBRSxDQUFDO2dCQUNYLFFBQVEsRUFBRSxNQUFNO2dCQUNoQixjQUFjLEVBQUUsUUFBUTthQUMzQjtTQUNKLENBQUE7SUFDTCxDQUFDO0lBRUQ7UUFDSSxLQUFLLEVBQUUsQ0FBQztRQUNSLElBQUksQ0FBQyxJQUFJLEdBQUcsQ0FBQyxDQUFDO0lBQ2xCLENBQUM7SUFFRCxPQUFPLENBQUMsTUFBd0IsRUFBRSxPQUF5QixFQUFFLFVBQXdDO1FBQ2pHLE1BQU0sTUFBTSxHQUFHLE9BQU8sQ0FBQyxDQUFDLENBQUMsQ0FBQztRQUUxQixLQUFLLElBQUksQ0FBQyxHQUFHLENBQUMsRUFBRSxDQUFDLEdBQUcsTUFBTSxDQUFDLENBQUMsQ0FBQyxDQUFDLE1BQU0sRUFBRSxDQUFDLEVBQUUsRUFBRTtZQUN2QyxJQUFJLEdBQUcsR0FBRyxJQUFJLENBQUMsR0FBRyxDQUFDLElBQUksQ0FBQyxJQUFJLENBQUMsR0FBRyxHQUFHLENBQUM7WUFFcEMsTUFBTSxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQyxHQUFHLEdBQUcsQ0FBQztZQUNuQixNQUFNLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQyxDQUFDLEdBQUcsR0FBRyxDQUFDO1lBRW5CLE1BQU0sSUFBSSxHQUFHLENBQUMsVUFBVSxDQUFDLElBQUksQ0FBQyxNQUFNLEdBQUcsQ0FBQyxDQUFDLENBQUMsQ0FBQyxVQUFVLENBQUMsSUFBSSxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQyxVQUFVLENBQUMsSUFBSSxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUM7WUFDcEYsSUFBSSxDQUFDLElBQUksSUFBSSxDQUFDLElBQUksR0FBRyxJQUFJLENBQUMsRUFBRSxHQUFHLENBQUMsQ0FBQyxHQUFHLFVBQVUsQ0FBQztTQUNsRDtRQUVELE9BQU8sSUFBSSxDQUFDO0lBQ2hCLENBQUM7Q0FDSjtBQUVELGlCQUFpQixDQUFDLGlCQUFpQixFQUFFLGNBQWMsQ0FBQyxDQUFDIn0=
