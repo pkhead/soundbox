@@ -1,10 +1,20 @@
 import { TrackEditor } from "./track-editor";
-console.log("Hello, world!");
+import { PatternEditor } from "./pattern-editor";
 
-let trackEditor; {
-    let canvas = document.getElementById("song-editor");
-    if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
-        throw new Error("could not find #song-editor")
+const trackEditor = (() => {
+    let canvas = document.getElementById("track-editor");
+    if (!(canvas && canvas instanceof HTMLCanvasElement)) {
+        throw new Error("could not find #track-editor")
     }
-    trackEditor = new TrackEditor(canvas);
-}
+
+    return new TrackEditor(canvas);
+})();
+
+const patternEditor = (() => {
+    let canvas = document.getElementById("pattern-editor");
+    if (!(canvas && canvas instanceof HTMLCanvasElement)) {
+        throw new Error("could not find #pattern-editor");
+    }
+
+    return new PatternEditor(canvas);
+})();

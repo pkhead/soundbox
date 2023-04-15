@@ -167,7 +167,7 @@ export class TrackEditor {
         this.canvas = canvas;
         this.ctx = ctx;
 
-        let resize = (width?: number, height?: number) => {
+        const resize = () => {
             const styles = getComputedStyle(canvasContainer);
             
             canvas.width = canvasContainer.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
@@ -379,9 +379,7 @@ export class TrackEditor {
         })
 
         resize();
-        const resizeObserver = new ResizeObserver((entries) => {
-            resize();
-        });
+        const resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(canvasContainer);
     }
 }
