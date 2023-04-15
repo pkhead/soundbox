@@ -1,8 +1,10 @@
 export class Note {
     public length: number;
+    public time: number;
     public key: number;
 
-    constructor(key: number, length: number) {
+    constructor(time: number, key: number, length: number) {
+        this.time = time;
         this.key = key;
         this.length = length;
     }
@@ -19,6 +21,12 @@ export class Pattern {
 
     public isEmpty() {
         return this.notes.length === 0;
+    }
+
+    public addNote(time: number, key: number, length: number) {
+        const note = new Note(time, key, length)
+        this.notes.push(note);
+        return note;
     }
 }
 
