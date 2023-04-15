@@ -1,3 +1,22 @@
+define("colors", ["require", "exports"], function (require, exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.Colors = void 0;
+    var Colors;
+    (function (Colors) {
+        Colors.background = "#040410";
+        Colors.pitch = [
+            // [dim, bright]
+            ["#bb1111", "#ff5757"],
+            ["rgb(187, 128, 17)", "rgb(255, 197, 89)"],
+            ["rgb(136, 187, 17)", "rgb(205, 255, 89)"],
+            ["rgb(25, 187, 17)", "rgb(97, 255, 89)"]
+        ];
+        Colors.patternEditorCellColor = "rgb(57, 62, 79)";
+        Colors.patternEditorFifthColor = "rgb(84, 84, 122)";
+        Colors.patternEditorOctaveColor = "rgb(114, 74, 145)";
+    })(Colors = exports.Colors || (exports.Colors = {}));
+});
 define("song", ["require", "exports"], function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -62,18 +81,10 @@ define("song", ["require", "exports"], function (require, exports) {
     exports.Song = Song;
     exports.SONG = new Song(4, 16, 4);
 });
-define("track-editor", ["require", "exports", "song"], function (require, exports, song_1) {
+define("track-editor", ["require", "exports", "song", "colors"], function (require, exports, song_1, colors_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TrackEditor = void 0;
-    const BG_COLOR = "#040410";
-    const CHANNEL_COLORS = [
-        // [dim, bright]
-        ["#bb1111", "#ff5757"],
-        ["rgb(187, 128, 17)", "rgb(255, 197, 89)"],
-        ["rgb(136, 187, 17)", "rgb(205, 255, 89)"],
-        ["rgb(25, 187, 17)", "rgb(97, 255, 89)"]
-    ];
     const CELL_WIDTH = 32;
     const CELL_HEIGHT = 32;
     const CELL_PADDING = 2;
@@ -90,9 +101,9 @@ define("track-editor", ["require", "exports", "song"], function (require, export
             ctx.font = "bold 18px monospace";
             ctx.textAlign = "center";
             ctx.textBaseline = "top";
-            const colors = CHANNEL_COLORS[channel_i % CHANNEL_COLORS.length];
+            const colors = colors_1.Colors.pitch[channel_i % colors_1.Colors.pitch.length];
             // draw in background
-            ctx.fillStyle = BG_COLOR;
+            ctx.fillStyle = colors_1.Colors.background;
             ctx.fillRect(bar * CELL_WPAD, channel_i * CELL_HPAD, CELL_WIDTH + CELL_PADDING * 2, CELL_HEIGHT + CELL_PADDING * 2);
             let cellX = bar * CELL_WPAD + CELL_PADDING;
             let cellY = channel_i * CELL_HPAD + CELL_PADDING;
@@ -124,7 +135,7 @@ define("track-editor", ["require", "exports", "song"], function (require, export
                     }
                 }
                 else {
-                    ctx.fillStyle = BG_COLOR;
+                    ctx.fillStyle = colors_1.Colors.background;
                     textColor = colors[0];
                 }
             }
@@ -215,7 +226,7 @@ define("track-editor", ["require", "exports", "song"], function (require, export
                 const mouseGridX = this.mouseGridX;
                 const mouseGridY = this.mouseGridY;
                 if (mouseGridX !== null && mouseGridY !== null) {
-                    ctx.fillStyle = BG_COLOR;
+                    ctx.fillStyle = colors_1.Colors.background;
                     ctx.fillRect((mouseGridX - 1) * CELL_WPAD + CELL_PADDING - 2, (mouseGridY - 1) * CELL_WPAD + CELL_PADDING - 2, CELL_WIDTH * 3 + CELL_PADDING * 2 + 4, CELL_HEIGHT * 3 + CELL_PADDING * 2 + 4);
                     this.drawCell(mouseGridY, mouseGridX);
                     this.drawCell(mouseGridY - 1, mouseGridX);
@@ -377,16 +388,18 @@ define("track-editor", ["require", "exports", "song"], function (require, export
     }
     exports.TrackEditor = TrackEditor;
 });
-define("pattern-editor", ["require", "exports"], function (require, exports) {
+define("pattern-editor", ["require", "exports", "colors"], function (require, exports, colors_2) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.PatternEditor = void 0;
-    const BG_COLOR = "rgb(4, 4, 16)";
-    const CELL_BG_COLOR = "rgb(57, 62, 79)";
-    const CELL_FIFTH_BG_COLOR = "rgb(84, 84, 122)";
-    const CELL_OCTAVE_BG_COLOR = "rgb(114, 74, 145)";
+    const CELL_MARGIN = 2;
     class PatternEditor {
         constructor(canvas) {
+            this.cellWidth = 0;
+            this.cellHeight = 0;
+            this.mouseGridX = null;
+            this.mouseGridY = null;
+            this.cursorWidth = 0.5;
             const ctx = canvas.getContext("2d");
             if (!ctx) {
                 throw new Error("could not get canvas context");
@@ -396,41 +409,94 @@ define("pattern-editor", ["require", "exports"], function (require, exports) {
             const canvasContainer = canvas.parentElement;
             if (!canvasContainer)
                 throw new Error("could not find canvas container");
+            this.octaveRange = 2;
+            this.numDivisions = 8;
             const resize = () => {
                 const styles = getComputedStyle(canvasContainer);
                 canvas.width = canvasContainer.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
                 canvas.height = canvasContainer.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+                this.cellWidth = Math.floor(canvas.width / this.numDivisions);
+                this.cellHeight = Math.floor(canvas.height / (12 * this.octaveRange + 1));
                 this.redraw();
             };
+            window.addEventListener("mousemove", (ev) => {
+                let gridX = Math.floor((ev.pageX - canvas.offsetLeft) / this.cellWidth / this.cursorWidth) * this.cursorWidth;
+                let gridY = Math.floor((canvas.height - ev.pageY - canvas.offsetTop) / this.cellHeight + 0.5);
+                const mouseGridX = this.mouseGridX;
+                const mouseGridY = this.mouseGridY;
+                if (mouseGridX !== null && mouseGridY !== null) {
+                    // draw area around old cursor position
+                    // so that there only appears to be one cursor outline at a time
+                    let mouseGridX_int = Math.floor(mouseGridX);
+                    this.drawCell(mouseGridY, mouseGridX_int);
+                    this.drawCell(mouseGridY - 1, mouseGridX_int);
+                    this.drawCell(mouseGridY + 1, mouseGridX_int);
+                    this.drawCell(mouseGridY, mouseGridX_int - 1);
+                    this.drawCell(mouseGridY, mouseGridX_int + 1);
+                    this.drawCell(mouseGridY - 1, mouseGridX_int - 1);
+                    this.drawCell(mouseGridY + 1, mouseGridX_int - 1);
+                    this.drawCell(mouseGridY - 1, mouseGridX_int + 1);
+                    this.drawCell(mouseGridY + 1, mouseGridX_int + 1);
+                }
+                if (gridX >= 0 && gridX < this.numDivisions && gridY >= 0 && gridY < 12 * this.octaveRange + 1) {
+                    // mouse is inside of pattern editor
+                    this.mouseGridX = gridX;
+                    this.mouseGridY = gridY;
+                    // draw mouse cursor
+                    ctx.strokeStyle = "white";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect((gridX * this.cellWidth + CELL_MARGIN), (canvas.height - (gridY + 1) * this.cellHeight + CELL_MARGIN), (this.cellWidth - CELL_MARGIN) * this.cursorWidth, (this.cellHeight - CELL_MARGIN));
+                }
+                else {
+                    // mouse is not within inside pattern editor
+                    this.mouseGridX = null;
+                    this.mouseGridY = null;
+                }
+            });
             resize();
             const resizeObserver = new ResizeObserver(resize);
             resizeObserver.observe(canvasContainer);
         }
+        drawCell(row, col) {
+            // don't draw if out of bounds
+            if (col < 0 || col >= this.numDivisions || row < 0 || col >= 12 * this.octaveRange + 1)
+                return;
+            const { cellWidth, cellHeight, canvas, ctx } = this;
+            let x = cellWidth * col;
+            let y = canvas.height - cellHeight * (row + 1);
+            ctx.fillStyle = colors_2.Colors.background;
+            ctx.fillRect(x, y, cellWidth, cellHeight);
+            if (row % 12 === 0) {
+                ctx.fillStyle = colors_2.Colors.patternEditorOctaveColor;
+            }
+            else if (row % 12 === 7) {
+                ctx.fillStyle = colors_2.Colors.patternEditorFifthColor;
+            }
+            else {
+                ctx.fillStyle = colors_2.Colors.patternEditorCellColor;
+            }
+            ctx.fillRect((x + CELL_MARGIN), (y + CELL_MARGIN), (cellWidth - CELL_MARGIN), (cellHeight - CELL_MARGIN));
+        }
         redraw() {
             const canvas = this.canvas;
             const ctx = this.ctx;
-            ctx.fillStyle = BG_COLOR;
+            ctx.fillStyle = colors_2.Colors.background;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            const octaveRange = 2;
-            const numDivisions = 8;
-            let cellWidth = canvas.width / numDivisions;
-            let cellHeight = canvas.height / (12 * octaveRange + 1);
-            let cellMargin = 2;
-            console.log(cellHeight);
-            for (let i = 0; i < 12 * octaveRange + 1; i++) {
-                for (let j = 0; j < numDivisions; j++) {
-                    let x = cellWidth * j + cellMargin;
-                    let y = canvas.height - cellHeight * (i + 1) + cellMargin;
+            for (let i = 0; i < 12 * this.octaveRange + 1; i++) {
+                for (let j = 0; j < this.numDivisions; j++) {
+                    /*let x = this.cellWidth * j + CELL_MARGIN;
+                    let y = canvas.height - this.cellHeight * (i + 1) + CELL_MARGIN;
+    
                     if (i % 12 === 0) {
                         ctx.fillStyle = CELL_OCTAVE_BG_COLOR;
-                    }
-                    else if (i % 12 === 7) {
-                        ctx.fillStyle = CELL_FIFTH_BG_COLOR;
-                    }
-                    else {
+                    } else if (i % 12 === 7) {
+                        ctx.fillStyle = CELL_FIFTH_BG_COLOR
+                    } else {
                         ctx.fillStyle = CELL_BG_COLOR;
                     }
-                    ctx.fillRect(x, y, cellWidth - cellMargin, cellHeight - cellMargin);
+    
+                    ctx.fillRect(x, y, this.cellWidth - CELL_MARGIN, this.cellHeight - CELL_MARGIN);*/
+                    this.drawCell(i, j);
                 }
             }
         }

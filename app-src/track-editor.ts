@@ -1,14 +1,6 @@
 
 import { Channel, Pattern, SONG } from "./song";
-
-const BG_COLOR = "#040410";
-const CHANNEL_COLORS = [
-    // [dim, bright]
-    ["#bb1111", "#ff5757"],
-    ["rgb(187, 128, 17)", "rgb(255, 197, 89)"],
-    ["rgb(136, 187, 17)", "rgb(205, 255, 89)"],
-    ["rgb(25, 187, 17)", "rgb(97, 255, 89)"]
-];
+import { Colors } from "./colors";
 
 const CELL_WIDTH = 32;
 const CELL_HEIGHT = 32;
@@ -37,10 +29,10 @@ export class TrackEditor {
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
 
-        const colors = CHANNEL_COLORS[channel_i % CHANNEL_COLORS.length];
+        const colors = Colors.pitch[channel_i % Colors.pitch.length];
 
         // draw in background
-        ctx.fillStyle = BG_COLOR;
+        ctx.fillStyle = Colors.background;
         ctx.fillRect(bar * CELL_WPAD, channel_i * CELL_HPAD, CELL_WIDTH + CELL_PADDING * 2, CELL_HEIGHT + CELL_PADDING * 2);
 
         let cellX = bar * CELL_WPAD + CELL_PADDING;
@@ -73,7 +65,7 @@ export class TrackEditor {
                     textColor = colors[1];
                 }
             } else {
-                ctx.fillStyle = BG_COLOR;
+                ctx.fillStyle = Colors.background;
                 textColor = colors[0];
             }
         }
@@ -185,7 +177,7 @@ export class TrackEditor {
             const mouseGridY = this.mouseGridY;
 
             if (mouseGridX !== null && mouseGridY !== null) {
-                ctx.fillStyle = BG_COLOR;
+                ctx.fillStyle = Colors.background;
                 ctx.fillRect(
                     (mouseGridX - 1) * CELL_WPAD + CELL_PADDING - 2,
                     (mouseGridY - 1) * CELL_WPAD + CELL_PADDING - 2,
