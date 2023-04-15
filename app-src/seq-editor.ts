@@ -3,7 +3,11 @@ import { Channel, Pattern, SONG } from "./song";
 
 const BG_COLOR = "#040410";
 const CHANNEL_COLORS = [
-    ["#bb1111", "#ff5757"]
+    // [dim, bright]
+    ["#bb1111", "#ff5757"],
+    ["rgb(187, 128, 17)", "rgb(255, 197, 89)"],
+    ["rgb(136, 187, 17)", "rgb(205, 255, 89)"],
+    ["rgb(25, 187, 17)", "rgb(97, 255, 89)"]
 ];
 
 const CELL_WIDTH = 32;
@@ -44,12 +48,15 @@ export class SequenceEditor {
         
         let isSelected = bar === SONG.selectedBar && channel_i === SONG.selectedChannel;
         let pid = channel.sequence[bar] || 0;
-        let patternLength = channel.patterns[pid - 1]?.length || 1;
+        const pattern = channel.patterns[pid - 1];
+        //let patternLength = channel.patterns[pid - 1]?.length || 1;
+        const patternLength = 1;
         
-        // fix end of pattern going out of bounds
+        /*
         if (bar + patternLength > SONG.length) {
             patternLength = SONG.length - bar;
         }
+        */
 
         let textColor = colors[0];
 
@@ -58,8 +65,13 @@ export class SequenceEditor {
             textColor = "black";
         } else {
             if (pid > 0) {
-                ctx.fillStyle = "#393e4f";
-                textColor = colors[1];
+                if (pattern.isEmpty()) {
+                    ctx.fillStyle = "rgb(28, 29, 40)";;
+                    textColor = colors[0];
+                } else {
+                    ctx.fillStyle = "#393e4f";
+                    textColor = colors[1];
+                }
             } else {
                 ctx.fillStyle = BG_COLOR;
                 textColor = colors[0];
@@ -108,6 +120,7 @@ export class SequenceEditor {
     private setPattern(channel_i: number, bar: number, pid: number) {
         const channel = SONG.channels[channel_i];
 
+        /*
         // get max size between old and new pattern
         const oldSize = channel.patterns[channel.sequence[bar] - 1]?.length || 1;
         const newSize = channel.patterns[pid - 1]?.length || 1;
@@ -122,7 +135,11 @@ export class SequenceEditor {
         for (let i = Math.max(oldSize, newSize) - 1; i >= 0; i--) {
             this.drawCell(channel_i, bar + i);
         }
+        */
 
+        channel.sequence[bar] = pid;
+
+        this.drawCell(channel_i, bar);
         this.drawCursor();
     }
 
@@ -252,7 +269,7 @@ export class SequenceEditor {
                     typeBuf = "";
                     SONG.selectedBar--;
                     if (SONG.selectedBar < 0) SONG.selectedBar = SONG.length - 1;
-                    fixPatternOverlap();
+                    //fixPatternOverlap();
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(SONG.selectedChannel, SONG.selectedBar);
@@ -268,7 +285,7 @@ export class SequenceEditor {
                     if (SONG.selectedChannel >= SONG.channels.length) SONG.selectedChannel = 0;
 
                     SONG.selectedBar = this.cursorX;
-                    fixPatternOverlap();
+                    //fixPatternOverlap();
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(SONG.selectedChannel, SONG.selectedBar);
@@ -283,7 +300,7 @@ export class SequenceEditor {
                     if (SONG.selectedChannel < 0) SONG.selectedChannel = SONG.channels.length - 1;
 
                     SONG.selectedBar = this.cursorX;
-                    fixPatternOverlap();
+                    //fixPatternOverlap();
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(SONG.selectedChannel, SONG.selectedBar);

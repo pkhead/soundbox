@@ -1,8 +1,24 @@
+export class Note {
+    public length: number;
+    public key: number;
+
+    constructor(key: number, length: number) {
+        this.key = key;
+        this.length = length;
+    }
+}
+
 export class Pattern {
     public length: number;
+    public notes: Note[];
 
-    constructor(length: number = 1) {
-        this.length = length;
+    constructor() {
+        this.notes = [];
+        this.length = 1;
+    }
+
+    public isEmpty() {
+        return this.notes.length === 0;
     }
 }
 
@@ -19,7 +35,7 @@ export class Channel {
         }
 
         for (let i = 0; i < maxPatterns; i++) {
-            this.patterns.push(new Pattern(i + 1));
+            this.patterns.push(new Pattern());
         }
     }
 }
