@@ -5,9 +5,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "tsc",
+    "build-shell": "tsc",
     "build-app": "tsc -p appconfig.jsonc",
-    "build-app-swc": "swc app-src --out-file app-out" 
+    "build-app-swc": "swc app-src --out-file app-out",
+    "build": "tsc && tsc -p appconfig.jsonc" 
   },
   "author": "pkhead",
   "license": "MIT",
