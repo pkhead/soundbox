@@ -3,3 +3,8 @@
 /out
 /renderer.js
 /renderer.js.map
+
+/main.js
+/preload.js
+/app/renderer.js
+/app/renderer.js.map
