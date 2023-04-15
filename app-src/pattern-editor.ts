@@ -81,7 +81,7 @@ export class PatternEditor {
             // prevent note collision/overlapping
             if (pattern) {
                 for (let note of pattern.notes) {
-                    if (note === this.activeNote || note.key !== gridY) continue;
+                    if (note === this.activeNote || note.key !== gridY + this.scroll) continue;
 
                     // if note is on the left side
                     if (gridX < note.time && gridX + this.cursorWidth > note.time) {
@@ -176,7 +176,7 @@ export class PatternEditor {
 
                 if (pattern) {
                     for (let note of pattern.notes) {
-                        if (gridY == note.key && gridFreeX >= note.time && gridFreeX <= note.time + note.length) {
+                        if (gridY + this.scroll == note.key && gridFreeX >= note.time && gridFreeX <= note.time + note.length) {
                             this.selectedNote = note;
                             break;
                         }
@@ -245,7 +245,7 @@ export class PatternEditor {
                         }
                     } else {
                         // add a new note
-                        this.activeNote = pattern.addNote(this.mouseNoteX, this.mouseGridY, this.cursorWidth);
+                        this.activeNote = pattern.addNote(this.mouseNoteX, this.mouseGridY + this.scroll, this.cursorWidth);
                         this.noteDragMode = 1;
                         this.mouseMoved = true;
                     }
@@ -343,7 +343,7 @@ export class PatternEditor {
         if (pattern) {
             for (let note of pattern.notes) {
                 let x = note.time * this.cellWidth + KEY_WIDTH;
-                let y = canvas.height - (note.key + 1) * this.cellHeight;
+                let y = canvas.height - (note.key + 1 - this.scroll) * this.cellHeight;
 
                 ctx.fillRect(x + 1, y + 1, this.cellWidth * note.length, this.cellHeight);
             }
@@ -362,7 +362,7 @@ export class PatternEditor {
 
             if (this.selectedNote) {
                 x = this.selectedNote.time;
-                y = this.selectedNote.key;
+                y = this.selectedNote.key - this.scroll;
                 w = this.selectedNote.length;
             }
 

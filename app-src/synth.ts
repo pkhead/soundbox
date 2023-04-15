@@ -74,7 +74,7 @@ export class Synthesizer {
 
     public beginNote(key: number, volume: number = 0.1) {
         if (this.audioProcessor) {
-            const freq = 440 * 2 ** ((key - 49) / 12);
+            const freq = 440 * 2 ** ((key - 69) / 12);
             
             this.audioProcessor.port.postMessage({
                 msg: "start",

@@ -96,6 +96,8 @@ export class TrackEditor {
             }
         }
 
+        this.drawPlayhead();
+
         console.log(`track editor redraw: ${Date.now() - start}ms`);
     }
 
@@ -109,6 +111,13 @@ export class TrackEditor {
             ctx.lineWidth = 2;
             ctx.strokeRect(mouseGridX * CELL_WPAD + CELL_PADDING, mouseGridY * CELL_HPAD + CELL_PADDING, CELL_WIDTH, CELL_HEIGHT);
         }
+    }
+
+    private drawPlayhead() {
+        const {canvas, ctx, song} = this;
+
+        ctx.fillStyle = "white";
+        ctx.fillRect(song.position * CELL_WPAD + CELL_PADDING, 0, 2, canvas.height);
     }
 
     private setPattern(channel_i: number, bar: number, pid: number) {
@@ -195,6 +204,8 @@ export class TrackEditor {
                 this.drawCell(mouseGridY + 1, mouseGridX - 1);
                 this.drawCell(mouseGridY - 1, mouseGridX + 1);
                 this.drawCell(mouseGridY + 1, mouseGridX + 1);
+
+                this.drawPlayhead();
             }
 
             if (gridX >= 0 && gridX < this.song.length && gridY >= 0 && gridY < this.song.channels.length) {
@@ -220,6 +231,7 @@ export class TrackEditor {
                 this.drawCell(this.mouseGridY, this.mouseGridX);
             }
 
+            this.drawPlayhead();
             this.drawCursor();
         });
 
@@ -237,12 +249,29 @@ export class TrackEditor {
         }
 
         window.addEventListener("keydown", (ev) => {
-            if (document.activeElement && (document.activeElement.nodeName === "input" || document.activeElement.nodeName == "textbox")) return;
+            if (document.activeElement && (document.activeElement.nodeName === "INPUT" || document.activeElement.nodeName == "TEXTBOX")) return;
 
             let prevBar = this.song.selectedBar;
             let prevCh = this.song.selectedChannel;
 
             switch (ev.code) {
+                // move playhead left by one bar
+                case "BracketLeft":
+                    ev.preventDefault();
+
+                    this.song.position--;
+                    if (this.song.position < 0) this.song.position = this.song.length - 1
+                    this.song.dispatchEvent("playheadMoved");
+                    break;
+
+                // move playhead right by one bar
+                case "BracketRight":
+                    ev.preventDefault();
+                    
+                    this.song.position = (this.song.position + 1) % this.song.length;
+                    this.song.dispatchEvent("playheadMoved");
+                    break;
+
                 case "ArrowRight":
                     ev.preventDefault();
 
@@ -271,6 +300,7 @@ export class TrackEditor {
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(this.song.selectedChannel, this.song.selectedBar);
                     this.drawCursor();
+                    this.drawPlayhead();
                     this.cursorX = this.song.selectedBar;
 
 
@@ -288,6 +318,7 @@ export class TrackEditor {
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(this.song.selectedChannel, this.song.selectedBar);
+                    this.drawPlayhead();
                     this.drawCursor();
                     break;
                 
@@ -303,6 +334,7 @@ export class TrackEditor {
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(this.song.selectedChannel, this.song.selectedBar);
+                    this.drawPlayhead();
                     this.drawCursor();
                     break;
 
@@ -378,7 +410,29 @@ export class TrackEditor {
 
         this.song.addEventListener("trackChanged", (channel_i: number, bar: number) => {
             this.drawCell(channel_i, bar);
+            this.drawPlayhead();
             this.drawCursor();
+        });
+
+        let lastSongPos = this.song.position;
+
+        this.song.addEventListener("playheadMoved", () => {
+            let bar = Math.floor(lastSongPos);
+
+            for (let ch = 0; ch < this.song.channels.length; ch++) {
+                this.drawCell(ch, bar - 1);
+                this.drawCell(ch, bar);
+                this.drawCell(ch, bar + 1);
+            }
+
+            ctx.fillStyle = Colors.background;
+            let bottom = this.song.channels.length * CELL_HPAD + CELL_PADDING;
+            ctx.fillRect(0, bottom, this.canvas.width, this.canvas.height - bottom);
+
+            this.drawPlayhead();
+            this.drawCursor();
+
+            lastSongPos = this.song.position;
         });
 
         resize();
