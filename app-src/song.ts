@@ -48,6 +48,9 @@ export class Song {
     public selectedChannel: number = 0;
     public selectedBar: number = 0;
 
+    private trackChangedListeners: ((channelId: number, bar: number) => void)[] = [];
+    private selectionChangedListeners: (() => void)[] = [];
+
     constructor(numChannels: number, length: number, maxPatterns: number) {
         this._length = length;
         this._maxPatterns = maxPatterns;
@@ -73,9 +76,67 @@ export class Song {
     }
 
     setMaxPatterns(numPatterns: number) {
-        this._maxPatterns = numPatterns;
+        if (numPatterns > this._maxPatterns) {
+            // add patterns
+            for (let channel of this.channels) {
+                while (channel.patterns.length < numPatterns) channel.patterns.push(new Pattern());
+            }
+        } else if (numPatterns < this._maxPatterns) {
+            // remove patterns
+            for (let channel of this.channels) {
+                channel.patterns.splice(numPatterns, this._maxPatterns - numPatterns);
 
-        // TODO change array lengths
+                if (channel.patterns.length !== numPatterns) throw new Error("assertion failed in Song::setMaxPatterns, this._maxPatterns < numPatterns");
+            }
+        }
+        
+        this._maxPatterns = numPatterns;
+    }
+
+    public newPattern(channelId: number): number {
+        const channel = this.channels[channelId];
+
+        // find first unused pattern slot
+        for (let i = 0; i < channel.patterns.length; i++) {
+            if (channel.patterns[i].isEmpty()) {
+                return i + 1;
+            }
+        }
+
+        // no unused patterns found, create a new one
+        this.setMaxPatterns(this.maxPatterns + 1);
+        return this.maxPatterns;
+    }
+
+    public addEventListener(evName: string, callback: (...args: any[]) => any) {
+        switch (evName) {
+            case "trackChanged":
+                this.trackChangedListeners.push(callback);
+                break;
+
+            case "selectionChanged":
+                this.selectionChangedListeners.push(callback);
+                break;
+                
+            default:
+                throw new Error(`unknown event name "${evName}"`);
+        }
+    }
+
+    public dispatchEvent(evName: string, ...args: any[]) {
+        switch (evName) {
+            case "trackChanged":
+                let [channelId, bar] = args;
+                for (let listener of this.trackChangedListeners) listener(channelId, bar);
+                break;
+
+            case "selectionChanged":
+                for (let listener of this.selectionChangedListeners) listener();
+                break;
+
+            default:
+                throw new Error(`unknown evnt name "${evName}"`);
+        }
     }
 }
 

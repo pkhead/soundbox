@@ -130,9 +130,6 @@ export class TrackEditor {
         */
 
         channel.sequence[bar] = pid;
-
-        this.drawCell(channel_i, bar);
-        this.drawCursor();
     }
 
     // returns the length of the pattern at a bar
@@ -214,7 +211,8 @@ export class TrackEditor {
             if (this.mouseGridX !== null && this.mouseGridY !== null) {
                 SONG.selectedChannel = this.mouseGridY;
                 SONG.selectedBar = this.mouseGridX;
-
+                SONG.dispatchEvent("selectionChanged");
+                
                 this.drawCell(prevCh, prevBar);
                 this.drawCell(this.mouseGridY, this.mouseGridX);
             }
@@ -250,11 +248,14 @@ export class TrackEditor {
                     typeBuf = "";
                     SONG.selectedBar += this.getBarLength(SONG.selectedChannel, SONG.selectedBar);
                     if (SONG.selectedBar >= SONG.length) SONG.selectedBar = 0;
+                    SONG.dispatchEvent("selectionChanged");
 
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(SONG.selectedChannel, SONG.selectedBar);
                     this.drawCursor();
                     this.cursorX = SONG.selectedBar;
+
+
                     break;
 
                 case "ArrowLeft":
@@ -263,12 +264,15 @@ export class TrackEditor {
                     typeBuf = "";
                     SONG.selectedBar--;
                     if (SONG.selectedBar < 0) SONG.selectedBar = SONG.length - 1;
+                    SONG.dispatchEvent("selectionChanged");
                     //fixPatternOverlap();
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(SONG.selectedChannel, SONG.selectedBar);
                     this.drawCursor();
                     this.cursorX = SONG.selectedBar;
+
+
                     break;
 
                 case "ArrowDown":
@@ -279,7 +283,7 @@ export class TrackEditor {
                     if (SONG.selectedChannel >= SONG.channels.length) SONG.selectedChannel = 0;
 
                     SONG.selectedBar = this.cursorX;
-                    //fixPatternOverlap();
+                    SONG.dispatchEvent("selectionChanged");
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(SONG.selectedChannel, SONG.selectedBar);
@@ -294,7 +298,7 @@ export class TrackEditor {
                     if (SONG.selectedChannel < 0) SONG.selectedChannel = SONG.channels.length - 1;
 
                     SONG.selectedBar = this.cursorX;
-                    //fixPatternOverlap();
+                    SONG.dispatchEvent("selectionChanged");
                     
                     this.drawCell(prevCh, prevBar);
                     this.drawCell(SONG.selectedChannel, SONG.selectedBar);
@@ -330,6 +334,7 @@ export class TrackEditor {
                         if (pid > SONG.maxPatterns) pid = 0;
 
                         this.setPattern(SONG.selectedChannel, SONG.selectedBar, pid);
+                        SONG.dispatchEvent("trackChanged", SONG.selectedChannel, SONG.selectedBar);
                     }
 
                     break;
@@ -344,6 +349,7 @@ export class TrackEditor {
                         if (pid < 0) pid = SONG.maxPatterns - 1;
 
                         this.setPattern(SONG.selectedChannel, SONG.selectedBar, pid);
+                        SONG.dispatchEvent("trackChanged", SONG.selectedChannel, SONG.selectedBar);
                     }
 
                     break;
@@ -365,10 +371,16 @@ export class TrackEditor {
                             }
 
                             this.setPattern(SONG.selectedChannel, SONG.selectedBar, +typeBuf);
+                            SONG.dispatchEvent("trackChanged", SONG.selectedChannel, SONG.selectedBar);
                         }
                     }
             }
-        })
+        });
+
+        SONG.addEventListener("trackChanged", (channel_i: number, bar: number) => {
+            this.drawCell(channel_i, bar);
+            this.drawCursor();
+        });
 
         resize();
         const resizeObserver = new ResizeObserver(resize);

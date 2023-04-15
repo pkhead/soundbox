@@ -1,4 +1,5 @@
 import { Colors } from "./colors";
+import { SONG, Pattern } from "./song";
 
 const CELL_MARGIN = 2;
 
@@ -72,14 +73,7 @@ export class PatternEditor {
                 this.mouseGridY = gridY;
                 
                 // draw mouse cursor
-                ctx.strokeStyle = "white";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(
-                    (gridX * this.cellWidth + CELL_MARGIN),
-                    (canvas.height - (gridY + 1) * this.cellHeight + CELL_MARGIN),
-                    (this.cellWidth - CELL_MARGIN) * this.cursorWidth,
-                    (this.cellHeight - CELL_MARGIN)
-                );
+                this.drawCursor();
             } else {
                 // mouse is not within inside pattern editor
                 this.mouseGridX = null;
@@ -87,9 +81,29 @@ export class PatternEditor {
             }
         });
 
+        window.addEventListener("mousedown", (ev) => {
+            if (this.mouseGridX !== null && this.mouseGridY !== null) {
+                let pattern = this.getPattern();
+
+                // if pattern is 0, create new pattern
+                if (!pattern) {
+                    let channel = SONG.channels[SONG.selectedChannel];
+                    let pid = SONG.newPattern(SONG.selectedChannel);
+                    channel.sequence[SONG.selectedBar] = pid;
+                    pattern = channel.patterns[pid - 1];
+                }
+            }
+        });
+
         resize();
         const resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(canvasContainer);
+    }
+
+    // get the current pattern from the song data
+    private getPattern(): Pattern | null {
+        const channel = SONG.channels[SONG.selectedChannel];
+        return channel.patterns[channel.sequence[SONG.selectedBar] - 1] || null;
     }
 
     private drawCell(row: number, col: number) {
@@ -119,7 +133,22 @@ export class PatternEditor {
         );
     }
 
-    private redraw() {
+    private drawCursor() {
+        const {canvas, ctx} = this;
+        
+        if (this.mouseGridX !== null && this.mouseGridY !== null) {
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(
+                (this.mouseGridX * this.cellWidth + CELL_MARGIN),
+                (canvas.height - (this.mouseGridY + 1) * this.cellHeight + CELL_MARGIN),
+                (this.cellWidth - CELL_MARGIN) * this.cursorWidth,
+                (this.cellHeight - CELL_MARGIN)
+            );
+        }
+    }
+
+    public redraw() {
         const canvas = this.canvas;
         const ctx = this.ctx;
 
@@ -128,20 +157,10 @@ export class PatternEditor {
 
         for (let i = 0; i < 12 * this.octaveRange + 1; i++) {
             for (let j = 0; j < this.numDivisions; j++) {
-                /*let x = this.cellWidth * j + CELL_MARGIN;
-                let y = canvas.height - this.cellHeight * (i + 1) + CELL_MARGIN;
-
-                if (i % 12 === 0) {
-                    ctx.fillStyle = CELL_OCTAVE_BG_COLOR;
-                } else if (i % 12 === 7) {
-                    ctx.fillStyle = CELL_FIFTH_BG_COLOR
-                } else {
-                    ctx.fillStyle = CELL_BG_COLOR;
-                }
-
-                ctx.fillRect(x, y, this.cellWidth - CELL_MARGIN, this.cellHeight - CELL_MARGIN);*/
                 this.drawCell(i, j);
             }
         }
+
+        this.drawCursor();
     }
 }

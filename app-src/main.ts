@@ -1,5 +1,6 @@
 import { TrackEditor } from "./track-editor";
 import { PatternEditor } from "./pattern-editor";
+import { SONG } from "./song";
 
 const trackEditor = (() => {
     let canvas = document.getElementById("track-editor");
@@ -18,3 +19,13 @@ const patternEditor = (() => {
 
     return new PatternEditor(canvas);
 })();
+
+SONG.addEventListener("selectionChanged", () => {
+    console.log("selection changed");
+    patternEditor.redraw();
+});
+
+SONG.addEventListener("trackChanged", () => {
+    console.log("track changed");
+    patternEditor.redraw();
+});
