@@ -58,10 +58,10 @@ export class TrackEditor {
         } else {
             if (pid > 0) {
                 if (pattern.isEmpty()) {
-                    ctx.fillStyle = "rgb(28, 29, 40)";;
+                    ctx.fillStyle = Colors.interactableBgColorDim;
                     textColor = colors[0];
                 } else {
-                    ctx.fillStyle = "#393e4f";
+                    ctx.fillStyle = Colors.interactableBgColor; // "#393e4f";
                     textColor = colors[1];
                 }
             } else {
@@ -81,7 +81,7 @@ export class TrackEditor {
 
         let start = Date.now();
 
-        ctx.fillStyle = "#040410";
+        ctx.fillStyle = Colors.background;
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         for (let channel = 0; channel < SONG.channels.length; channel++) {

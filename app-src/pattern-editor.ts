@@ -2,6 +2,7 @@ import { Colors } from "./colors";
 import { SONG, Pattern, Note } from "./song";
 
 const CELL_MARGIN = 2;
+const KEY_WIDTH = 40;
 
 export class PatternEditor {
     private canvas: HTMLCanvasElement;
@@ -16,6 +17,7 @@ export class PatternEditor {
     private mouseGridX: number | null = null;
     private mouseGridY: number | null = null;
     private mouseNoteX: number | null = null;
+    private mouseInPianoKey: boolean = false;
     private cursorWidth: number = 0.5;
 
     private selectedNote: Note | null = null; // the note currently hovered over
@@ -24,6 +26,8 @@ export class PatternEditor {
     private activeNoteStart: number = 0; // the length of the note when drag started
     private noteDragMode: number = 0; // 0 = left, 1 = right
     private mouseMoved: boolean = false; // if mouse did move on a drag
+
+    private curPattern: Pattern | null = null;
 
     constructor(canvas: HTMLCanvasElement) {
         const ctx = canvas.getContext("2d");
@@ -46,9 +50,10 @@ export class PatternEditor {
             
             canvas.width = canvasContainer.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
             canvas.height = canvasContainer.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
-            this.cellWidth = Math.floor(canvas.width / this.numDivisions);
+            this.cellWidth = Math.floor((canvas.width - KEY_WIDTH) / this.numDivisions);
             this.cellHeight = Math.floor(canvas.height / (12 * this.octaveRange + 1));
             this.redraw();
+            this.drawPianoKeys();
         }
 
         const onMouseMove = (ev: MouseEvent) => {
@@ -57,9 +62,12 @@ export class PatternEditor {
             let increment = Math.min(this.cursorWidth, snapping);
             const pattern = this.getPattern();
 
-            let gridFreeX = (ev.pageX - canvas.offsetLeft) / this.cellWidth;
+            const mouseX = ev.pageX - canvas.offsetLeft;
+            const mouseY = ev.pageY - canvas.offsetTop;
+
+            let gridFreeX = (mouseX - KEY_WIDTH) / this.cellWidth;
             let gridX = Math.floor((gridFreeX - this.cursorWidth / 2) / increment + 0.5) * increment;
-            let gridY = Math.floor((canvas.height - ev.pageY - canvas.offsetTop) / this.cellHeight + 0.5);
+            let gridY = Math.floor((canvas.height - mouseY) / this.cellHeight);
 
             // prevent note collision/overlapping
             if (pattern) {
@@ -149,7 +157,7 @@ export class PatternEditor {
                 this.redraw();
             }
 
-            if (gridFreeX >= 0 && gridFreeX < this.numDivisions && gridY >= 0 && gridY < 12 * this.octaveRange + 1) {
+            if (gridFreeX >= 0 && gridFreeX < this.numDivisions && gridY >= 0 && gridY <= 12 * this.octaveRange) {
                 // mouse is inside of pattern editor
                 this.mouseGridX = gridFreeX;
                 this.mouseNoteX = gridX;
@@ -174,6 +182,18 @@ export class PatternEditor {
                 this.mouseNoteX = null;
                 this.mouseGridY = null;
             }
+
+            // if mouse is inside piano key area
+            const oldMouseInPianoKey = this.mouseInPianoKey;
+
+            if (mouseX >= 0 && mouseX < KEY_WIDTH) {
+                this.mouseInPianoKey = true;
+                this.mouseGridY = gridY;
+            } else {
+                this.mouseInPianoKey = false;
+            }
+
+            if (this.mouseInPianoKey || oldMouseInPianoKey !== this.mouseInPianoKey) this.drawPianoKeys();
         };
 
         window.addEventListener("mousemove", onMouseMove);
@@ -244,7 +264,16 @@ export class PatternEditor {
     // get the current pattern from the song data
     private getPattern(): Pattern | null {
         const channel = SONG.channels[SONG.selectedChannel];
-        return channel.patterns[channel.sequence[SONG.selectedBar] - 1] || null;
+        const pattern = channel.patterns[channel.sequence[SONG.selectedBar] - 1] || null;
+
+        // if pattern had changed, clear active/selected note data
+        if (pattern !== this.curPattern) {
+            this.activeNote = null;
+            this.selectedNote = null;
+        }
+
+        this.curPattern = pattern;
+        return pattern
     }
 
     private drawCell(row: number, col: number) {
@@ -252,7 +281,7 @@ export class PatternEditor {
         if (col < 0 || col >= this.numDivisions || row < 0 || col >= 12 * this.octaveRange + 1) return;
 
         const {cellWidth, cellHeight, canvas, ctx} = this;
-        let x = cellWidth * col;
+        let x = cellWidth * col + KEY_WIDTH;
         let y = canvas.height - cellHeight * (row + 1);
 
         ctx.fillStyle = Colors.background;
@@ -263,7 +292,7 @@ export class PatternEditor {
         } else if (row % 12 === 7) {
             ctx.fillStyle = Colors.patternEditorFifthColor
         } else {
-            ctx.fillStyle = Colors.patternEditorCellColor;
+            ctx.fillStyle = Colors.interactableBgColor;
         }
 
         ctx.fillRect(
@@ -281,7 +310,7 @@ export class PatternEditor {
 
         if (pattern) {
             for (let note of pattern.notes) {
-                let x = note.time * this.cellWidth;
+                let x = note.time * this.cellWidth + KEY_WIDTH;
                 let y = canvas.height - (note.key + 1) * this.cellHeight;
 
                 ctx.fillRect(x + 1, y + 1, this.cellWidth * note.length, this.cellHeight);
@@ -308,11 +337,46 @@ export class PatternEditor {
             ctx.strokeStyle = "white";
             ctx.lineWidth = 2;
             ctx.strokeRect(
-                (x * this.cellWidth),
+                (x * this.cellWidth) + KEY_WIDTH,
                 (canvas.height - (y + 1) * this.cellHeight),
                 this.cellWidth * w,
                 this.cellHeight
             );
+        }
+    }
+
+    private drawPianoKeys() {
+        const {canvas, ctx} = this;
+        const KEY_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+        const KEY_IS_ACCIDENTAL = [false, true, false, true, false, false, true, false, true, false, true, false];
+        const TEXT_HEIGHT = 14;
+
+        ctx.fillStyle = Colors.interactableBgColor;
+        ctx.fillRect(0, 0, KEY_WIDTH, canvas.height);
+
+        ctx.font = `${TEXT_HEIGHT}px monospace`;
+        ctx.textBaseline = "top";
+        ctx.textAlign = "left";
+
+        for (let i = 0; i <= 12 * this.octaveRange; i++) {
+            let x = 0;
+            let y = canvas.height - this.cellHeight * (i + 1);
+            let key = i % KEY_NAMES.length;
+
+            ctx.fillStyle = KEY_IS_ACCIDENTAL[key] ? "#242430" : Colors.background;
+            ctx.fillRect(x, y + CELL_MARGIN, KEY_WIDTH - CELL_MARGIN, this.cellHeight - CELL_MARGIN);
+
+            ctx.fillStyle = "white";
+            ctx.fillText(KEY_NAMES[key], 0.5 + 10, 0.5 + y + CELL_MARGIN + this.cellHeight / 2 - TEXT_HEIGHT / 2);
+        }
+
+        if (this.mouseInPianoKey && this.mouseGridY !== null) {
+            let x = 0;
+            let y = canvas.height - this.cellHeight * (this.mouseGridY + 1);
+
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, KEY_WIDTH, this.cellHeight);
         }
     }
 
@@ -321,9 +385,9 @@ export class PatternEditor {
         const ctx = this.ctx;
 
         ctx.fillStyle = Colors.background;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0 + KEY_WIDTH, 0, canvas.width - KEY_WIDTH, canvas.height);
 
-        for (let i = 0; i < 12 * this.octaveRange + 1; i++) {
+        for (let i = 0; i <= 12 * this.octaveRange; i++) {
             for (let j = 0; j < this.numDivisions; j++) {
                 this.drawCell(i, j);
             }

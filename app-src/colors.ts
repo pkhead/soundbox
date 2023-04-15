@@ -8,7 +8,8 @@ export namespace Colors {
         ["rgb(25, 187, 17)", "rgb(97, 255, 89)"]
     ];
 
-    export var patternEditorCellColor = "rgb(57, 62, 79)";
+    export var interactableBgColorDim = "rgb(28, 29, 40)"
+    export var interactableBgColor = "rgb(57, 62, 79)";
     export var patternEditorFifthColor = "rgb(84, 84, 122)";
     export var patternEditorOctaveColor = "rgb(114, 74, 145)";
 }
