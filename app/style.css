@@ -176,6 +176,14 @@ select:focus {
     outline: none;
 }
 
+select.psuedobutton {
+    text-align: center;
+}
+
+select option {
+    background-color: var(--bg-color);
+}
+
 #playback-controls {
     display: flex;
     flex-direction: row;
