@@ -9,7 +9,7 @@
     "build-app": "tsc -p app-src",
     "build-worker": "tsc -p worker-src",
     "build-app-swc": "swc app-src --out-file app-out",
-    "build": "tsc && tsc -p appconfig.jsonc"
+    "build": "npm run build-shell && npm run build-app && npm run build-worker"
   },
   "author": "pkhead",
   "license": "MIT",
