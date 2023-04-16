@@ -22,7 +22,8 @@ export interface SystemAudioInterface {
     newModule: (modName: string) => Promise<string>,
     openModuleConfig: (id: string) => void,
     releaseModule: (id: string) => void,
-    sendEventToModule: (id: string, event: NoteEvent) => void
+    sendEventToModule: (id: string, event: NoteEvent) => void,
+    requestAudio: (sampleRate: number, numChannels: number, numSamples: number) => Promise<ArrayBuffer[]>
 }
 
 declare global {

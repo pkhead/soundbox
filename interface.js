@@ -1,0 +1,1 @@
+Object.assign(exports, require("./build/Release/native.node"));

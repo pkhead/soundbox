@@ -4,6 +4,9 @@ import path from "path";
 import { Readable } from "stream";
 import { BasicSynthesizer } from "./synth";
 
+import { hello } from "../interface";
+console.log(hello());
+
 var mainWindow: BrowserWindow | null;
 var audioDevice: AudioDevice | null = null;
 
@@ -35,7 +38,7 @@ const createWindow = () => {
 }
 
 const audioStart = () => {
-    audioDevice = new AudioDevice();
+    //audioDevice = new AudioDevice();
 
     let moduleMap: Map<number, AudioModule> = new Map();
     let modules: AudioModule[] = [];
@@ -84,16 +87,31 @@ const audioStart = () => {
         let module = moduleMap.get(id);
 
         if (module) {
-            console.log(`send event to module ${id}`);
             module.event(ev);
         }
     })
 
+    ipcMain.handle("audiorequest", (ev, sampleRate: number, numChannels: number, numSamples: number): Buffer[] => {
+        let channels = []
+
+        for (let ch = 0; ch < numChannels; ch++) {
+            channels.push(new Float32Array(numSamples));
+        }
+
+        for (let mod of modules) {
+            mod.process([], [channels], sampleRate);
+        }
+
+        return channels.map(v => Buffer.from(v.buffer));
+    });
+
+    /*
     audioDevice.process = function(channels) {
         for (let mod of modules) {
             mod.process([], [channels], this.sampleRate);
         }
     }
+    */
 }
 
 app.whenReady().then(() => {

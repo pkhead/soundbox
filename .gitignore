@@ -1,6 +1,8 @@
 /node_modules
 /out
 /shell
+/build
+/.vscode
 
 /app/renderer.js
 /app/renderer.js.map

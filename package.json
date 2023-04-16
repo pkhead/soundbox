@@ -2,6 +2,7 @@
   "name": "soundbox",
   "version": "1.0.0",
   "description": "",
+  "gypfile": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -21,6 +22,7 @@
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
+    "node-addon-api": "^6.0.0",
     "speaker": "^0.5.4",
     "typescript": "^5.0.4"
   }

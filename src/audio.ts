@@ -1,4 +1,4 @@
-import Speaker from "speaker";
+//import Speaker from "speaker";
 import { Readable } from "stream";
 
 interface AudioDeviceOptions {
@@ -9,7 +9,7 @@ interface AudioDeviceOptions {
 }
 
 export class AudioDevice {
-    private speaker: Speaker;
+    //private speaker: Speaker;
     private _bitDepth: number;
     private _channels: number;
     private _sampleRate: number;
@@ -33,12 +33,12 @@ export class AudioDevice {
             throw new Error(`unsupported bit depth of ${this._bitDepth}`);
         }
 
-        this.speaker = new Speaker({
+        /*this.speaker = new Speaker({
             bitDepth: this._bitDepth,
             channels: this._channels,
             sampleRate: this._sampleRate,
             samplesPerFrame: this._samplesPerFrame
-        } as Object);
+        } as Object);*/
 
         this.process = function(channels: Float32Array[]) { }
 
@@ -81,12 +81,13 @@ export class AudioDevice {
             }
 
             stream.push(buf);
-        }
-        stream.pipe(this.speaker);
+        };
+
+        //stream.pipe(this.speaker);
     }
 
     public close(flush: boolean) {
-        return this.speaker.close(flush)
+        //return this.speaker.close(flush)
     }
 }
 

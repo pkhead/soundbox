@@ -11,6 +11,27 @@ class NoteData {
     }
 }
 
+/*
+const audioContext = new AudioContext();
+let audioProcessor: AudioWorkletNode | undefined;
+
+audioContext.audioWorklet.addModule("synth-worker.js").then(() => {
+    audioProcessor = new AudioWorkletNode(audioContext, "audio-processor", {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2]
+    });
+
+    audioProcessor.port.onmessage = (ev) => {
+        systemAudio.requestAudio(audioContext.sampleRate, ev.data.channels, ev.data.numSamples).then(output => {
+            audioProcessor?.port.postMessage(output, output);
+        });
+    }
+
+    audioProcessor.connect(audioContext.destination);
+});
+*/
+
 export class Synthesizer {
     private module: ModuleController | null;
     private curNotes: NoteData[];
