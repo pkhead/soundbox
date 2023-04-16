@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Menu, dialog, globalShortcut } from "electron";
-import { AudioDevice } from "./audiodevice";
+import { app, BrowserWindow, Menu, dialog, globalShortcut, ipcMain } from "electron";
+import { AudioDevice, AudioModule, NoteEvent } from "./audio";
 import path from "path";
 import { Readable } from "stream";
+import { BasicSynthesizer } from "./synth";
 
 var mainWindow: BrowserWindow | null;
-const audioDevice = new AudioDevice();
+var audioDevice: AudioDevice | null = null;
 
 const createWindow = () => {
     mainWindow = new BrowserWindow({
@@ -31,6 +32,68 @@ const createWindow = () => {
         if (choice === 1) e.preventDefault();
         else mainWindow = null;
     });
+}
+
+const audioStart = () => {
+    audioDevice = new AudioDevice();
+
+    let moduleMap: Map<number, AudioModule> = new Map();
+    let modules: AudioModule[] = [];
+
+    ipcMain.handle("module.create", (event, modName: string) => {
+        let module: AudioModule;
+
+        switch (modName) {
+            case "basic-synth":
+                module = new BasicSynthesizer();
+                break;
+
+            default:
+                throw new Error(`unknown module name "${modName}"`);
+        }
+
+        // generate a unique random ID
+        let id;
+        do {
+            id = (Math.random() * 2147483647) | 0;
+        } while (moduleMap.has(id));
+
+        moduleMap.set(id, module);
+
+        modules.push(module);
+
+        console.log(`create module ${id}`);
+
+        return id;
+    });
+
+    ipcMain.on("module.remove", (event, id: number) => {
+        let module = moduleMap.get(id);
+        
+        if (module) {
+            moduleMap.delete(id);   
+
+            console.log(`remove module ${id}`);
+
+            let idx = modules.indexOf(module);
+            if (idx >= 0) modules.splice(idx, 1);
+        }
+    });
+
+    ipcMain.on("module.event", (event, id: number, ev: NoteEvent) => {
+        let module = moduleMap.get(id);
+
+        if (module) {
+            console.log(`send event to module ${id}`);
+            module.event(ev);
+        }
+    })
+
+    audioDevice.process = function(channels) {
+        for (let mod of modules) {
+            mod.process([], [channels], this.sampleRate);
+        }
+    }
 }
 
 app.whenReady().then(() => {
@@ -201,26 +264,12 @@ app.whenReady().then(() => {
         console.log("new song");
     });
 
-    let samplesGenerated = 0;
-
-    audioDevice.process = function(channels) {
-        const t = (2*Math.PI * 440) / this.sampleRate;
-
-        for (let i = 0; i < channels[0].length; i++) {
-            const s = samplesGenerated + i;
-            const val = 0.5 * Math.sin(t * s);
-            
-            channels[0][i] = val;
-            channels[1][i] = val;
-        }
-
-        samplesGenerated += channels[0].length;
-    }
+    audioStart();
 });
 
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
-        audioDevice.close(true);
+        audioDevice?.close(true);
         app.quit();
     }
 })

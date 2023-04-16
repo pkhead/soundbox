@@ -40,11 +40,7 @@ export class AudioDevice {
             samplesPerFrame: this._samplesPerFrame
         } as Object);
 
-        this.process = function(channels: Float32Array[]) {
-            for (let channel of channels) {
-                channel.fill(0);
-            }
-        }
+        this.process = function(channels: Float32Array[]) { }
 
         const stream = new Readable();
         stream._read = (size: number) => {
@@ -92,4 +88,27 @@ export class AudioDevice {
     public close(flush: boolean) {
         return this.speaker.close(flush)
     }
+}
+
+export const enum NoteEventType {
+    NoteOn = 0,
+    NoteOff = 1
+};
+
+interface NoteOnEvent {
+    type: NoteEventType.NoteOn,
+    key: number,
+    volume: number
+}
+
+interface NoteOffEvent {
+    type: NoteEventType.NoteOff,
+    key: number
+}
+
+export type NoteEvent = NoteOffEvent | NoteOnEvent;
+
+export abstract class AudioModule {
+    public event(event: NoteEvent) { }
+    public abstract process(inputs: Float32Array[][], outputs: Float32Array[][], sampleRate: number): void
 }

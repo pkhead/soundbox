@@ -1,4 +1,5 @@
 import { Note, Song } from "./song";
+import { ModuleController, NoteEventType, createModule } from "./system-audio";
 
 class NoteData {
     public key: number;
@@ -11,43 +12,32 @@ class NoteData {
 }
 
 export class Synthesizer {
-    private audioContext: AudioContext;
-    private audioProcessor: AudioWorkletNode | null = null;
-
+    private module: ModuleController | null;
     private curNotes: NoteData[];
 
     constructor() {
         this.curNotes = [];
-        this.audioContext = new AudioContext();
+        this.module = null;
     }
 
     public async init() {
-        const {audioContext} = this;
-
-        if (!this.audioProcessor) {
-            await audioContext.resume();
-            await audioContext.audioWorklet.addModule("synth-worker.js");
-            this.audioProcessor = new AudioWorkletNode(audioContext, "audio-processor", {
-                numberOfInputs: 0,
-                numberOfOutputs: 1,
-                outputChannelCount: [2]
-            });
-        }
+        this.module = await createModule("basic-synth");
 
         const redraw = () => {
             requestAnimationFrame(redraw);
 
-            if (this.audioProcessor) {
-                let curTime = audioContext.currentTime;
+            if (this.module) {
+                let curTime = Date.now();
 
                 for (let i = this.curNotes.length - 1; i >= 0; i--) {
                     let note = this.curNotes[i];
 
                     if (curTime >= note.end) {
-                        this.audioProcessor.port.postMessage({
-                            msg: "end",
+                        this.module.sendEvent({
+                            type: NoteEventType.NoteOff,
                             key: note.key
                         });
+
                         this.curNotes.splice(i, 1);
                     }
                 }
@@ -58,37 +48,35 @@ export class Synthesizer {
     }
 
     public start() {
-        if (this.audioProcessor) this.audioProcessor.connect(this.audioContext.destination);
+        //if (this.audioProcessor) this.audioProcessor.connect(this.audioContext.destination);
     }
 
     public stop() {
-        if (this.audioProcessor) this.audioProcessor.disconnect();
+        //if (this.audioProcessor) this.audioProcessor.disconnect();
     }
 
     public playNote(key: number, duration: number) {
-        if (this.audioProcessor) {
+        if (this.module) {
             this.beginNote(key, 0.1);
-            this.curNotes.push(new NoteData(key, this.audioContext.currentTime + duration));
+            this.curNotes.push(new NoteData(key, Date.now() + duration));
         }
     }
 
     public beginNote(key: number, volume: number = 0.1) {
-        if (this.audioProcessor) {
-            const freq = 440 * 2 ** ((key - 69) / 12);
-            
-            this.audioProcessor.port.postMessage({
-                msg: "start",
+        if (this.module) {
+            //const freq = 440 * 2 ** ((key - 69) / 12);
+            this.module.sendEvent({
+                type: NoteEventType.NoteOn,
                 key: key,
-                freq: freq,
                 volume: volume
             });
         }
     }
 
     public endNote(key: number) {
-        this.audioProcessor?.port.postMessage({
-            msg: "end",
+        this.module?.sendEvent({
+            type: NoteEventType.NoteOff,
             key: key
-        })
+        });
     }
 }
