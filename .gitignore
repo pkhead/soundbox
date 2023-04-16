@@ -1,11 +1,6 @@
 /node_modules
-/app/scripts
 /out
-/renderer.js
-/renderer.js.map
+/shell
 
-/main.js
-/preload.js
-/audiodevice.js
 /app/renderer.js
 /app/renderer.js.map
