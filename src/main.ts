@@ -1,7 +1,10 @@
 import { app, BrowserWindow, Menu, dialog, globalShortcut } from "electron";
+import { AudioDevice } from "./audiodevice";
 import path from "path";
+import { Readable } from "stream";
 
 var mainWindow: BrowserWindow | null;
+const audioDevice = new AudioDevice();
 
 const createWindow = () => {
     mainWindow = new BrowserWindow({
@@ -197,8 +200,27 @@ app.whenReady().then(() => {
     globalShortcut.register("CmdOrCtrl+N", () => {
         console.log("new song");
     });
+
+    let samplesGenerated = 0;
+
+    audioDevice.process = function(channels) {
+        const t = (2*Math.PI * 440) / this.sampleRate;
+
+        for (let i = 0; i < channels[0].length; i++) {
+            const s = samplesGenerated + i;
+            const val = 0.5 * Math.sin(t * s);
+            
+            channels[0][i] = val;
+            channels[1][i] = val;
+        }
+
+        samplesGenerated += channels[0].length;
+    }
 });
 
 app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    if (process.platform !== "darwin") {
+        audioDevice.close(true);
+        app.quit();
+    }
 })
