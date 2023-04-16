@@ -11,14 +11,17 @@ synth.init().then(() => {
 
     const playButton = document.getElementById("play-button") as HTMLButtonElement;
     const tempoField = document.getElementById("tempo-field") as HTMLInputElement;
+    tempoField.value = song.tempo.toString();
 
     const togglePlay = () => {
         if (song.isPlaying) {
             song.stop();
             playButton.innerText = "Play";
+            playButton.className = "play-button";
         } else {
             song.play();
-            playButton.innerText = "Stop";
+            playButton.innerText = "Pause";
+            playButton.className = "pause-button";
         }
     };
 

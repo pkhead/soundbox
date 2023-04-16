@@ -1,8 +1,10 @@
 import { app, BrowserWindow, Menu, dialog, globalShortcut } from "electron";
 import path from "path";
 
+var mainWindow: BrowserWindow | null;
+
 const createWindow = () => {
-    const win = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
         webPreferences: {
@@ -10,11 +12,13 @@ const createWindow = () => {
         },
     });
 
-    win.loadFile("app/index.html");
-    win.webContents.openDevTools();
+    mainWindow.loadFile("app/index.html");
+    mainWindow.webContents.openDevTools();
     
-    win.on("close", (e) => {
-        const choice = dialog.showMessageBoxSync(win, {
+    mainWindow.on("close", (e) => {
+        if (!mainWindow) return;
+
+        const choice = dialog.showMessageBoxSync(mainWindow, {
             type: "question",
             buttons: ["Yes", "No"],
             title: "Confirm",
@@ -22,6 +26,7 @@ const createWindow = () => {
         });
 
         if (choice === 1) e.preventDefault();
+        else mainWindow = null;
     });
 }
 
@@ -152,7 +157,22 @@ app.whenReady().then(() => {
         {
             label: "Help",
             submenu: [
-                { label: "About" },
+                {
+                    label: "About...",
+                    click: () => {
+                        if (mainWindow) {
+                            const win = new BrowserWindow({
+                                parent: mainWindow,
+                                modal: true,
+                                width: 300,
+                                height: 300
+                            });
+                        
+                            win.setMenuBarVisibility(false);
+                            win.loadFile("app/about.html");
+                        }
+                    }
+                },
                 { label: "Shortcuts" },
             ]
         },

@@ -14,17 +14,19 @@
     <div id="container">
       <div class="content-row">
         <div class="panel" id="settings-panel">
-            <div class="panel-title">Song Settings</div>
+            <div class="panel-title">
+              <input class="name-field" type="text" value="Unnamed Song">
+            </div>
 
             <div id="playback-controls">
-              <button id="play-button">Play</button>
+              <button id="play-button" class="play-button">Play</button>
               <button>&lt;</button>
               <button>&gt;</button>
             </div>
 
             <div class="row-option">
               <span class="label row-item">Scale</span>
-              <select class="row-item">
+              <select class="row-item right">
                 <option>Major</option>
                 <option>Minor</option>
               </select>
@@ -32,7 +34,7 @@
 
             <div class="row-option">
               <span class="label row-item">Key</span>
-              <select class="row-item">
+              <select class="row-item right">
                 <option>C</option>
                 <option>C#</option>
                 <option>D</option>
@@ -42,12 +44,54 @@
 
             <div class="row-option">
               <span class="label row-item">Tempo</span>
-              <input id="tempo-field" min="0" type="number" class="row-item" value="120">
+              <input id="tempo-field" min="0" type="number" class="row-item right" value="120">
+            </div>
+
+            <div class="row-option">
+              <span class="label row-item">Rhythm</span>
+              <select class="row-item right">
+                <option>1/4</option>
+                <option>1/3</option>
+                <option>1/6</option>
+                <option>1/8</option>
+              </select>
             </div>
         </div>
 
         <div class="panel" id="instrument-panel">
-          <div class="panel-title">Instrument Settings</div>
+          <div class="panel-title">
+            <input class="name-field" type="text" value="Inst1">
+          </div>
+
+          <div class="row-option">
+            <span class="label row-item">Volume</span>
+            <input id="tempo-field" min="0" max="100" type="range" class="row-item right">
+          </div>
+
+          <div class="row-option">
+            <span class="label row-item">Panning</span>
+            <input id="tempo-field" min="0" max="100" value="50" type="range" class="row-item right">
+          </div>
+
+          <div class="row-option">
+            <span class="label row-item">Bus</span>
+            <input id="tempo-field" min=0 value="0" type="number" class="row-item right">
+          </div>
+
+          <div class="row-separator"></div>
+          
+          <div class="panel-title">[No Instrument]</div>
+          <div class="row-option">
+            <button class="row-item">Load</button>
+            <button class="row-item">Edit</button>
+          </div>
+
+          <div class="row-separator"></div>
+
+          <div class="panel-title">Effects</div>
+          <div>
+            <button>+</span>
+          </div>
         </div>
 
         <div class="panel" id="pattern-panel">
