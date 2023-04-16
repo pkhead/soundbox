@@ -13,6 +13,8 @@ export class TrackEditor {
     
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
+    private viewportWidth: number = 0;
+    private viewportHeight: number = 0;
 
     private mouseGridX: number | null = null;
     private mouseGridY: number | null = null;
@@ -84,13 +86,13 @@ export class TrackEditor {
         let start = Date.now();
 
         ctx.fillStyle = Colors.background;
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.fillRect(0, 0, this.viewportWidth, this.viewportHeight);
 
         for (let channel = 0; channel < this.song.channels.length; channel++) {
-            if (channel * CELL_HPAD + CELL_PADDING > this.canvas.height) break;
+            if (channel * CELL_HPAD + CELL_PADDING > this.viewportHeight) break;
 
             for (let bar = 0; bar < this.song.length; bar++) {
-                if (bar * CELL_WPAD + CELL_PADDING > this.canvas.width) break;
+                if (bar * CELL_WPAD + CELL_PADDING > this.viewportWidth) break;
 
                 this.drawCell(channel, bar);
             }
@@ -117,7 +119,7 @@ export class TrackEditor {
         const {canvas, ctx, song} = this;
 
         ctx.fillStyle = "white";
-        ctx.fillRect(song.position * CELL_WPAD + CELL_PADDING, 0, 2, canvas.height);
+        ctx.fillRect(song.position * CELL_WPAD + CELL_PADDING, 0, 2, this.viewportHeight);
     }
 
     private setPattern(channel_i: number, bar: number, pid: number) {
@@ -170,9 +172,17 @@ export class TrackEditor {
 
         const resize = () => {
             const styles = getComputedStyle(canvasContainer);
-            
-            canvas.width = canvasContainer.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
-            canvas.height = canvasContainer.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+            this.viewportWidth = canvasContainer.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+            this.viewportHeight = canvasContainer.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+
+            canvas.width = this.viewportWidth * window.devicePixelRatio;
+            canvas.height = this.viewportHeight * window.devicePixelRatio;
+            canvas.style.width = `${this.viewportWidth}px`;
+            canvas.style.height = `${this.viewportHeight}px`;
+
+            ctx.resetTransform();
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
             this.redraw();
         }
 
@@ -427,7 +437,7 @@ export class TrackEditor {
 
             ctx.fillStyle = Colors.background;
             let bottom = this.song.channels.length * CELL_HPAD + CELL_PADDING;
-            ctx.fillRect(0, bottom, this.canvas.width, this.canvas.height - bottom);
+            ctx.fillRect(0, bottom, this.viewportWidth, this.viewportHeight - bottom);
 
             this.drawPlayhead();
             this.drawCursor();

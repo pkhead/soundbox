@@ -35,6 +35,10 @@ export class PatternEditor {
 
     private curPattern: Pattern | null = null;
 
+    // on high dpi displays, pixel w/h will be bigger than viewport w/h
+    private viewportWidth: number = 0;
+    private viewportHeight: number = 0;
+
     constructor(song: Song, synth: Synthesizer, canvas: HTMLCanvasElement) {
         this.song = song;
         this.synth = synth;
@@ -56,11 +60,18 @@ export class PatternEditor {
 
         const resize = () => {
             const styles = getComputedStyle(canvasContainer);
+            this.viewportWidth = canvasContainer.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+            this.viewportHeight = canvasContainer.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
             
-            canvas.width = canvasContainer.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
-            canvas.height = canvasContainer.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
-            this.cellWidth = Math.floor((canvas.width - KEY_WIDTH) / this.numDivisions);
-            this.cellHeight = Math.floor(canvas.height / (12 * this.octaveRange + 1));
+            canvas.width = this.viewportWidth * window.devicePixelRatio;
+            canvas.height = this.viewportHeight * window.devicePixelRatio;
+            canvas.style.width = `${this.viewportWidth}px`;
+            canvas.style.height = `${this.viewportHeight}px`;
+            ctx.resetTransform();
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            this.cellWidth = Math.floor((this.viewportWidth - KEY_WIDTH) / this.numDivisions);
+            this.cellHeight = Math.floor(this.viewportHeight / (12 * this.octaveRange + 1));
             this.redraw();
             this.drawPianoKeys();
         }
@@ -71,12 +82,12 @@ export class PatternEditor {
             let increment = Math.min(this.cursorWidth, snapping);
             const pattern = this.getPattern();
 
-            const mouseX = ev.pageX - canvas.offsetLeft;
-            const mouseY = ev.pageY - canvas.offsetTop;
+            const mouseX = (ev.pageX - canvas.offsetLeft) * 1;
+            const mouseY = (ev.pageY - canvas.offsetTop) * 1;
 
             let gridFreeX = (mouseX - KEY_WIDTH) / this.cellWidth;
             let gridX = Math.floor((gridFreeX - this.cursorWidth / 2) / increment + 0.5) * increment;
-            let gridY = Math.floor((canvas.height - mouseY) / this.cellHeight);
+            let gridY = Math.floor((this.viewportHeight - mouseY) / this.cellHeight);
 
             // prevent note collision/overlapping
             if (pattern) {
@@ -216,10 +227,10 @@ export class PatternEditor {
         window.addEventListener("mousemove", onMouseMove);
 
         window.addEventListener("mousedown", (ev) => {
-            const mouseX = ev.pageX - canvas.offsetLeft;
-            const mouseY = ev.pageY - canvas.offsetTop;
+            const mouseX = (ev.pageX - canvas.offsetLeft) * 1;
+            const mouseY = (ev.pageY - canvas.offsetTop) * 1;
 
-            if (mouseX >= 0 && mouseY >= 0 && mouseX < canvas.width && mouseY < canvas.height) {
+            if (mouseX >= 0 && mouseY >= 0 && mouseX < this.viewportWidth && mouseY < this.viewportHeight) {
                 if (this.mouseGridX !== null && this.mouseGridY !== null && this.mouseNoteX !== null) {
                     let pattern = this.getPattern();
 
@@ -314,7 +325,7 @@ export class PatternEditor {
 
         const {cellWidth, cellHeight, canvas, ctx} = this;
         let x = cellWidth * col + KEY_WIDTH;
-        let y = canvas.height - cellHeight * (row + 1);
+        let y = this.viewportHeight - cellHeight * (row + 1);
 
         ctx.fillStyle = Colors.background;
         ctx.fillRect(x, y, cellWidth, cellHeight);
@@ -343,7 +354,7 @@ export class PatternEditor {
         if (pattern) {
             for (let note of pattern.notes) {
                 let x = note.time * this.cellWidth + KEY_WIDTH;
-                let y = canvas.height - (note.key + 1 - this.scroll) * this.cellHeight;
+                let y = this.viewportHeight - (note.key + 1 - this.scroll) * this.cellHeight;
 
                 ctx.fillRect(x + 1, y + 1, this.cellWidth * note.length, this.cellHeight);
             }
@@ -370,7 +381,7 @@ export class PatternEditor {
             ctx.lineWidth = 2;
             ctx.strokeRect(
                 (x * this.cellWidth) + KEY_WIDTH,
-                (canvas.height - (y + 1) * this.cellHeight),
+                (this.viewportHeight - (y + 1) * this.cellHeight),
                 this.cellWidth * w,
                 this.cellHeight
             );
@@ -384,7 +395,7 @@ export class PatternEditor {
         const TEXT_HEIGHT = 14;
 
         ctx.fillStyle = Colors.interactableBgColor;
-        ctx.fillRect(0, 0, KEY_WIDTH, canvas.height);
+        ctx.fillRect(0, 0, KEY_WIDTH, this.viewportHeight);
 
         ctx.font = `${TEXT_HEIGHT}px monospace`;
         ctx.textBaseline = "top";
@@ -392,7 +403,7 @@ export class PatternEditor {
 
         for (let i = 0; i <= 12 * this.octaveRange; i++) {
             let x = 0;
-            let y = canvas.height - this.cellHeight * (i + 1);
+            let y = this.viewportHeight - this.cellHeight * (i + 1);
             let key = i % KEY_NAMES.length;
 
             ctx.fillStyle = KEY_IS_ACCIDENTAL[key] ? "#242430" : Colors.background;
@@ -404,7 +415,7 @@ export class PatternEditor {
 
         if (this.mouseInPianoKey && this.mouseGridY !== null) {
             let x = 0;
-            let y = canvas.height - this.cellHeight * (this.mouseGridY + 1);
+            let y = this.viewportHeight - this.cellHeight * (this.mouseGridY + 1);
 
             ctx.strokeStyle = "white";
             ctx.lineWidth = 2;
@@ -417,7 +428,7 @@ export class PatternEditor {
         const ctx = this.ctx;
 
         ctx.fillStyle = Colors.background;
-        ctx.fillRect(0 + KEY_WIDTH, 0, canvas.width - KEY_WIDTH, canvas.height);
+        ctx.fillRect(0 + KEY_WIDTH, 0, this.viewportWidth - KEY_WIDTH, this.viewportHeight);
 
         for (let i = 0; i <= 12 * this.octaveRange; i++) {
             for (let j = 0; j < this.numDivisions; j++) {
