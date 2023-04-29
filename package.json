@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "node-addon-api": "^6.0.0",
+    "soundlib": "github:pkhead/node-soundlib#install",
     "speaker": "^0.5.4",
     "typescript": "^5.0.4"
   }
