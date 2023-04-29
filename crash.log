@@ -1,0 +1,10 @@
+PID 65985 received SIGSEGV for address: 0x0
+/home/nabcat/Documents/src/soundbox/node_modules/segfault-handler/build/Release/segfault-handler.node(+0x377c)[0x7fd9b60bc77c]
+/lib/x86_64-linux-gnu/libc.so.6(+0x42520)[0x7fda3e64c520]
+/home/nabcat/Documents/src/soundbox/node_modules/naudiodon/build/Release/naudiodon.node(_ZN10streampunk9PaContext12fillPaBufferEPvj+0xd7)[0x7fd9b60cedf7]
+/home/nabcat/Documents/src/soundbox/node_modules/naudiodon/build/Release/naudiodon.node(_ZN10streampunk10PaCallbackEPKvPvmPK24PaStreamCallbackTimeInfomS2_+0x80)[0x7fd9b60d0720]
+/home/nabcat/Documents/src/soundbox/node_modules/naudiodon/build/Release/libportaudio.so.2(+0x848c)[0x7fd9b5e0848c]
+/home/nabcat/Documents/src/soundbox/node_modules/naudiodon/build/Release/libportaudio.so.2(+0xa460)[0x7fd9b5e0a460]
+/home/nabcat/Documents/src/soundbox/node_modules/naudiodon/build/Release/libportaudio.so.2(+0x12cd6)[0x7fd9b5e12cd6]
+/lib/x86_64-linux-gnu/libc.so.6(+0x94b43)[0x7fda3e69eb43]
+/lib/x86_64-linux-gnu/libc.so.6(+0x126a00)[0x7fda3e730a00]

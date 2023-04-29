@@ -22,6 +22,7 @@
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
+    "naudiodon": "^2.3.6",
     "node-addon-api": "^6.0.0",
     "speaker": "^0.5.4",
     "typescript": "^5.0.4"

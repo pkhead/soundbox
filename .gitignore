@@ -3,6 +3,7 @@
 /shell
 /build
 /.vscode
+/libsoundio
 
 /app/renderer.js
 /app/renderer.js.map

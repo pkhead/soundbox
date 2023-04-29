@@ -1,4 +1,6 @@
 //import Speaker from "speaker";
+import Speaker = require("speaker");
+//import PortAudio = require("naudiodon");
 import { Readable } from "stream";
 
 interface AudioDeviceOptions {
@@ -9,15 +11,16 @@ interface AudioDeviceOptions {
 }
 
 export class AudioDevice {
-    //private speaker: Speaker;
+    //private audioOutput: PortAudio.IoStreamWrite;
+    private audioOutput: Speaker;
     private _bitDepth: number;
     private _channels: number;
     private _sampleRate: number;
-    private _samplesPerFrame: number;
+    //private _samplesPerFrame: number;
 
     public get bitDepth() { return this._bitDepth; }
     public get sampleRate() { return this._sampleRate; }
-    public get samplesPerFrame() { return this._samplesPerFrame; }
+    //public get samplesPerFrame() { return this._samplesPerFrame; }
 
     public process: (channels: Float32Array[]) => void;
 
@@ -25,24 +28,68 @@ export class AudioDevice {
         this._bitDepth = options?.bitDepth === undefined ? 16 : options.bitDepth;
         this._channels = options?.channels === undefined ? 2 : options.channels;
         this._sampleRate = options?.sampleRate === undefined ? 44100 : options.sampleRate;
-        this._samplesPerFrame = options?.samplesPerFrame === undefined ? 1024 : options.samplesPerFrame;
+        //this._samplesPerFrame = options?.samplesPerFrame === undefined ? 1024 : options.samplesPerFrame;
 
         console.log(this);
 
+        /*
         if (this._bitDepth !== 8 && this._bitDepth !== 16 && this._bitDepth !== 32) {
             throw new Error(`unsupported bit depth of ${this._bitDepth}`);
         }
+        */
 
-        /*this.speaker = new Speaker({
+        this.audioOutput = new Speaker({
             bitDepth: this._bitDepth,
             channels: this._channels,
             sampleRate: this._sampleRate,
-            samplesPerFrame: this._samplesPerFrame
-        } as Object);*/
+        });
+
+        /*
+        this.device = new OutputDevice({
+            channels: this._channels,
+            sampleRate: this._sampleRate
+        });*/
+        
+        /*
+        this.audioOutput = PortAudio.AudioIO({
+            outOptions: {
+                channelCount: this._channels,
+                sampleFormat: PortAudio.SampleFormat16Bit,
+                sampleRate: this._sampleRate,
+                deviceId: -1,
+                closeOnError: true
+            }
+        });
+        */
 
         this.process = function(channels: Float32Array[]) { }
 
-        const stream = new Readable();
+        /*
+        this.device.process = (size: number) => {
+            const buf = Buffer.alloc(size);
+            const outputArr = new Float32Array(buf);
+            const numChannels = this.device.numChannels;
+
+            let channels: Float32Array[] = [];
+            for (let c = 0; c < numChannels; c++) {
+                channels.push(new Float32Array(size / numChannels));
+            }
+
+            this.process(channels);
+
+            for (let c = 0; c < numChannels; c++) {
+                for (let i = 0; i < channels[c].length; i++) {
+                    outputArr[i * numChannels + c] = channels[c][i];
+                }
+            }
+
+            return buf;
+        }*/
+
+        const stream = new Readable({
+            highWaterMark: 512
+        });
+
         stream._read = (size: number) => {
             const sampleSize = this._bitDepth / 8;
             const blockSize = sampleSize * this._channels;
@@ -83,10 +130,14 @@ export class AudioDevice {
             stream.push(buf);
         };
 
-        //stream.pipe(this.speaker);
+        stream.pipe(this.audioOutput);
+
+        //this.audioOutput.start();
     }
 
     public close(flush: boolean) {
+        //this.audioOutput.end();
+        this.audioOutput.close(flush);
         //return this.speaker.close(flush)
     }
 }

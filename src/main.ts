@@ -4,9 +4,6 @@ import path from "path";
 import { Readable } from "stream";
 import { BasicSynthesizer } from "./synth";
 
-import { hello } from "../interface";
-console.log(hello());
-
 var mainWindow: BrowserWindow | null;
 var audioDevice: AudioDevice | null = null;
 
@@ -38,7 +35,7 @@ const createWindow = () => {
 }
 
 const audioStart = () => {
-    //audioDevice = new AudioDevice();
+    audioDevice = new AudioDevice();
 
     let moduleMap: Map<number, AudioModule> = new Map();
     let modules: AudioModule[] = [];
@@ -105,13 +102,11 @@ const audioStart = () => {
         return channels.map(v => Buffer.from(v.buffer));
     });
 
-    /*
     audioDevice.process = function(channels) {
         for (let mod of modules) {
             mod.process([], [channels], this.sampleRate);
         }
     }
-    */
 }
 
 app.whenReady().then(() => {
