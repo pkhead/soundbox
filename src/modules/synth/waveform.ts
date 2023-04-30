@@ -21,7 +21,7 @@ function voiceConstructor(key: number, freq: number, volume: number) {
  */
 export class WaveformSynthesizer extends SynthesizerBase {
     constructor() {
-        throw new Error("todo: synth.waveform");
+        console.warn("todo: synth.waveform")
         super(voiceConstructor);
         
         this.voices = [];

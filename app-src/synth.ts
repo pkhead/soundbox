@@ -20,11 +20,16 @@ export class AudioModule {
     }
 
     /**
+     * @returns `true` if the module is initialized, `false` if not
+     */
+    public get isReady() { return this.module !== null }
+
+    /**
      * Load the module. The module type is given in the `AudioModule` base class constructor
      * @returns A `Promise<void>` for the successful initialization of the module
      */
     public async init() {
-        this.module = await createModule(this.modType);
+        if (!this.module) this.module = await createModule(this.modType);
     }
 
     /**

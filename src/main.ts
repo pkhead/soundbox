@@ -56,7 +56,6 @@ const audioStart = () => {
 
         moduleMap.set(id, module);
         modules.push(module);
-        console.log(`create module ${id}`);
 
         return id;
     });
@@ -67,17 +66,13 @@ const audioStart = () => {
         if (module) {
             module.removeAllConnections();
             moduleMap.delete(id);   
-
-            console.log(`remove module ${id}`);
-
+            
             let idx = modules.indexOf(module);
             if (idx >= 0) modules.splice(idx, 1);
         }
     });
 
     ipcMain.on("module.event", (event, id: string, ev: NoteEvent) => {
-        console.log("receive event", ev);
-
         let module = moduleMap.get(id);
 
         if (module) {

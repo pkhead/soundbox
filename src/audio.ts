@@ -168,6 +168,7 @@ export abstract class AudioModule {
     public connect(dest: AudioModule | AudioDevice) {
         this.disconnect();
         dest.inputs.push(this);
+        this._output = dest;
     }
 
     /**

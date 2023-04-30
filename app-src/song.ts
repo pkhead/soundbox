@@ -1,4 +1,4 @@
-import { NoteModule } from "./synth";
+import { AudioModule, NoteModule } from "./synth";
 
 export class Note {
     public length: number;
@@ -36,9 +36,12 @@ export class Channel {
     public sequence: number[];
     public patterns: Pattern[];
     public instrument: NoteModule | null;
+    public volumeModule: AudioModule;
 
     constructor(songLength: number, maxPatterns: number) {
         this.instrument = null;
+        this.volumeModule = new AudioModule("effect.volume");
+
         this.sequence = [];
         this.patterns = [];
 
@@ -52,13 +55,19 @@ export class Channel {
     }
 
     public async loadInstrument(modName: string) {
+        // initialize volume module, if not initialized already
+        if (!this.volumeModule.isReady) {
+            await this.volumeModule.init();
+            await this.volumeModule.connectToOutput();
+        }
+
         if (this.instrument) {
             this.instrument.release();
         }
 
         this.instrument = new NoteModule(modName);
         await this.instrument.init();
-        await this.instrument.connectToOutput();
+        await this.instrument.connect(this.volumeModule);
     }
 }
 
