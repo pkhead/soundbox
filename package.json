@@ -1,8 +1,7 @@
 {
   "name": "soundbox",
-  "version": "1.0.0",
-  "description": "",
-  "gypfile": true,
+  "version": "0.1.0",
+  "description": "A desktop application used to create music",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
