@@ -19,10 +19,16 @@ export class AudioModule {
         this.modType = modType;
     }
 
+    /**
+     * Load the module. The module type is given in the `AudioModule` base class constructor
+     */
     public async init() {
         this.module = await createModule(this.modType);
     }
 
+    /**
+     * Unload the module
+     */
     public async release() {
         this.module?.release();
         this.module = null;

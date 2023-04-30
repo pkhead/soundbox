@@ -22,6 +22,11 @@ export class TrackEditor {
     // this is used to keep selectedBar the same across channel selection changes
     private cursorX: number;
 
+    /**
+     * Draw a square representing a pattern
+     * @param channel_i The index of the channel which owns the pattern 
+     * @param bar The integer time position of the pattern, measured in bars
+     */
     private drawCell(channel_i: number, bar: number) {
         const ctx = this.ctx;
 
@@ -80,6 +85,9 @@ export class TrackEditor {
         ctx.fillText(pid.toString(), cellX + CELL_WIDTH / 2, cellY + 8);
     }
 
+    /**
+     * Redraw the entire display
+     */
     private redraw() {
         const ctx = this.ctx;
 
@@ -103,6 +111,9 @@ export class TrackEditor {
         console.log(`track editor redraw: ${Date.now() - start}ms`);
     }
 
+    /**
+     * Draw an outline highlighting the cell that is hovered over by the mouse.
+     */
     private drawCursor() {
         const ctx = this.ctx;
         const mouseGridX = this.mouseGridX;
@@ -115,6 +126,9 @@ export class TrackEditor {
         }
     }
 
+    /**
+     * Draw a vertical line at the song's current position
+     */
     private drawPlayhead() {
         const {canvas, ctx, song} = this;
 
@@ -122,6 +136,12 @@ export class TrackEditor {
         ctx.fillRect(song.position * CELL_WPAD + CELL_PADDING, 0, 2, this.viewportHeight);
     }
 
+    /**
+     * Set the pattern index of a cell
+     * @param channel_i The index of the channel which owns the pattern/cell
+     * @param bar The integer time position, measured in bars
+     * @param pid The new index of the pattern
+     */
     private setPattern(channel_i: number, bar: number, pid: number) {
         const channel = this.song.channels[channel_i];
 
@@ -147,11 +167,24 @@ export class TrackEditor {
 
     // returns the length of the pattern at a bar
     // if pattern = 0, then return 1
+
+    /**
+     * Get the length of the pattern at a cell
+     * If there is no pattern, it will return 1
+     * @param channel_i The index of the channel which owns the pattern
+     * @param bar The integer time position of the pattern
+     * @returns The length of the specified pattern
+     */
     private getBarLength(channel_i: number, bar: number) {
         const channel = this.song.channels[channel_i];
         return channel.patterns[channel.sequence[bar] - 1]?.length || 1;
     }
 
+    /**
+     * Create a new track editor widget
+     * @param song The loaded song
+     * @param canvas The canvas for the widget's display
+     */
     constructor(song: Song, canvas: HTMLCanvasElement) {
         this.song = song;
         this.cursorX = this.song.selectedBar;
@@ -186,6 +219,9 @@ export class TrackEditor {
             this.redraw();
         }
 
+        // This buffer is used when the user types in a new pattern index for a bar
+        // It allows the user to type in indices which conatin more than one characater
+        // It resets when the user selects another channel/bar
         let typeBuf = "";
 
         window.addEventListener("mousemove", (ev) => {
@@ -195,7 +231,9 @@ export class TrackEditor {
             const mouseGridX = this.mouseGridX;
             const mouseGridY = this.mouseGridY;
 
+            // Redraw surrounding area of old position of cursor
             if (mouseGridX !== null && mouseGridY !== null) {
+                // first draw the background
                 ctx.fillStyle = Colors.background;
                 ctx.fillRect(
                     (mouseGridX - 1) * CELL_WPAD + CELL_PADDING - 2,
@@ -204,6 +242,7 @@ export class TrackEditor {
                     CELL_HEIGHT * 3 + CELL_PADDING * 2 + 4
                 );
                 
+                // then draw the surrounding cells
                 this.drawCell(mouseGridY, mouseGridX);
                 this.drawCell(mouseGridY - 1, mouseGridX);
                 this.drawCell(mouseGridY + 1, mouseGridX);
@@ -215,9 +254,11 @@ export class TrackEditor {
                 this.drawCell(mouseGridY - 1, mouseGridX + 1);
                 this.drawCell(mouseGridY + 1, mouseGridX + 1);
 
+                // Redraw the playhead
                 this.drawPlayhead();
             }
 
+            // If mouse position is inside the widget
             if (gridX >= 0 && gridX < this.song.length && gridY >= 0 && gridY < this.song.channels.length) {
                 this.mouseGridX = gridX;
                 this.mouseGridY = gridY;
@@ -228,23 +269,27 @@ export class TrackEditor {
             }
         });
 
+        // The user presses the left mouse button to select a channel and bar 
         canvas.addEventListener("mousedown", (ev) => {
-            let prevCh = this.song.selectedChannel;
-            let prevBar = this.song.selectedBar;
-            
-            if (this.mouseGridX !== null && this.mouseGridY !== null) {
-                this.song.selectedChannel = this.mouseGridY;
-                this.song.selectedBar = this.mouseGridX;
-                this.song.dispatchEvent("selectionChanged");
+            if (ev.button === 0) {
+                let prevCh = this.song.selectedChannel;
+                let prevBar = this.song.selectedBar;
                 
-                this.drawCell(prevCh, prevBar);
-                this.drawCell(this.mouseGridY, this.mouseGridX);
-            }
+                if (this.mouseGridX !== null && this.mouseGridY !== null) {
+                    this.song.selectedChannel = this.mouseGridY;
+                    this.song.selectedBar = this.mouseGridX;
+                    this.song.dispatchEvent("selectionChanged");
+                    
+                    this.drawCell(prevCh, prevBar);
+                    this.drawCell(this.mouseGridY, this.mouseGridX);
+                }
 
-            this.drawPlayhead();
-            this.drawCursor();
+                this.drawPlayhead();
+                this.drawCursor();
+            }
         });
 
+        // Fix pattern overlapping for multi-bar channels
         const fixPatternOverlap = () => {
             // if selection is in the middle of a pattern, go to its beginning
             for (let i = 0; i < this.song.selectedBar;) {
@@ -258,7 +303,9 @@ export class TrackEditor {
             }
         }
 
+        // The track editor is primarily controlled with the keyboard
         window.addEventListener("keydown", (ev) => {
+            // If the user isn't typing in a textbox
             if (document.activeElement && (document.activeElement.nodeName === "INPUT" || document.activeElement.nodeName == "TEXTBOX")) return;
 
             let prevBar = this.song.selectedBar;
@@ -282,6 +329,7 @@ export class TrackEditor {
                     this.song.dispatchEvent("playheadMoved");
                     break;
 
+                // Move the cursor right to another bar
                 case "ArrowRight":
                     ev.preventDefault();
 
@@ -298,6 +346,7 @@ export class TrackEditor {
 
                     break;
 
+                // Move the cursor left to another bar
                 case "ArrowLeft":
                     ev.preventDefault();
 
@@ -316,6 +365,7 @@ export class TrackEditor {
 
                     break;
 
+                // Move the cursor down to another channel
                 case "ArrowDown":
                     ev.preventDefault();
 
@@ -332,6 +382,7 @@ export class TrackEditor {
                     this.drawCursor();
                     break;
                 
+                // Move the cursor up to another channel
                 case "ArrowUp":
                     ev.preventDefault();
 
@@ -367,6 +418,7 @@ export class TrackEditor {
                     drawCell(selectedChannel, selectedBar);
                 */
 
+                // Ctrl+(Plus Sign) to increase the pattern index of the selected bar
                 case "Equal":
                     if (ev.ctrlKey) {
                         ev.preventDefault();
@@ -381,6 +433,7 @@ export class TrackEditor {
 
                     break;
 
+                // Ctrl+(Minus Sign) to decrease the pattern index of the selected bar
                 case "Minus":
                     if (ev.ctrlKey) {
                         ev.preventDefault();
@@ -395,10 +448,10 @@ export class TrackEditor {
 
                     break;
 
+                // The user may have entered a number to change the pattern index of the selected bar
                 default:
                     {
                         let channel = this.song.channels[this.song.selectedChannel];
-                        let pi = channel.sequence[this.song.selectedBar];
                         
                         if (ev.code.slice(0, 5) === "Digit") {
                             typeBuf += ev.code.slice(5);
@@ -418,6 +471,7 @@ export class TrackEditor {
             }
         });
 
+        // If a pattern changed, redraw the changed bar
         this.song.addEventListener("trackChanged", (channel_i: number, bar: number) => {
             this.drawCell(channel_i, bar);
             this.drawPlayhead();
@@ -426,6 +480,7 @@ export class TrackEditor {
 
         let lastSongPos = this.song.position;
 
+        // Redraw the playhead if it moves
         this.song.addEventListener("playheadMoved", () => {
             let bar = Math.floor(lastSongPos);
 

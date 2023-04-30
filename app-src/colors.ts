@@ -1,3 +1,5 @@
+// Global namespace for color theming
+
 export namespace Colors {
     export var background = "#040410";
     export var pitch = [

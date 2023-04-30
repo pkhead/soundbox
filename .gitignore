@@ -1,8 +1,9 @@
 /node_modules
+/.vscode
+
+# ignore tsc emissions
 /out
 /shell
 /build
-/.vscode
-
 /app/renderer.js
 /app/renderer.js.map

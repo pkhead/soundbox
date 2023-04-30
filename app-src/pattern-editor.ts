@@ -38,6 +38,11 @@ export class PatternEditor {
     private viewportWidth: number = 0;
     private viewportHeight: number = 0;
 
+    /**
+     * Create a new pattern editor widget
+     * @param song The loaded song
+     * @param canvas The canvas for the display of the widget
+     */
     constructor(song: Song, canvas: HTMLCanvasElement) {
         this.song = song;
 
@@ -314,17 +319,27 @@ export class PatternEditor {
         resizeObserver.observe(canvasContainer);
     }
 
+    /**
+     * Stop notes that are being played from the piano key display
+     */
     public stopAllNotes() {
         if (this.mouseGridY !== null) {
             this.getCurrentInstrument()?.endNote(this.mouseGridY + this.scroll);
         }
     }
 
+    /**
+     * Obtain the instrument of the currently selected channel
+     * @returns A possible `NoteModule` for the currently selected channel
+     */
     private getCurrentInstrument(): NoteModule | null {
         return this.song.channels[this.song.selectedChannel].instrument;
     }
 
-    // get the current pattern from the song data
+    /**
+     * Get the data for the currently selected pattern
+     * @returns
+     */
     private getPattern(): Pattern | null {
         const channel = this.song.channels[this.song.selectedChannel];
         const pattern = channel.patterns[channel.sequence[this.song.selectedBar] - 1] || null;
@@ -339,6 +354,11 @@ export class PatternEditor {
         return pattern
     }
 
+    /**
+     * Draw a cell
+     * @param row The key number of the cell relative to the view window
+     * @param col The time position of the cell measured in beats
+     */
     private drawCell(row: number, col: number) {
         // don't draw if out of bounds
         if (col < 0 || col >= this.numDivisions || row < 0 || col >= 12 * this.octaveRange + 1) return;
@@ -366,6 +386,9 @@ export class PatternEditor {
         );
     }
 
+    /**
+     * Draw each note of the currently selected pattern
+     */
     private drawNotes() {
         const {canvas, ctx} = this;
         const pattern = this.getPattern();
@@ -381,6 +404,9 @@ export class PatternEditor {
         }
     }
 
+    /**
+     * Draw an outline of a note where the mouse is
+     */
     private drawCursor() {
         if (this.activeNote) return;
 
@@ -408,6 +434,9 @@ export class PatternEditor {
         }
     }
 
+    /**
+     * Draw the interactable piano key column
+     */
     private drawPianoKeys() {
         const {canvas, ctx} = this;
         const KEY_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
@@ -443,6 +472,9 @@ export class PatternEditor {
         }
     }
 
+    /**
+     * Redraw the entire screen
+     */
     public redraw() {
         const canvas = this.canvas;
         const ctx = this.ctx;
