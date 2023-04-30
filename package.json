@@ -8,9 +8,8 @@
     "start": "electron .",
     "build-shell": "tsc -p src",
     "build-app": "tsc -p app-src",
-    "build-worker": "tsc -p worker-src",
     "build-app-swc": "swc app-src --out-file app-out",
-    "build": "npm run build-shell && npm run build-app && npm run build-worker"
+    "build": "npm run build-shell && npm run build-app"
   },
   "author": "pkhead",
   "license": "MIT",
@@ -23,9 +22,7 @@
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
-    "node-addon-api": "^6.0.0",
     "soundlib": "github:pkhead/node-soundlib#install",
-    "speaker": "^0.5.4",
     "typescript": "^5.0.4",
     "uuid": "^9.0.0"
   }
