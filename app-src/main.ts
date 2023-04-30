@@ -4,13 +4,29 @@ import { Song } from "./song";
 import { AudioModule, NoteModule } from "./synth";
 
 const song = new Song(4, 16, 4);
-song.initInstruments().then(() => {
+song.initInstruments().then(async () => {
     const playButton = document.getElementById("play-button") as HTMLButtonElement;
     const tempoField = document.getElementById("tempo-field") as HTMLInputElement;
     const instrumentOpen = document.getElementById("instrument-open") as HTMLOptionElement;
     const instrumentEdit = document.getElementById("instrument-edit") as HTMLButtonElement;
+    const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement;
+    const panningSlider = document.getElementById("panning-slider") as HTMLInputElement;
 
     tempoField.value = song.tempo.toString();
+
+    const channelChanged = () => {
+        volumeSlider.value = (song.channels[song.selectedChannel].volume * 100).toString();
+        panningSlider.value = (song.channels[song.selectedChannel].panning * 100 + 50).toString();
+    }
+    channelChanged();
+
+    volumeSlider.onmousemove = () => {
+        song.channels[song.selectedChannel].volume = +volumeSlider.value / 100;
+    };
+
+    panningSlider.onmousemove = () => {
+        song.channels[song.selectedChannel].panning = (+panningSlider.value - 50) / 100;
+    };
 
     const togglePlay = () => {
         if (song.isPlaying) {
@@ -71,8 +87,16 @@ song.initInstruments().then(() => {
         return new PatternEditor(song, canvas);
     })();
 
+    let lastChannel = song.selectedChannel;
+
     song.addEventListener("selectionChanged", () => {
         console.log("selection changed");
+
+        if (song.selectedChannel !== lastChannel) {
+            lastChannel = song.selectedChannel;
+            channelChanged();
+        }
+
         patternEditor.stopAllNotes();
         patternEditor.redraw();
     });

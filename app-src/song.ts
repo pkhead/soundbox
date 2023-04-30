@@ -38,9 +38,14 @@ export class Channel {
     public instrument: NoteModule | null;
     public volumeModule: AudioModule;
 
+    private _volume: number;
+    private _panning: number;
+
     constructor(songLength: number, maxPatterns: number) {
         this.instrument = null;
         this.volumeModule = new AudioModule("effect.volume");
+        this._volume = 0.5;
+        this._panning = 0;
 
         this.sequence = [];
         this.patterns = [];
@@ -54,10 +59,26 @@ export class Channel {
         }
     }
 
+    public set volume(v: number) {
+        this._volume = Math.min(Math.max(v, 0), 1);
+        this.volumeModule.setParam("volume", this._volume);
+    }
+
+    public get volume() { return this._volume; }
+
+    public set panning(v: number) {
+        this._panning = Math.min(Math.max(v, -1), 1);
+        this.volumeModule.setParam("panning", this._panning);
+    }
+
+    public get panning() { return this._panning; }
+
     public async loadInstrument(modName: string) {
         // initialize volume module, if not initialized already
         if (!this.volumeModule.isReady) {
             await this.volumeModule.init();
+            this.volumeModule.setParam("volume", this._volume);
+            this.volumeModule.setParam("panning", this._panning);
             await this.volumeModule.connectToOutput();
         }
 

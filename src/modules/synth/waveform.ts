@@ -5,8 +5,8 @@ class Voice extends VoiceBase {
     public compute(sampleRate: number, buf: Float32Array) {
         const val = Math.sin(this.time) * this.volume;
 
-        buf[0] = val * 0.1;
-        buf[1] = val * 0.1;
+        buf[0] = val;
+        buf[1] = val;
 
         this.time += (this.freq * 2 * Math.PI) / sampleRate;
     }
