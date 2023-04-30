@@ -21,7 +21,8 @@ export interface SystemAudioInterface {
     openModuleConfig: (id: string) => void,
     releaseModule: (id: string) => void,
     sendEventToModule: (id: string, event: NoteEvent) => void,
-    requestAudio: (sampleRate: number, numChannels: number, numSamples: number) => Promise<ArrayBuffer[]>
+    moduleConnect: (srcID: string, destID: string) => Promise<void>,
+    moduleDisconnect: (id: string) => Promise<void>
 }
 
 declare global {
@@ -45,6 +46,18 @@ export class ModuleController {
 
     public sendEvent(event: NoteEvent) {
         systemAudio.sendEventToModule(this._id, event);
+    }
+
+    public async connect(mod: ModuleController) {
+        await systemAudio.moduleConnect(this._id, mod._id);
+    }
+
+    public async connectToOutput() {
+        await systemAudio.moduleConnect(this._id, "output");
+    }
+
+    public async disconnect() {
+        await systemAudio.moduleDisconnect(this._id);
     }
 }
 

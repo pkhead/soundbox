@@ -10,49 +10,72 @@ class NoteData {
     }
 }
 
-/*
-const audioContext = new AudioContext();
-let audioProcessor: AudioWorkletNode | undefined;
+export class AudioModule {
+    protected module: ModuleController | null
+    protected modType: string
 
-audioContext.audioWorklet.addModule("synth-worker.js").then(() => {
-    audioProcessor = new AudioWorkletNode(audioContext, "audio-processor", {
-        numberOfInputs: 0,
-        numberOfOutputs: 1,
-        outputChannelCount: [2]
-    });
-
-    audioProcessor.port.onmessage = (ev) => {
-        systemAudio.requestAudio(audioContext.sampleRate, ev.data.channels, ev.data.numSamples).then(output => {
-            audioProcessor?.port.postMessage(output, output);
-        });
+    constructor(modType: string) {
+        this.module = null;
+        this.modType = modType;
     }
 
-    audioProcessor.connect(audioContext.destination);
-});
-*/
+    public async init() {
+        this.module = await createModule(this.modType);
+    }
 
-export interface AudioModule {
-    init(): Promise<void>;
-    release(): void;
+    public async release() {
+        this.module?.release();
+        this.module = null;
+    }
+
+    /**
+     * Connect this AudioModule to another
+     * @param dest The AudioModule to connect to
+     */
+    public async connect(dest: AudioModule) {
+        if (!this.module) {
+            throw new Error("module is not initialized");
+        }
+
+        if (!dest.module) {
+            throw new Error("module is not initialized");
+        }
+
+        await this.module.connect(dest.module);
+    }
+
+    /**
+     * Connect this AudioModule to the audio device
+     */
+    public async connectToOutput() {
+        if (!this.module) throw new Error("module is not initialized");
+        await this.module.connectToOutput();
+    }
+
+    /**
+     * Disconnect this AudioModule from its output
+     */
+    public async disconnect() {
+        if (!this.module) throw new Error("module is not initialized");
+        await this.module.disconnect();
+    }
+
     // connect(dest: AudioModule): Promise<void>
     // disconnect(): Promise<void>
 }
 
-export class NoteModule implements AudioModule {
-    private module: ModuleController | null
+export class NoteModule extends AudioModule {
     private curNotes: NoteData[]
-    private modType: string
 
     constructor(_modType: string) {
+        super("basic-synth");
         this.curNotes = [];
-        this.module = null;
-        this.modType = "basic-synth";
     }
 
     public get moduleType() { return this.modType; }
 
     public async init() {
-        this.module = await createModule(this.modType);
+        await super.init();
 
         const redraw = () => {
             if (this.module) {
@@ -78,19 +101,14 @@ export class NoteModule implements AudioModule {
         redraw();
     }
 
-    public async release() {
-        this.module?.release();
-        this.module = null;
-    }
-
-    public playNote(key: number, duration: number) {
+    public playNote(key: number, duration: number, volume: number = 1) {
         if (this.module) {
-            this.beginNote(key, 0.1);
+            this.beginNote(key, volume);
             this.curNotes.push(new NoteData(key, Date.now() + duration));
         }
     }
 
-    public beginNote(key: number, volume: number = 0.1) {
+    public beginNote(key: number, volume: number = 1) {
         if (this.module) {
             //const freq = 440 * 2 ** ((key - 69) / 12);
             this.module.sendEvent({
@@ -109,6 +127,7 @@ export class NoteModule implements AudioModule {
     }
 }
 
+/*
 export class EffectModule implements AudioModule {
     private module: ModuleController | null;
     private modType: string;
@@ -137,3 +156,4 @@ export class EffectChain {
         this.modules = [];
     }
 }
+*/

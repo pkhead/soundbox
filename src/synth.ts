@@ -1,4 +1,4 @@
-import { AudioModule, NoteEvent, NoteEventType } from "./audio";
+import { AudioDevice, AudioModule, NoteEvent, NoteEventType } from "./audio";
 
 class Voice {
     public freq: number;
@@ -16,8 +16,8 @@ class Voice {
     public compute(sampleRate: number, buf: Float32Array) {
         const val = Math.sin(this.time) * this.volume;
 
-        buf[0] = val;
-        buf[1] = val;
+        buf[0] = val * 0.1;
+        buf[1] = val * 0.1;
 
         this.time += (this.freq * 2 * Math.PI) / sampleRate;
     }
@@ -67,8 +67,8 @@ export class BasicSynthesizer extends AudioModule {
         }
     }
 
-    public process(inputs: Float32Array[][], outputs: Float32Array[][], sampleRate: number) {
-        const output = outputs[0];
+    public process(inputs: Float32Array[][], output: Float32Array[], device: AudioDevice) {
+        const sampleRate = device.sampleRate;
 
         for (let i = 0; i < output[0].length; i++) {
             let valL = 0;

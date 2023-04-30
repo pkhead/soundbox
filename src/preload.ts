@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld("systemAudio", {
     openModuleConfig: (id: string) => ipcRenderer.send("module.config", id),
     releaseModule: (id: string) => ipcRenderer.send("module.remove", id),
     sendEventToModule: (id: string, ev: any) => ipcRenderer.send("module.event", id, ev),
-    requestAudio: (sampleRate: number, numChannels: number, numSamples: number) => ipcRenderer.invoke("audiorequest", sampleRate, numChannels, numSamples),
+    moduleConnect: (srcId: string, destId: string) => ipcRenderer.invoke("module.connect", srcId, destId),
+    moduleDisconnect: (id: string) => ipcRenderer.invoke("module.disconnect", id)
 });

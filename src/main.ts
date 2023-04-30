@@ -60,9 +60,7 @@ const audioStart = () => {
         } while (moduleMap.has(id));
 
         moduleMap.set(id, module);
-
         modules.push(module);
-
         console.log(`create module ${id}`);
 
         return id;
@@ -72,6 +70,7 @@ const audioStart = () => {
         let module = moduleMap.get(id);
         
         if (module) {
+            module.removeAllConnections();
             moduleMap.delete(id);   
 
             console.log(`remove module ${id}`);
@@ -89,42 +88,39 @@ const audioStart = () => {
         if (module) {
             module.event(ev);
         }
-    })
-
-    ipcMain.handle("audiorequest", (ev, sampleRate: number, numChannels: number, numSamples: number): Buffer[] => {
-        let channels = []
-
-        for (let ch = 0; ch < numChannels; ch++) {
-            channels.push(new Float32Array(numSamples));
-        }
-
-        for (let mod of modules) {
-            mod.process([], [channels], sampleRate);
-        }
-
-        return channels.map(v => Buffer.from(v.buffer));
     });
 
-    audioDevice.process = function(channels) {
-        for (let mod of modules) {
-            // create input and output buffers
-            let inputs: Float32Array[][] = [[]];
-            let outputs: Float32Array[][] = [[]];
+    ipcMain.on("module.config", (event, id: string) => {
+        throw new Error("todo: module.config");
+    });
 
-            for (let ch = 0; ch < channels.length; ch++) {
-                outputs[0].push(new Float32Array(channels[ch].length));
-            }
-
-            mod.process(inputs, outputs, this.sampleRate);
-
-            // add output of buffer to device output
-            for (let ch = 0; ch < channels.length; ch++) {
-                for (let i = 0; i < channels[ch].length; i++) {
-                    channels[ch][i] += outputs[0][ch][i];
-                }
-            }
+    ipcMain.handle("module.connect", (event, src: string, dest: string) => {
+        if (!audioDevice) {
+            throw new Error("audio device not found");
         }
-    }
+
+        let srcMod = moduleMap.get(src);
+        if (!srcMod) throw new Error("source module does not exist");
+
+        // destination is the audio output
+        if (dest === "output") {
+            srcMod.connect(audioDevice);
+            return;
+        }
+
+        // destination is an AudioModule
+        let destMod = moduleMap.get(dest);
+        if (!destMod) throw new Error("destination module does not exist");
+
+        srcMod.connect(destMod);
+    });
+
+    ipcMain.handle("module.disconnect", (event, id: string) => {
+        let mod = moduleMap.get(id);
+        if (!mod) throw new Error("module not found");
+
+        mod.disconnect();
+    });
 }
 
 app.whenReady().then(() => {

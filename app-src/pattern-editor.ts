@@ -275,7 +275,7 @@ export class PatternEditor {
                     this.playPianoKey = true;
                     let synth = this.getCurrentInstrument();
                     
-                    if (synth) synth.beginNote(this.mouseGridY + this.scroll, 0.1);
+                    if (synth) synth.beginNote(this.mouseGridY + this.scroll);
                     else console.warn("no synth");
                 }
             }

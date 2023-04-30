@@ -38,9 +38,7 @@ export class Channel {
     public instrument: NoteModule | null;
 
     constructor(songLength: number, maxPatterns: number) {
-        this.instrument = new NoteModule("basic-synth");
-        this.instrument.init();
-
+        this.instrument = null;
         this.sequence = [];
         this.patterns = [];
 
@@ -51,6 +49,12 @@ export class Channel {
         for (let i = 0; i < maxPatterns; i++) {
             this.patterns.push(new Pattern());
         }
+    }
+
+    public async loadInstrument() {
+        this.instrument = new NoteModule("basic-synth");
+        await this.instrument.init();
+        await this.instrument.connectToOutput();
     }
 }
 
@@ -114,6 +118,12 @@ export class Song {
         }
         
         this._maxPatterns = numPatterns;
+    }
+
+    public async loadInstruments() {
+        for (let ch of this.channels) {
+            await ch.loadInstrument();
+        }
     }
 
     public newPattern(channelId: number): number {
@@ -222,8 +232,10 @@ export class Song {
 
         // stop all currently playing notes
         for (let note of this.activeNotes) {
-            this.dispatchEvent("noteEnd", note.note.key, note.channel);
+            let ch = this.channels[note.channel];
+            if (ch.instrument) ch.instrument.endNote(note.note.key);
         }
+
         this.activeNotes = [];
 
         this.dispatchEvent("playheadMoved");
