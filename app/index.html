@@ -60,7 +60,7 @@
 
         <div class="panel" id="instrument-panel">
           <div class="panel-title">
-            <input class="name-field" type="text" value="Inst1">
+            <input class="name-field" type="text" value="Channel1">
           </div>
 
           <div class="row-option">
@@ -82,17 +82,18 @@
           
           <div class="panel-title">[No Instrument]</div>
           <div class="row-option">
-            <select class="psuedobutton row-item" id="instrument-open" value="thing">
-              <option selected disabled hidden value="thing">Open</option>
-              <option>chip wave</option>
-              <option>pulse width</option>
-              <option>FM</option>
-              <option>spectrum</option>
-              <option>noise</option>
-              <option>sample</option>
-              <option>plug-in...</option>
+            <select class="psuedobutton row-item" id="instrument-open" value="label">
+              <option selected disabled value="label">Open</option>
+              <!-- <option value="synth.dummy">dummy</option> -->
+              <option value="synth.waveform">waveform</option>
+              <option value="synth.pulsewidth">pulse width</option>
+              <option value="synth.fm">FM</option>
+              <option value="synth.spectrum">spectrum</option>
+              <option value="synth.noise">noise</option>
+              <option value="synth.sample">sample</option>
+              <option value="plugin">plug-in...</option>
             </select>
-            <button class="row-item">Edit</button>
+            <button class="row-item" id="instrument-edit">Edit</button>
           </div>
 
           <div class="row-separator"></div>

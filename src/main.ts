@@ -1,9 +1,9 @@
 import { app, BrowserWindow, Menu, dialog, globalShortcut, ipcMain } from "electron";
 import { AudioDevice, AudioModule, NoteEvent } from "./audio";
 import path from "path";
-import { Readable } from "stream";
-import { BasicSynthesizer } from "./synth";
 import { v4 as uuidv4 } from "uuid";
+
+import { createModule } from "./modules";
 
 var mainWindow: BrowserWindow | null;
 var audioDevice: AudioDevice | null = null;
@@ -42,15 +42,10 @@ const audioStart = () => {
     let modules: AudioModule[] = [];
 
     ipcMain.handle("module.create", (event, modName: string) => {
-        let module: AudioModule;
+        let module = createModule(modName);
 
-        switch (modName) {
-            case "basic-synth":
-                module = new BasicSynthesizer();
-                break;
-
-            default:
-                throw new Error(`unknown module name "${modName}"`);
+        if (!module) {
+            throw new Error(`module ${modName} does not exist`);
         }
 
         // generate a unique random ID

@@ -1,11 +1,15 @@
 import { TrackEditor } from "./track-editor";
 import { PatternEditor } from "./pattern-editor";
 import { Song } from "./song";
+import { AudioModule, NoteModule } from "./synth";
 
 const song = new Song(4, 16, 4);
-song.loadInstruments().then(() => {
+song.initInstruments().then(() => {
     const playButton = document.getElementById("play-button") as HTMLButtonElement;
     const tempoField = document.getElementById("tempo-field") as HTMLInputElement;
+    const instrumentOpen = document.getElementById("instrument-open") as HTMLOptionElement;
+    const instrumentEdit = document.getElementById("instrument-edit") as HTMLButtonElement;
+
     tempoField.value = song.tempo.toString();
 
     const togglePlay = () => {
@@ -25,6 +29,20 @@ song.loadInstruments().then(() => {
     tempoField.onchange = () => {
         song.tempo = +tempoField.value;
     };
+
+    // channel instrument controls
+    instrumentOpen.onchange = () => {
+        let openValue = instrumentOpen.value;
+        instrumentOpen.value = "label";
+
+        let channel = song.channels[song.selectedChannel];
+
+        if (openValue === "plugin") {
+            console.log("Open plugin");
+        } else {
+            channel.loadInstrument(openValue);
+        }
+    }
 
     window.addEventListener("keydown", (ev) => {
         if (document.activeElement && (document.activeElement.nodeName === "INPUT" || document.activeElement.nodeName == "TEXTBOX")) return;
@@ -63,14 +81,4 @@ song.loadInstruments().then(() => {
         console.log("track changed");
         patternEditor.redraw();
     });
-
-    /*
-    song.addEventListener("noteStart", (key: number, channel: number) => {
-        synth.beginNote(key, 0.1);
-    });
-
-    song.addEventListener("noteEnd", (key: number, channel: number) => {
-        synth.endNote(key);
-    });
-    */
 });

@@ -29,7 +29,7 @@ export class AudioModule {
     /**
      * Unload the module
      */
-    public async release() {
+    public release() {
         this.module?.release();
         this.module = null;
     }
@@ -74,7 +74,7 @@ export class NoteModule extends AudioModule {
     private curNotes: NoteData[]
 
     constructor(_modType: string) {
-        super("basic-synth");
+        super(_modType);
         this.curNotes = [];
     }
 

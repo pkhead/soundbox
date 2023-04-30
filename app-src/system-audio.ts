@@ -1,3 +1,5 @@
+import { unescapeLeadingUnderscores } from "../node_modules/typescript/lib/typescript";
+
 export const enum NoteEventType {
     NoteOn = 0,
     NoteOff = 1
@@ -31,9 +33,18 @@ declare global {
 
 export class ModuleController {
     private _id: string;
+    private _unloadCallback; // listen to unload event so that module can be released before load
+    private _loaded: boolean;
 
     constructor(id: string) {
+        this._loaded = true;
         this._id = id;
+
+        this._unloadCallback = () => {
+            this.release();
+        };
+
+        window.addEventListener("beforeunload", this._unloadCallback);
     };
 
     public openConfig() {
@@ -41,7 +52,11 @@ export class ModuleController {
     }
 
     public release() {
-        systemAudio.releaseModule(this._id);
+        if (this._loaded) {
+            window.removeEventListener("beforeunload", this._unloadCallback);
+            systemAudio.releaseModule(this._id);
+            this._loaded = false;
+        }
     }
 
     public sendEvent(event: NoteEvent) {

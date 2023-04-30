@@ -51,8 +51,12 @@ export class Channel {
         }
     }
 
-    public async loadInstrument() {
-        this.instrument = new NoteModule("basic-synth");
+    public async loadInstrument(modName: string) {
+        if (this.instrument) {
+            this.instrument.release();
+        }
+
+        this.instrument = new NoteModule(modName);
         await this.instrument.init();
         await this.instrument.connectToOutput();
     }
@@ -120,9 +124,9 @@ export class Song {
         this._maxPatterns = numPatterns;
     }
 
-    public async loadInstruments() {
+    public async initInstruments() {
         for (let ch of this.channels) {
-            await ch.loadInstrument();
+            await ch.loadInstrument("synth.dummy");
         }
     }
 
