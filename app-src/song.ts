@@ -60,15 +60,23 @@ export class Channel {
     }
 
     public set volume(v: number) {
-        this._volume = Math.min(Math.max(v, 0), 1);
-        this.volumeModule.setParam("volume", this._volume);
+        v = Math.min(Math.max(v, 0), 1);
+
+        if (v !== this.volume) {
+            this._volume = v;
+            this.volumeModule.setParam("volume", this._volume);
+        }
     }
 
     public get volume() { return this._volume; }
 
     public set panning(v: number) {
-        this._panning = Math.min(Math.max(v, -1), 1);
-        this.volumeModule.setParam("panning", this._panning);
+        v = Math.min(Math.max(v, -1), 1);
+
+        if (v !== this._panning) {
+            this._panning = v;
+            this.volumeModule.setParam("panning", this._panning);
+        }
     }
 
     public get panning() { return this._panning; }

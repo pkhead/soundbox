@@ -1,12 +1,11 @@
 import { app, BrowserWindow, Menu, dialog, globalShortcut, ipcMain } from "electron";
-import { AudioDevice, AudioModule, NoteEvent } from "./audio";
+import { AudioDevice, AudioModule, NoteEvent, globalAudio } from "./audio";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
 import { createModule } from "./modules";
 
 var mainWindow: BrowserWindow | null;
-var audioDevice: AudioDevice | null = null;
 
 const createWindow = () => {
     mainWindow = new BrowserWindow({
@@ -36,7 +35,7 @@ const createWindow = () => {
 }
 
 const audioStart = () => {
-    audioDevice = new AudioDevice();
+    globalAudio.device = new AudioDevice();
 
     let moduleMap: Map<string, AudioModule> = new Map();
     let modules: AudioModule[] = [];
@@ -87,18 +86,19 @@ const audioStart = () => {
     ipcMain.handle("module.param", (event, id: string, action: string, paramName: string, paramValue?: any) => {
         let mod = moduleMap.get(id);
         if (!mod) throw new Error("module does not exist");
+        if (!mod.parameters) throw new ReferenceError(`parameter ${paramName} does not exist`);
 
         if (action === "set") {
-            mod.setParam(paramName, paramValue);
+            mod.parameters.setValue(paramName, paramValue); 
         } else if (action === "get") {
-            return mod.getParam(paramName);
+            mod.parameters.getValue(paramName);
         } else {
             throw new Error(`invalid action ${action} for module.param`);
         }
     });
 
     ipcMain.handle("module.connect", (event, src: string, dest: string) => {
-        if (!audioDevice) {
+        if (!globalAudio.device) {
             throw new Error("audio device not found");
         }
 
@@ -107,7 +107,7 @@ const audioStart = () => {
 
         // destination is the audio output
         if (dest === "output") {
-            srcMod.connect(audioDevice);
+            srcMod.connect(globalAudio.device);
             return;
         }
 
@@ -299,7 +299,8 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
-        audioDevice?.close();
+        globalAudio.device?.close();
+        globalAudio.device = undefined;
         app.quit();
     }
 })

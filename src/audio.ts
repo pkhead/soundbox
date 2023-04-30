@@ -1,4 +1,5 @@
 import { AudioOutputDevice } from "soundlib";
+import { Parameters } from "./modules/util";
 
 interface AudioDeviceOptions {
     bitDepth?: number,
@@ -16,6 +17,7 @@ const BUFFER_SIZE = 512;
 export class AudioDevice {
     private _device: AudioOutputDevice
     private _inputs: AudioModule[]
+    private _time: number
 
     /**
      * The array of input `AudioModules`
@@ -31,16 +33,25 @@ export class AudioDevice {
      * One frame is the samples from all the channels at a point in time.
      */
     public get bufferSize() { return BUFFER_SIZE; }
+
+    /**
+     * THis is the amount of time that has passed since the device has started
+     */
+    public get time() { return this._time; }
     
     private timeout: NodeJS.Timeout | null
 
     constructor() {
         this._device = new AudioOutputDevice();
         this._inputs = [];
+        this._time = 0;
         
         let audioBuf = new Float32Array(BUFFER_SIZE * this._device.channelCount);
         let channelL = new Float32Array(BUFFER_SIZE);
         let channelR = new Float32Array(BUFFER_SIZE);
+
+        // how much time passes per block
+        let timeDelta = BUFFER_SIZE / this._device.sampleRate;
 
         // automatically send data to the audio device every 10 ms
         let timeoutCallback = () => {
@@ -60,6 +71,7 @@ export class AudioDevice {
                 }
 
                 this._device.queue(audioBuf.buffer);
+                this._time += timeDelta;
             }
             
             this.timeout = setTimeout(timeoutCallback, 10);
@@ -107,7 +119,10 @@ export class AudioDevice {
     }
 }
 
-
+export namespace globalAudio {
+    // create a globally accessible reference to the AudioDevice
+    export var device: AudioDevice | undefined;
+}
 
 export const enum NoteEventType {
     NoteOn = 0,
@@ -146,6 +161,7 @@ export abstract class AudioModule {
 
     public get output() { return this._output; }
     public get inputs() { return this._inputs; }
+    public parameters: Parameters | undefined
 
     /**
      * Disconnects an input
@@ -235,18 +251,4 @@ export abstract class AudioModule {
      * @param device The target device
      */
     public abstract process(inputs: Float32Array[][], output: Float32Array[], device: AudioDevice): void
-
-    /**
-     * Get the value of a parameter for the audio module
-     * @param paramName The name of the parameter
-     * @returns The value of the parameter
-     */
-    public getParam(paramName: string): any { }
-
-    /**
-     * Set the value of a parameter for the audio module
-     * @param paramName The name of the parameter
-     * @param paramValue The value of the parameter
-     */
-    public setParam(paramName: string, paramValue: any): void { }
 }

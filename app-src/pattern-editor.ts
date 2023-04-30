@@ -323,7 +323,7 @@ export class PatternEditor {
      * Stop notes that are being played from the piano key display
      */
     public stopAllNotes() {
-        if (this.mouseGridY !== null) {
+        if (this.mouseGridY !== null && this.playPianoKey) {
             this.getCurrentInstrument()?.endNote(this.mouseGridY + this.scroll);
         }
     }

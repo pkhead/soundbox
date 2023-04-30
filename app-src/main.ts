@@ -20,14 +20,14 @@ song.initInstruments().then(async () => {
     }
     channelChanged();
 
-    volumeSlider.onmousemove = () => {
+    volumeSlider.oninput = () => {
         song.channels[song.selectedChannel].volume = +volumeSlider.value / 100;
     };
 
-    panningSlider.onmousemove = () => {
+    panningSlider.oninput = () => {
         song.channels[song.selectedChannel].panning = (+panningSlider.value - 50) / 100;
     };
-
+    
     const togglePlay = () => {
         if (song.isPlaying) {
             song.stop();
