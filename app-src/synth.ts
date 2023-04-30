@@ -1,9 +1,8 @@
-import { Note, Song } from "./song";
 import { ModuleController, NoteEventType, createModule } from "./system-audio";
 
 class NoteData {
-    public key: number;
-    public end: number;
+    public key: number
+    public end: number
 
     constructor(key: number, end: number) {
         this.key = key;
@@ -32,22 +31,33 @@ audioContext.audioWorklet.addModule("synth-worker.js").then(() => {
 });
 */
 
-export class Synthesizer {
-    private module: ModuleController | null;
-    private curNotes: NoteData[];
+export interface AudioModule {
+    init(): Promise<void>;
+    release(): void;
+    // connect(dest: AudioModule): Promise<void>
+    // disconnect(): Promise<void>
+}
 
-    constructor() {
+export class NoteModule implements AudioModule {
+    private module: ModuleController | null
+    private curNotes: NoteData[]
+    private modType: string
+
+    constructor(_modType: string) {
         this.curNotes = [];
         this.module = null;
+        this.modType = "basic-synth";
     }
 
+    public get moduleType() { return this.modType; }
+
     public async init() {
-        this.module = await createModule("basic-synth");
+        this.module = await createModule(this.modType);
 
         const redraw = () => {
-            requestAnimationFrame(redraw);
-
             if (this.module) {
+                requestAnimationFrame(redraw);
+
                 let curTime = Date.now();
 
                 for (let i = this.curNotes.length - 1; i >= 0; i--) {
@@ -68,12 +78,9 @@ export class Synthesizer {
         redraw();
     }
 
-    public start() {
-        //if (this.audioProcessor) this.audioProcessor.connect(this.audioContext.destination);
-    }
-
-    public stop() {
-        //if (this.audioProcessor) this.audioProcessor.disconnect();
+    public async release() {
+        this.module?.release();
+        this.module = null;
     }
 
     public playNote(key: number, duration: number) {
@@ -99,5 +106,34 @@ export class Synthesizer {
             type: NoteEventType.NoteOff,
             key: key
         });
+    }
+}
+
+export class EffectModule implements AudioModule {
+    private module: ModuleController | null;
+    private modType: string;
+
+    constructor(modType: string) {
+        this.module = null;
+        this.modType = modType;
+    }
+
+    public get moduleType() { return this.modType; }
+
+    public async init() {
+        this.module = await createModule(this.modType);
+    }
+
+    public async release() {
+        this.module?.release();
+        this.module = null;
+    }
+}
+
+export class EffectChain {
+    private modules: ModuleController[];
+    
+    constructor() {
+        this.modules = [];
     }
 }

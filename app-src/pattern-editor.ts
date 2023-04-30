@@ -1,13 +1,12 @@
 import { Colors } from "./colors";
 import { Song, Pattern, Note } from "./song";
-import { Synthesizer } from "./synth";
+import { NoteModule } from "./synth";
 
 const CELL_MARGIN = 2;
 const KEY_WIDTH = 40;
 
 export class PatternEditor {
     private song: Song;
-    private synth: Synthesizer;
 
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
@@ -39,9 +38,8 @@ export class PatternEditor {
     private viewportWidth: number = 0;
     private viewportHeight: number = 0;
 
-    constructor(song: Song, synth: Synthesizer, canvas: HTMLCanvasElement) {
+    constructor(song: Song, canvas: HTMLCanvasElement) {
         this.song = song;
-        this.synth = synth;
 
         const ctx = canvas.getContext("2d");
 
@@ -218,8 +216,14 @@ export class PatternEditor {
             // piano key glissando
             if (this.playPianoKey && gridY !== null && mouseGridY !== null) {
                 if (gridY !== mouseGridY) {
-                    this.synth.endNote(mouseGridY + this.scroll);
-                    this.synth.beginNote(gridY + this.scroll);
+                    let synth = this.getCurrentInstrument();
+
+                    if (synth) {
+                        synth.endNote(mouseGridY + this.scroll);
+                        synth.beginNote(gridY + this.scroll);
+                    } else {
+                        console.warn("no synth");
+                    }
                 }
             }
         };
@@ -269,7 +273,10 @@ export class PatternEditor {
 
                 if (this.mouseInPianoKey && this.mouseGridY !== null) {
                     this.playPianoKey = true;
-                    this.synth.beginNote(this.mouseGridY + this.scroll, 0.1);
+                    let synth = this.getCurrentInstrument();
+                    
+                    if (synth) synth.beginNote(this.mouseGridY + this.scroll, 0.1);
+                    else console.warn("no synth");
                 }
             }
         });
@@ -277,7 +284,10 @@ export class PatternEditor {
         window.addEventListener("mouseup", (ev) => {
             if (this.playPianoKey && this.mouseGridY !== null) {
                 this.playPianoKey = false;
-                this.synth.endNote(this.mouseGridY + this.scroll);
+                let synth;
+
+                if ((synth = this.getCurrentInstrument())) synth.endNote(this.mouseGridY + this.scroll);
+                else console.warn("no synth");
             }
 
             if (this.activeNote) {
@@ -302,6 +312,16 @@ export class PatternEditor {
         resize();
         const resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(canvasContainer);
+    }
+
+    public stopAllNotes() {
+        if (this.mouseGridY !== null) {
+            this.getCurrentInstrument()?.endNote(this.mouseGridY + this.scroll);
+        }
+    }
+
+    private getCurrentInstrument(): NoteModule | null {
+        return this.song.channels[this.song.selectedChannel].instrument;
     }
 
     // get the current pattern from the song data

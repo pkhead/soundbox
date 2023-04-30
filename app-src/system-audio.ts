@@ -1,5 +1,3 @@
-import { sys } from "../node_modules/typescript/lib/typescript";
-
 export const enum NoteEventType {
     NoteOn = 0,
     NoteOff = 1

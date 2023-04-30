@@ -3,6 +3,7 @@ import { AudioDevice, AudioModule, NoteEvent } from "./audio";
 import path from "path";
 import { Readable } from "stream";
 import { BasicSynthesizer } from "./synth";
+import { v4 as uuidv4 } from "uuid";
 
 var mainWindow: BrowserWindow | null;
 var audioDevice: AudioDevice | null = null;
@@ -37,7 +38,7 @@ const createWindow = () => {
 const audioStart = () => {
     audioDevice = new AudioDevice();
 
-    let moduleMap: Map<number, AudioModule> = new Map();
+    let moduleMap: Map<string, AudioModule> = new Map();
     let modules: AudioModule[] = [];
 
     ipcMain.handle("module.create", (event, modName: string) => {
@@ -55,7 +56,7 @@ const audioStart = () => {
         // generate a unique random ID
         let id;
         do {
-            id = (Math.random() * 2147483647) | 0;
+            id = uuidv4();
         } while (moduleMap.has(id));
 
         moduleMap.set(id, module);
@@ -67,7 +68,7 @@ const audioStart = () => {
         return id;
     });
 
-    ipcMain.on("module.remove", (event, id: number) => {
+    ipcMain.on("module.remove", (event, id: string) => {
         let module = moduleMap.get(id);
         
         if (module) {
@@ -80,7 +81,9 @@ const audioStart = () => {
         }
     });
 
-    ipcMain.on("module.event", (event, id: number, ev: NoteEvent) => {
+    ipcMain.on("module.event", (event, id: string, ev: NoteEvent) => {
+        console.log("receive event", ev);
+
         let module = moduleMap.get(id);
 
         if (module) {
@@ -104,7 +107,22 @@ const audioStart = () => {
 
     audioDevice.process = function(channels) {
         for (let mod of modules) {
-            mod.process([], [channels], this.sampleRate);
+            // create input and output buffers
+            let inputs: Float32Array[][] = [[]];
+            let outputs: Float32Array[][] = [[]];
+
+            for (let ch = 0; ch < channels.length; ch++) {
+                outputs[0].push(new Float32Array(channels[ch].length));
+            }
+
+            mod.process(inputs, outputs, this.sampleRate);
+
+            // add output of buffer to device output
+            for (let ch = 0; ch < channels.length; ch++) {
+                for (let i = 0; i < channels[ch].length; i++) {
+                    channels[ch][i] += outputs[0][ch][i];
+                }
+            }
         }
     }
 }

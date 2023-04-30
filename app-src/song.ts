@@ -1,4 +1,4 @@
-import { isJSDocThisTag } from "../node_modules/typescript/lib/typescript";
+import { NoteModule } from "./synth";
 
 export class Note {
     public length: number;
@@ -35,8 +35,12 @@ export class Pattern {
 export class Channel {
     public sequence: number[];
     public patterns: Pattern[];
+    public instrument: NoteModule | null;
 
     constructor(songLength: number, maxPatterns: number) {
+        this.instrument = new NoteModule("basic-synth");
+        this.instrument.init();
+
         this.sequence = [];
         this.patterns = [];
 
@@ -179,7 +183,7 @@ export class Song {
 
                 if (isNewNote) {
                     this.activeNotes.push(note);
-                    this.dispatchEvent("noteStart", note.note.key, note.channel);
+                    this.channels[note.channel]?.instrument?.beginNote(note.note.key, 1);
                 }
             }
 
@@ -199,7 +203,7 @@ export class Song {
                     let index = this.activeNotes.findIndex(v => v.note === oldNote.note);
                     if (index >= 0) this.activeNotes.splice(index, 1);
 
-                    this.dispatchEvent("noteEnd", oldNote.note.key, oldNote.channel);
+                    this.channels[oldNote.channel]?.instrument?.endNote(oldNote.note.key);
                 }
             }
 
