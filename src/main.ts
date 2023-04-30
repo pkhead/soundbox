@@ -89,6 +89,19 @@ const audioStart = () => {
         throw new Error("todo: module.config");
     });
 
+    ipcMain.handle("module.param", (event, id: string, action: string, paramName: string, paramValue?: any) => {
+        let mod = moduleMap.get(id);
+        if (!mod) throw new Error("module does not exist");
+
+        if (action === "set") {
+            mod.setParam(paramName, paramValue);
+        } else if (action === "get") {
+            return mod.getParam(paramName);
+        } else {
+            throw new Error(`invalid action ${action} for module.param`);
+        }
+    });
+
     ipcMain.handle("module.connect", (event, src: string, dest: string) => {
         if (!audioDevice) {
             throw new Error("audio device not found");

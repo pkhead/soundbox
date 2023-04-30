@@ -234,4 +234,18 @@ export abstract class AudioModule {
      * @param device The target device
      */
     public abstract process(inputs: Float32Array[][], output: Float32Array[], device: AudioDevice): void
+
+    /**
+     * Get the value of a parameter for the audio module
+     * @param paramName The name of the parameter
+     * @returns The value of the parameter
+     */
+    public getParam(paramName: string): any { }
+
+    /**
+     * Set the value of a parameter for the audio module
+     * @param paramName The name of the parameter
+     * @param paramValue The value of the parameter
+     */
+    public setParam(paramName: string, paramValue: any): void { }
 }

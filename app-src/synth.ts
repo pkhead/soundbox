@@ -21,6 +21,7 @@ export class AudioModule {
 
     /**
      * Load the module. The module type is given in the `AudioModule` base class constructor
+     * @returns A `Promise<void>` for the successful initialization of the module
      */
     public async init() {
         this.module = await createModule(this.modType);
@@ -37,6 +38,7 @@ export class AudioModule {
     /**
      * Connect this AudioModule to another
      * @param dest The AudioModule to connect to
+     * @returns A `Promise<void>` for the success of the connection
      */
     public async connect(dest: AudioModule) {
         if (!this.module) {
@@ -52,6 +54,7 @@ export class AudioModule {
 
     /**
      * Connect this AudioModule to the audio device
+     * @returns A `Promise<void>` for the success of the connection
      */
     public async connectToOutput() {
         if (!this.module) throw new Error("module is not initialized");
@@ -60,14 +63,32 @@ export class AudioModule {
 
     /**
      * Disconnect this AudioModule from its output
+     * @returns A `Promise<void>` for the success of the disconnection
      */
     public async disconnect() {
         if (!this.module) throw new Error("module is not initialized");
         await this.module.disconnect();
     }
+    
+    /**
+     * Get the value of a parameter
+     * @param paramName The name of the parameter
+     * @returns A `Promise<any>` for the value of the parameter 
+     */
+    public getParam(paramName: string) {
+        if (!this.module) throw new Error("module is not initialized");
+        return this.module.getParam(paramName);
+    }
 
-    // connect(dest: AudioModule): Promise<void>
-    // disconnect(): Promise<void>
+    /**
+     * Set the value of a parameter
+     * @param paramName The name of the parameter
+     * @returns A `Promise<void>` for the success of the parameter
+     */
+    public setParam(paramName: string, value: any) {
+        if (!this.module) throw new Error("module is not initialized");
+        return this.module.setParam(paramName, value);
+    }
 }
 
 export class NoteModule extends AudioModule {

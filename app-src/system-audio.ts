@@ -23,6 +23,7 @@ export interface SystemAudioInterface {
     openModuleConfig: (id: string) => void,
     releaseModule: (id: string) => void,
     sendEventToModule: (id: string, event: NoteEvent) => void,
+    moduleParam: (id: string, action: string, name: string, value?: any) => Promise<any>,
     moduleConnect: (srcID: string, destID: string) => Promise<void>,
     moduleDisconnect: (id: string) => Promise<void>
 }
@@ -73,6 +74,14 @@ export class ModuleController {
 
     public async disconnect() {
         await systemAudio.moduleDisconnect(this._id);
+    }
+
+    public getParam(name: string) {
+        return systemAudio.moduleParam(this._id, "get", name);
+    }
+
+    public setParam(name: string, value: any) {
+        return systemAudio.moduleParam(this._id, "set", name, value);
     }
 }
 
