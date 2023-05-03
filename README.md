@@ -1,10 +1,15 @@
 # soundbox
-![image](app/logo.svg)
+![soundbox logo](app/logo.svg)
 
 A desktop application used to create music
 
 ## Installation
-Once the source code is downloaded, run `npm install` and `npm run build`.
+Once the source code is downloaded,
+```
+npm install
+npm run build
+npm start
+```
 
 ## Credits
 - [libsoundio](https://libsound.io) for the audio library
