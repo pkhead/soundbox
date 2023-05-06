@@ -7,12 +7,6 @@
 
     <link href="../style.css" rel="stylesheet">
 
-    <style>
-      body {
-        margin: 10px;
-      }
-    </style>
-
     <script>
       systemAudio.onReady(async () => {
         let waveformSelect = document.getElementById("waveform-select");
@@ -25,10 +19,16 @@
     </script>
   </head>
   <body>
+    <div id="title-bar">
+      <button class="exit-button" onclick="window.close()">X</button>
+    </div>
+
     <label>waveform: </label>
     <select id="waveform-select">
       <option value="0">sine</option>
       <option value="1">triangle</option>
+      <option value="2">square</option>
+      <option value="3">saw</option>
     </select>
   </body>
 </html>

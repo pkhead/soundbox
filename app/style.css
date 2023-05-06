@@ -288,3 +288,34 @@ input[type="range"]:active {
     mask-image: url("symbols/pause.svg");
     -webkit-mask-image: url("symbols/pause.svg");
 }
+
+
+
+
+
+
+#title-bar {
+    background-color: white;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-app-region: drag;
+    text-align: right;
+    background-color: var(--bg-color);
+    padding: 2px;
+}
+
+#title-bar button {
+    -webkit-app-region: no-drag;
+    border-radius: 0;
+    background-color: inherit;
+    height: 24px;
+    margin-left: 5px;
+}
+
+#title-bar button:hover {
+    background-color: var(--clickable-bg-default);
+}
+
+#title-bar button:active {
+    background-color: var(--clickable-bg-active);
+}

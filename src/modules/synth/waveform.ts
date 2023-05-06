@@ -26,16 +26,26 @@ class Voice extends VoiceBase {
 
         switch (this.type) {
             case WaveformType.Sine:
-                val = Math.sin(this.time) * this.volume;
+                val = Math.sin(this.time);
                 break;
 
             case WaveformType.Triangle: {
                 let moda = this.time / (PI2 * this.freq) - period / 4.0;
                 let modb = period;
                 val = (4.0 / period) * Math.abs(mod(moda, modb) - period / 2.0) - 1.0;
+                break;
             }
+
+            case WaveformType.Sawtooth:
+                val = 2.0 * mod(this.time / PI2 + 0.5, 1.0) - 1.0;
+                break;
+
+            case WaveformType.Square:
+                val = Math.sin(this.time) >= 0.0 ? 1.0 : -1.0;
+                break;
         }
 
+        val *= this.volume;
         buf[0] = val;
         buf[1] = val;
 
@@ -103,6 +113,7 @@ export class WaveformSynthesizer extends SynthesizerBase {
                 width: 300,
                 height: 300,
                 show: false,
+                frame: false,
                 webPreferences: {
                     preload: path.join(__dirname, "../module-preload.js")
                 }
@@ -111,7 +122,6 @@ export class WaveformSynthesizer extends SynthesizerBase {
         
             win.once("ready-to-show", () => {
                 win.show();
-                win.webContents.openDevTools();
                 win.webContents.send("moduleid", id);
             });
 
