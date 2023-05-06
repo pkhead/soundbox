@@ -13,7 +13,7 @@ export abstract class VoiceBase {
         this.key = key;
     }
     
-    public abstract compute(sampleRate: number, buf: Float32Array): void;
+    public abstract compute(sampleRate: number, buf: Float32Array, ...args: any[]): void;
 }
 
 type VoiceConstructor = (key: number, freq: number, volume: number) => VoiceBase
@@ -21,22 +21,23 @@ type VoiceConstructor = (key: number, freq: number, volume: number) => VoiceBase
 export abstract class SynthesizerBase extends AudioModule {
     protected voices: VoiceBase[];
     protected voiceBuf: Float32Array; // buffer for voice output
-    protected voiceConstruct: VoiceConstructor
+    //private voiceConstruct: VoiceConstructor
 
-    constructor(voiceConstruct: VoiceConstructor) {
+    constructor() {
         super();
         
-        this.voiceConstruct = voiceConstruct;
         this.voices = [];
         this.voiceBuf = new Float32Array(2);
     }
+
+    protected abstract createVoice(key: number, freq: number, volume: number): VoiceBase
 
     public event(event: NoteEvent) {
         switch (event.type) {
             case NoteEventType.NoteOn:
                 const freq = 440 * 2 ** ((event.key - 69) / 12);
 
-                this.voices.push(this.voiceConstruct(event.key, freq, event.volume));
+                this.voices.push(this.createVoice(event.key, freq, event.volume));
                 break;
 
             case NoteEventType.NoteOff:

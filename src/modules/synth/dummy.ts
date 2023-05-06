@@ -12,19 +12,18 @@ class Voice extends VoiceBase {
     }
 }
 
-function voiceConstructor(key: number, freq: number, volume: number) {
-    return new Voice(key, freq, volume);
-}
-
 /**
  * A dummy synthesizer, which just emits a basic sine wave for each played note
  */
 export class DummySynthesizer extends SynthesizerBase {
     constructor() {
-        super(voiceConstructor);
-        
+        super();
         this.voices = [];
         this.voiceBuf = new Float32Array(2);
+    }
+
+    protected createVoice(key: number, freq: number, volume: number): VoiceBase {
+        return new Voice(key, freq, volume);
     }
 
     public process(_inputs: Float32Array[][], output: Float32Array[], device: AudioDevice) {
