@@ -5,6 +5,7 @@ export interface Parameter {
     target: number, // The target value of the parameter
     value: number, // The starting value of the parameter
     time: number, // The time when the parameter was set
+    interpolate: boolean // Whether or not to interpolate the value when set
 }
 
 const INTERPOLATION_TIME = 0.015;
@@ -26,14 +27,15 @@ export const readParameter = (p: Parameter, t: number) =>
 export class Parameters {
     private map: Map<string, Parameter>;
 
-    constructor(params: Iterable<readonly [string, number]>) {
+    constructor(params: Iterable<readonly [string, number, boolean]>) {
         this.map = new Map();
 
         for (let pair of params) {
             this.map.set(pair[0], {
                 target: pair[1],
                 value: pair[1],
-                time: 0
+                interpolate: pair[2],
+                time: 0,
             });
         }
     }    
@@ -45,13 +47,18 @@ export class Parameters {
      */
     public setValue(name: string, value: number) {
         if (!globalAudio.device) throw new Error("audio device not found");
-
+        
         let param = this.map.get(name);
         if (!param) throw new ReferenceError(`parameter ${name} does not exist`);
 
-        param.value = readParameter(param, globalAudio.device.time);
-        param.target = value;
-        param.time = globalAudio.device.time;
+        if (param.interpolate) {
+            param.value = readParameter(param, globalAudio.device.time);
+            param.target = value;
+            param.time = globalAudio.device.time;
+        } else {
+            param.target = value;
+            param.value = value;
+        }
     }
 
     /**

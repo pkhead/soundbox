@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'"> -->
+
+    <link href="../style.css" rel="stylesheet">
+
+    <style>
+      body {
+        margin: 10px;
+      }
+    </style>
+
+    <script>
+      systemAudio.onReady(async () => {
+        let waveformSelect = document.getElementById("waveform-select");
+        waveformSelect.value = (await systemAudio.moduleParam("get", "waveform")).toString();
+
+        waveformSelect.onchange = () => {
+          systemAudio.moduleParam("set", "waveform", +waveformSelect.value);
+        };
+      });
+    </script>
+  </head>
+  <body>
+    <label>waveform: </label>
+    <select id="waveform-select">
+      <option value="0">sine</option>
+      <option value="1">triangle</option>
+    </select>
+  </body>
+</html>

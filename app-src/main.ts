@@ -58,7 +58,16 @@ song.initInstruments().then(async () => {
         } else {
             channel.loadInstrument(openValue);
         }
-    }
+    };
+
+    instrumentEdit.onclick = () => {
+        let channel = song.channels[song.selectedChannel];
+        let instrument = channel.instrument;
+
+        if (instrument) {
+            instrument.openConfig();
+        }
+    };
 
     window.addEventListener("keydown", (ev) => {
         if (document.activeElement && (document.activeElement.nodeName === "INPUT" || document.activeElement.nodeName == "TEXTBOX")) return;

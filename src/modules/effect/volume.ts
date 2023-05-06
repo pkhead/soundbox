@@ -12,8 +12,8 @@ export class VolumeEffect extends AudioModule {
         super();
 
         this.parameters = new Parameters([
-            ["volume", 1],
-            ["panning", 0]
+            ["volume", 1, true],
+            ["panning", 0, true]
         ]);
 
         this.panning = this.parameters.get("panning");

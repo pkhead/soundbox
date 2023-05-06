@@ -1,12 +1,15 @@
+import { BrowserWindow } from "electron";
+import path from "path";
 import { AudioDevice } from "../../audio";
 import { SynthesizerBase, VoiceBase } from "./synthbase"
+import { Parameter, Parameters } from "../util"
 
 const PI = Math.PI;
 const PI2 = PI * 2;
 const mod = (a: number, b: number) => (a % b + b) % b;
 
 export enum WaveformType {
-    Sine, Triangle, Square, Sawtooth
+    Sine = 0, Triangle = 1, Square = 2, Sawtooth = 3
 }
 
 class Voice extends VoiceBase {
@@ -50,18 +53,23 @@ function voiceConstructor(key: number, freq: number, volume: number) {
  * A dummy synthesizer, which just emits a basic sine wave for each played note
  */
 export class WaveformSynthesizer extends SynthesizerBase {
-    public waveformType: WaveformType;
+    private waveformType: Parameter;
 
     constructor() {
         super();
-        this.waveformType = WaveformType.Triangle;
         
         this.voices = [];
         this.voiceBuf = new Float32Array(2);
+
+        this.parameters = new Parameters([
+            ["waveform", WaveformType.Sine, false],
+        ]);
+
+        this.waveformType = this.parameters.get("waveform");
     }
 
     protected createVoice(key: number, freq: number, volume: number): VoiceBase {
-        return new Voice(key, freq, volume, this.waveformType);
+        return new Voice(key, freq, volume, this.waveformType.value);
     }
 
     public process(_inputs: Float32Array[][], output: Float32Array[], device: AudioDevice) {
@@ -82,5 +90,26 @@ export class WaveformSynthesizer extends SynthesizerBase {
         }
 
         return true;
+    }
+
+    public openConfig(parent: BrowserWindow, id: string): void {
+        const win = new BrowserWindow({
+            parent: parent,
+            width: 300,
+            height: 300,
+            show: false,
+            webPreferences: {
+                preload: path.join(__dirname, "../module-preload.js")
+            }
+        });
+    
+        win.once("ready-to-show", () => {
+            win.show();
+            win.webContents.openDevTools();
+            win.webContents.send("moduleid", id);
+        });
+
+        win.setMenuBarVisibility(false);
+        win.loadFile("app/modules/waveform.html");
     }
 }

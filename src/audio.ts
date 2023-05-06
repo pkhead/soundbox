@@ -1,5 +1,6 @@
 import { AudioOutputDevice } from "soundlib";
 import { Parameters } from "./modules/util";
+import { BrowserWindow } from "electron";
 
 interface AudioDeviceOptions {
     bitDepth?: number,
@@ -251,4 +252,11 @@ export abstract class AudioModule {
      * @param device The target device
      */
     public abstract process(inputs: Float32Array[][], output: Float32Array[], device: AudioDevice): void
+
+    /**
+     * Open the configuration window for this module
+     * @param parent The parent window
+     * @id The ID of the module
+     */
+    public openConfig(parent: BrowserWindow, id: string) { }
 }

@@ -80,7 +80,12 @@ const audioStart = () => {
     });
 
     ipcMain.on("module.config", (event, id: string) => {
-        throw new Error("todo: module.config");
+        let module = moduleMap.get(id);
+        
+        if (module && mainWindow) {
+            console.log("config module");
+            module.openConfig(mainWindow, id);
+        }
     });
 
     ipcMain.handle("module.param", (event, id: string, action: string, paramName: string, paramValue?: any) => {
@@ -91,7 +96,7 @@ const audioStart = () => {
         if (action === "set") {
             mod.parameters.setValue(paramName, paramValue); 
         } else if (action === "get") {
-            mod.parameters.getValue(paramName);
+            return mod.parameters.getValue(paramName);
         } else {
             throw new Error(`invalid action ${action} for module.param`);
         }

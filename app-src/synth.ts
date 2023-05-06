@@ -94,6 +94,14 @@ export class AudioModule {
         if (!this.module) throw new Error("module is not initialized");
         return this.module.setParam(paramName, value);
     }
+
+    /**
+     * Open the configuration window of the module
+     */
+    public openConfig() {
+        if (!this.module) throw new Error("mdoule is not initialized");
+        this.module.openConfig();
+    }
 }
 
 export class NoteModule extends AudioModule {
