@@ -92,24 +92,35 @@ export class WaveformSynthesizer extends SynthesizerBase {
         return true;
     }
 
-    public openConfig(parent: BrowserWindow, id: string): void {
-        const win = new BrowserWindow({
-            parent: parent,
-            width: 300,
-            height: 300,
-            show: false,
-            webPreferences: {
-                preload: path.join(__dirname, "../module-preload.js")
-            }
-        });
-    
-        win.once("ready-to-show", () => {
-            win.show();
-            win.webContents.openDevTools();
-            win.webContents.send("moduleid", id);
-        });
+    private _curWindow: BrowserWindow | null = null;
 
-        win.setMenuBarVisibility(false);
-        win.loadFile("app/modules/waveform.html");
+    public openConfig(parent: BrowserWindow, id: string): void {
+        if (this._curWindow) {
+            this._curWindow.focus();
+        } else {
+            const win = new BrowserWindow({
+                parent: parent,
+                width: 300,
+                height: 300,
+                show: false,
+                webPreferences: {
+                    preload: path.join(__dirname, "../module-preload.js")
+                }
+            });
+            this._curWindow = win;
+        
+            win.once("ready-to-show", () => {
+                win.show();
+                win.webContents.openDevTools();
+                win.webContents.send("moduleid", id);
+            });
+
+            win.on("closed", () => {
+                this._curWindow = null;
+            });
+
+            win.setMenuBarVisibility(false);
+            win.loadFile("app/modules/waveform.html");
+        }
     }
 }
