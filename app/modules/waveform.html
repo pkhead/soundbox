@@ -8,12 +8,17 @@
     <link href="../style.css" rel="stylesheet">
 
     <script>
-      systemAudio.onReady(async () => {
+      systemAudio.onReady(async (port) => {
+        console.log(port);
         let waveformSelect = document.getElementById("waveform-select");
         waveformSelect.value = (await systemAudio.moduleParam("get", "waveform")).toString();
 
         waveformSelect.onchange = () => {
-          systemAudio.moduleParam("set", "waveform", +waveformSelect.value);
+          console.log(port);
+          port.postMessage({
+            action: "set_waveform",
+            value: +waveformSelect.value
+          });
         };
       });
     </script>

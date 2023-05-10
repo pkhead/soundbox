@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, MessageChannelMain } from "electron";
 import path from "path";
 import { AudioDevice } from "../../audio";
 import { SynthesizerBase, VoiceBase } from "./synthbase"
@@ -119,10 +119,18 @@ export class WaveformSynthesizer extends SynthesizerBase {
                 }
             });
             this._curWindow = win;
-        
+
+            let { port1, port2 } = new MessageChannelMain();
+
+            port2.on("message", (ev) => {
+                console.log("message receive");
+            });
+
             win.once("ready-to-show", () => {
                 win.show();
-                win.webContents.send("moduleid", id);
+                win.webContents.openDevTools();
+                port2.start();
+                win.webContents.postMessage("init", id, [port1]);
             });
 
             win.on("closed", () => {
