@@ -48,6 +48,14 @@ int main()
     char ch_name[64] = "Channel 1";
     float volume = 50;
     float panning = 0;
+    int bus_index = 0;
+
+    static const char* bus_names[] = {
+        "0 - master",
+        "1 - bus 1",
+        "2 - bus 2",
+        "3 - drums",
+    };
 
     bool show_demo_window = false;
 
@@ -158,6 +166,23 @@ int main()
         ImGui::Text("Panning");
         ImGui::SameLine();
         ImGui::SliderFloat("##channel_panning", &panning, -1, 1, "%.2f");
+
+        // fx mixer bus combobox
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("FX Bus");
+        ImGui::SameLine();
+        if (ImGui::BeginCombo("##channel_bus", bus_names[bus_index]))
+        {
+            for (int i = 0; i < 4; i++) {
+                if (ImGui::Selectable(bus_names[i], i == bus_index)) bus_index = i;
+
+                if (i == bus_index) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
 
         ImGui::PopItemWidth();
         ImGui::NewLine();
