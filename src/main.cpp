@@ -4,9 +4,234 @@
 #include <stdio.h>
 #include <GLFW/glfw3.h>
 
+struct Vec2 {
+    float x, y;
+    constexpr Vec2() : x(0.0f), y(0.0f) {}
+    constexpr Vec2(float _x, float _y) : x(_x), y(_y) {}
+    Vec2(const ImVec2& src): x(src.x), y(src.y) {}
+
+    Vec2 operator+(const Vec2& other) {
+        return Vec2(x + other.x, y + other.y);
+    }
+    Vec2 operator-(const Vec2& other) {
+        return Vec2(x - other.x, y - other.y);
+    }
+    operator ImVec2() const { return ImVec2(x, y); }
+};
+
+bool show_demo_window = false;
+
 static void glfw_error_callback(int error, const char *description)
 {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
+}
+
+static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (action == GLFW_PRESS) {
+        if (key == GLFW_KEY_F1) {
+            show_demo_window = !show_demo_window;
+        }
+    }
+}
+
+static void compute_imgui(ImGuiIO& io) {
+    static char song_name[64] = "Untitled";
+    static char ch_name[64] = "Channel 1";
+    static float volume = 50;
+    static float panning = 0;
+    static int bus_index = 0;
+
+    static const char* bus_names[] = {
+        "0 - master",
+        "1 - bus 1",
+        "2 - bus 2",
+        "3 - drums",
+    };
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_AutoHideTabBar);
+    if (show_demo_window) ImGui::ShowDemoWindow();
+
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            ImGui::MenuItem("New", "Ctrl+N");
+            ImGui::MenuItem("Save", "Ctrl+S");
+            ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
+            ImGui::Separator();
+            ImGui::MenuItem("Export...");
+            ImGui::MenuItem("Import...");
+            ImGui::Separator();
+            ImGui::MenuItem("Quit", "Ctrl+Q");
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Edit"))
+        {
+            ImGui::MenuItem("Undo", "Ctrl+Z");
+            ImGui::MenuItem("Redo", "Ctrl+Shift+Z"); // use CTRL+Y on windows
+            
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Preferences"))
+        {
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Help"))
+        {
+            ImGui::MenuItem("About...");
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Dev"))
+        {
+            if (ImGui::MenuItem("Toggle Dear ImGUI Demo", "F1")) {
+                show_demo_window = !show_demo_window;
+            }
+
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMainMenuBar();
+    }
+
+    ///////////////////
+    // SONG SETTINGS //
+    ///////////////////
+
+    ImGui::Begin("Song Settings");
+
+    // song name input
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Name");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputText("##song_name", song_name, 64);
+
+    // play/prev/next
+    ImGui::Button("Play", ImVec2(-1.0f, 0.0f));
+    ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f));
+    ImGui::SameLine();
+    ImGui::Button("Next", ImVec2(-1.0f, 0.0f));
+    ImGui::SameLine();
+
+    ImGui::End();
+
+    //////////////////////
+    // CHANNEL SETTINGS //
+    //////////////////////
+
+    ImGui::Begin("Channel Settings", nullptr);
+
+    // channel name
+    ImGui::PushItemWidth(-1.0f);
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Name");
+    ImGui::SameLine();
+    ImGui::InputText("##channel_name", ch_name, 64);
+
+    // volume slider
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Volume");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##channel_volume", &volume, 0, 100, "%.0f");
+
+    // panning slider
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Panning");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##channel_panning", &panning, -1, 1, "%.2f");
+
+    // fx mixer bus combobox
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("FX Bus");
+    ImGui::SameLine();
+    if (ImGui::BeginCombo("##channel_bus", bus_names[bus_index]))
+    {
+        for (int i = 0; i < 4; i++) {
+            if (ImGui::Selectable(bus_names[i], i == bus_index)) bus_index = i;
+
+            if (i == bus_index) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    ImGui::PopItemWidth();
+    ImGui::NewLine();
+
+    // loaded instrument
+    ImGui::Text("Instrument: [No Instrument]");
+    if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
+    {
+        ImGui::OpenPopup("inst_load");
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
+    {
+        ImGui::OpenPopup("inst_load");
+    }
+
+    if (ImGui::BeginPopup("inst_load"))
+    {
+        ImGui::Text("test");
+        ImGui::EndPopup();
+    }
+
+    // effects
+    ImGui::NewLine();
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Effects");
+    ImGui::SameLine();
+    ImGui::Button("+##Add");
+
+    ImGui::End();
+
+    //////////////////
+    // TRACK EDITOR //
+    //////////////////
+
+    ImGui::Begin("Track Editor");
+
+    // cell size including margin
+    static const Vec2 CELL_SIZE = Vec2(24, 24);
+    // empty space inbetween cells
+    static const int CELL_MARGIN = 2;
+
+    {
+        Vec2 canvas_size = ImGui::GetContentRegionAvail();
+        Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
+        Vec2 canvas_p1 = canvas_p0 + canvas_size;
+
+        // use canvas for rendering
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+        for (int ch = 0; ch < 10; ch++) {
+            for (int row = 0; row < 50; row++) {
+                Vec2 rect_pos = Vec2(canvas_p0.x + row * CELL_SIZE.x + CELL_MARGIN, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
+                draw_list->AddRectFilled(rect_pos, Vec2(rect_pos.x + CELL_SIZE.x - CELL_MARGIN * 2, rect_pos.y + CELL_SIZE.y - CELL_MARGIN * 2), IM_COL32(50, 50, 50, 255));
+                draw_list->AddText(rect_pos + Vec2(7, 4), IM_COL32(255, 255, 255, 255), "0");
+            }
+        }
+    }
+
+    ImGui::End();
+
+    // Info panel //
+    ImGui::Begin("Info");
+    ImGui::Text("ms render: %.2f", 1000.0f / io.Framerate);
+    ImGui::End();
 }
 
 int main()
@@ -29,7 +254,7 @@ int main()
     if (window == nullptr)
         return 1;
     glfwMakeContextCurrent(window);
-    // glfwSwapInterval(1); // enable vsync
+    // glfwSwapInterval(0); // enable vsync
 
     // setup dear imgui
     IMGUI_CHECKVERSION();
@@ -43,21 +268,7 @@ int main()
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
-
-    char song_name[64] = "Untitled";
-    char ch_name[64] = "Channel 1";
-    float volume = 50;
-    float panning = 0;
-    int bus_index = 0;
-
-    static const char* bus_names[] = {
-        "0 - master",
-        "1 - bus 1",
-        "2 - bus 2",
-        "3 - drums",
-    };
-
-    bool show_demo_window = false;
+    glfwSetKeyCallback(window, glfw_key_callback);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -65,156 +276,8 @@ int main()
 
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
-
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_AutoHideTabBar);
-        if (show_demo_window) ImGui::ShowDemoWindow();
-
-        if (ImGui::BeginMainMenuBar())
-        {
-            if (ImGui::BeginMenu("File"))
-            {
-                ImGui::MenuItem("New", "Ctrl+N");
-                ImGui::MenuItem("Save", "Ctrl+S");
-                ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
-                ImGui::Separator();
-                ImGui::MenuItem("Export...");
-                ImGui::MenuItem("Import...");
-                ImGui::Separator();
-                ImGui::MenuItem("Quit", "Ctrl+Q");
-
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Edit"))
-            {
-                ImGui::MenuItem("Undo", "Ctrl+Z");
-                ImGui::MenuItem("Redo", "Ctrl+Shift+Z"); // use CTRL+Y on windows
-                
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Preferences"))
-            {
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Help"))
-            {
-                ImGui::MenuItem("About...");
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Dev"))
-            {
-                if (ImGui::MenuItem("Toggle Dear ImGUI Demo")) {
-                    show_demo_window = !show_demo_window;
-                }
-
-                ImGui::EndMenu();
-            }
-
-            ImGui::EndMainMenuBar();
-        }
-
-        ///////////////////
-        // SONG SETTINGS //
-        ///////////////////
-
-        ImGui::Begin("Song Settings");
-
-        // song name input
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Name");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputText("##song_name", song_name, 64);
-
-        // play/prev/next
-        ImGui::Button("Play", ImVec2(-1.0f, 0.0f));
-        ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f));
-        ImGui::SameLine();
-        ImGui::Button("Next", ImVec2(-1.0f, 0.0f));
-        ImGui::SameLine();
-
-        ImGui::End();
-
-        //////////////////////
-        // CHANNEL SETTINGS //
-        //////////////////////
-
-        ImGui::Begin("Channel Settings", nullptr);
-
-        // channel name
-        ImGui::PushItemWidth(-1.0f);
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Name");
-        ImGui::SameLine();
-        ImGui::InputText("##channel_name", ch_name, 64);
-
-        // volume slider
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Volume");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##channel_volume", &volume, 0, 100, "%.0f");
-
-        // panning slider
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Panning");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##channel_panning", &panning, -1, 1, "%.2f");
-
-        // fx mixer bus combobox
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("FX Bus");
-        ImGui::SameLine();
-        if (ImGui::BeginCombo("##channel_bus", bus_names[bus_index]))
-        {
-            for (int i = 0; i < 4; i++) {
-                if (ImGui::Selectable(bus_names[i], i == bus_index)) bus_index = i;
-
-                if (i == bus_index) {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-
-        ImGui::PopItemWidth();
-        ImGui::NewLine();
-
-        // loaded instrument
-        ImGui::Text("Instrument: [No Instrument]");
-        if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
-        {
-            ImGui::OpenPopup("inst_load");
-        }
-        ImGui::SameLine();
-
-        if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
-        {
-            ImGui::OpenPopup("inst_load");
-        }
-
-        if (ImGui::BeginPopup("inst_load"))
-        {
-            ImGui::Text("test");
-            ImGui::EndPopup();
-        }
-
-        // effects
-        ImGui::NewLine();
-
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Effects");
-        ImGui::SameLine();
-        ImGui::Button("+##Add");
-
-        ImGui::End();
+        
+        compute_imgui(io);
 
         ImGui::Render();
 
