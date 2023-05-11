@@ -217,11 +217,11 @@ static void compute_imgui(ImGuiIO& io) {
     ImGuiStyle& style = ImGui::GetStyle();
 
     {
+        ImGui::BeginChild(ImGui::GetID((void*)1209378), Vec2(-1, -1), false, ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+        
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
-
-        ImGui::BeginChild(ImGui::GetID((void*)1209378), Vec2(-1, -1), false, ImGuiWindowFlags_AlwaysHorizontalScrollbar);
 
         // use canvas for rendering
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
