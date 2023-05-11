@@ -7,11 +7,13 @@ INCLUDES = -I imgui
 LIBS = -lglfw3 -lGL -lX11
 IMGUI_OBJS = build/imgui_demo.o build/imgui_draw.o build/imgui_tables.o build/imgui_widgets.o build/imgui.o build/imgui_impl_glfw.o build/imgui_impl_opengl3.o
 
-all: $(IMGUI_OBJS)
-	$(CC) $(INCLUDES) -o build/soundbox $(SOURCES) $(IMGUI_OBJS) $(LIBS)
+all: build/soundbox
 
 clean:
 	rm build/*
+
+build/soundbox: $(IMGUI_OBJS) $(SOURCES)
+	$(CC) $(INCLUDES) -o build/soundbox $(SOURCES) $(IMGUI_OBJS) $(LIBS)
 
 build/imgui_demo.o: imgui/imgui_demo.cpp
 	$(CC) $(INCLUDES) -c -o build/imgui_demo.o imgui/imgui_demo.cpp
