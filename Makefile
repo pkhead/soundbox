@@ -1,5 +1,5 @@
 CC = g++
-SOURCES = main.cpp 
+SOURCES = src/main.cpp 
 # IMGUI_SOURCES = imgui/imgui_demo.cpp
 # IMGUI_SOURCES += imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/imgui.cpp
 # IMGUI_SOURCES += imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp
@@ -7,7 +7,8 @@ INCLUDES = -I imgui
 LIBS = -lglfw3 -lGL -lX11
 IMGUI_OBJS = build/imgui_demo.o build/imgui_draw.o build/imgui_tables.o build/imgui_widgets.o build/imgui.o build/imgui_impl_glfw.o build/imgui_impl_opengl3.o
 
-all: build/soundbox
+all: $(IMGUI_OBJS)
+	$(CC) $(INCLUDES) -o build/soundbox $(SOURCES) $(IMGUI_OBJS) $(LIBS)
 
 clean:
 	rm build/*
@@ -32,6 +33,3 @@ build/imgui_impl_glfw.o: imgui/backends/imgui_impl_glfw.cpp
 
 build/imgui_impl_opengl3.o: imgui/backends/imgui_impl_opengl3.cpp
 	$(CC) $(INCLUDES) -c -o build/imgui_impl_opengl3.o imgui/backends/imgui_impl_opengl3.cpp
-
-build/soundbox: $(IMGUI_OBJS)
-	$(CC) $(INCLUDES) -o build/soundbox $(SOURCES) $(IMGUI_OBJS) $(LIBS)
