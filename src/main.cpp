@@ -74,8 +74,9 @@ static std::vector<int> key_press_queue;
 static ImGuiIO* current_imgui_io = nullptr;
 
 static void compute_imgui(ImGuiIO& io, Song& song) {
+    ImGuiStyle& style = ImGui::GetStyle();
+
     static char song_name[64] = "Untitled";
-    static char ch_name[64] = "Channel 1";
     static float volume = 50;
     static float panning = 0;
     static int bus_index = 0;
@@ -248,19 +249,17 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
     // TRACK EDITOR //
     //////////////////
 
-    ImGui::Begin("Track Editor");
-
-    // cell size including margin
-    static const Vec2 CELL_SIZE = Vec2(26, 26);
-    // empty space inbetween cells
-    static const int CELL_MARGIN = 1;
-
-    static int num_channels = song.channels.size();
-    static int num_bars = song.length();
-
-    ImGuiStyle& style = ImGui::GetStyle();
-
     {
+        ImGui::Begin("Track Editor");
+
+        // cell size including margin
+        static const Vec2 CELL_SIZE = Vec2(26, 26);
+        // empty space inbetween cells
+        static const int CELL_MARGIN = 1;
+
+        static int num_channels = song.channels.size();
+        static int num_bars = song.length();
+
         ImGui::BeginChild(ImGui::GetID((void*)1209378), Vec2(-1, -1), false, ImGuiWindowFlags_HorizontalScrollbar);
         
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
@@ -326,12 +325,113 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             }
         }
 
+        // set scrollable area
         ImGui::SetCursorPos(content_size);
 
         ImGui::EndChild();
+        ImGui::End();
     }
 
-    ImGui::End();
+
+    ////////////////////
+    // PATTERN EDITOR //
+    ////////////////////
+    {
+        ImGui::Begin("Pattern Editor");
+
+        static constexpr int NUM_DIVISIONS = 8;
+        static constexpr float PIANO_KEY_WIDTH = 30;
+
+        // cell size including margin
+        static const Vec2 CELL_SIZE = Vec2(50, 16);
+        // empty space inbetween cells
+        static const int CELL_MARGIN = 1;
+        
+        Vec2 canvas_size = ImGui::GetContentRegionAvail();
+        ImGui::SetCursorPos(Vec2(canvas_size.x - (CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(style.WindowPadding.x, 0));
+        Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
+        Vec2 canvas_p1 = canvas_p0 + canvas_size;
+        Vec2 draw_origin = canvas_p0;
+
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImGui::InvisibleButton("pattern_editor_click_area",
+            Vec2(CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y),
+            ImGuiButtonFlags_MouseButtonLeft);
+
+        //Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
+        //Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
+        //Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
+
+        if (ImGui::IsItemHovered()) {
+            Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
+            int mouse_cx = int(mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x;
+            int mouse_cy = (int)mouse_pos.y / CELL_SIZE.y;
+            
+            if (mouse_pos.x > PIANO_KEY_WIDTH) {
+                Vec2 rect_pos = Vec2(draw_origin.x + PIANO_KEY_WIDTH + CELL_SIZE.x * mouse_cx, draw_origin.y + CELL_SIZE.y * mouse_cy);
+                
+                draw_list->AddRectFilled(
+                    rect_pos, rect_pos + CELL_SIZE,
+                    IM_COL32_WHITE
+                );
+            } else {
+                Vec2 rect_pos = Vec2(draw_origin.x, draw_origin.y + CELL_SIZE.y * mouse_cy);
+                
+                draw_list->AddRectFilled(
+                    rect_pos, rect_pos + Vec2(PIANO_KEY_WIDTH, CELL_SIZE.y),
+                    IM_COL32_WHITE
+                );
+            }
+        }
+
+
+        static int scroll = 60;
+        static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
+        static const bool ACCIDENTAL[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
+        static char key_name[8];
+
+        for (int row = -1; row < (int)canvas_size.y / CELL_SIZE.y + 1; row++) {
+            int key = scroll - row;
+
+            // draw piano key
+            Vec2 piano_rect_pos = draw_origin + CELL_SIZE * Vec2(0, row);
+
+            draw_list->AddRectFilled(
+                piano_rect_pos + Vec2(CELL_MARGIN, CELL_MARGIN),
+                piano_rect_pos + Vec2(PIANO_KEY_WIDTH - CELL_MARGIN * 2, CELL_SIZE.y - CELL_MARGIN * 2),
+                key % 12 == 0 ? IM_RGB32(95, 23, 23) : ACCIDENTAL[key % 12] ? IM_RGB32(38, 38, 38) : IM_RGB32(20, 20, 20)
+            );
+
+            // get key name
+            strcpy(key_name, KEY_NAMES[key % 12]);
+
+            // if key is C, then add the octave number
+            if (key % 12 == 0) sprintf(key_name + 1, "%i", key / 12);
+
+            // draw key name
+            Vec2 text_size = ImGui::CalcTextSize(KEY_NAMES[key % 12]);
+            draw_list->AddText(
+                piano_rect_pos + Vec2(5, (CELL_SIZE.y - text_size.y) / 2.0f),
+                IM_COL32_WHITE,
+                key_name
+            );
+
+            ImU32 row_color =
+                key % 12 == 0 ? IM_RGB32(191, 46, 46) : // highlight each octave
+                key % 12 == 7 ? IM_RGB32(74, 68, 68) : // highlight each fifth
+                IM_RGB32(50, 50, 50); // default color
+
+            // draw patterns in this row
+            for (int col = 0; col < 8; col++) {
+                Vec2 cell_pos = draw_origin + CELL_SIZE * Vec2(col, row) + Vec2(PIANO_KEY_WIDTH, 0);
+                Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, CELL_MARGIN);
+
+                draw_list->AddRectFilled(rect_pos, rect_pos + CELL_SIZE - Vec2(CELL_MARGIN, CELL_MARGIN) * 2.0f, row_color);
+            }
+        }
+
+        ImGui::End();
+    }
 
     // Info panel //
     ImGui::Begin("Info");
