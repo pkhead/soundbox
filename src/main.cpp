@@ -1,10 +1,25 @@
 #include <stdio.h>
+#include <string>
+#include <vector>
 #include "song.h"
 
 #include "../imgui/imgui.h"
 #include "../imgui/backends/imgui_impl_glfw.h"
 #include "../imgui/backends/imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
+
+#define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
+
+namespace Colors {
+    constexpr size_t channel_num = 4;
+    ImU32 channel[channel_num][2] = {
+        // { dim, bright }
+        { IM_RGB32(187, 17, 17), IM_RGB32(255, 87, 87) },
+        { IM_RGB32(187, 128, 17), IM_RGB32(255, 197, 89) },
+        { IM_RGB32(136, 187, 17), IM_RGB32(205, 255, 89) },
+        { IM_RGB32(25, 187, 17), IM_RGB32(97, 255, 89) },
+    };
+}
 
 template <typename T>
 static inline T max(T a, T b) {
@@ -22,15 +37,29 @@ struct Vec2 {
     constexpr Vec2(float _x, float _y) : x(_x), y(_y) {}
     Vec2(const ImVec2& src): x(src.x), y(src.y) {}
 
-    inline Vec2 operator+(const Vec2& other) {
+    inline Vec2 operator+(const Vec2& other) const {
         return Vec2(x + other.x, y + other.y);
     }
-    inline Vec2 operator-(const Vec2& other) {
+    inline Vec2 operator-(const Vec2& other) const {
         return Vec2(x - other.x, y - other.y);
     }
-    inline Vec2 operator*(const Vec2& other) {
+    inline Vec2 operator*(const Vec2& other) const {
         return Vec2(x * other.x, y * other.y);
     }
+    inline Vec2 operator/(const Vec2& other) const {
+        return Vec2(x / other.x, y / other.y);
+    }
+
+    template <typename T>
+    inline Vec2 operator*(const T& scalar) const {
+        return Vec2(x * scalar, y * scalar);
+    }
+
+    template <typename T>
+    inline Vec2 operator/(const T& scalar) const {
+        return Vec2(x / scalar, y / scalar);
+    }
+
     inline operator ImVec2() const { return ImVec2(x, y); }
 };
 
@@ -41,7 +70,13 @@ static void glfw_error_callback(int error, const char *description)
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
+static std::vector<int> key_press_queue;
+
 static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        key_press_queue.push_back(key);
+    }
+
     if (action == GLFW_PRESS) {
         if (key == GLFW_KEY_F1) {
             show_demo_window = !show_demo_window;
@@ -222,7 +257,7 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
     // cell size including margin
     static const Vec2 CELL_SIZE = Vec2(24, 24);
     // empty space inbetween cells
-    static const int CELL_MARGIN = 2;
+    static const int CELL_MARGIN = 1;
 
     static int num_channels = song.channels.size();
     static int num_bars = song.length();
@@ -245,12 +280,29 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         int row_end = row_start + (int)canvas_size.x / CELL_SIZE.x + 2;
         int col_start = (int)viewport_scroll.y / CELL_SIZE.y;
         int col_end = col_start + (int)canvas_size.y / CELL_SIZE.y + 2;
+        
+        char str_buf[8];
 
         for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
             for (int row = row_start; row < min(row_end, num_bars); row++) {
                 Vec2 rect_pos = Vec2(canvas_p0.x + row * CELL_SIZE.x + CELL_MARGIN, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
-                draw_list->AddRectFilled(rect_pos, Vec2(rect_pos.x + CELL_SIZE.x - CELL_MARGIN * 2, rect_pos.y + CELL_SIZE.y - CELL_MARGIN * 2), IM_COL32(50, 50, 50, 255));
-                draw_list->AddText(rect_pos + Vec2(7, 4), IM_COL32(255, 255, 255, 255), "0");
+                int pattern_num = song.channels[ch]->sequence[row];
+                bool is_selected = song.selected_bar == row && song.selected_channel == ch;
+
+                if (pattern_num > 0 || is_selected)
+                    draw_list->AddRectFilled(
+                        rect_pos,
+                        Vec2(rect_pos.x + CELL_SIZE.x - CELL_MARGIN * 2, rect_pos.y + CELL_SIZE.y - CELL_MARGIN * 2),
+                        is_selected ? Colors::channel[ch % Colors::channel_num][1] : IM_RGB32(50, 50, 50)
+                    );
+                
+                sprintf(str_buf, "%i", pattern_num); // convert pattern_num to string (too lazy to figure out how to do it the C++ way)
+                
+                draw_list->AddText(
+                    rect_pos + (CELL_SIZE - Vec2(CELL_MARGIN, CELL_MARGIN) * 2.0f - ImGui::CalcTextSize(str_buf)) / 2.0f,
+                    is_selected ? IM_COL32_BLACK : Colors::channel[ch % Colors::channel_num][pattern_num > 0],
+                    str_buf
+                );
             }
         }
 
@@ -297,17 +349,49 @@ int main()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    ImGui::StyleColorsDark();
+    ImGui::StyleColorsClassic();
+
+    Song song(4, 32, 8);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
     glfwSetKeyCallback(window, glfw_key_callback);
 
-    Song song(4, 32, 8);
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            song.channels[i]->sequence[j] = 1;
+        }
+    }
 
     while (!glfwWindowShouldClose(window))
     {
+        key_press_queue.clear();
         glfwPollEvents();
+
+        for (int key : key_press_queue) {
+            switch (key)
+            {
+                case GLFW_KEY_RIGHT:
+                    song.selected_bar++;
+                    song.selected_bar %= song.length();
+                    break;
+
+                case GLFW_KEY_LEFT:
+                    song.selected_bar--;
+                    if (song.selected_bar < 0) song.selected_bar = song.length() - 1;
+                    break;
+
+                case GLFW_KEY_DOWN:
+                    song.selected_channel++;
+                    song.selected_channel %= song.channels.size();
+                    break;
+
+                case GLFW_KEY_UP:
+                    song.selected_channel--;
+                    if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
+                    break;
+            }
+        }
 
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
