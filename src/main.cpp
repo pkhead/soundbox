@@ -1,7 +1,9 @@
+#include <stdio.h>
+#include "song.h"
+
 #include "../imgui/imgui.h"
 #include "../imgui/backends/imgui_impl_glfw.h"
 #include "../imgui/backends/imgui_impl_opengl3.h"
-#include <stdio.h>
 #include <GLFW/glfw3.h>
 
 template <typename T>
@@ -32,7 +34,7 @@ struct Vec2 {
     inline operator ImVec2() const { return ImVec2(x, y); }
 };
 
-bool show_demo_window = false;
+static bool show_demo_window = false;
 
 static void glfw_error_callback(int error, const char *description)
 {
@@ -47,7 +49,7 @@ static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int act
     }
 }
 
-static void compute_imgui(ImGuiIO& io) {
+static void compute_imgui(ImGuiIO& io, Song& song) {
     static char song_name[64] = "Untitled";
     static char ch_name[64] = "Channel 1";
     static float volume = 50;
@@ -222,12 +224,13 @@ static void compute_imgui(ImGuiIO& io) {
     // empty space inbetween cells
     static const int CELL_MARGIN = 2;
 
-    static int num_channels = 4;
-    static int num_bars = 500;
+    static int num_channels = song.channels.size();
+    static int num_bars = song.length();
+
     ImGuiStyle& style = ImGui::GetStyle();
 
     {
-        ImGui::BeginChild(ImGui::GetID((void*)1209378), Vec2(-1, -1), false, ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+        ImGui::BeginChild(ImGui::GetID((void*)1209378), Vec2(-1, -1), false, ImGuiWindowFlags_HorizontalScrollbar);
         
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
@@ -239,9 +242,9 @@ static void compute_imgui(ImGuiIO& io) {
 
         // visible bounds of viewport
         int row_start = (int)viewport_scroll.x / CELL_SIZE.x;
-        int row_end = row_start + (int)canvas_size.x / CELL_SIZE.x + 1;
+        int row_end = row_start + (int)canvas_size.x / CELL_SIZE.x + 2;
         int col_start = (int)viewport_scroll.y / CELL_SIZE.y;
-        int col_end = col_start + (int)canvas_size.y / CELL_SIZE.y + 1;
+        int col_end = col_start + (int)canvas_size.y / CELL_SIZE.y + 2;
 
         for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
             for (int row = row_start; row < min(row_end, num_bars); row++) {
@@ -300,6 +303,8 @@ int main()
     ImGui_ImplOpenGL3_Init(glsl_version);
     glfwSetKeyCallback(window, glfw_key_callback);
 
+    Song song(4, 32, 8);
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -307,7 +312,7 @@ int main()
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         
-        compute_imgui(io);
+        compute_imgui(io, song);
 
         ImGui::Render();
 

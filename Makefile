@@ -1,5 +1,5 @@
 CC = g++
-SOURCES = src/main.cpp 
+SOURCES = src/main.cpp src/song.cpp
 # IMGUI_SOURCES = imgui/imgui_demo.cpp
 # IMGUI_SOURCES += imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/imgui.cpp
 # IMGUI_SOURCES += imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_opengl3.cpp
