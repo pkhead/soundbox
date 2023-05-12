@@ -375,13 +375,28 @@ int main()
         }
     }
 
+    int pattern_input = 0;
+    
+    // if one of these variables changes, then clear pattern_input
+    int last_selected_bar = song.selected_bar;
+    int last_selected_ch = song.selected_channel;
+
     while (!glfwWindowShouldClose(window))
     {
         key_press_queue.clear();
         glfwPollEvents();
 
+        // if selected pattern changed
+        if (last_selected_bar != song.selected_bar || last_selected_ch != song.selected_channel) {
+            last_selected_bar = song.selected_bar;
+            last_selected_ch = song.selected_channel;
+            pattern_input = 0;
+            printf("pattern changed\n");
+        }
+
         // key input
         if (!io.WantTextInput) {
+            // track editor controls
             if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
                 song.selected_bar++;
                 song.selected_bar %= song.length();
@@ -400,6 +415,16 @@ int main()
             if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
                 song.selected_channel--;
                 if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
+            }
+
+            // track editor pattern entering
+            for (int k = 0; k < 10; k++) {
+                if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
+                    pattern_input = (pattern_input * 10) + k;
+                    if (pattern_input > song.max_patterns()) pattern_input = k;
+                    
+                    song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
+                }
             }
         }
 
