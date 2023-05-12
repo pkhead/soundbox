@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <string>
 
 struct Note {
     float time;
@@ -22,6 +23,7 @@ public:
     Channel(int song_length, int max_patterns);
     ~Channel();
 
+    char name[32];
     float volume;
     float panning;
     std::vector<int> sequence;

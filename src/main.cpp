@@ -71,18 +71,7 @@ static void glfw_error_callback(int error, const char *description)
 }
 
 static std::vector<int> key_press_queue;
-
-static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        key_press_queue.push_back(key);
-    }
-
-    if (action == GLFW_PRESS) {
-        if (key == GLFW_KEY_F1) {
-            show_demo_window = !show_demo_window;
-        }
-    }
-}
+static ImGuiIO* current_imgui_io = nullptr;
 
 static void compute_imgui(ImGuiIO& io, Song& song) {
     static char song_name[64] = "Untitled";
@@ -185,7 +174,7 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Name");
     ImGui::SameLine();
-    ImGui::InputText("##channel_name", ch_name, 64);
+    ImGui::InputText("##channel_name", song.channels[song.selected_channel]->name, 64);
 
     // volume slider
     ImGui::AlignTextToFramePadding();
@@ -255,7 +244,7 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
     ImGui::Begin("Track Editor");
 
     // cell size including margin
-    static const Vec2 CELL_SIZE = Vec2(24, 24);
+    static const Vec2 CELL_SIZE = Vec2(26, 26);
     // empty space inbetween cells
     static const int CELL_MARGIN = 1;
 
@@ -355,7 +344,6 @@ int main()
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
-    glfwSetKeyCallback(window, glfw_key_callback);
 
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
@@ -368,28 +356,26 @@ int main()
         key_press_queue.clear();
         glfwPollEvents();
 
-        for (int key : key_press_queue) {
-            switch (key)
-            {
-                case GLFW_KEY_RIGHT:
-                    song.selected_bar++;
-                    song.selected_bar %= song.length();
-                    break;
+        // key input
+        if (!io.WantTextInput) {
+            if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+                song.selected_bar++;
+                song.selected_bar %= song.length();
+            }
 
-                case GLFW_KEY_LEFT:
-                    song.selected_bar--;
-                    if (song.selected_bar < 0) song.selected_bar = song.length() - 1;
-                    break;
+            if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+                song.selected_bar--;
+                if (song.selected_bar < 0) song.selected_bar = song.length() - 1;
+            }
 
-                case GLFW_KEY_DOWN:
-                    song.selected_channel++;
-                    song.selected_channel %= song.channels.size();
-                    break;
+            if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+                song.selected_channel++;
+                song.selected_channel %= song.channels.size();
+            }
 
-                case GLFW_KEY_UP:
-                    song.selected_channel--;
-                    if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
-                    break;
+            if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+                song.selected_channel--;
+                if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
             }
         }
 

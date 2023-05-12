@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <string.h>
 #include "song.h"
 
 Pattern::Pattern() { };
@@ -16,6 +17,8 @@ inline bool Pattern::is_empty() const {
 *        CHANNEL         *
 *************************/
 Channel::Channel(int song_length, int max_patterns) : volume(0.5f), panning(0.0f) {
+    strcpy(name, "Channel");
+    
     for (int i = 0; i < song_length; i++) {
         sequence.push_back(0);
     }
@@ -38,7 +41,9 @@ Channel::~Channel() {
 
 Song::Song(int num_channels, int length, int max_patterns) : _length(length), _max_patterns(max_patterns) {
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
-        channels.push_back(new Channel(_length, _max_patterns));
+        Channel* ch = new Channel(_length, _max_patterns);
+        sprintf(ch->name, "Channel %i", ch_i + 1);
+        channels.push_back(ch);
     }
 }
 
