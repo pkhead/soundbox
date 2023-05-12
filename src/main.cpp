@@ -4,22 +4,32 @@
 #include <stdio.h>
 #include <GLFW/glfw3.h>
 
+template <typename T>
+static inline T max(T a, T b) {
+    return a > b ? a : b;
+}
+
+template <typename T>
+static inline T min(T a, T b) {
+    return a < b ? a : b;
+}
+
 struct Vec2 {
     float x, y;
     constexpr Vec2() : x(0.0f), y(0.0f) {}
     constexpr Vec2(float _x, float _y) : x(_x), y(_y) {}
     Vec2(const ImVec2& src): x(src.x), y(src.y) {}
 
-    Vec2 operator+(const Vec2& other) {
+    inline Vec2 operator+(const Vec2& other) {
         return Vec2(x + other.x, y + other.y);
     }
-    Vec2 operator-(const Vec2& other) {
+    inline Vec2 operator-(const Vec2& other) {
         return Vec2(x - other.x, y - other.y);
     }
-    Vec2 operator*(const Vec2& other) {
+    inline Vec2 operator*(const Vec2& other) {
         return Vec2(x * other.x, y * other.y);
     }
-    operator ImVec2() const { return ImVec2(x, y); }
+    inline operator ImVec2() const { return ImVec2(x, y); }
 };
 
 bool show_demo_window = false;
@@ -222,12 +232,19 @@ static void compute_imgui(ImGuiIO& io) {
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
-
+        Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
+        
         // use canvas for rendering
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-        for (int ch = 0; ch < num_channels; ch++) {
-            for (int row = 0; row < num_bars; row++) {
+        // visible bounds of viewport
+        int row_start = (int)viewport_scroll.x / CELL_SIZE.x;
+        int row_end = row_start + (int)canvas_size.x / CELL_SIZE.x + 1;
+        int col_start = (int)viewport_scroll.y / CELL_SIZE.y;
+        int col_end = col_start + (int)canvas_size.y / CELL_SIZE.y + 1;
+
+        for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
+            for (int row = row_start; row < min(row_end, num_bars); row++) {
                 Vec2 rect_pos = Vec2(canvas_p0.x + row * CELL_SIZE.x + CELL_MARGIN, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
                 draw_list->AddRectFilled(rect_pos, Vec2(rect_pos.x + CELL_SIZE.x - CELL_MARGIN * 2, rect_pos.y + CELL_SIZE.y - CELL_MARGIN * 2), IM_COL32(50, 50, 50, 255));
                 draw_list->AddText(rect_pos + Vec2(7, 4), IM_COL32(255, 255, 255, 255), "0");
