@@ -260,24 +260,41 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
         Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
+        Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
+        Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
+
+        int mouse_row = -1;
+        int mouse_col = -1;
+
+        ImGui::InvisibleButton("track_editor_mouse_target", content_size, ImGuiButtonFlags_MouseButtonLeft);
+        if (ImGui::IsItemHovered()) {
+            mouse_row = (int)mouse_pos.y / CELL_SIZE.y;
+            mouse_col = (int)mouse_pos.x / CELL_SIZE.x;
+
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                song.selected_bar = mouse_col;
+                song.selected_channel = mouse_row;
+            }
+        }
         
         // use canvas for rendering
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
         // visible bounds of viewport
-        int row_start = (int)viewport_scroll.x / CELL_SIZE.x;
-        int row_end = row_start + (int)canvas_size.x / CELL_SIZE.x + 2;
+        int bar_start = (int)viewport_scroll.x / CELL_SIZE.x;
+        int bar_end = bar_start + (int)canvas_size.x / CELL_SIZE.x + 2;
         int col_start = (int)viewport_scroll.y / CELL_SIZE.y;
         int col_end = col_start + (int)canvas_size.y / CELL_SIZE.y + 2;
         
         char str_buf[8];
 
         for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
-            for (int row = row_start; row < min(row_end, num_bars); row++) {
-                Vec2 rect_pos = Vec2(canvas_p0.x + row * CELL_SIZE.x + CELL_MARGIN, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
-                int pattern_num = song.channels[ch]->sequence[row];
-                bool is_selected = song.selected_bar == row && song.selected_channel == ch;
+            for (int bar = bar_start; bar < min(bar_end, num_bars); bar++) {
+                Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x + CELL_MARGIN, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
+                int pattern_num = song.channels[ch]->sequence[bar];
+                bool is_selected = song.selected_bar == bar && song.selected_channel == ch;
 
+                // draw cell background
                 if (pattern_num > 0 || is_selected)
                     draw_list->AddRectFilled(
                         rect_pos,
@@ -287,15 +304,22 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
                 
                 sprintf(str_buf, "%i", pattern_num); // convert pattern_num to string (too lazy to figure out how to do it the C++ way)
                 
+                // draw pattern number
                 draw_list->AddText(
                     rect_pos + (CELL_SIZE - Vec2(CELL_MARGIN, CELL_MARGIN) * 2.0f - ImGui::CalcTextSize(str_buf)) / 2.0f,
                     is_selected ? IM_COL32_BLACK : Colors::channel[ch % Colors::channel_num][pattern_num > 0],
                     str_buf
                 );
+
+                // draw mouse hover
+                if (ch == mouse_row && bar == mouse_col) {
+                    Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x, canvas_p0.y + CELL_SIZE.y * ch);
+                    draw_list->AddRect(rect_pos, rect_pos + CELL_SIZE, IM_COL32_WHITE, 0.0f, 0, 1.0f);
+                }
             }
         }
 
-        ImGui::SetCursorPos(Vec2(num_bars, num_channels) * CELL_SIZE);
+        ImGui::SetCursorPos(content_size);
 
         ImGui::EndChild();
     }
@@ -340,7 +364,7 @@ int main()
 
     ImGui::StyleColorsClassic();
 
-    Song song(4, 32, 8);
+    Song song(4, 100, 8);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
