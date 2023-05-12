@@ -159,7 +159,14 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
     ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f));
     ImGui::SameLine();
     ImGui::Button("Next", ImVec2(-1.0f, 0.0f));
+    
+    // tempo
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Tempo (bpm)");
     ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputFloat("bpm##song_tempo", &song.tempo, 0.0f, 0.0f, "%.0f");
+    if (song.tempo < 0) song.tempo = 0;
 
     ImGui::End();
 
@@ -391,7 +398,6 @@ int main()
             last_selected_bar = song.selected_bar;
             last_selected_ch = song.selected_channel;
             pattern_input = 0;
-            printf("pattern changed\n");
         }
 
         // key input
@@ -422,7 +428,7 @@ int main()
                 if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
                     pattern_input = (pattern_input * 10) + k;
                     if (pattern_input > song.max_patterns()) pattern_input = k;
-                    
+
                     song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
                 }
             }
