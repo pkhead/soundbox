@@ -364,7 +364,20 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         static const bool ACCIDENTAL[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
         static char key_name[8];
         static float cursor_note_length = 1.0f;
+        static float desired_cursor_len = cursor_note_length;
         static float min_step = 0.25f;
+        static float mouse_start = 0; // the mouse x when the drag started
+        static Note* note_hovered = nullptr; // the note currently being hovered over
+        static Note* selected_note = nullptr; // the note currently being dragged
+        static Pattern* note_pattern = nullptr; // the pattern of selected_note
+        static float note_anchor; // selected_note's time position when the drag started
+        static float note_start_length; // selected_note's length when the drag started
+
+        enum DragMode {
+            FromLeft,
+            FromRight,
+            Any
+        } static note_drag_mode;
 
         // cell size including margin
         static const Vec2 CELL_SIZE = Vec2(50, 16);
@@ -377,27 +390,11 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
         Vec2 draw_origin = canvas_p0;
 
+        // define interactable area
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         ImGui::InvisibleButton("pattern_editor_click_area",
             Vec2(CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y),
             ImGuiButtonFlags_MouseButtonLeft);
-
-        //Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
-        //Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
-        Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
-        float mouse_px = -1.0f; // cell position of mouse
-        float mouse_cx = -1.0f; // mouse_px is in the center of the mouse cursor note
-        int mouse_cy = -1;
-        
-        // calculate mouse grid position
-        if (mouse_pos.x > PIANO_KEY_WIDTH) {
-            mouse_px = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x) / min_step + 0.5) * min_step;
-            mouse_cx = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - cursor_note_length / 2.0f) / min_step + 0.5) * min_step;
-            if (mouse_cx < 0) mouse_cx = 0;
-            if (mouse_cx + cursor_note_length > NUM_DIVISIONS) mouse_cx = (float)NUM_DIVISIONS - cursor_note_length;
-        }
-
-        mouse_cy = (int)mouse_pos.y / CELL_SIZE.y;
 
         // get data for the currently selected channel
         Channel* selected_channel = song.channels[song.selected_channel];
@@ -407,10 +404,50 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             selected_pattern = selected_channel->patterns[selected_channel->sequence[song.selected_bar] - 1];
         }
 
-        static Note* note_hovered = nullptr;
-        static Note* selected_note = nullptr;
-        static Pattern* note_pattern = nullptr;
-        static float note_anchor;
+        //Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
+        //Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
+        Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
+        float mouse_px = -1.0f; // cell position of mouse
+        float mouse_cx = -1.0f; // mouse_px is in the center of the mouse cursor note
+        int mouse_cy = mouse_cy = (int)mouse_pos.y / CELL_SIZE.y;
+        
+        // calculate mouse grid position
+        if (mouse_pos.x > PIANO_KEY_WIDTH) {
+            mouse_px = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x) / min_step + 0.5) * min_step;
+            mouse_cx = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - desired_cursor_len / 2.0f) / min_step + 0.5) * min_step;
+
+            // prevent collision with mouse cursor note & other notes
+            float min = 0;
+            float max = NUM_DIVISIONS;
+
+            if (selected_note == nullptr) {
+                for (Note& note : selected_pattern->notes) {
+                    if (scroll - mouse_cy == note.key) {
+                        // if mouse is on right side of this note
+                        if (mouse_px > note.time + note.length / 2.0f) {
+                            if (note.time + note.length > min) min = note.time + note.length;
+                        }
+
+                        // if mouse is on left side of this note
+                        if (mouse_px < note.time + note.length / 2.0f) {
+                            if (note.time < max) max = note.time;
+                        }
+                    }
+                }
+            }
+
+            // prevent it from going off the edges of the screen
+            cursor_note_length = desired_cursor_len;
+
+            // if space is too small for note cursor to fit in, resize it
+            if (max - min < desired_cursor_len) {
+                mouse_cx = min;
+                cursor_note_length = max - min;
+            } else {
+                if (mouse_cx < min) mouse_cx = min;
+                if (mouse_cx + cursor_note_length > max) mouse_cx = max - cursor_note_length;
+            }
+        }
 
         // deselect note if selected pattern changes
         if (selected_pattern != note_pattern) {
@@ -434,48 +471,86 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             }
         }
 
-        if (mouse_cx >= 0.0f && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+
+        // if area is clicked
+        if (mouse_cx >= 0.0f && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             // add note on click
             if (selected_pattern != nullptr && ImGui::IsItemHovered()) {
+                mouse_start = mouse_px;
+
                 if (note_hovered) {
                     selected_note = note_hovered;
-                    note_anchor = selected_note->time;
+
+                    if (mouse_px > selected_note->time + selected_note->length / 2.0f) {
+                        note_drag_mode = DragMode::FromRight;
+                        note_anchor = selected_note->time;
+                        note_start_length = selected_note->length;
+                    } else {
+                        note_drag_mode = DragMode::FromLeft;
+                        note_anchor = selected_note->time + selected_note->length;
+                        note_start_length = -selected_note->length;
+                    }
                 } else {
+                    note_drag_mode = DragMode::Any;
                     selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
                     note_anchor = mouse_cx;
+                    note_start_length = cursor_note_length;
                 }
 
                 note_pattern = selected_pattern;
             }
         }
 
+        // mouse note dragging
         if (selected_note != nullptr) {
-            float dx = mouse_cx - note_anchor + cursor_note_length;
+            float new_len = (mouse_px - mouse_start) + note_start_length;
 
-            if (dx >= 0) {
-                if (dx < min_step) dx = min_step;
+            if (note_drag_mode == DragMode::FromRight || (note_drag_mode == DragMode::Any && new_len >= 0)) {
+                if (new_len < 0) {
+                    selected_note->length = 0.0f;
+                } else {
+                    if (new_len < min_step) new_len = min_step;
 
-                selected_note->time = note_anchor;
-                selected_note->length = dx;
+                    selected_note->time = note_anchor;
+                    selected_note->length = new_len;
 
-                if (selected_note->time + selected_note->length > NUM_DIVISIONS) {
-                    selected_note->length = (float)NUM_DIVISIONS - selected_note->time;
+                    if (selected_note->time + selected_note->length > NUM_DIVISIONS) {
+                        selected_note->length = (float)NUM_DIVISIONS - selected_note->time;
+                    }
                 }
                 
             } else {
-                if (dx > -min_step) dx = -min_step;
+                if (new_len > 0) {
+                    selected_note->length = 0.0f;
+                    selected_note->time = note_anchor;
+                } else {
+                    if (new_len > -min_step) new_len = -min_step;
 
-                selected_note->time = note_anchor + dx;
-                selected_note->length = -dx;
+                    selected_note->time = note_anchor + new_len;
+                    selected_note->length = -new_len;
 
-                if (selected_note->time < 0) {
-                    selected_note->time = 0;
-                    selected_note->length = note_anchor;
+                    if (selected_note->time < 0) {
+                        selected_note->time = 0;
+                        selected_note->length = note_anchor;
+                    }
                 }
             }
         }
 
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        if (ImGui::IsItemDeactivated()) {
+            // if note len == 0, remove the note
+            if (selected_note->length == 0) {
+                for (auto it = note_pattern->notes.begin(); it != note_pattern->notes.end(); it++) {
+                    if (&*it == selected_note) {
+                        note_pattern->notes.erase(it);
+                        break;
+                    }
+                }
+            } else {
+                desired_cursor_len = selected_note->length;
+            }
+
+            note_pattern = nullptr;
             selected_note = nullptr;
         }
 
