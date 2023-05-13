@@ -381,11 +381,13 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         //Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
         //Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
         Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
-        float mouse_cx = -1.0f;
+        float mouse_px = -1.0f; // cell position of mouse
+        float mouse_cx = -1.0f; // mouse_px is in the center of the mouse cursor note
         int mouse_cy = -1;
         
         // calculate mouse grid position
         if (mouse_pos.x > PIANO_KEY_WIDTH) {
+            mouse_px = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x) / min_step + 0.5) * min_step;
             mouse_cx = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - cursor_note_length / 2.0f) / min_step + 0.5) * min_step;
             if (mouse_cx < 0) mouse_cx = 0;
             if (mouse_cx + cursor_note_length > NUM_DIVISIONS) mouse_cx = (float)NUM_DIVISIONS - cursor_note_length;
@@ -401,6 +403,7 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             selected_pattern = selected_channel->patterns[selected_channel->sequence[song.selected_bar] - 1];
         }
 
+        static Note* note_hovered = nullptr;
         static Note* selected_note = nullptr;
         static Pattern* note_pattern = nullptr;
         static float note_anchor;
@@ -411,11 +414,33 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             note_pattern = selected_pattern;
         }
 
+        // detect which note the user is hoving over
+        note_hovered = nullptr;
+        
+        if (selected_pattern != nullptr) {
+            for (Note& note : selected_pattern->notes) {
+                if (
+                    (scroll - mouse_cy) == note.key &&
+                    mouse_px >= note.time &&
+                    mouse_px < note.time + note.length
+                ) {
+                    note_hovered = &note;
+                    break;
+                }
+            }
+        }
+
         if (mouse_cx >= 0.0f && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             // add note on click
             if (selected_pattern != nullptr && ImGui::IsItemHovered()) {
-                selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
-                note_anchor = mouse_cx;
+                if (note_hovered) {
+                    selected_note = note_hovered;
+                    note_anchor = selected_note->time;
+                } else {
+                    selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
+                    note_anchor = mouse_cx;
+                }
+
                 note_pattern = selected_pattern;
             }
         }
@@ -504,10 +529,20 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         // draw rectangle stroke at mouse position
         if (ImGui::IsItemHovered() && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             if (mouse_pos.x > PIANO_KEY_WIDTH) {
-                Vec2 rect_pos = Vec2(draw_origin.x + PIANO_KEY_WIDTH + CELL_SIZE.x * mouse_cx, draw_origin.y + CELL_SIZE.y * mouse_cy);
+                float cx = mouse_cx;
+                int cy = mouse_cy;
+                float len = cursor_note_length;
+
+                if (note_hovered != nullptr) {
+                    cx = note_hovered->time;
+                    cy = scroll - note_hovered->key;
+                    len = note_hovered->length;
+                }
+
+                Vec2 rect_pos = Vec2(draw_origin.x + PIANO_KEY_WIDTH + CELL_SIZE.x * cx, draw_origin.y + CELL_SIZE.y * cy);
                 
                 draw_list->AddRect(
-                    rect_pos, rect_pos + CELL_SIZE,
+                    rect_pos, rect_pos + CELL_SIZE * Vec2(len, 1.0f),
                     IM_COL32_WHITE
                 );
             } else {
@@ -583,8 +618,6 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
-        printf("frame start\n");
-        
         next_time = glfwGetTime() + FRAME_LENGTH;
 
         key_press_queue.clear();
