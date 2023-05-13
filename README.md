@@ -1,4 +1,6 @@
 # soundbox
+![logo](logo.svg)
+
 A free and open-source digital audio workstation.
 
 ## Installation
