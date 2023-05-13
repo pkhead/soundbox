@@ -341,6 +341,12 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
 
         static constexpr int NUM_DIVISIONS = 8;
         static constexpr float PIANO_KEY_WIDTH = 30;
+        static int scroll = 60;
+        static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
+        static const bool ACCIDENTAL[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
+        static char key_name[8];
+        static float cursor_note_length = 1.0f;
+        static float min_step = 0.25f;
 
         // cell size including margin
         static const Vec2 CELL_SIZE = Vec2(50, 16);
@@ -359,36 +365,78 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             ImGuiButtonFlags_MouseButtonLeft);
 
         //Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
-        //Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
         //Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
+        Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
+        float mouse_cx = -1.0f;
+        int mouse_cy = -1;
+        
+        // calculate mouse grid position
+        if (mouse_pos.x > PIANO_KEY_WIDTH) {
+            mouse_cx = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - cursor_note_length / 2.0f) / min_step + 0.5) * min_step;
+            if (mouse_cx < 0) mouse_cx = 0;
+            if (mouse_cx + cursor_note_length > NUM_DIVISIONS) mouse_cx = (float)NUM_DIVISIONS - cursor_note_length;
+        }
 
-        if (ImGui::IsItemHovered()) {
-            Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
-            int mouse_cx = int(mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x;
-            int mouse_cy = (int)mouse_pos.y / CELL_SIZE.y;
-            
-            if (mouse_pos.x > PIANO_KEY_WIDTH) {
-                Vec2 rect_pos = Vec2(draw_origin.x + PIANO_KEY_WIDTH + CELL_SIZE.x * mouse_cx, draw_origin.y + CELL_SIZE.y * mouse_cy);
-                
-                draw_list->AddRectFilled(
-                    rect_pos, rect_pos + CELL_SIZE,
-                    IM_COL32_WHITE
-                );
-            } else {
-                Vec2 rect_pos = Vec2(draw_origin.x, draw_origin.y + CELL_SIZE.y * mouse_cy);
-                
-                draw_list->AddRectFilled(
-                    rect_pos, rect_pos + Vec2(PIANO_KEY_WIDTH, CELL_SIZE.y),
-                    IM_COL32_WHITE
-                );
+        mouse_cy = (int)mouse_pos.y / CELL_SIZE.y;
+
+        // get data for the currently selected channel
+        Channel* selected_channel = song.channels[song.selected_channel];
+        int pattern_id = selected_channel->sequence[song.selected_bar] - 1;
+        Pattern* selected_pattern = nullptr;
+        if (pattern_id >= 0) {
+            selected_pattern = selected_channel->patterns[selected_channel->sequence[song.selected_bar] - 1];
+        }
+
+        static Note* selected_note = nullptr;
+        static Pattern* note_pattern = nullptr;
+        static float note_anchor;
+
+        // deselect note if selected pattern changes
+        if (selected_pattern != note_pattern) {
+            selected_note = nullptr;
+            note_pattern = selected_pattern;
+        }
+
+        if (mouse_cx >= 0.0f && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            // add note on click
+            if (selected_pattern != nullptr && ImGui::IsItemHovered()) {
+                selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
+                note_anchor = mouse_cx;
+                note_pattern = selected_pattern;
             }
         }
 
-        static int scroll = 60;
-        static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
-        static const bool ACCIDENTAL[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
-        static char key_name[8];
+        if (selected_note != nullptr) {
+            float dx = mouse_cx - note_anchor + cursor_note_length;
 
+            if (dx >= 0) {
+                if (dx < min_step) dx = min_step;
+
+                selected_note->time = note_anchor;
+                selected_note->length = dx;
+
+                if (selected_note->time + selected_note->length > NUM_DIVISIONS) {
+                    selected_note->length = (float)NUM_DIVISIONS - selected_note->time;
+                }
+                
+            } else {
+                if (dx > -min_step) dx = -min_step;
+
+                selected_note->time = note_anchor + dx;
+                selected_note->length = -dx;
+
+                if (selected_note->time < 0) {
+                    selected_note->time = 0;
+                    selected_note->length = note_anchor;
+                }
+            }
+        }
+
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            selected_note = nullptr;
+        }
+
+        // draw cells
         for (int row = -1; row < (int)canvas_size.y / CELL_SIZE.y + 1; row++) {
             int key = scroll - row;
 
@@ -429,18 +477,32 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             }
         }
 
-        Channel* channel = song.channels[song.selected_channel];
-        int pattern_id = channel->sequence[song.selected_bar] - 1;
-
-        if (pattern_id >= 0) {
-            Pattern* pattern = channel->patterns[channel->sequence[song.selected_bar] - 1];
-
+        if (selected_pattern != nullptr) {
             // draw pattern notes
-            for (Note& note : pattern->notes) {
+            for (Note& note : selected_pattern->notes) {
                 Vec2 cell_pos = draw_origin + CELL_SIZE * Vec2(note.time, scroll - note.key) + Vec2(PIANO_KEY_WIDTH, 0);
-                Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, CELL_MARGIN);
+                Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, 0);
 
-                draw_list->AddRectFilled(rect_pos, rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, CELL_MARGIN) * 2.0f, Colors::channel[song.selected_channel][1]);
+                draw_list->AddRectFilled(rect_pos, rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, 0) * 2.0f, Colors::channel[song.selected_channel][1]);
+            }
+        }
+
+        // draw rectangle stroke at mouse position
+        if (ImGui::IsItemHovered() && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            if (mouse_pos.x > PIANO_KEY_WIDTH) {
+                Vec2 rect_pos = Vec2(draw_origin.x + PIANO_KEY_WIDTH + CELL_SIZE.x * mouse_cx, draw_origin.y + CELL_SIZE.y * mouse_cy);
+                
+                draw_list->AddRect(
+                    rect_pos, rect_pos + CELL_SIZE,
+                    IM_COL32_WHITE
+                );
+            } else {
+                Vec2 rect_pos = Vec2(draw_origin.x, draw_origin.y + CELL_SIZE.y * mouse_cy);
+                
+                draw_list->AddRect(
+                    rect_pos, rect_pos + Vec2(PIANO_KEY_WIDTH, CELL_SIZE.y),
+                    IM_COL32_WHITE
+                );
             }
         }
 
