@@ -3,7 +3,18 @@ project(soundbox)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_library(imgui
+find_library(GLFW3_LIB NAMES glfw3)
+find_path(GLFW3_INCLUDE NAMES GLFW/glfw3.h)
+
+if (NOT GLFW3_LIB)
+    message(FATAL_ERROR "Could not find library glfw3")
+endif()
+
+if (NOT GLFW3_INCLUDE)
+    message(FATAL_ERROR "Could not find GLFW/glfw3.h")
+endif()
+
+add_executable(soundbox
     imgui/imgui_demo.cpp
     imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp
@@ -11,14 +22,32 @@ add_library(imgui
     imgui/imgui.cpp
     imgui/backends/imgui_impl_glfw.cpp
     imgui/backends/imgui_impl_opengl3.cpp
-)
 
-target_include_directories(imgui PUBLIC imgui)
-
-add_executable(soundbox
     src/main.cpp
     src/song.cpp
 )
 
-target_link_libraries(soundbox imgui)
-target_link_libraries(soundbox glfw3 GL X11)
+target_include_directories(soundbox PUBLIC ${GLFW3_INCLUDE} imgui)
+
+if (WIN32)
+    find_library(OPENGL_FOUND NAMES opengl32)
+
+    if (NOT OPENGL_FOUND)
+        message(FATAL_ERROR "Could not find library opengl32")
+    endif()
+
+    target_link_libraries(soundbox ${GLFW3_LIB} ${OPENGL_FOUND})
+else()
+    find_library(OPENGL_FOUND NAMES GL)
+    find_library(X11_FOUND NAMES X11)
+
+    if (NOT OPENGL_FOUND)
+        message(FATAL_ERROR "Could not find library GL")
+    endif()
+
+    if (NOT X11_FOUND)
+        message(FATAL_ERROR "Could not find library X11")
+    endif()
+
+    target_link_libraries(soundbox glfw3 GL X11)
+endif()
