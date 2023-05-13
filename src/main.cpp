@@ -8,6 +8,20 @@
 #include "../imgui/backends/imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 
+#ifdef _WIN32
+// Windows
+#include <windows.h>
+
+#define sleep(time) Sleep((time) * 1000)
+
+#else
+// Unix
+#include <unistd.h>
+
+#define sleep(time) usleep((time) * 1000000)
+
+#endif
+
 #define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
 
 namespace Colors {
@@ -511,7 +525,7 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
 
     // Info panel //
     ImGui::Begin("Info");
-    ImGui::Text("ms render: %.2f", 1000.0f / io.Framerate);
+    ImGui::Text("framerate: %.2f", io.Framerate);
     ImGui::End();
 }
 
@@ -535,7 +549,7 @@ int main()
     if (window == nullptr)
         return 1;
     glfwMakeContextCurrent(window);
-    // glfwSwapInterval(0); // enable vsync
+    glfwSwapInterval(0); // disable vsync
 
     // setup dear imgui
     IMGUI_CHECKVERSION();
@@ -563,8 +577,16 @@ int main()
     int last_selected_bar = song.selected_bar;
     int last_selected_ch = song.selected_channel;
 
+    static const double FRAME_LENGTH = 1.0 / 120.0;
+
+    double next_time = glfwGetTime();
+
     while (!glfwWindowShouldClose(window))
     {
+        printf("frame start\n");
+        
+        next_time = glfwGetTime() + FRAME_LENGTH;
+
         key_press_queue.clear();
         glfwPollEvents();
 
@@ -622,5 +644,13 @@ int main()
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
+
+        double cur_time = glfwGetTime();
+
+        if (next_time <= cur_time) {
+            next_time = cur_time;
+        }
+        
+        sleep(next_time - cur_time);
     }
 }
