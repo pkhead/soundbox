@@ -24,7 +24,10 @@ Channel::Channel(int song_length, int max_patterns) : volume(0.5f), panning(0.0f
     }
 
     for (int i = 0; i < max_patterns; i++) {
-        patterns.push_back(new Pattern());
+        Pattern* pattern = new Pattern();
+        patterns.push_back(pattern);
+
+        pattern->add_note(0.0f, 58, 2.0f);
     }
 }
 

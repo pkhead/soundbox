@@ -384,7 +384,6 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             }
         }
 
-
         static int scroll = 60;
         static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
         static const bool ACCIDENTAL[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
@@ -421,12 +420,27 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
                 key % 12 == 7 ? IM_RGB32(74, 68, 68) : // highlight each fifth
                 IM_RGB32(50, 50, 50); // default color
 
-            // draw patterns in this row
+            // draw cells in this row
             for (int col = 0; col < 8; col++) {
                 Vec2 cell_pos = draw_origin + CELL_SIZE * Vec2(col, row) + Vec2(PIANO_KEY_WIDTH, 0);
                 Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, CELL_MARGIN);
 
                 draw_list->AddRectFilled(rect_pos, rect_pos + CELL_SIZE - Vec2(CELL_MARGIN, CELL_MARGIN) * 2.0f, row_color);
+            }
+        }
+
+        Channel* channel = song.channels[song.selected_channel];
+        int pattern_id = channel->sequence[song.selected_bar] - 1;
+
+        if (pattern_id >= 0) {
+            Pattern* pattern = channel->patterns[channel->sequence[song.selected_bar] - 1];
+
+            // draw pattern notes
+            for (Note& note : pattern->notes) {
+                Vec2 cell_pos = draw_origin + CELL_SIZE * Vec2(note.time, scroll - note.key) + Vec2(PIANO_KEY_WIDTH, 0);
+                Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, CELL_MARGIN);
+
+                draw_list->AddRectFilled(rect_pos, rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, CELL_MARGIN) * 2.0f, Colors::channel[song.selected_channel][1]);
             }
         }
 
