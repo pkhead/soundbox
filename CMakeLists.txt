@@ -27,8 +27,9 @@ add_executable(soundbox
     src/song.cpp
 )
 
-target_include_directories(soundbox PUBLIC ${GLFW3_INCLUDE} imgui)
+target_include_directories(soundbox PUBLIC ${GLFW3_INCLUDE} imgui libsoundio/soundio)
 
+# todo: add libsoundio for windows
 if (WIN32)
     find_library(OPENGL_FOUND NAMES opengl32)
 
@@ -36,7 +37,7 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    target_link_libraries(soundbox ${GLFW3_LIB} ${OPENGL_FOUND})
+    target_link_libraries(soundbox ${GLFW3_LIB} ${OPENGL_FOUND} libsoundio/build/libsoundio)
 else()
     find_library(OPENGL_FOUND NAMES GL)
     find_library(X11_FOUND NAMES X11)
@@ -49,5 +50,8 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    target_link_libraries(soundbox glfw3 GL X11)
+    target_link_directories(soundbox PUBLIC build)
+    file(COPY libsoundio/build/libsoundio.so DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FOLLOW_SYMLINK_CHAIN)
+    target_link_libraries(soundbox glfw3 GL X11 soundio)
+
 endif()

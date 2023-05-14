@@ -8,6 +8,7 @@
 #include "../imgui/backends/imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 #include <math.h>
+#include <soundio.h>
 
 #ifdef _WIN32
 // Windows
@@ -693,6 +694,28 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
     ImGui::Text("framerate: %.2f", io.Framerate);
     ImGui::End();
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int main()
 {
