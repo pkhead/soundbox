@@ -7,6 +7,7 @@
 #include "../imgui/backends/imgui_impl_glfw.h"
 #include "../imgui/backends/imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
+#include <math.h>
 
 #ifdef _WIN32
 // Windows
@@ -66,6 +67,14 @@ struct Vec2 {
     }
     inline Vec2 operator/(const Vec2& other) const {
         return Vec2(x / other.x, y / other.y);
+    }
+
+    inline float magn_sq() const {
+        return x * x + y * y; 
+    }
+
+    inline float magn() const {
+        return sqrtf(x * x + y * y);
     }
 
     template <typename T>
@@ -366,13 +375,20 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         static float cursor_note_length = 1.0f;
         static float desired_cursor_len = cursor_note_length;
         static float min_step = 0.25f;
+
         static float mouse_start = 0; // the mouse x when the drag started
         static Note* note_hovered = nullptr; // the note currently being hovered over
         static Note* selected_note = nullptr; // the note currently being dragged
         static Pattern* note_pattern = nullptr; // the pattern of selected_note
         static float note_anchor; // selected_note's time position when the drag started
         static float note_start_length; // selected_note's length when the drag started
+        
+        // this variable are used to determine whether the user simply clicked on a note
+        // to delete it
+        static Vec2 mouse_screen_start;
+        static bool did_mouse_move;
 
+        static bool is_adding_note;
         enum DragMode {
             FromLeft,
             FromRight,
@@ -413,8 +429,8 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
         
         // calculate mouse grid position
         if (mouse_pos.x > PIANO_KEY_WIDTH) {
-            mouse_px = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x) / min_step + 0.5) * min_step;
-            mouse_cx = int(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - desired_cursor_len / 2.0f) / min_step + 0.5) * min_step;
+            mouse_px = (mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x;
+            mouse_cx = floorf(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - desired_cursor_len / 2.0f) / min_step + 0.5f) * min_step;
 
             // prevent collision with mouse cursor note & other notes
             float min = 0;
@@ -471,14 +487,17 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             }
         }
 
-
         // if area is clicked
         if (mouse_cx >= 0.0f && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            mouse_screen_start = mouse_pos;
+            did_mouse_move = false;
+            
             // add note on click
             if (selected_pattern != nullptr && ImGui::IsItemHovered()) {
                 mouse_start = mouse_px;
 
                 if (note_hovered) {
+                    is_adding_note = false;
                     selected_note = note_hovered;
 
                     if (mouse_px > selected_note->time + selected_note->length / 2.0f) {
@@ -491,6 +510,7 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
                         note_start_length = -selected_note->length;
                     }
                 } else {
+                    is_adding_note = true;
                     note_drag_mode = DragMode::Any;
                     selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
                     note_anchor = mouse_cx;
@@ -501,9 +521,16 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
             }
         }
 
+        // detect if mouse had moved while down
+        if (ImGui::IsItemActive() && !did_mouse_move) {
+            if ((mouse_pos - mouse_screen_start).magn_sq() > 5*5) {
+                did_mouse_move = true;
+            }
+        }
+
         // mouse note dragging
         if (selected_note != nullptr) {
-            float new_len = (mouse_px - mouse_start) + note_start_length;
+            float new_len = floorf((mouse_px - mouse_start) / min_step + 0.5) * min_step + note_start_length;
 
             if (note_drag_mode == DragMode::FromRight || (note_drag_mode == DragMode::Any && new_len >= 0)) {
                 if (new_len < 0) {
@@ -514,8 +541,16 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
                     selected_note->time = note_anchor;
                     selected_note->length = new_len;
 
+                    // prevent it from going off the right side of the viewport
                     if (selected_note->time + selected_note->length > NUM_DIVISIONS) {
                         selected_note->length = (float)NUM_DIVISIONS - selected_note->time;
+                    }
+
+                    // prevent it from overlapping with other notes
+                    for (Note& note : note_pattern->notes) {
+                        if (note.key == selected_note->key && selected_note->time + selected_note->length > note.time && selected_note->time < note.time) {
+                            selected_note->length = note.time - selected_note->time;
+                        }
                     }
                 }
                 
@@ -529,29 +564,45 @@ static void compute_imgui(ImGuiIO& io, Song& song) {
                     selected_note->time = note_anchor + new_len;
                     selected_note->length = -new_len;
 
+                    // prevent it from going off the left side of the viewport
                     if (selected_note->time < 0) {
                         selected_note->time = 0;
                         selected_note->length = note_anchor;
+                    }
+
+                    // prevent it from overlapping with other notes
+                    for (Note& note : note_pattern->notes) {
+                        if (
+                            note.key == selected_note->key &&
+                            selected_note->time < note.time + note.length &&
+                            selected_note->time + selected_note->length > note.time + note.length
+                        ) {
+                            selected_note->time = note.time + note.length;
+                            selected_note->length = note_anchor - selected_note->time;
+                        }
                     }
                 }
             }
         }
 
         if (ImGui::IsItemDeactivated()) {
-            // if note len == 0, remove the note
-            if (selected_note->length == 0) {
-                for (auto it = note_pattern->notes.begin(); it != note_pattern->notes.end(); it++) {
-                    if (&*it == selected_note) {
-                        note_pattern->notes.erase(it);
-                        break;
+            if (selected_note != nullptr) {
+                // if mouse hadn't moved 5 pixels since the click was started, remove the selected note
+                // or if note len == 0, remove the note
+                if (selected_note->length == 0 || (!is_adding_note && !did_mouse_move)) {
+                    for (auto it = note_pattern->notes.begin(); it != note_pattern->notes.end(); it++) {
+                        if (&*it == selected_note) {
+                            note_pattern->notes.erase(it);
+                            break;
+                        }
                     }
+                } else {
+                    desired_cursor_len = selected_note->length;
                 }
-            } else {
-                desired_cursor_len = selected_note->length;
-            }
 
-            note_pattern = nullptr;
-            selected_note = nullptr;
+                note_pattern = nullptr;
+                selected_note = nullptr;
+            }
         }
 
         // draw cells
