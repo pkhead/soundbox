@@ -162,42 +162,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGui::InputFloat("bpm##song_tempo", &song.tempo, 0.0f, 0.0f, "%.0f");
     if (song.tempo < 0) song.tempo = 0;
 
-    // min step
-    static int selected_step = 0;
-
-    static const char* step_names[] = {
-        "1/4",
-        "1/8",
-        "1/3",
-        "1/6"
-    };
-
-    static const float step_values[] = {
-        0.25f,
-        0.125f,
-        1.0f / 3.0f,
-        1.0f / 6.0f
-    };
-
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Rhythm");
-    ImGui::SameLine();
-    if (ImGui::BeginCombo("##pattern_editor_step", step_names[selected_step]))
-    {
-        for (int i = 0; i < 4; i++) {
-            if (ImGui::Selectable(step_names[i], i == selected_step)) {
-                selected_step = i;
-                song.editor_quantization = step_values[i];
-            }
-
-            if (i == selected_step) {
-                ImGui::SetItemDefaultFocus();
-            }
-        }
-
-        ImGui::EndCombo();
-    }
-
     ImGui::End();
 
     //////////////////////
@@ -370,12 +334,61 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ////////////////////
     // PATTERN EDITOR //
     ////////////////////
-    {
-        ImGui::Begin("Pattern Editor");
+    ImGui::Begin("Pattern Editor"); {
+        // cell size including margin
+        static const Vec2 CELL_SIZE = Vec2(50, 16);
+        // empty space inbetween cells
+        static const int CELL_MARGIN = 1;
+
+        static constexpr float PIANO_KEY_WIDTH = 30;
+
+        Vec2 canvas_size = ImGui::GetContentRegionAvail();
+        Vec2 offset = Vec2(canvas_size.x - (CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH), 0) / 2.0f;
+
+        // min step
+        static int selected_step = 0;
+
+        static const char* step_names[] = {
+            "1/4",
+            "1/8",
+            "1/3",
+            "1/6",
+            "free",
+        };
+
+        static const float step_values[] = {
+            0.25f,
+            0.125f,
+            1.0f / 3.0f,
+            1.0f / 6.0f,
+            0.0f
+        };
+
+        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + offset + Vec2(0, 0));
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Rhythm");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::BeginCombo("##pattern_editor_step", step_names[selected_step]))
+        {
+            for (int i = 0; i < 5; i++) {
+                if (ImGui::Selectable(step_names[i], i == selected_step)) {
+                    selected_step = i;
+                    song.editor_quantization = step_values[i];
+                }
+
+                if (i == selected_step) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        ImGui::NewLine();
 
         float min_step = song.editor_quantization;
 
-        static constexpr float PIANO_KEY_WIDTH = 30;
         static int scroll = 60;
         static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
         static const bool ACCIDENTAL[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
@@ -404,15 +417,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             Any
         } static note_drag_mode;
 
-        // cell size including margin
-        static const Vec2 CELL_SIZE = Vec2(50, 16);
-        // empty space inbetween cells
-        static const int CELL_MARGIN = 1;
-        
-        Vec2 canvas_size = ImGui::GetContentRegionAvail();
-
         // center viewport
-        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + Vec2(canvas_size.x - (CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(0, -style.WindowPadding.y));
+        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + offset + Vec2(0, -CELL_SIZE.y));
         
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
@@ -443,7 +449,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         // calculate mouse grid position
         if (true) {
             mouse_px = (mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x;
-            mouse_cx = floorf(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - desired_cursor_len / 2.0f) / min_step + 0.5f) * min_step;
+            mouse_cx = mouse_px - desired_cursor_len / 2.0f;
+            if (min_step > 0) mouse_cx = floorf(mouse_cx / min_step + 0.5f) * min_step;
 
             // prevent collision with mouse cursor note & other notes
             float min = 0;
@@ -596,6 +603,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             // mouse note dragging
             if (selected_note != nullptr && did_mouse_move) {
                 float new_len = (mouse_px - mouse_start) + note_start_length;
+                if (min_step > 0) {
+                    float note_end = selected_note->time + new_len;
+                    note_end = floorf(note_end / min_step + 0.5f) * min_step;
+                    new_len = note_end - selected_note->time;
+                }
 
                 if (note_drag_mode == DragMode::FromRight || (note_drag_mode == DragMode::Any && new_len >= 0)) {
                     if (new_len < 0) {
@@ -605,7 +617,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                         selected_note->time = note_anchor;
                         selected_note->length = new_len;
-                        selected_note->length = floorf(selected_note->length / min_step + 0.5f) * min_step;
 
                         // prevent it from going off the right side of the viewport
                         if (selected_note->time + selected_note->length > song.beats_per_bar) {
@@ -629,9 +640,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                         selected_note->time = note_anchor + new_len;
                         selected_note->length = -new_len;
-
-                        selected_note->time = floorf(selected_note->time / min_step + 0.5f) * min_step;
-                        selected_note->length = floorf(selected_note->length / min_step + 0.5f) * min_step;
+                        
+                        //selected_note->time = floorf(selected_note->time / min_step + 0.5f) * min_step;
+                        //selected_note->length = floorf(selected_note->length / min_step + 0.5f) * min_step;
 
                         // prevent it from going off the left side of the viewport
                         if (selected_note->time < 0) {
@@ -705,7 +716,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
 
         // draw cells
-        for (int row = -1; row < (int)canvas_size.y / CELL_SIZE.y + 1; row++) {
+        for (int row = 0; row < (int)canvas_size.y / CELL_SIZE.y + 1; row++) {
             int key = scroll - row;
 
             // draw piano key
