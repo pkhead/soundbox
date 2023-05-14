@@ -309,11 +309,12 @@ size_t DestinationModule::process(float** output) {
 static constexpr double PI = 3.14159265359;
 static constexpr double PI2 = 2.0f * PI;
 
-TestModule::TestModule() {
+WaveformSynth::WaveformSynth() {
     time = 0.0;
+    waveform_type = Sine;
 }
 
-void TestModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
+void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     for (size_t i = 0; i < buffer_size; i += channel_count) {
         // set both channels to zero
         for (size_t ch = 0; ch < channel_count; ch++) output[i + ch] = 0.0f;
@@ -331,7 +332,7 @@ void TestModule::process(float** inputs, float* output, size_t num_inputs, size_
     }
 }
 
-void TestModule::event(const NoteEvent& event) {
+void WaveformSynth::event(const NoteEvent& event) {
     if (event.kind == NoteEventKind::NoteOn) {
         NoteOnEvent event_data = event.note_on;
         voices.push_back({

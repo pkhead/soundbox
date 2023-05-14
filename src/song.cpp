@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 #include "song.h"
 
 Pattern::Pattern() { };
@@ -16,7 +17,7 @@ inline bool Pattern::is_empty() const {
 /*************************
 *        CHANNEL         *
 *************************/
-Channel::Channel(int song_length, int max_patterns) : volume(0.5f), panning(0.0f) {
+Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), volume(0.5f), panning(0.0f) {
     strcpy(name, "Channel");
     
     for (int i = 0; i < song_length; i++) {
@@ -26,6 +27,8 @@ Channel::Channel(int song_length, int max_patterns) : volume(0.5f), panning(0.0f
     for (int i = 0; i < max_patterns; i++) {
         patterns.push_back(new Pattern());
     }
+
+    synth_mod.connect(&audio_out);
 }
 
 Channel::~Channel() {
@@ -39,9 +42,9 @@ Channel::~Channel() {
 *         SONG           *
 *************************/
 
-Song::Song(int num_channels, int length, int max_patterns) : _length(length), _max_patterns(max_patterns) {
+Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), _length(length), _max_patterns(max_patterns) {
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
-        Channel* ch = new Channel(_length, _max_patterns);
+        Channel* ch = new Channel(_length, _max_patterns, audio_out);
         sprintf(ch->name, "Channel %i", ch_i + 1);
         channels.push_back(ch);
     }
@@ -95,4 +98,8 @@ int Song::new_pattern(int channel_id) {
     // no unused patterns found, create a new one
     set_max_patterns(_max_patterns + 1);
     return _max_patterns;
+}
+
+float Song::get_key_frequency(int key) const {
+    return powf(2.0f, (key - 57) / 12.0f) * 440.0;
 }

@@ -91,20 +91,9 @@ int main()
 
         AudioDevice device(soundio, -1);
         audiomod::DestinationModule destination(device, BUFFER_SIZE);
-        audiomod::TestModule test_mod;
-        test_mod.connect(&destination);
-
-        test_mod.event({
-            audiomod::NoteEventKind::NoteOn,
-            audiomod::NoteOnEvent {
-                9,
-                440.0f,
-                0.2f
-            }
-        });
 
         // initialize song
-        Song song(4, 8, 8);
+        Song song(4, 8, 8, destination);
 
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
@@ -127,13 +116,6 @@ int main()
             next_time = glfwGetTime() + FRAME_LENGTH;
             
             glfwPollEvents();
-
-            if (glfwGetTime() > 2.0) {
-                test_mod.event({
-                    audiomod::NoteEventKind::NoteOff,
-                    9
-                });
-            }
 
             while (device.num_queued_frames() < device.sample_rate() * 0.1) {
                 float* buf;

@@ -351,6 +351,8 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         // to delete it
         static Vec2 mouse_screen_start;
         static bool did_mouse_move;
+        static bool play_key = false;
+        static int prev_mouse_cy = 0;
 
         static bool is_adding_note;
         enum DragMode {
@@ -365,7 +367,10 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         static const int CELL_MARGIN = 1;
         
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
-        ImGui::SetCursorPos(Vec2(canvas_size.x - (CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(style.WindowPadding.x, 0));
+
+        // center viewport
+        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + Vec2(canvas_size.x - (CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(style.WindowPadding.x, -style.WindowPadding.y));
+        
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
         Vec2 draw_origin = canvas_p0;
@@ -373,7 +378,7 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         // define interactable area
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         ImGui::InvisibleButton("pattern_editor_click_area",
-            Vec2(CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y),
+            Vec2(CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH, canvas_size.y),
             ImGuiButtonFlags_MouseButtonLeft);
 
         // get data for the currently selected channel
@@ -392,7 +397,7 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         int mouse_cy = mouse_cy = (int)mouse_pos.y / CELL_SIZE.y;
         
         // calculate mouse grid position
-        if (mouse_pos.x > PIANO_KEY_WIDTH) {
+        if (true) {
             mouse_px = (mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x;
             mouse_cx = floorf(((mouse_pos.x - PIANO_KEY_WIDTH) / CELL_SIZE.x - desired_cursor_len / 2.0f) / min_step + 0.5f) * min_step;
 
@@ -452,43 +457,85 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         }
 
         // if area is clicked
-        if (mouse_cx >= 0.0f && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            mouse_screen_start = mouse_pos;
-            did_mouse_move = false;
-            
-            // add note on click
-            if (selected_pattern != nullptr && ImGui::IsItemHovered()) {
-                mouse_start = mouse_px;
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            // if on note area, add/resize a note
+            if (mouse_px >= 0.0f) {
+                mouse_screen_start = mouse_pos;
+                did_mouse_move = false;
+                
+                // add note on click
+                if (selected_pattern != nullptr && ImGui::IsItemHovered()) {
+                    mouse_start = mouse_px;
 
-                if (note_hovered) {
-                    is_adding_note = false;
-                    selected_note = note_hovered;
+                    if (note_hovered) {
+                        is_adding_note = false;
+                        selected_note = note_hovered;
 
-                    if (mouse_px > selected_note->time + selected_note->length / 2.0f) {
-                        note_drag_mode = DragMode::FromRight;
-                        note_anchor = selected_note->time;
-                        note_start_length = selected_note->length;
+                        if (mouse_px > selected_note->time + selected_note->length / 2.0f) {
+                            note_drag_mode = DragMode::FromRight;
+                            note_anchor = selected_note->time;
+                            note_start_length = selected_note->length;
+                        } else {
+                            note_drag_mode = DragMode::FromLeft;
+                            note_anchor = selected_note->time + selected_note->length;
+                            note_start_length = -selected_note->length;
+                        }
                     } else {
-                        note_drag_mode = DragMode::FromLeft;
-                        note_anchor = selected_note->time + selected_note->length;
-                        note_start_length = -selected_note->length;
+                        is_adding_note = true;
+                        note_drag_mode = DragMode::Any;
+                        selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
+                        note_anchor = mouse_cx;
+                        note_start_length = cursor_note_length;
                     }
-                } else {
-                    is_adding_note = true;
-                    note_drag_mode = DragMode::Any;
-                    selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
-                    note_anchor = mouse_cx;
-                    note_start_length = cursor_note_length;
-                }
 
-                note_pattern = selected_pattern;
+                    note_pattern = selected_pattern;
+                }
+            }
+
+            // if in piano area, play a note
+            else {
+                play_key = true;
+                int key = scroll - mouse_cy;
+
+                selected_channel->synth_mod.event(audiomod::NoteEvent {
+                    audiomod::NoteEventKind::NoteOn,
+                    {
+                        key,
+                        song.get_key_frequency(key),
+                        0.2f
+                    }
+                });
             }
         }
 
-        // detect if mouse had moved while down
-        if (ImGui::IsItemActive() && !did_mouse_move) {
-            if ((mouse_pos - mouse_screen_start).magn_sq() > 5*5) {
-                did_mouse_move = true;
+        if (ImGui::IsItemActive()) {
+            // detect if mouse had moved while down
+            if (!did_mouse_move) {
+                if ((mouse_pos - mouse_screen_start).magn_sq() > 5*5) {
+                    did_mouse_move = true;
+                }
+            
+            // piano key glissando
+            } else if (play_key) {
+                if (prev_mouse_cy != mouse_cy) {
+                    // turn off old note
+                    selected_channel->synth_mod.event(audiomod::NoteEvent {
+                        audiomod::NoteEventKind::NoteOff,
+                        {
+                            scroll - prev_mouse_cy
+                        }
+                    });
+
+                    // turn on new note
+                    selected_channel->synth_mod.event(audiomod::NoteEvent {
+                        audiomod::NoteEventKind::NoteOn,
+                        {
+                            scroll - mouse_cy,
+                            song.get_key_frequency(scroll - mouse_cy),
+                            0.2f
+                        }
+                    });
+                }
             }
         }
 
@@ -566,6 +613,19 @@ void compute_imgui(ImGuiIO& io, Song& song) {
 
                 note_pattern = nullptr;
                 selected_note = nullptr;
+            }
+
+            // if currently playing a note
+            if (play_key) {
+                // turn off old note
+                selected_channel->synth_mod.event(audiomod::NoteEvent {
+                    audiomod::NoteEventKind::NoteOff,
+                    {
+                        scroll - prev_mouse_cy
+                    }
+                });
+
+                play_key = false;
             }
         }
 
@@ -648,6 +708,8 @@ void compute_imgui(ImGuiIO& io, Song& song) {
                 );
             }
         }
+
+        prev_mouse_cy = mouse_cy;
 
         ImGui::End();
     }

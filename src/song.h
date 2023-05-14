@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include "audio.h"
 
 struct Note {
     float time;
@@ -18,10 +19,15 @@ struct Pattern {
 };
 
 class Channel {
+private:
+    audiomod::ModuleOutputTarget& audio_out;
+
 public:
     Channel(const Channel&) = delete; // prevent copy
-    Channel(int song_length, int max_patterns);
+    Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
     ~Channel();
+
+    audiomod::WaveformSynth synth_mod;
 
     char name[32];
     float volume;
@@ -39,10 +45,11 @@ class Song {
 private:
     int _length;
     int _max_patterns;
+    audiomod::ModuleOutputTarget& audio_out;
 
 public:
     Song(const Song&) = delete; // disable copy
-    Song(int num_channels, int length, int max_patterns);
+    Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
     ~Song();
 
     std::vector<Channel*> channels;
@@ -59,4 +66,6 @@ public:
     void set_max_patterns(int num_patterns);
 
     int new_pattern(int channel_id);
+
+    float get_key_frequency(int key) const;
 };

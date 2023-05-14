@@ -100,21 +100,28 @@ namespace audiomod {
         size_t process(float** output);
     };
 
-    struct Voice {
-        int key;
-        float freq;
-        float volume;
-        double phase;
-    };
-
-    class TestModule : public ModuleBase {
+    class WaveformSynth : public ModuleBase {
     protected:
+        struct Voice {
+            int key;
+            float freq;
+            float volume;
+            double phase;
+        };
+
         std::vector<Voice> voices;
         double time;
 
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
     public:
-        TestModule();
+        WaveformSynth();
+
+        enum WaveformType {
+            Sine,
+            Square,
+            Sawtooth,
+            Triangle
+        } waveform_type;
 
         void event(const NoteEvent& event) override;
     };
