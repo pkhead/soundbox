@@ -162,6 +162,42 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGui::InputFloat("bpm##song_tempo", &song.tempo, 0.0f, 0.0f, "%.0f");
     if (song.tempo < 0) song.tempo = 0;
 
+    // min step
+    static int selected_step = 0;
+
+    static const char* step_names[] = {
+        "1/4",
+        "1/8",
+        "1/3",
+        "1/6"
+    };
+
+    static const float step_values[] = {
+        0.25f,
+        0.125f,
+        1.0f / 3.0f,
+        1.0f / 6.0f
+    };
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Rhythm");
+    ImGui::SameLine();
+    if (ImGui::BeginCombo("##pattern_editor_step", step_names[selected_step]))
+    {
+        for (int i = 0; i < 4; i++) {
+            if (ImGui::Selectable(step_names[i], i == selected_step)) {
+                selected_step = i;
+                song.editor_quantization = step_values[i];
+            }
+
+            if (i == selected_step) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
     ImGui::End();
 
     //////////////////////
@@ -337,6 +373,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     {
         ImGui::Begin("Pattern Editor");
 
+        float min_step = song.editor_quantization;
+
         static constexpr float PIANO_KEY_WIDTH = 30;
         static int scroll = 60;
         static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
@@ -344,7 +382,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         static char key_name[8];
         static float cursor_note_length = 1.0f;
         static float desired_cursor_len = cursor_note_length;
-        static float min_step = 0.25f;
 
         static float mouse_start = 0; // the mouse x when the drag started
         static Note* note_hovered = nullptr; // the note currently being hovered over
@@ -490,7 +527,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     } else {
                         is_adding_note = true;
                         note_drag_mode = DragMode::Any;
-                        selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, 1.0f);
+                        selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, cursor_note_length);
                         note_anchor = mouse_cx;
                         note_start_length = cursor_note_length;
                     }
@@ -555,59 +592,63 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     });
                 }
             }
-        }
 
-        // mouse note dragging
-        if (selected_note != nullptr) {
-            float new_len = floorf((mouse_px - mouse_start) / min_step + 0.5) * min_step + note_start_length;
+            // mouse note dragging
+            if (selected_note != nullptr && did_mouse_move) {
+                float new_len = (mouse_px - mouse_start) + note_start_length;
 
-            if (note_drag_mode == DragMode::FromRight || (note_drag_mode == DragMode::Any && new_len >= 0)) {
-                if (new_len < 0) {
-                    selected_note->length = 0.0f;
-                } else {
-                    if (new_len < min_step) new_len = min_step;
+                if (note_drag_mode == DragMode::FromRight || (note_drag_mode == DragMode::Any && new_len >= 0)) {
+                    if (new_len < 0) {
+                        selected_note->length = 0.0f;
+                    } else {
+                        if (new_len < min_step) new_len = min_step;
 
-                    selected_note->time = note_anchor;
-                    selected_note->length = new_len;
+                        selected_note->time = note_anchor;
+                        selected_note->length = new_len;
+                        selected_note->length = floorf(selected_note->length / min_step + 0.5f) * min_step;
 
-                    // prevent it from going off the right side of the viewport
-                    if (selected_note->time + selected_note->length > song.beats_per_bar) {
-                        selected_note->length = (float)song.beats_per_bar - selected_note->time;
-                    }
+                        // prevent it from going off the right side of the viewport
+                        if (selected_note->time + selected_note->length > song.beats_per_bar) {
+                            selected_note->length = (float)song.beats_per_bar - selected_note->time;
+                        }
 
-                    // prevent it from overlapping with other notes
-                    for (Note& note : note_pattern->notes) {
-                        if (note.key == selected_note->key && selected_note->time + selected_note->length > note.time && selected_note->time < note.time) {
-                            selected_note->length = note.time - selected_note->time;
+                        // prevent it from overlapping with other notes
+                        for (Note& note : note_pattern->notes) {
+                            if (note.key == selected_note->key && selected_note->time + selected_note->length > note.time && selected_note->time < note.time) {
+                                selected_note->length = note.time - selected_note->time;
+                            }
                         }
                     }
-                }
-                
-            } else {
-                if (new_len > 0) {
-                    selected_note->length = 0.0f;
-                    selected_note->time = note_anchor;
+                    
                 } else {
-                    if (new_len > -min_step) new_len = -min_step;
+                    if (new_len > 0) {
+                        selected_note->length = 0.0f;
+                        selected_note->time = note_anchor;
+                    } else {
+                        if (new_len > -min_step) new_len = -min_step;
 
-                    selected_note->time = note_anchor + new_len;
-                    selected_note->length = -new_len;
+                        selected_note->time = note_anchor + new_len;
+                        selected_note->length = -new_len;
 
-                    // prevent it from going off the left side of the viewport
-                    if (selected_note->time < 0) {
-                        selected_note->time = 0;
-                        selected_note->length = note_anchor;
-                    }
+                        selected_note->time = floorf(selected_note->time / min_step + 0.5f) * min_step;
+                        selected_note->length = floorf(selected_note->length / min_step + 0.5f) * min_step;
 
-                    // prevent it from overlapping with other notes
-                    for (Note& note : note_pattern->notes) {
-                        if (
-                            note.key == selected_note->key &&
-                            selected_note->time < note.time + note.length &&
-                            selected_note->time + selected_note->length > note.time + note.length
-                        ) {
-                            selected_note->time = note.time + note.length;
-                            selected_note->length = note_anchor - selected_note->time;
+                        // prevent it from going off the left side of the viewport
+                        if (selected_note->time < 0) {
+                            selected_note->time = 0;
+                            selected_note->length = note_anchor;
+                        }
+
+                        // prevent it from overlapping with other notes
+                        for (Note& note : note_pattern->notes) {
+                            if (
+                                note.key == selected_note->key &&
+                                selected_note->time < note.time + note.length &&
+                                selected_note->time + selected_note->length > note.time + note.length
+                            ) {
+                                selected_note->time = note.time + note.length;
+                                selected_note->length = note_anchor - selected_note->time;
+                            }
                         }
                     }
                 }

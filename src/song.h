@@ -73,6 +73,7 @@ public:
     double position = 0.0;
     bool is_playing = false;
 
+    float editor_quantization = 0.25f;
     float tempo = 120;
     
     int length() const;

@@ -195,7 +195,8 @@ int main()
                         pattern_input = (pattern_input * 10) + k;
                         if (pattern_input > song.max_patterns()) pattern_input = k;
 
-                        song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
+                        if (pattern_input <= song.max_patterns())
+                            song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
                     }
                 }
 
