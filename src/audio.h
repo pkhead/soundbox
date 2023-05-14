@@ -43,6 +43,8 @@ namespace audiomod {
         };
     };
 
+    class ModuleBase;
+
     class ModuleOutputTarget {
     protected:
         std::vector<ModuleBase*> _inputs;
