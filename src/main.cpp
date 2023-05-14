@@ -149,7 +149,7 @@ int main()
 
             int num_buffers = 0;
 
-            while (device.num_queued_frames() < device.sample_rate() * 0.1) {
+            while (device.num_queued_frames() < device.sample_rate() * 0.05) {
                 float* buf;
                 size_t buf_size = destination.process(&buf);
 
