@@ -95,4 +95,14 @@ namespace audiomod {
 
         size_t process(float** output);
     };
+
+    class TestModule : public ModuleBase {
+    protected:
+        double phase;
+
+        void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
+    public:
+        TestModule();
+
+    };
 }

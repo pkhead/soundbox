@@ -212,7 +212,7 @@ void ModuleBase::remove_all_connections() {
 }
 
 float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {
-    if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size) {
+    if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
         _audio_buffer_size = buffer_size * channel_count;
         _audio_buffer = new float[_audio_buffer_size];
@@ -225,8 +225,10 @@ float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_co
         input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
     }
 
+    delete[] input_arrays;
+
     // processing
-    process(input_arrays, _audio_buffer, _inputs.size(), buffer_size, sample_rate, channel_count);
+    process(input_arrays, _audio_buffer, _inputs.size(), buffer_size * channel_count, sample_rate, channel_count);
     return _audio_buffer;
 }
 
@@ -254,7 +256,7 @@ size_t DestinationModule::process(float** output) {
     int sample_rate = device.sample_rate();
     int channel_count = device.num_channels();
 
-    if (_audio_buffer == nullptr || _prev_buffer_size != buffer_size) {
+    if (_audio_buffer == nullptr || _prev_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
         _prev_buffer_size = buffer_size * channel_count;
         _audio_buffer = new float[_prev_buffer_size];
@@ -269,14 +271,47 @@ size_t DestinationModule::process(float** output) {
     }
 
     // combine all inputs into one buffer
-    for (int i = 0; i < buffer_size * channel_count; i++) {
+    for (size_t i = 0; i < buffer_size * channel_count; i++) {
         _audio_buffer[i] = 0.0f;
         
-        for (int j = 0; j < num_inputs; j++) {
+        for (size_t j = 0; j < num_inputs; j++) {
             _audio_buffer[i] += input_arrays[j][i];
         }
     }
 
+    delete[] input_arrays;
+
     *output = _audio_buffer;
     return buffer_size * channel_count;
+}
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////
+//     TEST MODULE      //
+//////////////////////////
+#include <math.h>
+static constexpr float PI = 3.1415926535f;
+
+TestModule::TestModule() {
+    phase = 0.0;
+}
+
+void TestModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
+    for (int i = 0; i < buffer_size; i += 2) {
+        float sample = sin(phase) * 0.2;
+
+        output[i] = sample;
+        output[i + 1] = sample;
+
+        phase += (2 * PI * 440.0) / sample_rate;
+    }
 }

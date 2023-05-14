@@ -86,121 +86,114 @@ int main()
 
     soundio_flush_events(soundio);
 
-    AudioDevice* device = new AudioDevice(soundio, -1);
-
-    // initialize song
-    Song song(4, 8, 8);
-
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            song.channels[i]->sequence[j] = 1;
-        }
-    }
-
-    int pattern_input = 0;
-    
-    // if one of these variables changes, then clear pattern_input
-    int last_selected_bar = song.selected_bar;
-    int last_selected_ch = song.selected_channel;
-
-    static const double FRAME_LENGTH = 1.0 / 120.0;
-
-    double next_time = glfwGetTime();
-
-    static constexpr float PI = 3.1415926535f;
-    static double time = 0.0f;
-
-    while (!glfwWindowShouldClose(window))
     {
-        next_time = glfwGetTime() + FRAME_LENGTH;
+        const size_t BUFFER_SIZE = 1024;
+
+        AudioDevice device(soundio, -1);
+        audiomod::DestinationModule destination(device, BUFFER_SIZE);
+        audiomod::TestModule test_mod;
+        test_mod.connect(&destination);
+
+        // initialize song
+        Song song(4, 8, 8);
+
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                song.channels[i]->sequence[j] = 1;
+            }
+        }
+
+        int pattern_input = 0;
         
-        glfwPollEvents();
+        // if one of these variables changes, then clear pattern_input
+        int last_selected_bar = song.selected_bar;
+        int last_selected_ch = song.selected_channel;
 
-        static size_t BUFFER_SIZE = 512;
+        static const double FRAME_LENGTH = 1.0 / 120.0;
 
-        while (device->num_queued_frames() < BUFFER_SIZE * 4) {
-            size_t buf_len = BUFFER_SIZE * device->num_channels();
-            float* buf = new float[buf_len];
+        double next_time = glfwGetTime();
 
-            for (int i = 0; i < buf_len; i += 2) {
-                float sample = sin(time * (2 * PI * 440.0)) * 0.2;
+        while (!glfwWindowShouldClose(window))
+        {
+            next_time = glfwGetTime() + FRAME_LENGTH;
+            
+            glfwPollEvents();
 
-                buf[i] = sample;
-                buf[i + 1] = sample;
+            while (device.num_queued_frames() < device.sample_rate() * 0.1) {
+                //size_t buf_len = BUFFER_SIZE * device->num_channels();
+                //float* buf = new float[buf_len];
+                float* buf;
+                size_t buf_size = destination.process(&buf);
 
-                time += 1.0f / device->sample_rate();
+                device.queue(buf, buf_size * sizeof(float));
             }
 
-            device->queue(buf, buf_len * sizeof(float));
-        }
-
-        // if selected pattern changed
-        if (last_selected_bar != song.selected_bar || last_selected_ch != song.selected_channel) {
-            last_selected_bar = song.selected_bar;
-            last_selected_ch = song.selected_channel;
-            pattern_input = 0;
-        }
-
-        // key input
-        if (!io.WantTextInput) {
-            // track editor controls
-            if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-                song.selected_bar++;
-                song.selected_bar %= song.length();
+            // if selected pattern changed
+            if (last_selected_bar != song.selected_bar || last_selected_ch != song.selected_channel) {
+                last_selected_bar = song.selected_bar;
+                last_selected_ch = song.selected_channel;
+                pattern_input = 0;
             }
 
-            if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-                song.selected_bar--;
-                if (song.selected_bar < 0) song.selected_bar = song.length() - 1;
-            }
+            // key input
+            if (!io.WantTextInput) {
+                // track editor controls
+                if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+                    song.selected_bar++;
+                    song.selected_bar %= song.length();
+                }
 
-            if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-                song.selected_channel++;
-                song.selected_channel %= song.channels.size();
-            }
+                if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+                    song.selected_bar--;
+                    if (song.selected_bar < 0) song.selected_bar = song.length() - 1;
+                }
 
-            if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-                song.selected_channel--;
-                if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
-            }
+                if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+                    song.selected_channel++;
+                    song.selected_channel %= song.channels.size();
+                }
 
-            // track editor pattern entering
-            for (int k = 0; k < 10; k++) {
-                if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
-                    pattern_input = (pattern_input * 10) + k;
-                    if (pattern_input > song.max_patterns()) pattern_input = k;
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+                    song.selected_channel--;
+                    if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
+                }
 
-                    song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
+                // track editor pattern entering
+                for (int k = 0; k < 10; k++) {
+                    if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
+                        pattern_input = (pattern_input * 10) + k;
+                        if (pattern_input > song.max_patterns()) pattern_input = k;
+
+                        song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
+                    }
                 }
             }
+
+            int display_w, display_h;
+            glfwGetFramebufferSize(window, &display_w, &display_h);
+            
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            compute_imgui(io, song);
+
+            ImGui::Render();
+
+            glViewport(0, 0, display_w, display_h);
+            glClearColor(0.5, 0.7, 0.4, 1.0);
+            glClear(GL_COLOR_BUFFER_BIT);
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+            glfwSwapBuffers(window);
+
+            double cur_time = glfwGetTime();
+
+            if (next_time <= cur_time) {
+                next_time = cur_time;
+            }
+            
+            sleep(next_time - cur_time);
         }
-
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
-        
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        compute_imgui(io, song);
-
-        ImGui::Render();
-
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(0.5, 0.7, 0.4, 1.0);
-        glClear(GL_COLOR_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        glfwSwapBuffers(window);
-
-        double cur_time = glfwGetTime();
-
-        if (next_time <= cur_time) {
-            next_time = cur_time;
-        }
-        
-        sleep(next_time - cur_time);
     }
-
-    delete device;
     soundio_destroy(soundio);
 
     return 0;
