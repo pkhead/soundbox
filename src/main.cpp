@@ -94,6 +94,15 @@ int main()
         audiomod::TestModule test_mod;
         test_mod.connect(&destination);
 
+        test_mod.event({
+            audiomod::NoteEventKind::NoteOn,
+            audiomod::NoteOnEvent {
+                9,
+                440.0f,
+                0.2f
+            }
+        });
+
         // initialize song
         Song song(4, 8, 8);
 
@@ -119,9 +128,14 @@ int main()
             
             glfwPollEvents();
 
+            if (glfwGetTime() > 2.0) {
+                test_mod.event({
+                    audiomod::NoteEventKind::NoteOff,
+                    9
+                });
+            }
+
             while (device.num_queued_frames() < device.sample_rate() * 0.1) {
-                //size_t buf_len = BUFFER_SIZE * device->num_channels();
-                //float* buf = new float[buf_len];
                 float* buf;
                 size_t buf_size = destination.process(&buf);
 

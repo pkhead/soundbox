@@ -29,17 +29,21 @@ namespace audiomod {
         NoteOff
     };
 
+    struct NoteOnEvent {
+        int key;
+        float freq;
+        float volume;
+    };
+
+    struct NoteOffEvent {
+        int key;
+    };
+
     struct NoteEvent {
         NoteEventKind kind;
         union {
-            struct {
-                int key;
-                float volume;
-            } note_on;
-
-            struct {
-                int key;
-            } note_off;
+            NoteOnEvent note_on;
+            NoteOffEvent note_off;
         };
     };
 
@@ -96,13 +100,22 @@ namespace audiomod {
         size_t process(float** output);
     };
 
+    struct Voice {
+        int key;
+        float freq;
+        float volume;
+        double phase;
+    };
+
     class TestModule : public ModuleBase {
     protected:
-        double phase;
+        std::vector<Voice> voices;
+        double time;
 
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
     public:
         TestModule();
 
+        void event(const NoteEvent& event) override;
     };
 }

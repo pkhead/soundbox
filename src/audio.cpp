@@ -152,6 +152,11 @@ void AudioDevice::write(SoundIoOutStream* stream, int frame_count_min, int frame
     soundio_ring_buffer_advance_read_ptr(ring_buffer, read_count * stream->bytes_per_frame);
 }
 
+
+
+
+
+// AUDIO MODULES //
 using namespace audiomod;
 
 ModuleOutputTarget::ModuleOutputTarget() {};
@@ -250,7 +255,9 @@ DestinationModule::DestinationModule(AudioDevice& device, size_t buffer_size) : 
     _prev_buffer_size = 0;
 }
 
-DestinationModule::~DestinationModule() {}
+DestinationModule::~DestinationModule() {
+    if (_audio_buffer != nullptr) delete[] _audio_buffer;
+}
 
 size_t DestinationModule::process(float** output) {
     int sample_rate = device.sample_rate();
@@ -299,19 +306,49 @@ size_t DestinationModule::process(float** output) {
 //     TEST MODULE      //
 //////////////////////////
 #include <math.h>
-static constexpr float PI = 3.1415926535f;
+static constexpr double PI = 3.14159265359;
+static constexpr double PI2 = 2.0f * PI;
 
 TestModule::TestModule() {
-    phase = 0.0;
+    time = 0.0;
 }
 
 void TestModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
-    for (int i = 0; i < buffer_size; i += 2) {
-        float sample = sin(phase) * 0.2;
+    for (size_t i = 0; i < buffer_size; i += channel_count) {
+        // set both channels to zero
+        for (size_t ch = 0; ch < channel_count; ch++) output[i + ch] = 0.0f;
 
-        output[i] = sample;
-        output[i + 1] = sample;
+        // compute all voices
+        for (Voice& voice : voices) {
+            float sample = sin(voice.phase) * voice.volume;
 
-        phase += (2 * PI * 440.0) / sample_rate;
+            for (size_t ch = 0; ch < channel_count; ch++) {
+                output[i + ch] += sample;
+            }
+
+            voice.phase += (PI2 * voice.freq) / sample_rate;
+        }
+    }
+}
+
+void TestModule::event(const NoteEvent& event) {
+    if (event.kind == NoteEventKind::NoteOn) {
+        NoteOnEvent event_data = event.note_on;
+        voices.push_back({
+            event_data.key,
+            event_data.freq,
+            event_data.volume,
+            0.0
+        });
+    
+    } else if (event.kind == NoteEventKind::NoteOff) {
+        NoteOffEvent event_data = event.note_off;
+
+        for (auto it = voices.begin(); it != voices.end(); it++) {
+            if (it->key == event_data.key) {
+                voices.erase(it);
+                break;
+            }
+        }
     }
 }
