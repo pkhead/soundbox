@@ -64,7 +64,7 @@ struct Vec2 {
     inline operator ImVec2() const { return ImVec2(x, y); }
 };
 
-static bool show_demo_window = false;
+bool show_demo_window;
 
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -97,7 +97,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::MenuItem("Export...");
             ImGui::MenuItem("Import...");
             ImGui::Separator();
-            ImGui::MenuItem("Quit", "Ctrl+Q");
+            if (ImGui::MenuItem("Quit", "Ctrl+Q")) user_actions.quit();
 
             ImGui::EndMenu();
         }

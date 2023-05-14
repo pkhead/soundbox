@@ -86,6 +86,8 @@ int main()
 
     soundio_flush_events(soundio);
 
+    show_demo_window = false;
+
     {
         const size_t BUFFER_SIZE = 1024;
 
@@ -128,6 +130,10 @@ int main()
             if (song.position < 0) song.position += song.length() * song.beats_per_bar;
         };
 
+        user_actions.quit = [&window]() {
+            glfwSetWindowShouldClose(window, 1);
+        };
+
         int pattern_input = 0;
         
         // if one of these variables changes, then clear pattern_input
@@ -168,6 +174,13 @@ int main()
 
             // key input
             if (!io.WantTextInput) {
+                if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
+                    show_demo_window = !show_demo_window;
+                }
+
+                // quit
+                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_Q, false)) user_actions.quit();
+
                 // track editor controls
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
                     song.selected_bar++;
