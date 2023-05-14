@@ -151,3 +151,132 @@ void AudioDevice::write(SoundIoOutStream* stream, int frame_count_min, int frame
 
     soundio_ring_buffer_advance_read_ptr(ring_buffer, read_count * stream->bytes_per_frame);
 }
+
+using namespace audiomod;
+
+ModuleOutputTarget::ModuleOutputTarget() {};
+
+ModuleOutputTarget::~ModuleOutputTarget() {
+    for (ModuleBase* mod : _inputs) {
+        mod->disconnect();
+    }
+}
+
+void ModuleOutputTarget::add_input(ModuleBase* module) {
+    _inputs.push_back(module);
+}
+
+bool ModuleOutputTarget::remove_input(ModuleBase* module) {
+    for (auto it = _inputs.begin(); it != _inputs.end(); it++) {
+        if (*it == module) {
+            _inputs.erase(it);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+//////////////////////
+//   MODULE BASE    //
+//////////////////////
+
+ModuleBase::ModuleBase() : _output(nullptr), _audio_buffer(nullptr), _audio_buffer_size(0) {};
+
+ModuleBase::~ModuleBase() {
+    remove_all_connections();
+
+    if (_audio_buffer != nullptr) delete[] _audio_buffer;
+}
+
+void ModuleBase::connect(ModuleOutputTarget* dest) {
+    disconnect();
+    dest->add_input(this);
+    _output = dest;
+}
+
+void ModuleBase::disconnect() {
+    if (this->_output != nullptr) this->_output->remove_input(this);
+    this->_output = nullptr;
+}
+
+void ModuleBase::remove_all_connections() {
+    disconnect();
+
+    for (ModuleBase* input : _inputs) {
+        remove_input(input);
+    }
+
+    _inputs.clear();
+}
+
+float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {
+    if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size) {
+        if (_audio_buffer != nullptr) delete[] _audio_buffer;
+        _audio_buffer_size = buffer_size * channel_count;
+        _audio_buffer = new float[_audio_buffer_size];
+    }
+
+    // accumulate inputs
+    float** input_arrays = new float*[_inputs.size()];
+
+    for (size_t i = 0; i < _inputs.size(); i++) {
+        input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
+    }
+
+    // processing
+    process(input_arrays, _audio_buffer, _inputs.size(), buffer_size, sample_rate, channel_count);
+    return _audio_buffer;
+}
+
+
+
+
+
+
+
+
+
+
+//////////////////////////
+//  DESTINATION MODULE  //
+//////////////////////////
+
+DestinationModule::DestinationModule(AudioDevice& device, size_t buffer_size) : time(0.0), device(device), buffer_size(buffer_size) {
+    _audio_buffer = nullptr;
+    _prev_buffer_size = 0;
+}
+
+DestinationModule::~DestinationModule() {}
+
+size_t DestinationModule::process(float** output) {
+    int sample_rate = device.sample_rate();
+    int channel_count = device.num_channels();
+
+    if (_audio_buffer == nullptr || _prev_buffer_size != buffer_size) {
+        if (_audio_buffer != nullptr) delete[] _audio_buffer;
+        _prev_buffer_size = buffer_size * channel_count;
+        _audio_buffer = new float[_prev_buffer_size];
+    }
+
+    // accumulate inputs
+    size_t num_inputs = _inputs.size();
+    float** input_arrays = new float*[num_inputs];
+
+    for (size_t i = 0; i < num_inputs; i++) {
+        input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
+    }
+
+    // combine all inputs into one buffer
+    for (int i = 0; i < buffer_size * channel_count; i++) {
+        _audio_buffer[i] = 0.0f;
+        
+        for (int j = 0; j < num_inputs; j++) {
+            _audio_buffer[i] += input_arrays[j][i];
+        }
+    }
+
+    *output = _audio_buffer;
+    return buffer_size * channel_count;
+}
