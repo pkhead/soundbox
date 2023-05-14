@@ -101,6 +101,33 @@ int main()
             }
         }
 
+        UserActionList user_actions;
+
+        user_actions.song_play_pause = [&song]() {
+            if (song.is_playing)
+                song.stop();
+            else
+                song.play();
+        };
+
+        user_actions.song_next_bar = [&song]() {
+            song.bar_position++;
+            song.position += song.beats_per_bar;
+
+            // wrap around
+            if (song.bar_position >= song.length()) song.bar_position -= song.length();
+            if (song.position >= song.length() * song.beats_per_bar) song.position -= song.length() * song.beats_per_bar;
+        };
+
+        user_actions.song_prev_bar = [&song]() {
+            song.bar_position--;
+            song.position -= song.beats_per_bar;
+
+            // wrap around
+            if (song.bar_position < 0) song.bar_position += song.length();
+            if (song.position < 0) song.position += song.length() * song.beats_per_bar;
+        };
+
         int pattern_input = 0;
         
         // if one of these variables changes, then clear pattern_input
@@ -110,19 +137,27 @@ int main()
         static const double FRAME_LENGTH = 1.0 / 120.0;
 
         double next_time = glfwGetTime();
+        double prev_time = next_time;
 
         while (!glfwWindowShouldClose(window))
         {
+            double now_time = glfwGetTime();
+
             next_time = glfwGetTime() + FRAME_LENGTH;
             
             glfwPollEvents();
+
+            int num_buffers = 0;
 
             while (device.num_queued_frames() < device.sample_rate() * 0.1) {
                 float* buf;
                 size_t buf_size = destination.process(&buf);
 
                 device.queue(buf, buf_size * sizeof(float));
+                num_buffers++;
             }
+
+            song.update(now_time - prev_time);
 
             // if selected pattern changed
             if (last_selected_bar != song.selected_bar || last_selected_ch != song.selected_channel) {
@@ -163,6 +198,13 @@ int main()
                         song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
                     }
                 }
+
+                // play/pause
+                if (ImGui::IsKeyPressed(ImGuiKey_Space)) user_actions.song_play_pause();
+
+                // song prev/next bar
+                if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) user_actions.song_next_bar();
+                if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) user_actions.song_prev_bar();
             }
 
             int display_w, display_h;
@@ -170,7 +212,7 @@ int main()
             
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
-            compute_imgui(io, song);
+            compute_imgui(io, song, user_actions);
 
             ImGui::Render();
 
@@ -181,6 +223,8 @@ int main()
 
             glfwSwapBuffers(window);
 
+            prev_time = glfwGetTime();
+
             double cur_time = glfwGetTime();
 
             if (next_time <= cur_time) {
@@ -188,6 +232,7 @@ int main()
             }
             
             sleep(next_time - cur_time);
+
         }
     }
     soundio_destroy(soundio);

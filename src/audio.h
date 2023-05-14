@@ -24,7 +24,7 @@ public:
 };
 
 namespace audiomod {
-    enum class NoteEventKind {
+    enum NoteEventKind {
         NoteOn,
         NoteOff
     };

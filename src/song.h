@@ -7,6 +7,10 @@ struct Note {
     float time;
     int key;
     float length;
+
+    bool operator==(const Note& other) {
+        return time == other.time && key == other.key && length == other.length;
+    }
 };
 
 struct Pattern {
@@ -47,6 +51,14 @@ private:
     int _max_patterns;
     audiomod::ModuleOutputTarget& audio_out;
 
+    struct NoteData {
+        int channel_i;
+        Note note;
+    };
+
+    std::vector<NoteData> prev_notes;
+    std::vector<NoteData> cur_notes;
+
 public:
     Song(const Song&) = delete; // disable copy
     Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
@@ -56,7 +68,11 @@ public:
     int selected_channel = 0;
     int selected_bar = 0;
 
-    int position = 0;
+    int beats_per_bar = 8;
+    int bar_position = 0;
+    double position = 0.0;
+    bool is_playing = false;
+
     float tempo = 120;
     
     int length() const;
@@ -68,4 +84,8 @@ public:
     int new_pattern(int channel_id);
 
     float get_key_frequency(int key) const;
+
+    void play();
+    void stop();
+    void update(double elasped);
 };

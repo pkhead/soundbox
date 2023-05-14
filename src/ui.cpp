@@ -66,7 +66,7 @@ struct Vec2 {
 
 static bool show_demo_window = false;
 
-void compute_imgui(ImGuiIO& io, Song& song) {
+void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
 
     static char song_name[64] = "Untitled";
@@ -147,10 +147,12 @@ void compute_imgui(ImGuiIO& io, Song& song) {
     ImGui::InputText("##song_name", song_name, 64);
 
     // play/prev/next
-    ImGui::Button("Play", ImVec2(-1.0f, 0.0f));
-    ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f));
+    if (ImGui::Button(song.is_playing ? "Pause##play_pause" : "Play##play_pause", ImVec2(-1.0f, 0.0f)))
+        user_actions.song_play_pause();
+            
+    if (ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f))) user_actions.song_prev_bar();
     ImGui::SameLine();
-    ImGui::Button("Next", ImVec2(-1.0f, 0.0f));
+    if (ImGui::Button("Next", ImVec2(-1.0f, 0.0f))) user_actions.song_next_bar();
     
     // tempo
     ImGui::AlignTextToFramePadding();
@@ -316,6 +318,11 @@ void compute_imgui(ImGuiIO& io, Song& song) {
             }
         }
 
+        // draw playhead
+        double song_pos = song.is_playing ? (song.position / song.beats_per_bar) : (song.bar_position);
+        Vec2 playhead_pos = canvas_p0 + Vec2(song_pos * CELL_SIZE.x, 0);
+        draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y), IM_COL32_WHITE);
+
         // set scrollable area
         ImGui::SetCursorPos(content_size);
 
@@ -330,7 +337,6 @@ void compute_imgui(ImGuiIO& io, Song& song) {
     {
         ImGui::Begin("Pattern Editor");
 
-        static constexpr int NUM_DIVISIONS = 8;
         static constexpr float PIANO_KEY_WIDTH = 30;
         static int scroll = 60;
         static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
@@ -369,7 +375,7 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
 
         // center viewport
-        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + Vec2(canvas_size.x - (CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(0, -style.WindowPadding.y));
+        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + Vec2(canvas_size.x - (CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(0, -style.WindowPadding.y));
         
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
@@ -378,7 +384,7 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         // define interactable area
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         ImGui::InvisibleButton("pattern_editor_click_area",
-            Vec2(CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y),
+            Vec2(CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y),
             ImGuiButtonFlags_MouseButtonLeft);
 
         // get data for the currently selected channel
@@ -404,7 +410,7 @@ void compute_imgui(ImGuiIO& io, Song& song) {
 
             // prevent collision with mouse cursor note & other notes
             float min = 0;
-            float max = NUM_DIVISIONS;
+            float max = song.beats_per_bar;
 
             if (selected_note == nullptr && selected_pattern != nullptr) {
                 for (Note& note : selected_pattern->notes) {
@@ -495,6 +501,17 @@ void compute_imgui(ImGuiIO& io, Song& song) {
 
             // if in piano area, play a note
             else {
+                // stop already currently playing note
+                if (play_key) {
+                    // turn off old note
+                    selected_channel->synth_mod.event(audiomod::NoteEvent {
+                        audiomod::NoteEventKind::NoteOff,
+                        {
+                            scroll - prev_mouse_cy
+                        }
+                    });
+                }
+
                 play_key = true;
                 int key = scroll - mouse_cy;
 
@@ -554,8 +571,8 @@ void compute_imgui(ImGuiIO& io, Song& song) {
                     selected_note->length = new_len;
 
                     // prevent it from going off the right side of the viewport
-                    if (selected_note->time + selected_note->length > NUM_DIVISIONS) {
-                        selected_note->length = (float)NUM_DIVISIONS - selected_note->time;
+                    if (selected_note->time + selected_note->length > song.beats_per_bar) {
+                        selected_note->length = (float)song.beats_per_bar - selected_note->time;
                     }
 
                     // prevent it from overlapping with other notes
@@ -724,6 +741,12 @@ void compute_imgui(ImGuiIO& io, Song& song) {
                     IM_COL32_WHITE
                 );
             }
+        }
+
+        // draw playhead
+        if (song.is_playing && selected_channel->sequence[song.bar_position] - 1 == pattern_id) {
+            Vec2 playhead_pos = draw_origin + Vec2(PIANO_KEY_WIDTH + fmodf(song.position, song.beats_per_bar) * CELL_SIZE.x, 0.0f);
+            draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y + style.WindowPadding.y * 2.0f), IM_COL32_WHITE);
         }
 
         prev_mouse_cy = mouse_cy;

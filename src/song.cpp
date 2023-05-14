@@ -103,3 +103,99 @@ int Song::new_pattern(int channel_id) {
 float Song::get_key_frequency(int key) const {
     return powf(2.0f, (key - 57) / 12.0f) * 440.0;
 }
+
+void Song::play() {
+    is_playing = true;
+    position = bar_position * beats_per_bar;
+
+    prev_notes.clear();
+}
+
+void Song::stop() {
+    is_playing = false;
+
+    for (NoteData note_data : cur_notes) {
+        channels[note_data.channel_i]->synth_mod.event({
+            audiomod::NoteEventKind::NoteOff,
+            note_data.note.key
+        });
+    }
+
+    prev_notes.clear();
+    cur_notes.clear();
+}
+
+void Song::update(double elapsed) {
+    if (is_playing) {
+        position += elapsed * (tempo / 60.0);
+        if (position >= _length * beats_per_bar) position -= _length * beats_per_bar;
+        bar_position = position / beats_per_bar;
+
+        // get notes at playhead
+        float pos_in_bar = fmod(position, (double)beats_per_bar);
+        cur_notes.clear();
+
+        int channel_i = 0;
+        for (Channel* channel : channels) {
+            int pattern_index = channel->sequence[bar_position] - 1;
+            if (pattern_index >= 0) {
+                Pattern* pattern = channel->patterns[pattern_index];
+
+                for (Note& note : pattern->notes) {
+                    if (pos_in_bar > note.time && pos_in_bar < note.time + note.length) cur_notes.push_back({
+                        channel_i,
+                        note
+                    });
+                }
+            }
+
+            channel_i++;
+        }
+
+        // if there are notes in cur_notes that are not in prev_notes
+        // they are new notes
+        for (NoteData& new_note : cur_notes) {
+            bool is_new = true;
+
+            for (NoteData& old_note : prev_notes) {
+                if (new_note.note == old_note.note) {
+                    is_new = false;
+                    break;
+                }
+            }
+
+            if (is_new) {
+                channels[new_note.channel_i]->synth_mod.event({
+                    audiomod::NoteEventKind::NoteOn,
+                    {
+                        new_note.note.key,
+                        get_key_frequency(new_note.note.key),
+                        0.2f
+                    }
+                });
+            }
+        }
+
+        // if there are notes in prev_notes that are not in cur_notes
+        // they are notes that just ended
+        for (NoteData& old_note : prev_notes) {
+            bool is_old = true;
+
+            for (NoteData& new_note : cur_notes) {
+                if (new_note.note == old_note.note) {
+                    is_old = false;
+                    break;
+                }
+            }
+
+            if (is_old) {
+                channels[old_note.channel_i]->synth_mod.event({
+                    audiomod::NoteEventKind::NoteOff,
+                    old_note.note.key
+                });
+            }
+        }
+
+        prev_notes = cur_notes;
+    }
+}
