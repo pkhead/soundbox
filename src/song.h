@@ -31,6 +31,7 @@ public:
     Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
     ~Channel();
 
+    audiomod::VolumeModule vol_mod;
     audiomod::WaveformSynth synth_mod;
 
     char name[32];

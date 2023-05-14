@@ -125,4 +125,16 @@ namespace audiomod {
 
         void event(const NoteEvent& event) override;
     };
+
+    class VolumeModule : public ModuleBase {
+    protected:
+        void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
+        float cur_volume[2];
+        float last_sample[2];
+    
+    public:
+        VolumeModule();
+        float volume = 1.0f;
+        float panning = 0.0f;
+    };
 }

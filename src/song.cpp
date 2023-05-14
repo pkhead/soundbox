@@ -28,7 +28,8 @@ Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget
         patterns.push_back(new Pattern());
     }
 
-    synth_mod.connect(&audio_out);
+    synth_mod.connect(&vol_mod);
+    vol_mod.connect(&audio_out);
 }
 
 Channel::~Channel() {

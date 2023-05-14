@@ -70,7 +70,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
 
     static char song_name[64] = "Untitled";
-    static float volume = 50;
     static float panning = 0;
     static int bus_index = 0;
 
@@ -170,24 +169,32 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     ImGui::Begin("Channel Settings", nullptr);
 
+    Channel* cur_channel = song.channels[song.selected_channel];
+
     // channel name
     ImGui::PushItemWidth(-1.0f);
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Name");
     ImGui::SameLine();
-    ImGui::InputText("##channel_name", song.channels[song.selected_channel]->name, 64);
+    ImGui::InputText("##channel_name", cur_channel->name, 64);
 
     // volume slider
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Volume");
-    ImGui::SameLine();
-    ImGui::SliderFloat("##channel_volume", &volume, 0, 100, "%.0f");
+    {
+        float volume = cur_channel->vol_mod.volume * 100.0f;
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Volume");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##channel_volume", &volume, 0, 100, "%.0f");
+        cur_channel->vol_mod.volume = volume / 100.0f;
+    }
 
     // panning slider
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Panning");
-    ImGui::SameLine();
-    ImGui::SliderFloat("##channel_panning", &panning, -1, 1, "%.2f");
+    {
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Panning");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##channel_panning", &cur_channel->vol_mod.panning, -1, 1, "%.2f");
+    }
 
     // fx mixer bus combobox
     ImGui::AlignTextToFramePadding();
