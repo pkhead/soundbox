@@ -369,7 +369,7 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
 
         // center viewport
-        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + Vec2(canvas_size.x - (CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(style.WindowPadding.x, -style.WindowPadding.y));
+        ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + Vec2(canvas_size.x - (CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH), 0) / 2.0f + Vec2(0, -style.WindowPadding.y));
         
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
@@ -378,10 +378,11 @@ void compute_imgui(ImGuiIO& io, Song& song) {
         // define interactable area
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         ImGui::InvisibleButton("pattern_editor_click_area",
-            Vec2(CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH, canvas_size.y),
+            Vec2(CELL_SIZE.x * NUM_DIVISIONS + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y),
             ImGuiButtonFlags_MouseButtonLeft);
 
         // get data for the currently selected channel
+        static Channel* prev_channel = nullptr;
         Channel* selected_channel = song.channels[song.selected_channel];
         int pattern_id = selected_channel->sequence[song.selected_bar] - 1;
         Pattern* selected_pattern = nullptr;
@@ -405,7 +406,7 @@ void compute_imgui(ImGuiIO& io, Song& song) {
             float min = 0;
             float max = NUM_DIVISIONS;
 
-            if (selected_note == nullptr) {
+            if (selected_note == nullptr && selected_pattern != nullptr) {
                 for (Note& note : selected_pattern->notes) {
                     if (scroll - mouse_cy == note.key) {
                         // if mouse is on right side of this note
@@ -594,6 +595,22 @@ void compute_imgui(ImGuiIO& io, Song& song) {
                     }
                 }
             }
+        }
+
+        // if selected channel changed, turn off currently playing note
+        if (selected_channel != prev_channel) {
+            if (prev_channel != nullptr && play_key) {
+                prev_channel->synth_mod.event(audiomod::NoteEvent {
+                    audiomod::NoteEventKind::NoteOff,
+                    {
+                        scroll - prev_mouse_cy
+                    }
+                });
+
+                play_key = false;
+            }
+
+            prev_channel = selected_channel;
         }
 
         if (ImGui::IsItemDeactivated()) {
