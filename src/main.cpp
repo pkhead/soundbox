@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
-#include "song.h"
 
 #include "../imgui/imgui.h"
 #include "../imgui/backends/imgui_impl_glfw.h"
@@ -9,6 +8,9 @@
 #include <GLFW/glfw3.h>
 #include <math.h>
 #include <soundio.h>
+
+#include "song.h"
+#include "audio.h"
 
 #ifdef _WIN32
 // Windows
@@ -746,12 +748,31 @@ int main()
     (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    ImGui::StyleColorsClassic();
-
-    Song song(4, 100, 8);
-
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+
+    ImGui::StyleColorsClassic();
+
+    // setup soundio
+    int err;
+
+    SoundIo* soundio = soundio_create();
+    if (!soundio) {
+        fprintf(stderr, "out of memory!\n");
+        return 1;
+    }
+
+    if ((err = soundio_connect(soundio))) {
+        fprintf(stderr, "error connecting: %s", soundio_strerror(err));
+        return 1;
+    }
+
+    soundio_flush_events(soundio);
+
+    AudioDevice* device = new AudioDevice(soundio, -1);
+
+    // initialize song
+    Song song(4, 8, 8);
 
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
@@ -769,12 +790,33 @@ int main()
 
     double next_time = glfwGetTime();
 
+    static constexpr float PI = 3.1415926535f;
+    static double time = 0.0f;
+
     while (!glfwWindowShouldClose(window))
     {
         next_time = glfwGetTime() + FRAME_LENGTH;
 
         key_press_queue.clear();
         glfwPollEvents();
+
+        static size_t BUFFER_SIZE = 512;
+
+        while (device->num_queued_frames() < BUFFER_SIZE * 4) {
+            size_t buf_len = BUFFER_SIZE * device->num_channels();
+            float* buf = new float[buf_len];
+
+            for (int i = 0; i < buf_len; i += 2) {
+                float sample = sin(time * (2 * PI * 440.0)) * 0.2;
+
+                buf[i] = sample;
+                buf[i + 1] = sample;
+
+                time += 1.0f / device->sample_rate();
+            }
+
+            device->queue(buf, buf_len * sizeof(float));
+        }
 
         // if selected pattern changed
         if (last_selected_bar != song.selected_bar || last_selected_ch != song.selected_channel) {
@@ -839,4 +881,9 @@ int main()
         
         sleep(next_time - cur_time);
     }
+
+    delete device;
+    soundio_destroy(soundio);
+
+    return 0;
 }

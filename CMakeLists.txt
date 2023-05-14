@@ -25,6 +25,7 @@ add_executable(soundbox
 
     src/main.cpp
     src/song.cpp
+    src/audio.cpp
 )
 
 target_include_directories(soundbox PUBLIC ${GLFW3_INCLUDE} imgui libsoundio/soundio)
