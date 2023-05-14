@@ -387,6 +387,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         ImGui::NewLine();
 
+        canvas_size = ImGui::GetContentRegionAvail();
+
         float min_step = song.editor_quantization;
 
         static int scroll = 60;
@@ -426,9 +428,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         // define interactable area
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        Vec2 button_size = Vec2(CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y);
+        if (button_size.x <= 0.0f) button_size.x = 1.0f;
+        if (button_size.y <= 0.0f) button_size.y = 1.0f;
+
         ImGui::InvisibleButton("pattern_editor_click_area",
-            Vec2(CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH, canvas_size.y + style.WindowPadding.y),
-            ImGuiButtonFlags_MouseButtonLeft);
+            button_size,
+            ImGuiButtonFlags_MouseButtonLeft
+        );
 
         // get data for the currently selected channel
         static Channel* prev_channel = nullptr;
@@ -716,7 +723,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
 
         // draw cells
-        for (int row = 0; row < (int)canvas_size.y / CELL_SIZE.y + 1; row++) {
+        for (int row = 0; row < (int)canvas_size.y / CELL_SIZE.y + 2; row++) {
             int key = scroll - row;
 
             // draw piano key
