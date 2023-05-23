@@ -213,17 +213,42 @@ static bool is_big_endian() {
 }
 
 // push the bytes of data in little-endian order
-template <class T>
+template <typename T>
 static void push_bytes(std::ostream& out, T data) {
     if (is_big_endian()) {
-        for (size_t i = sizeof(data) - 1; i >= 0; i--) {
+        for (size_t i = sizeof(data) - 1; i > 0; i--) {
             out << ((uint8_t*)(&data)) [i];
         }
+        out << ((uint8_t*)(&data)) [0];
     } else {
         for (size_t i = 0; i < sizeof(data); i++) {
             out << ((uint8_t*)(&data)) [i];
         }
     }
+}
+
+// retrieve bytes from an input stream in little-endian order
+template <typename T>
+static void pull_bytes(std::istream& in, T& output) {
+    char next_char;
+    uint8_t bytes[sizeof(T)];
+
+    if (is_big_endian()) {
+        for (size_t i = sizeof(T) - 1; i > 0; i--) {
+            in.get(next_char);
+            bytes[i] = next_char;
+        }
+
+        in.get(next_char);
+        bytes[0] = next_char;
+    } else {
+        for (size_t i = 0; i < sizeof(T); i++) {
+            in.get(next_char);
+            bytes[i] = next_char;
+        }
+    }
+
+    output = *((T*)bytes);
 }
 
 /*
@@ -314,4 +339,88 @@ void Song::serialize(std::ostream& out) const {
             }
         }
     }
+}
+
+Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out) {
+    // check if the magic number is valid
+    char magic_number[4];
+    input.read(magic_number, 4);
+    if (memcmp("SnBx", magic_number, 4) != 0) return nullptr;
+
+    uint8_t version[3];
+    pull_bytes(input, version[0]);
+    pull_bytes(input, version[1]);
+    pull_bytes(input, version[2]);
+    
+    // get song name
+    uint8_t song_name_size;
+    pull_bytes(input, song_name_size);
+
+    char* song_name = new char[song_name_size];
+    input.read(song_name, song_name_size);
+
+    // get song data
+    uint32_t length, num_channels, max_patterns, beats_per_bar;
+    pull_bytes(input, length);
+    pull_bytes(input, num_channels);
+    pull_bytes(input, max_patterns);
+    pull_bytes(input, beats_per_bar);
+
+    float tempo;
+    pull_bytes(input, tempo);
+
+    // create song
+    Song* song = new Song(num_channels, length, max_patterns, audio_out);
+    memcpy(song->name, song_name, song_name_size);
+    song->name[song_name_size] = 0;
+    song->beats_per_bar = beats_per_bar;
+    song->tempo = tempo;
+
+    // retrive channel data
+    for (uint32_t channel_i = 0; channel_i < num_channels; channel_i++) {
+        Channel* channel = song->channels[channel_i];
+
+        // channel name
+        uint8_t channel_name_size;
+        pull_bytes(input, channel_name_size);
+
+        input.read(channel->name, channel_name_size);
+        channel->name[channel_name_size] = 0;
+
+        // volume, panning
+        float volume, panning;
+
+        pull_bytes(input, volume);
+        pull_bytes(input, panning);
+
+        // get sequence
+        uint32_t pattern_id;
+        for (uint32_t i = 0; i < length; i++) {
+            pull_bytes(input, pattern_id);
+            channel->sequence[i] = pattern_id;
+        }
+
+        // get pattern and note data
+        for (uint32_t pattern_i = 0; pattern_i < max_patterns; pattern_i++) {
+            uint32_t num_notes;
+            pull_bytes(input, num_notes);
+
+            for (uint32_t i = 0; i < num_notes; i++) {
+                float time, length;
+                int16_t key;
+                
+                pull_bytes(input, time);
+                pull_bytes(input, key);
+                pull_bytes(input, length);
+
+                channel->patterns[pattern_i]->notes.push_back({
+                    time, key, length
+                });
+            }
+        }
+    }
+
+    delete[] song_name;
+
+    return song;
 }

@@ -75,6 +75,8 @@ int main()
 
     std::string last_file_path;
     std::string last_file_name;
+    std::string status_message;
+    double status_time = -9999.0;
 
     {
         const size_t BUFFER_SIZE = 1024;
@@ -83,11 +85,11 @@ int main()
         audiomod::DestinationModule destination(device, BUFFER_SIZE);
 
         // initialize song
-        Song song(4, 8, 8, destination);
-
+        Song* song = new Song(4, 8, 8, destination);
+        
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                song.channels[i]->sequence[j] = 1;
+                song->channels[i]->sequence[j] = 1;
             }
         }
 
@@ -95,35 +97,35 @@ int main()
 
         // song play/pause
         user_actions.song_play_pause = [&song]() {
-            if (song.is_playing)
-                song.stop();
+            if (song->is_playing)
+                song->stop();
             else
-                song.play();
+                song->play();
         };
 
         // song next bar
         user_actions.song_next_bar = [&song]() {
-            song.bar_position++;
-            song.position += song.beats_per_bar;
+            song->bar_position++;
+            song->position += song->beats_per_bar;
 
             // wrap around
-            if (song.bar_position >= song.length()) song.bar_position -= song.length();
-            if (song.position >= song.length() * song.beats_per_bar) song.position -= song.length() * song.beats_per_bar;
+            if (song->bar_position >= song->length()) song->bar_position -= song->length();
+            if (song->position >= song->length() * song->beats_per_bar) song->position -= song->length() * song->beats_per_bar;
         };
 
         // song previous bar
         user_actions.song_prev_bar = [&song]() {
-            song.bar_position--;
-            song.position -= song.beats_per_bar;
+            song->bar_position--;
+            song->position -= song->beats_per_bar;
 
             // wrap around
-            if (song.bar_position < 0) song.bar_position += song.length();
-            if (song.position < 0) song.position += song.length() * song.beats_per_bar;
+            if (song->bar_position < 0) song->bar_position += song->length();
+            if (song->position < 0) song->position += song->length() * song->beats_per_bar;
         };
 
-        // song save
+        // song save as
         user_actions.song_save_as = [&]() {
-            std::string file_name = last_file_name.empty() ? std::string(song.name) + ".box" : last_file_name;
+            std::string file_name = last_file_name.empty() ? std::string(song->name) + ".box" : last_file_name;
             nfdchar_t* out_path = nullptr;
             nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
 
@@ -142,9 +144,7 @@ int main()
             }
         };
 
-        std::string status_message;
-        double status_time = -9999.0;
-
+        // song save
         user_actions.song_save = [&]() {
             if (last_file_path.empty()) {
                 user_actions.song_save_as();
@@ -155,14 +155,43 @@ int main()
             file.open(last_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
 
             if (file.is_open()) {
-                song.serialize(file);
+                song->serialize(file);
                 file.close();
 
                 status_message = "Successfully saved " + last_file_path;
                 status_time = glfwGetTime();
             } else {
-                status_message = "Could not open " + last_file_path;
+                status_message = "Could not save to " + last_file_path;
                 status_time = glfwGetTime();
+            }
+        };
+
+        // song open
+        user_actions.song_open = [&]() {
+            nfdchar_t* out_path;
+            nfdresult_t result = NFD_OpenDialog("box", nullptr, &out_path);
+
+            if (result == NFD_OKAY) {
+                std::ifstream file;
+                file.open(out_path, std::ios::in | std::ios::binary);
+
+                if (file.is_open()) {
+                    Song* new_song = Song::from_file(file, destination);
+                    file.close();
+
+                    if (new_song != nullptr) {
+                        delete song;
+                        song = new_song;
+                    } else {
+                        status_message = "Error reading file";
+                        status_time = glfwGetTime();
+                    }
+                } else {
+                    status_message = "Could not open " + std::string(out_path);
+                    status_time = glfwGetTime();
+                }
+            } else if (result != NFD_CANCEL) {
+                std::cerr << "Error: " << NFD_GetError() << "\n";
             }
         };
 
@@ -174,8 +203,8 @@ int main()
         int pattern_input = 0;
         
         // if one of these variables changes, then clear pattern_input
-        int last_selected_bar = song.selected_bar;
-        int last_selected_ch = song.selected_channel;
+        int last_selected_bar = song->selected_bar;
+        int last_selected_ch = song->selected_channel;
 
         static const double FRAME_LENGTH = 1.0 / 120.0;
 
@@ -200,12 +229,12 @@ int main()
                 num_buffers++;
             }
 
-            song.update(now_time - prev_time);
+            song->update(now_time - prev_time);
 
             // if selected pattern changed
-            if (last_selected_bar != song.selected_bar || last_selected_ch != song.selected_channel) {
-                last_selected_bar = song.selected_bar;
-                last_selected_ch = song.selected_channel;
+            if (last_selected_bar != song->selected_bar || last_selected_ch != song->selected_channel) {
+                last_selected_bar = song->selected_bar;
+                last_selected_ch = song->selected_channel;
                 pattern_input = 0;
             }
 
@@ -215,6 +244,9 @@ int main()
                     show_demo_window = !show_demo_window;
                 }
 
+                // open: Ctrl+O
+                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_O, false)) user_actions.song_open();
+
                 // save: Ctrl+S
                 if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_S, false)) user_actions.song_save();
 
@@ -223,33 +255,33 @@ int main()
 
                 // track editor controls: arrow keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-                    song.selected_bar++;
-                    song.selected_bar %= song.length();
+                    song->selected_bar++;
+                    song->selected_bar %= song->length();
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-                    song.selected_bar--;
-                    if (song.selected_bar < 0) song.selected_bar = song.length() - 1;
+                    song->selected_bar--;
+                    if (song->selected_bar < 0) song->selected_bar = song->length() - 1;
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-                    song.selected_channel++;
-                    song.selected_channel %= song.channels.size();
+                    song->selected_channel++;
+                    song->selected_channel %= song->channels.size();
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-                    song.selected_channel--;
-                    if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
+                    song->selected_channel--;
+                    if (song->selected_channel < 0) song->selected_channel = song->channels.size() - 1;
                 }
 
                 // track editor pattern entering: number keys
                 for (int k = 0; k < 10; k++) {
                     if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
                         pattern_input = (pattern_input * 10) + k;
-                        if (pattern_input > song.max_patterns()) pattern_input = k;
+                        if (pattern_input > song->max_patterns()) pattern_input = k;
 
-                        if (pattern_input <= song.max_patterns())
-                            song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_input;
+                        if (pattern_input <= song->max_patterns())
+                            song->channels[song->selected_channel]->sequence[song->selected_bar] = pattern_input;
                     }
                 }
 
@@ -267,7 +299,7 @@ int main()
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
 
-            compute_imgui(io, song, user_actions);
+            compute_imgui(io, *song, user_actions);
 
             if (now_time < status_time + 2.0) {
                 ImGui::SetTooltip("%s", status_message.c_str());
@@ -293,7 +325,10 @@ int main()
             sleep(next_time - cur_time);
 
         }
+
+        delete song;
     }
+
     soundio_destroy(soundio);
 
     return 0;
