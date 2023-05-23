@@ -8,28 +8,12 @@
 #include <GLFW/glfw3.h>
 #include <math.h>
 #include <soundio.h>
+#include <nfd.h>
 
 #include "ui.h"
 #include "song.h"
 #include "audio.h"
-
-#ifdef _WIN32
-// Windows
-#include <windows.h>
-
-#define sleep(time) Sleep((time) * 1000)
-
-// prevent collision with user-defined max and min function
-#undef max
-#undef min
-
-#else
-// Unix
-#include <unistd.h>
-
-#define sleep(time) usleep((time) * 1000000)
-
-#endif
+#include "os.h"
 
 static void glfw_error_callback(int error, const char *description)
 {
@@ -105,6 +89,7 @@ int main()
 
         UserActionList user_actions;
 
+        // song play/pause
         user_actions.song_play_pause = [&song]() {
             if (song.is_playing)
                 song.stop();
@@ -112,6 +97,7 @@ int main()
                 song.play();
         };
 
+        // song next bar
         user_actions.song_next_bar = [&song]() {
             song.bar_position++;
             song.position += song.beats_per_bar;
@@ -121,6 +107,7 @@ int main()
             if (song.position >= song.length() * song.beats_per_bar) song.position -= song.length() * song.beats_per_bar;
         };
 
+        // song previous bar
         user_actions.song_prev_bar = [&song]() {
             song.bar_position--;
             song.position -= song.beats_per_bar;
@@ -130,6 +117,25 @@ int main()
             if (song.position < 0) song.position += song.length() * song.beats_per_bar;
         };
 
+        // song save
+        user_actions.song_save = [&song]() {
+            printf("Save\n");
+
+            nfdchar_t* outPath = nullptr;
+            nfdresult_t result = NFD_SaveDialog("box", "project", &outPath);
+
+            if (result == NFD_OKAY) {
+                printf("Success! %s\n", outPath);
+                free(outPath);
+            }
+            else if (result == NFD_CANCEL) {
+                printf("User pressed cancel.\n");
+            } else {
+                printf("Error: %s\n", NFD_GetError());
+            }
+        };
+
+        // application quit
         user_actions.quit = [&window]() {
             glfwSetWindowShouldClose(window, 1);
         };
@@ -178,10 +184,13 @@ int main()
                     show_demo_window = !show_demo_window;
                 }
 
-                // quit
-                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_Q, false)) user_actions.quit();
+                // save: Ctrl+S
+                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_S, false)) user_actions.song_save();
 
-                // track editor controls
+                // save as: Ctrl+Shift+S
+                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyDown(ImGuiMod_Shift) && ImGui::IsKeyPressed(ImGuiKey_S, false)) user_actions.song_save_as();
+
+                // track editor controls: arrow keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
                     song.selected_bar++;
                     song.selected_bar %= song.length();
@@ -202,7 +211,7 @@ int main()
                     if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
                 }
 
-                // track editor pattern entering
+                // track editor pattern entering: number keys
                 for (int k = 0; k < 10; k++) {
                     if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
                         pattern_input = (pattern_input * 10) + k;
@@ -213,10 +222,10 @@ int main()
                     }
                 }
 
-                // play/pause
+                // play/pause: space
                 if (ImGui::IsKeyPressed(ImGuiKey_Space)) user_actions.song_play_pause();
 
-                // song prev/next bar
+                // song prev/next bar: left/right bracket keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) user_actions.song_next_bar();
                 if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) user_actions.song_prev_bar();
             }

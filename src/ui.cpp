@@ -91,13 +91,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         if (ImGui::BeginMenu("File"))
         {
             ImGui::MenuItem("New", "Ctrl+N");
-            ImGui::MenuItem("Save", "Ctrl+S");
+            if (ImGui::MenuItem("Save", "Ctrl+S")) user_actions.song_save();
             ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
             ImGui::Separator();
             ImGui::MenuItem("Export...");
             ImGui::MenuItem("Import...");
             ImGui::Separator();
-            if (ImGui::MenuItem("Quit", "Ctrl+Q")) user_actions.quit();
+            if (ImGui::MenuItem("Quit", "Alt+F4")) user_actions.quit();
 
             ImGui::EndMenu();
         }
