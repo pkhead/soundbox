@@ -91,7 +91,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         {
             ImGui::MenuItem("New", "Ctrl+N");
             if (ImGui::MenuItem("Save", "Ctrl+S")) user_actions.song_save();
-            ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
+            if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) user_actions.song_save_as();
             ImGui::Separator();
             ImGui::MenuItem("Export...");
             ImGui::MenuItem("Import...");
@@ -143,7 +143,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGui::Text("Name");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputText("##song_name", song.name, 64);
+    ImGui::InputText("##song_name", song.name, song.name_capcity);
 
     // play/prev/next
     if (ImGui::Button(song.is_playing ? "Pause##play_pause" : "Play##play_pause", ImVec2(-1.0f, 0.0f)))

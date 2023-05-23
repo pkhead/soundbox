@@ -1,4 +1,5 @@
-#include <stdio.h>
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -17,7 +18,7 @@
 
 static void glfw_error_callback(int error, const char *description)
 {
-    fprintf(stderr, "GLFW error %d: %s\n", error, description);
+    std::cerr << "GLFW error " << error << ": " << description << "\n";
 }
 
 int main()
@@ -59,18 +60,21 @@ int main()
 
     SoundIo* soundio = soundio_create();
     if (!soundio) {
-        fprintf(stderr, "out of memory!\n");
+        std::cerr << "out of memory!\n";
         return 1;
     }
 
     if ((err = soundio_connect(soundio))) {
-        fprintf(stderr, "error connecting: %s", soundio_strerror(err));
+        std::cerr << "error connecting: " << soundio_strerror(err) << "\n";
         return 1;
     }
 
     soundio_flush_events(soundio);
 
     show_demo_window = false;
+
+    std::string last_file_path;
+    std::string last_file_name;
 
     {
         const size_t BUFFER_SIZE = 1024;
@@ -118,21 +122,47 @@ int main()
         };
 
         // song save
-        user_actions.song_save = [&song]() {
-            printf("Save\n");
-
-            std::string file_name = std::string(song.name) + ".box";
+        user_actions.song_save_as = [&]() {
+            std::string file_name = last_file_name.empty() ? std::string(song.name) + ".box" : last_file_name;
             nfdchar_t* out_path = nullptr;
             nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), NULL, &out_path);
 
             if (result == NFD_OKAY) {
-                printf("Success! %s\n", out_path);
+                last_file_path = out_path;
+                last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
+
+                user_actions.song_save();
+                
                 free(out_path);
             }
             else if (result == NFD_CANCEL) {
-                printf("User pressed cancel.\n");
+                std::cout << "User pressed cancel.\n";
             } else {
-                printf("Error: %s\n", NFD_GetError());
+                std::cerr << "Error: " << NFD_GetError() << "\n";
+            }
+        };
+
+        std::string status_message;
+        double status_time = -9999.0;
+
+        user_actions.song_save = [&]() {
+            if (last_file_path.empty()) {
+                user_actions.song_save_as();
+                return;
+            }
+
+            std::ofstream file;
+            file.open(last_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
+
+            if (file.is_open()) {
+                song.serialize(file);
+                file.close();
+
+                status_message = "Successfully saved " + last_file_path;
+                status_time = glfwGetTime();
+            } else {
+                status_message = "Could not open " + last_file_path;
+                status_time = glfwGetTime();
             }
         };
 
@@ -236,8 +266,13 @@ int main()
             
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
+
             compute_imgui(io, song, user_actions);
 
+            if (now_time < status_time + 2.0) {
+                ImGui::SetTooltip(status_message.c_str());
+            }
+            
             ImGui::Render();
 
             glViewport(0, 0, display_w, display_h);

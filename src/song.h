@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <ostream>
 #include <string>
 #include "audio.h"
 
@@ -92,4 +93,6 @@ public:
     void play();
     void stop();
     void update(double elasped);
+
+    void serialize(std::ostream& out) const;
 };
