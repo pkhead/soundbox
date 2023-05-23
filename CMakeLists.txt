@@ -54,8 +54,16 @@ if (WIN32)
     target_link_directories(soundbox PUBLIC build)
     target_link_libraries(soundbox comctl32.lib ${GLFW3_LIB} ${OPENGL_LIBRARIES} ${CMAKE_SOURCE_DIR}/libsoundio/build/soundio.lib)
 else()
-    find_library(OPENGL_FOUND NAMES GL)
-    find_library(X11_FOUND NAMES X11)
+    # append platform-specific files for nativefiledialog sources
+    set(SOURCES ${SOURCES}
+        nativefiledialog/src/nfd_zenity.c
+    )
+
+    add_executable(soundbox ${SOURCES})
+    target_include_directories(soundbox PUBLIC ${INCLUDE})
+
+    find_package(OpenGL REQUIRED)
+    find_package(X11 REQUIRED)
 
     if (NOT OPENGL_FOUND)
         message(FATAL_ERROR "Could not find library GL")
@@ -67,6 +75,5 @@ else()
 
     target_link_directories(soundbox PUBLIC build)
     file(COPY libsoundio/build/libsoundio.so DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FOLLOW_SYMLINK_CHAIN)
-    target_link_libraries(soundbox glfw3 GL X11 soundio)
-
+    target_link_libraries(soundbox glfw3 ${OPENGL_LIBRARIES} ${X11_LIBRARIES} soundio)
 endif()

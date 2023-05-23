@@ -125,7 +125,7 @@ int main()
         user_actions.song_save_as = [&]() {
             std::string file_name = last_file_name.empty() ? std::string(song.name) + ".box" : last_file_name;
             nfdchar_t* out_path = nullptr;
-            nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), NULL, &out_path);
+            nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
 
             if (result == NFD_OKAY) {
                 last_file_path = out_path;
@@ -270,7 +270,7 @@ int main()
             compute_imgui(io, song, user_actions);
 
             if (now_time < status_time + 2.0) {
-                ImGui::SetTooltip(status_message.c_str());
+                ImGui::SetTooltip("%s", status_message.c_str());
             }
             
             ImGui::Render();

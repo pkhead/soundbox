@@ -569,7 +569,6 @@ end:
 }
 
 nfdresult_t NFD_SaveDialog( const nfdchar_t *filterList,
-                            const nfdchar_t *fileName,
                             const nfdchar_t *defaultPath,
                             nfdchar_t **outPath )
 {
@@ -605,15 +604,6 @@ nfdresult_t NFD_SaveDialog( const nfdchar_t *filterList,
     if ( !SetDefaultPath( fileSaveDialog, defaultPath ) )
     {
         goto end;
-    }
-
-    // Set the default filename
-    if (fileName != nullptr) {
-        wchar_t *fileNameW = {0};
-        CopyNFDCharToWChar( fileName, &fileNameW );
-        fileSaveDialog->SetFileName(fileNameW);
-        
-        NFDi_Free(fileNameW);
     }
 
     // Show the dialog.

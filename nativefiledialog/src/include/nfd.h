@@ -47,7 +47,6 @@ nfdresult_t NFD_OpenDialogMultiple( const nfdchar_t *filterList,
 
 /* save dialog */
 nfdresult_t NFD_SaveDialog( const nfdchar_t *filterList,
-                            const nfdchar_t *fileName,
                             const nfdchar_t *defaultPath,
                             nfdchar_t **outPath );
 

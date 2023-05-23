@@ -203,11 +203,11 @@ void Song::update(double elapsed) {
     }
 }
 
-constexpr static bool is_big_endian() {
+static bool is_big_endian() {
     union {
         uint32_t i;
         char c[4];
-    } constexpr bint = {0x01020304};
+    } static bint = {0x01020304};
 
     return bint.c[0] == 1;
 }
