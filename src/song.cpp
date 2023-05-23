@@ -44,6 +44,8 @@ Channel::~Channel() {
 *************************/
 
 Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), _length(length), _max_patterns(max_patterns) {
+    strcpy(name, "Untitled");
+    
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
         Channel* ch = new Channel(_length, _max_patterns, audio_out);
         sprintf(ch->name, "Channel %i", ch_i + 1);
@@ -198,5 +200,118 @@ void Song::update(double elapsed) {
         }
 
         prev_notes = cur_notes;
+    }
+}
+
+constexpr static bool is_big_endian() {
+    union {
+        uint32_t i;
+        char c[4];
+    } constexpr bint = {0x01020304};
+
+    return bint.c[0] == 1;
+}
+
+// push the bytes of data in little-endian order
+template <class T>
+static void push_bytes(std::ostream& out, T data) {
+    if (is_big_endian()) {
+        for (size_t i = sizeof(data) - 1; i >= 0; i--) {
+            out << ((uint8_t*)(&data)) [i];
+        }
+    } else {
+        for (size_t i = 0; i < sizeof(data); i++) {
+            out << ((uint8_t*)(&data)) [i];
+        }
+    }
+}
+
+/*
+Song data structure:
+
+struct note {
+    float time;
+    int16_t key;
+    float length;
+}
+
+struct pattern {
+    uint32_t num_notes;
+    struct note notes[num_notes];
+}
+
+struct channel {
+    uint8_t name_size;
+    char name[name_size];
+
+    float volume, panning;
+    uint32_t sequence[song::length];
+    struct pattern patterns[song::max_patterns];
+}
+
+struct song {
+    uint8_t name_size;
+    char name[name_size];
+
+    uint32_t length;
+    uint32_t num_channels;
+    uint32_t max_patterns;
+    uint32_t beats_per_bar;
+    float tempo;
+
+    struct channel channels[num_channels];
+}
+
+struct file {
+    char magic[4] = "SnBx";
+    uint8_t version_major;
+    uint8_t version_minor;
+    uint8_t version_revision;
+
+    struct song song_data;
+}
+*/
+void Song::serialize(std::ostream& out) const {
+    // magic number
+    out << "SnBx";
+
+    // version number (major, minor, revision)
+    push_bytes(out, (uint8_t)0);
+    push_bytes(out, (uint8_t)0);
+    push_bytes(out, (uint8_t)0);
+
+    // write song data
+    push_bytes(out, (uint8_t) strlen(name));
+    out << name;
+
+    push_bytes(out, (uint32_t) length());
+    push_bytes(out, (uint32_t) channels.size());
+    push_bytes(out, (uint32_t) max_patterns());
+    push_bytes(out, (uint32_t) beats_per_bar);
+    push_bytes(out, (float) tempo);
+
+    // write the channel data
+    for (Channel* channel : channels) {
+        push_bytes(out, (uint8_t) strlen(channel->name));
+        out << channel->name;
+
+        push_bytes(out, (float) channel->volume);
+        push_bytes(out, (float) channel->panning);
+
+        // write channel sequence
+        for (int& id : channel->sequence) {
+            push_bytes(out, (uint32_t) id);
+        }
+
+        // write pattern data
+        for (Pattern* pattern : channel->patterns) {
+            push_bytes(out, (uint32_t) pattern->notes.size());
+
+            for (Note& note : pattern->notes) {
+                push_bytes(out, (float) note.time);
+                push_bytes(out, (int16_t) note.key);
+                push_bytes(out, (float) note.length);
+            }
+        }
     }
 }

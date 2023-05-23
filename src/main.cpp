@@ -1,4 +1,5 @@
-#include <stdio.h>
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -8,32 +9,16 @@
 #include <GLFW/glfw3.h>
 #include <math.h>
 #include <soundio.h>
+#include <nfd.h>
 
 #include "ui.h"
 #include "song.h"
 #include "audio.h"
-
-#ifdef _WIN32
-// Windows
-#include <windows.h>
-
-#define sleep(time) Sleep((time) * 1000)
-
-// prevent collision with user-defined max and min function
-#undef max
-#undef min
-
-#else
-// Unix
-#include <unistd.h>
-
-#define sleep(time) usleep((time) * 1000000)
-
-#endif
+#include "os.h"
 
 static void glfw_error_callback(int error, const char *description)
 {
-    fprintf(stderr, "GLFW error %d: %s\n", error, description);
+    std::cerr << "GLFW error " << error << ": " << description << "\n";
 }
 
 int main()
@@ -75,18 +60,21 @@ int main()
 
     SoundIo* soundio = soundio_create();
     if (!soundio) {
-        fprintf(stderr, "out of memory!\n");
+        std::cerr << "out of memory!\n";
         return 1;
     }
 
     if ((err = soundio_connect(soundio))) {
-        fprintf(stderr, "error connecting: %s", soundio_strerror(err));
+        std::cerr << "error connecting: " << soundio_strerror(err) << "\n";
         return 1;
     }
 
     soundio_flush_events(soundio);
 
     show_demo_window = false;
+
+    std::string last_file_path;
+    std::string last_file_name;
 
     {
         const size_t BUFFER_SIZE = 1024;
@@ -105,6 +93,7 @@ int main()
 
         UserActionList user_actions;
 
+        // song play/pause
         user_actions.song_play_pause = [&song]() {
             if (song.is_playing)
                 song.stop();
@@ -112,6 +101,7 @@ int main()
                 song.play();
         };
 
+        // song next bar
         user_actions.song_next_bar = [&song]() {
             song.bar_position++;
             song.position += song.beats_per_bar;
@@ -121,6 +111,7 @@ int main()
             if (song.position >= song.length() * song.beats_per_bar) song.position -= song.length() * song.beats_per_bar;
         };
 
+        // song previous bar
         user_actions.song_prev_bar = [&song]() {
             song.bar_position--;
             song.position -= song.beats_per_bar;
@@ -130,6 +121,52 @@ int main()
             if (song.position < 0) song.position += song.length() * song.beats_per_bar;
         };
 
+        // song save
+        user_actions.song_save_as = [&]() {
+            std::string file_name = last_file_name.empty() ? std::string(song.name) + ".box" : last_file_name;
+            nfdchar_t* out_path = nullptr;
+            nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), NULL, &out_path);
+
+            if (result == NFD_OKAY) {
+                last_file_path = out_path;
+                last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
+
+                user_actions.song_save();
+                
+                free(out_path);
+            }
+            else if (result == NFD_CANCEL) {
+                std::cout << "User pressed cancel.\n";
+            } else {
+                std::cerr << "Error: " << NFD_GetError() << "\n";
+            }
+        };
+
+        std::string status_message;
+        double status_time = -9999.0;
+
+        user_actions.song_save = [&]() {
+            if (last_file_path.empty()) {
+                user_actions.song_save_as();
+                return;
+            }
+
+            std::ofstream file;
+            file.open(last_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
+
+            if (file.is_open()) {
+                song.serialize(file);
+                file.close();
+
+                status_message = "Successfully saved " + last_file_path;
+                status_time = glfwGetTime();
+            } else {
+                status_message = "Could not open " + last_file_path;
+                status_time = glfwGetTime();
+            }
+        };
+
+        // application quit
         user_actions.quit = [&window]() {
             glfwSetWindowShouldClose(window, 1);
         };
@@ -178,10 +215,13 @@ int main()
                     show_demo_window = !show_demo_window;
                 }
 
-                // quit
-                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_Q, false)) user_actions.quit();
+                // save: Ctrl+S
+                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_S, false)) user_actions.song_save();
 
-                // track editor controls
+                // save as: Ctrl+Shift+S
+                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyDown(ImGuiMod_Shift) && ImGui::IsKeyPressed(ImGuiKey_S, false)) user_actions.song_save_as();
+
+                // track editor controls: arrow keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
                     song.selected_bar++;
                     song.selected_bar %= song.length();
@@ -202,7 +242,7 @@ int main()
                     if (song.selected_channel < 0) song.selected_channel = song.channels.size() - 1;
                 }
 
-                // track editor pattern entering
+                // track editor pattern entering: number keys
                 for (int k = 0; k < 10; k++) {
                     if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
                         pattern_input = (pattern_input * 10) + k;
@@ -213,10 +253,10 @@ int main()
                     }
                 }
 
-                // play/pause
+                // play/pause: space
                 if (ImGui::IsKeyPressed(ImGuiKey_Space)) user_actions.song_play_pause();
 
-                // song prev/next bar
+                // song prev/next bar: left/right bracket keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) user_actions.song_next_bar();
                 if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) user_actions.song_prev_bar();
             }
@@ -226,8 +266,13 @@ int main()
             
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
+
             compute_imgui(io, song, user_actions);
 
+            if (now_time < status_time + 2.0) {
+                ImGui::SetTooltip(status_message.c_str());
+            }
+            
             ImGui::Render();
 
             glViewport(0, 0, display_w, display_h);

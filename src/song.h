@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <ostream>
 #include <string>
 #include "audio.h"
 
@@ -65,6 +66,9 @@ public:
     Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
     ~Song();
 
+    static constexpr size_t name_capcity = 128;
+    char name[name_capcity];
+
     std::vector<Channel*> channels;
     int selected_channel = 0;
     int selected_bar = 0;
@@ -90,4 +94,6 @@ public:
     void play();
     void stop();
     void update(double elasped);
+
+    void serialize(std::ostream& out) const;
 };

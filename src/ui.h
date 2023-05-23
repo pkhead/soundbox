@@ -5,6 +5,10 @@
 #include "../imgui/imgui.h"
 
 struct UserActionList {
+    std::function<void()> song_save;
+    std::function<void()> song_save_as;
+    std::function<void()> song_open;
+    
     std::function<void()> song_play_pause;
     std::function<void()> song_prev_bar;
     std::function<void()> song_next_bar;

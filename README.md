@@ -14,24 +14,35 @@ Prerequisites:
 - Visual Studio (Windows)
 - Make (Linux)
 
-### Linux
-```
-mkdir build
-cd build
-cmake ..
-make
-```
-Then, to run the application, run `build/soundbox`.
+On Windows, open "x64 Native Tools Command Prompt for Visual Studio" or "x86 Native Tools Command Prompt For Visual Studio", and `cd` to the project directory.
 
-### Windows
-Open "x64 Native Tools Command Prompt for Visual Studio" or "x86 Native Tools Command Prompt For Visual Studio", and `cd` to the project directory. Then, run the following commands:
+First, build libsoundio:
+```bash
+cd libsoundio
+mkdir build && cd build
+
+# GNU/Linux
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC_LIBS=off ..
+make
+
+# Windows
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC_LIBS=off -G "NMake Makefiles" ..
+nmake
 ```
+
+Then you can build soundbox:
+```bash
 mkdir build
 cd build
 cmake ..
+
+# Linux
+make
+
+# Windows
 msbuild soundbox.sln /property:Configuration=Debug
 ```
-The binary is located at `build/Debug/soundbox.exe`.
+Then, to run the application, run `build/soundbox` on GNU/Linux or `build/Debug/soundbox.exe` on Windows.
 
 ## Credits
 - [libsoundio](https://libsound.io) for the audio library
