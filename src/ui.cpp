@@ -90,6 +90,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         if (ImGui::BeginMenu("File"))
         {
             ImGui::MenuItem("New", "Ctrl+N");
+            if (ImGui::MenuItem("Open", "Ctrl+O")) user_actions.song_open();
             if (ImGui::MenuItem("Save", "Ctrl+S")) user_actions.song_save();
             if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) user_actions.song_save_as();
             ImGui::Separator();

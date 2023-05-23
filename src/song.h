@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <ostream>
+#include <istream>
 #include <string>
 #include "audio.h"
 
@@ -95,4 +96,5 @@ public:
     void update(double elasped);
 
     void serialize(std::ostream& out) const;
+    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out);
 };
