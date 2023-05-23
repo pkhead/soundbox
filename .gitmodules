@@ -5,6 +5,3 @@
 [submodule "libsoundio"]
 	path = libsoundio
 	url = https://github.com/andrewrk/libsoundio
-[submodule "nativefiledialog"]
-	path = nativefiledialog
-	url = https://github.com/mlabbe/nativefiledialog.git

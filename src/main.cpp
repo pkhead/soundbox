@@ -121,12 +121,13 @@ int main()
         user_actions.song_save = [&song]() {
             printf("Save\n");
 
-            nfdchar_t* outPath = nullptr;
-            nfdresult_t result = NFD_SaveDialog("box", "project", &outPath);
+            std::string file_name = std::string(song.name) + ".box";
+            nfdchar_t* out_path = nullptr;
+            nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), NULL, &out_path);
 
             if (result == NFD_OKAY) {
-                printf("Success! %s\n", outPath);
-                free(outPath);
+                printf("Success! %s\n", out_path);
+                free(out_path);
             }
             else if (result == NFD_CANCEL) {
                 printf("User pressed cancel.\n");

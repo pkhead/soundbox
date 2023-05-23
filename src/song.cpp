@@ -43,6 +43,8 @@ Channel::~Channel() {
 *************************/
 
 Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), _length(length), _max_patterns(max_patterns) {
+    strcpy(name, "Untitled");
+    
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
         Channel* ch = new Channel(_length, _max_patterns, audio_out);
         sprintf(ch->name, "Channel %i", ch_i + 1);

@@ -68,8 +68,7 @@ bool show_demo_window;
 
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
-
-    static char song_name[64] = "Untitled";
+    
     static float volume = 50;
     static float panning = 0;
     static int bus_index = 0;
@@ -144,7 +143,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGui::Text("Name");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputText("##song_name", song_name, 64);
+    ImGui::InputText("##song_name", song.name, 64);
 
     // play/prev/next
     if (ImGui::Button(song.is_playing ? "Pause##play_pause" : "Play##play_pause", ImVec2(-1.0f, 0.0f)))
