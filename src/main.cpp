@@ -223,6 +223,28 @@ int main()
             }
         });
 
+        // copy+paste
+        // TODO use system clipboard
+        user_actions.set_callback("copy", [&]() {
+            Channel* channel = song->channels[song->selected_channel];
+            int pattern_id = channel->sequence[song->selected_bar];
+            if (pattern_id > 0) {
+                Pattern* pattern = channel->patterns[pattern_id - 1];
+                song->note_clipboard = pattern->notes;
+            }
+        });
+
+        user_actions.set_callback("paste", [&]() {
+            if (!song->note_clipboard.empty()) {
+                Channel* channel = song->channels[song->selected_channel];
+                int pattern_id = channel->sequence[song->selected_bar];
+                if (pattern_id > 0) {
+                    Pattern* pattern = channel->patterns[pattern_id - 1];
+                    pattern->notes = song->note_clipboard;
+                }
+            }
+        });
+
         // application quit
         user_actions.set_callback("quit", [&window]() {
             glfwSetWindowShouldClose(window, 1);

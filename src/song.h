@@ -74,6 +74,8 @@ public:
     int selected_channel = 0;
     int selected_bar = 0;
 
+    std::vector<Note> note_clipboard;
+
     int beats_per_bar = 8;
     int bar_position = 0;
     double position = 0.0;

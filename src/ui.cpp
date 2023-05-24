@@ -93,12 +93,13 @@ UserActionList::UserActionList() {
     add_action("song_quit", 0, ImGuiKey_None);
 
     add_action("undo", USERMOD_CTRL, ImGuiKey_Z);
-
 #ifdef _WIN32
     add_action("redo", USERMOD_CTRL, ImGuiKey_Y);
 #else
     add_action("redo", USERMOD_CTRL | MOD_SHIFT, ImGuiKey_Z);
 #endif
+    add_action("copy", USERMOD_CTRL, ImGuiKey_C);
+    add_action("paste", USERMOD_CTRL, ImGuiKey_V);
 }
 
 void UserActionList::add_action(const std::string& action_name, uint8_t mod, ImGuiKey key) {
@@ -199,6 +200,22 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         {
             ImGui::MenuItem("Undo", user_actions.combo_str("undo"));
             ImGui::MenuItem("Redo", user_actions.combo_str("redo"));
+            ImGui::Separator();
+            ImGui::MenuItem("Select All", user_actions.combo_str("select_all"));
+            ImGui::MenuItem("Select Channel", user_actions.combo_str("select_channel"));
+            ImGui::Separator();
+            ImGui::MenuItem("Copy Pattern", user_actions.combo_str("copy"));
+            ImGui::MenuItem("Paste Pattern", user_actions.combo_str("paste"));
+            ImGui::MenuItem("Paste Pattern Numbers", user_actions.combo_str("paste_pattern_numbers"));
+            ImGui::Separator();
+            ImGui::MenuItem("Insert Bar", user_actions.combo_str("insert_bar"));
+            ImGui::MenuItem("Delete Bar", user_actions.combo_str("delete_bar"));
+            ImGui::MenuItem("Delete Channel", user_actions.combo_str("delete_channel"));
+            ImGui::MenuItem("Duplicate Reused Patterns", user_actions.combo_str("duplicate_patterns"));
+            ImGui::Separator();
+            ImGui::MenuItem("New Pattern", user_actions.combo_str("new_pattern"));
+            ImGui::MenuItem("Move Notes Up", user_actions.combo_str("move_notes_up"));
+            ImGui::MenuItem("Move Notes Down", user_actions.combo_str("move_notes_down"));
             
             ImGui::EndMenu();
         }
