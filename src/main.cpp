@@ -96,35 +96,35 @@ int main()
         UserActionList user_actions;
 
         // song play/pause
-        user_actions.song_play_pause = [&song]() {
+        user_actions.set_callback("song_play_pause", [&song]() {
             if (song->is_playing)
                 song->stop();
             else
                 song->play();
-        };
+        });
 
         // song next bar
-        user_actions.song_next_bar = [&song]() {
+        user_actions.set_callback("song_next_bar", [&song]() {
             song->bar_position++;
             song->position += song->beats_per_bar;
 
             // wrap around
             if (song->bar_position >= song->length()) song->bar_position -= song->length();
             if (song->position >= song->length() * song->beats_per_bar) song->position -= song->length() * song->beats_per_bar;
-        };
+        });
 
         // song previous bar
-        user_actions.song_prev_bar = [&song]() {
+        user_actions.set_callback("song_prev_bar", [&song]() {
             song->bar_position--;
             song->position -= song->beats_per_bar;
 
             // wrap around
             if (song->bar_position < 0) song->bar_position += song->length();
             if (song->position < 0) song->position += song->length() * song->beats_per_bar;
-        };
+        });
 
         // song save as
-        user_actions.song_save_as = [&]() {
+        user_actions.set_callback("song_save_as", [&]() {
             std::string file_name = last_file_name.empty() ? std::string(song->name) + ".box" : last_file_name;
             nfdchar_t* out_path = nullptr;
             nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
@@ -133,7 +133,7 @@ int main()
                 last_file_path = out_path;
                 last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
 
-                user_actions.song_save();
+                user_actions.fire("song_save");
                 
                 free(out_path);
             }
@@ -142,12 +142,12 @@ int main()
             } else {
                 std::cerr << "Error: " << NFD_GetError() << "\n";
             }
-        };
+        });
 
         // song save
-        user_actions.song_save = [&]() {
+        user_actions.set_callback("song_save", [&]() {
             if (last_file_path.empty()) {
-                user_actions.song_save_as();
+                user_actions.fire("song_save_as");
                 return;
             }
 
@@ -164,10 +164,10 @@ int main()
                 status_message = "Could not save to " + last_file_path;
                 status_time = glfwGetTime();
             }
-        };
+        });
 
         // song open
-        user_actions.song_open = [&]() {
+        user_actions.set_callback("song_open", [&]() {
             nfdchar_t* out_path;
             nfdresult_t result = NFD_OpenDialog("box", nullptr, &out_path);
 
@@ -193,12 +193,12 @@ int main()
             } else if (result != NFD_CANCEL) {
                 std::cerr << "Error: " << NFD_GetError() << "\n";
             }
-        };
+        });
 
         // application quit
-        user_actions.quit = [&window]() {
+        user_actions.set_callback("quit", [&window]() {
             glfwSetWindowShouldClose(window, 1);
-        };
+        });
 
         int pattern_input = 0;
         
@@ -244,14 +244,21 @@ int main()
                     show_demo_window = !show_demo_window;
                 }
 
-                // open: Ctrl+O
-                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_O, false)) user_actions.song_open();
-
-                // save: Ctrl+S
-                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyPressed(ImGuiKey_S, false)) user_actions.song_save();
-
-                // save as: Ctrl+Shift+S
-                if (ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyDown(ImGuiMod_Shift) && ImGui::IsKeyPressed(ImGuiKey_S, false)) user_actions.song_save_as();
+                // for each user action in the user action list struct
+                for (const UserAction& action : user_actions.actions) {
+                    if (ImGui::IsKeyPressed(action.key, false)) {
+                        // check if all required modifiers are pressed or not pressed
+                        if (
+                            action.modifiers == 0 ||
+                            (ImGui::IsKeyDown(ImGuiMod_Ctrl) == ((action.modifiers & USERMOD_CTRL) != 0) &&
+                            ImGui::IsKeyDown(ImGuiMod_Shift) == ((action.modifiers & USERMOD_SHIFT) != 0) &&
+                            ImGui::IsKeyDown(ImGuiMod_Alt) == ((action.modifiers & USERMOD_ALT) != 0))
+                        ) {
+                            std::cout << action.name << "\n";
+                            action.callback();
+                        }
+                    }
+                }
 
                 // track editor controls: arrow keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
@@ -284,13 +291,6 @@ int main()
                             song->channels[song->selected_channel]->sequence[song->selected_bar] = pattern_input;
                     }
                 }
-
-                // play/pause: space
-                if (ImGui::IsKeyPressed(ImGuiKey_Space)) user_actions.song_play_pause();
-
-                // song prev/next bar: left/right bracket keys
-                if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) user_actions.song_next_bar();
-                if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) user_actions.song_prev_bar();
             }
 
             int display_w, display_h;

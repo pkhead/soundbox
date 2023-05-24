@@ -64,6 +64,92 @@ struct Vec2 {
     inline operator ImVec2() const { return ImVec2(x, y); }
 };
 
+UserAction::UserAction(const std::string& action_name, uint8_t mod, ImGuiKey key) {
+    name = action_name;
+    set_keybind(mod, key);
+}
+
+void UserAction::set_keybind(uint8_t mod, ImGuiKey key) {
+    this->modifiers = mod;
+    this->key = key;
+
+    // set combo string
+    combo.clear();
+
+    if ((mod & USERMOD_SHIFT) != 0) combo += "Shift+";
+    if ((mod & USERMOD_CTRL) != 0) combo += "Ctrl+";
+    if ((mod & USERMOD_ALT) != 0) combo += "Alt+";
+    combo += ImGui::GetKeyName(key);
+}
+
+UserActionList::UserActionList() {
+    add_action("song_save", USERMOD_CTRL, ImGuiKey_S);
+    add_action("song_save_as", USERMOD_CTRL | USERMOD_SHIFT, ImGuiKey_S);
+    add_action("song_open", USERMOD_CTRL, ImGuiKey_O);
+    add_action("song_play_pause", 0, ImGuiKey_Space);
+    add_action("song_prev_bar", 0, ImGuiKey_LeftBracket);
+    add_action("song_next_bar", 0, ImGuiKey_RightBracket);
+    add_action("song_quit", 0, ImGuiKey_None);
+
+    add_action("undo", USERMOD_CTRL, ImGuiKey_Z);
+
+#ifdef _WIN32
+    add_action("redo", USERMOD_CTRL, ImGuiKey_Y);
+#else
+    add_action("redo", USERMOD_CTRL | MOD_SHIFT, ImGuiKey_Z);
+#endif
+}
+
+void UserActionList::add_action(const std::string& action_name, uint8_t mod, ImGuiKey key) {
+    actions.push_back(UserAction(action_name, mod, key));
+}
+
+void UserActionList::fire(const std::string& action_name) const {
+    for (const UserAction& action : actions) {
+        if (action.name == action_name) {
+            action.callback();
+            break;
+        }
+    }
+}
+
+void UserActionList::set_keybind(const std::string& action_name, uint8_t mod, ImGuiKey key) {
+    for (UserAction& action : actions) {
+        if (action.name == action_name) {
+            action.set_keybind(mod, key);
+            break;
+        }
+    }
+}
+
+void UserActionList::set_callback(const std::string& action_name, std::function<void()> callback) {
+    for (UserAction& action : actions) {
+        if (action.name == action_name) {
+            action.callback = callback;
+            break;
+        }
+    }
+}
+
+const char* UserActionList::combo_str(const std::string& action_name) const {
+    for (const UserAction& action : actions) {
+        if (action.name == action_name) {
+            return action.combo.c_str();
+            break;
+        }
+    }
+
+    return "";
+}
+
+
+
+
+
+
+
+
+
 bool show_demo_window;
 
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
@@ -88,22 +174,22 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         if (ImGui::BeginMenu("File"))
         {
             ImGui::MenuItem("New", "Ctrl+N");
-            if (ImGui::MenuItem("Open", "Ctrl+O")) user_actions.song_open();
-            if (ImGui::MenuItem("Save", "Ctrl+S")) user_actions.song_save();
-            if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) user_actions.song_save_as();
+            if (ImGui::MenuItem("Open", user_actions.combo_str("song_open"))) user_actions.fire("song_open");
+            if (ImGui::MenuItem("Save", user_actions.combo_str("song_save"))) user_actions.fire("song_save");
+            if (ImGui::MenuItem("Save As...", user_actions.combo_str("song_save_as"))) user_actions.fire("song_save_as");
             ImGui::Separator();
             ImGui::MenuItem("Export...");
             ImGui::MenuItem("Import...");
             ImGui::Separator();
-            if (ImGui::MenuItem("Quit", "Alt+F4")) user_actions.quit();
+            if (ImGui::MenuItem("Quit", "Alt+F4")) user_actions.fire("quit");
 
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Edit"))
         {
-            ImGui::MenuItem("Undo", "Ctrl+Z");
-            ImGui::MenuItem("Redo", "Ctrl+Shift+Z"); // use CTRL+Y on windows
+            ImGui::MenuItem("Undo", user_actions.combo_str("undo"));
+            ImGui::MenuItem("Redo", user_actions.combo_str("redo"));
             
             ImGui::EndMenu();
         }
@@ -146,11 +232,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     // play/prev/next
     if (ImGui::Button(song.is_playing ? "Pause##play_pause" : "Play##play_pause", ImVec2(-1.0f, 0.0f)))
-        user_actions.song_play_pause();
+        user_actions.fire("song_play_pause");
             
-    if (ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f))) user_actions.song_prev_bar();
+    if (ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f))) user_actions.fire("song_prev_bar");
     ImGui::SameLine();
-    if (ImGui::Button("Next", ImVec2(-1.0f, 0.0f))) user_actions.song_next_bar();
+    if (ImGui::Button("Next", ImVec2(-1.0f, 0.0f))) user_actions.fire("song_next_bar");
     
     // tempo
     ImGui::AlignTextToFramePadding();

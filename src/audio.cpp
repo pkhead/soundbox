@@ -390,7 +390,7 @@ VolumeModule::VolumeModule() {
 
 void VolumeModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     float r_mult = (panning + 1.0f) / 2.0f;
-    float l_mult = 1.0f - l_mult;
+    float l_mult = 1.0f - r_mult;
 
     for (size_t i = 0; i < buffer_size; i += channel_count) {
         // set both channels to zero
