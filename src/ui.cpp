@@ -84,6 +84,7 @@ void UserAction::set_keybind(uint8_t mod, ImGuiKey key) {
 
 UserActionList::UserActionList() {
     add_action("song_save", USERMOD_CTRL, ImGuiKey_S);
+    add_action("song_new", USERMOD_CTRL, ImGuiKey_N);
     add_action("song_save_as", USERMOD_CTRL | USERMOD_SHIFT, ImGuiKey_S);
     add_action("song_open", USERMOD_CTRL, ImGuiKey_O);
     add_action("song_play_pause", 0, ImGuiKey_Space);
@@ -150,6 +151,14 @@ const char* UserActionList::combo_str(const std::string& action_name) const {
 
 
 
+
+
+
+
+
+
+
+
 bool show_demo_window;
 
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
@@ -173,7 +182,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     {
         if (ImGui::BeginMenu("File"))
         {
-            ImGui::MenuItem("New", "Ctrl+N");
+            if (ImGui::MenuItem("New", user_actions.combo_str("song_new"))) user_actions.fire("song_new");
             if (ImGui::MenuItem("Open", user_actions.combo_str("song_open"))) user_actions.fire("song_open");
             if (ImGui::MenuItem("Save", user_actions.combo_str("song_save"))) user_actions.fire("song_save");
             if (ImGui::MenuItem("Save As...", user_actions.combo_str("song_save_as"))) user_actions.fire("song_save_as");

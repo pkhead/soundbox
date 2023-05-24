@@ -78,6 +78,9 @@ int main()
     std::string status_message;
     double status_time = -9999.0;
 
+    bool prompt_unsaved_work = false;
+    std::function<void()> unsaved_work_callback;
+
     {
         const size_t BUFFER_SIZE = 1024;
 
@@ -93,7 +96,65 @@ int main()
             }
         }
 
+        std::function<bool()> save_song;
+
+        auto save_song_as = [&]() -> bool {
+            std::string file_name = last_file_name.empty() ? std::string(song->name) + ".box" : last_file_name;
+            nfdchar_t* out_path = nullptr;
+            nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
+
+            if (result == NFD_OKAY) {
+                last_file_path = out_path;
+                last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
+                
+                save_song();
+                
+                free(out_path);
+
+                return true;
+            }
+            else if (result == NFD_CANCEL) {
+                return false;
+            } else {
+                std::cerr << "Error: " << NFD_GetError() << "\n";
+                return false;
+            }
+        };
+
+        save_song = [&]() -> bool {
+            if (last_file_path.empty()) {
+                return save_song_as();
+            }
+
+            std::ofstream file;
+            file.open(last_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
+
+            if (file.is_open()) {
+                song->serialize(file);
+                file.close();
+
+                status_message = "Successfully saved " + last_file_path;
+                status_time = glfwGetTime();
+                return true;
+            } else {
+                status_message = "Could not save to " + last_file_path;
+                status_time = glfwGetTime();
+                return false;
+            }
+        };
+
         UserActionList user_actions;
+
+        user_actions.set_callback("song_new", [&]() {
+            prompt_unsaved_work = true;
+            unsaved_work_callback = [&]() {
+                last_file_path.clear();
+                last_file_name.clear();
+                
+                delete song;
+                song = new Song(4, 8, 8, destination);
+            };
+        });
 
         // song play/pause
         user_actions.set_callback("song_play_pause", [&song]() {
@@ -124,46 +185,13 @@ int main()
         });
 
         // song save as
-        user_actions.set_callback("song_save_as", [&]() {
-            std::string file_name = last_file_name.empty() ? std::string(song->name) + ".box" : last_file_name;
-            nfdchar_t* out_path = nullptr;
-            nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
-
-            if (result == NFD_OKAY) {
-                last_file_path = out_path;
-                last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
-
-                user_actions.fire("song_save");
-                
-                free(out_path);
-            }
-            else if (result == NFD_CANCEL) {
-                std::cout << "User pressed cancel.\n";
-            } else {
-                std::cerr << "Error: " << NFD_GetError() << "\n";
-            }
+        user_actions.set_callback("song_save_as", [&save_song_as]() {
+            save_song_as();
         });
 
         // song save
-        user_actions.set_callback("song_save", [&]() {
-            if (last_file_path.empty()) {
-                user_actions.fire("song_save_as");
-                return;
-            }
-
-            std::ofstream file;
-            file.open(last_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
-
-            if (file.is_open()) {
-                song->serialize(file);
-                file.close();
-
-                status_message = "Successfully saved " + last_file_path;
-                status_time = glfwGetTime();
-            } else {
-                status_message = "Could not save to " + last_file_path;
-                status_time = glfwGetTime();
-            }
+        user_actions.set_callback("song_save", [&save_song]() {
+            save_song();
         });
 
         // song open
@@ -211,8 +239,18 @@ int main()
         double next_time = glfwGetTime();
         double prev_time = next_time;
 
-        while (!glfwWindowShouldClose(window))
+        bool run_app = true;
+
+        while (run_app)
         {
+            if (glfwWindowShouldClose(window)) {
+                glfwSetWindowShouldClose(window, 0);
+                prompt_unsaved_work = true;
+                unsaved_work_callback = [&]() {
+                    run_app = false;
+                };
+            }
+
             double now_time = glfwGetTime();
 
             next_time = glfwGetTime() + FRAME_LENGTH;
@@ -247,6 +285,8 @@ int main()
                 // for each user action in the user action list struct
                 for (const UserAction& action : user_actions.actions) {
                     if (ImGui::IsKeyPressed(action.key, false)) {
+                        std::cout << action.key << "\n";
+                        
                         // check if all required modifiers are pressed or not pressed
                         if (
                             action.modifiers == 0 ||
@@ -301,8 +341,40 @@ int main()
 
             compute_imgui(io, *song, user_actions);
 
+            // show status info as a tooltip
             if (now_time < status_time + 2.0) {
                 ImGui::SetTooltip("%s", status_message.c_str());
+            }
+
+            // show new prompt
+            if (prompt_unsaved_work) {
+                ImGui::OpenPopup("Unsaved work##prompt_new_song");
+                prompt_unsaved_work = false;
+            }
+
+            if (ImGui::BeginPopupModal("Unsaved work##prompt_new_song", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Do you want to save your work before continuing?");
+                ImGui::NewLine();
+                
+                if (ImGui::Button("Yes##popup_modal_yes")) {
+                    ImGui::CloseCurrentPopup();
+                    
+                    // if song was able to successfully be saved, then continue
+                    if (save_song()) unsaved_work_callback();
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("No##popup_modal_no")) {
+                    ImGui::CloseCurrentPopup();
+                    unsaved_work_callback();
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel##popup_modal_cancel")) {
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
             }
             
             ImGui::Render();
