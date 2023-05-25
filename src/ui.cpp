@@ -1,4 +1,5 @@
 #include <math.h>
+#include <iostream>
 #include "ui.h"
 
 #define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
@@ -272,6 +273,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGui::InputFloat("bpm##song_tempo", &song.tempo, 0.0f, 0.0f, "%.0f");
     if (song.tempo < 0) song.tempo = 0;
 
+    // TODO: controller/mod channels
+    if (ImGui::BeginPopupContextItem()) {
+        ImGui::Selectable("Controller 1", true);
+        ImGui::Selectable("Controller 2", false);
+        ImGui::Selectable("Controller 3", false);
+        ImGui::EndPopup();
+    }
+
     ImGui::End();
 
     //////////////////////
@@ -528,6 +537,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         static Vec2 mouse_screen_start;
         static bool did_mouse_move;
         static bool play_key = false;
+        static int played_key = 0;
         static int prev_mouse_cy = 0;
 
         static bool is_adding_note;
@@ -676,13 +686,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     selected_channel->synth_mod.event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         {
-                            scroll - prev_mouse_cy
+                            played_key
                         }
                     });
                 }
 
                 play_key = true;
                 int key = scroll - mouse_cy;
+                played_key = key;
 
                 selected_channel->synth_mod.event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOn,
@@ -709,15 +720,16 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     selected_channel->synth_mod.event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         {
-                            scroll - prev_mouse_cy
+                            played_key
                         }
                     });
 
                     // turn on new note
+                    played_key = scroll - mouse_cy;
                     selected_channel->synth_mod.event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOn,
                         {
-                            scroll - mouse_cy,
+                            played_key,
                             song.get_key_frequency(scroll - mouse_cy),
                             0.2f
                         }
@@ -797,7 +809,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                 prev_channel->synth_mod.event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
                     {
-                        scroll - prev_mouse_cy
+                        played_key
                     }
                 });
 
@@ -832,7 +844,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                 selected_channel->synth_mod.event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
                     {
-                        scroll - prev_mouse_cy
+                        played_key
                     }
                 });
 

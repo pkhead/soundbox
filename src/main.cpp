@@ -282,6 +282,8 @@ int main()
             int num_buffers = 0;
 
             while (device.num_queued_frames() < device.sample_rate() * 0.05) {
+                song->update(1.0 / device.sample_rate() * BUFFER_SIZE);
+
                 float* buf;
                 size_t buf_size = destination.process(&buf);
 
@@ -289,7 +291,7 @@ int main()
                 num_buffers++;
             }
 
-            song->update(now_time - prev_time);
+            //song->update(now_time - prev_time);
 
             // if selected pattern changed
             if (last_selected_bar != song->selected_bar || last_selected_ch != song->selected_channel) {
@@ -417,7 +419,6 @@ int main()
             }
             
             sleep(next_time - cur_time);
-
         }
 
         delete song;

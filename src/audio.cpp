@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <iostream>
 #include "audio.h"
 
 static void write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
@@ -30,7 +31,7 @@ AudioDevice::AudioDevice(SoundIo* soundio, int output_device) {
 
     // create output stream
     outstream = soundio_outstream_create(device);
-    outstream->software_latency = 0.05;
+    outstream->software_latency = 0.02;
     outstream->sample_rate = 48000;
     outstream->format = SoundIoFormatFloat32NE;
     outstream->userdata = this;
@@ -345,7 +346,6 @@ void WaveformSynth::event(const NoteEvent& event) {
     
     } else if (event.kind == NoteEventKind::NoteOff) {
         NoteOffEvent event_data = event.note_off;
-
         for (auto it = voices.begin(); it != voices.end(); it++) {
             if (it->key == event_data.key) {
                 voices.erase(it);
