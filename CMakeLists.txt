@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.11)
 project(soundbox)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -34,7 +34,6 @@ set(SOURCES
 
 set(INCLUDE ${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)
 
-# todo: add libsoundio for windows
 if (WIN32)
     # append platform-specific files for nativefiledialog sources
     set(SOURCES ${SOURCES}
