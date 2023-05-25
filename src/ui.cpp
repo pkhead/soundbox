@@ -96,7 +96,7 @@ UserActionList::UserActionList() {
 #ifdef _WIN32
     add_action("redo", USERMOD_CTRL, ImGuiKey_Y);
 #else
-    add_action("redo", USERMOD_CTRL | MOD_SHIFT, ImGuiKey_Z);
+    add_action("redo", USERMOD_CTRL | USERMOD_SHIFT, ImGuiKey_Z);
 #endif
     add_action("copy", USERMOD_CTRL, ImGuiKey_C);
     add_action("paste", USERMOD_CTRL, ImGuiKey_V);
