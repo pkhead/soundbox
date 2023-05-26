@@ -397,7 +397,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         static int num_channels = song.channels.size();
         static int num_bars = song.length();
 
-        ImGui::BeginChild(ImGui::GetID((void*)1209378), Vec2(-1, -1), false, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::BeginChild("###track_editor_area", Vec2(-1, -1), false, ImGuiWindowFlags_HorizontalScrollbar);
         
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
@@ -511,7 +511,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Rhythm");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(120.0f);
+        ImGui::SetNextItemWidth(60.0f);
         if (ImGui::BeginCombo("##pattern_editor_step", step_names[selected_step]))
         {
             for (int i = 0; i < 5; i++) {
@@ -527,14 +527,26 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
             ImGui::EndCombo();
         }
+        
+        // TODO: set key by right-clicking on a key in the piano roll
+
+        ImGui::SameLine();
+        ImGui::Text("Scale");
+        ImGui::SetNextItemWidth(150.0f);
+        ImGui::SameLine();
+        if (ImGui::BeginCombo("##pattern_editor_scale", "Ionian (major)")) {
+            ImGui::Selectable("Ionian (major)", true);
+            ImGui::SetItemDefaultFocus();
+            ImGui::Selectable("Aeolian (minor)", false);
+
+            ImGui::EndCombo();
+        }
 
         ImGui::NewLine();
 
-        canvas_size = ImGui::GetContentRegionAvail();
-
         float min_step = song.editor_quantization;
 
-        static int scroll = 60;
+        static int scroll = 96;
         static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
         static const bool ACCIDENTAL[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
         static char key_name[8];
@@ -565,7 +577,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         // center viewport
         ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + offset + Vec2(0, -CELL_SIZE.y));
-        
+        ImGui::BeginChild("###pattern_editor_notes", Vec2(CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH, -1.0f));
+        canvas_size = ImGui::GetContentRegionAvail();
+        //ImGui::SetCursorPos(Vec2(0, CELL_SIZE.y * 12 * 8));
+
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
         Vec2 draw_origin = canvas_p0;
@@ -577,9 +592,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         if (button_size.y <= 0.0f) button_size.y = 1.0f;
 
         ImGui::InvisibleButton("pattern_editor_click_area",
-            button_size,
+            Vec2(-1.0f, CELL_SIZE.y * (12 * 8 + 1)),
             ImGuiButtonFlags_MouseButtonLeft
         );
+
+        Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
 
         // get data for the currently selected channel
         static Channel* prev_channel = nullptr;
@@ -869,7 +886,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
 
         // draw cells
-        for (int row = 0; row < (int)canvas_size.y / CELL_SIZE.y + 2; row++) {
+        int row;
+        for (int i = 0; i < (int)canvas_size.y / CELL_SIZE.y + 2; i++) {
+            row = i + (viewport_scroll.y / CELL_SIZE.y);
+            
             int key = scroll - row;
 
             // draw piano key
@@ -885,13 +905,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             );
 
             // get key name
-            strncpy(key_name, KEY_NAMES[key % 12], 8);
+            int key_mod = (key % 12 + 12) % 12;
+            strncpy(key_name, KEY_NAMES[key_mod], 8);
 
             // if key is C, then add the octave number
             if (key % 12 == 0) snprintf(key_name + 1, 7, "%i", key / 12); //
 
             // draw key name
-            Vec2 text_size = ImGui::CalcTextSize(KEY_NAMES[key % 12]);
+            Vec2 text_size = ImGui::CalcTextSize(KEY_NAMES[key_mod]);
             draw_list->AddText(
                 piano_rect_pos + Vec2(5, (CELL_SIZE.y - text_size.y) / 2.0f),
                 IM_COL32_WHITE,
@@ -953,11 +974,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         // draw playhead
         if (song.is_playing && selected_channel->sequence[song.bar_position] - 1 == pattern_id) {
-            Vec2 playhead_pos = draw_origin + Vec2(PIANO_KEY_WIDTH + fmodf(song.position, song.beats_per_bar) * CELL_SIZE.x, 0.0f);
+            Vec2 playhead_pos = draw_origin + Vec2(PIANO_KEY_WIDTH + fmodf(song.position, song.beats_per_bar) * CELL_SIZE.x, viewport_scroll.y);
             draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y + style.WindowPadding.y * 2.0f), vec4_color(style.Colors[ImGuiCol_Text]));
         }
 
         prev_mouse_cy = mouse_cy;
+
+        ImGui::EndChild();
     } ImGui::End();
 
     // render module interfaces
