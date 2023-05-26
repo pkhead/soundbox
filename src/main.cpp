@@ -463,6 +463,7 @@ int main()
         }
 
         audio_thread.join();
+        if (song_mutex.try_lock()) song_mutex.unlock();
 
         delete song;
     }

@@ -3,6 +3,10 @@ project(soundbox)
 
 set(CMAKE_CXX_STANDARD 11)
 
+mark_as_advanced(GLFW3_LIB)
+mark_as_advanced(GLFW3_INCLUDE)
+mark_as_advanced(NFD_LIBRARIES)
+
 find_library(GLFW3_LIB NAMES glfw3)
 find_path(GLFW3_INCLUDE NAMES GLFW/glfw3.h)
 find_library(NFD_LIBRARIES PATH ${CMAKE_SOURCE_DIR}/nativefiledialog/build/lib/)
@@ -37,7 +41,7 @@ set(SOURCES
     src/modules/volume.cpp
 )
 
-set(INCLUDE ${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)
+include_directories(${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)
 
 if (WIN32)
     # append platform-specific files for nativefiledialog sources
@@ -46,7 +50,7 @@ if (WIN32)
     )
 
     add_executable(soundbox ${SOURCES})
-    target_include_directories(soundbox PUBLIC ${INCLUDE})
+    # target_include_directories(soundbox PUBLIC ${INCLUDE})
 
     find_package(OpenGL REQUIRED)
 
@@ -64,7 +68,7 @@ else()
     )
 
     add_executable(soundbox ${SOURCES})
-    target_include_directories(soundbox PUBLIC ${INCLUDE})
+    # target_include_directories(soundbox PUBLIC ${INCLUDE})
 
     find_package(OpenGL REQUIRED)
     find_package(X11 REQUIRED)

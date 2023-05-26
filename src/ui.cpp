@@ -577,9 +577,17 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         // center viewport
         ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + offset + Vec2(0, -CELL_SIZE.y));
-        ImGui::BeginChild("###pattern_editor_notes", Vec2(CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH, -1.0f));
+
+        // create scrollable area
+        static constexpr int VIEW_RANGE = 12 * 8 + 1;
+        ImGui::BeginChild("###pattern_editor_notes", Vec2(CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH + style.ScrollbarSize, -1.0f));
         canvas_size = ImGui::GetContentRegionAvail();
-        //ImGui::SetCursorPos(Vec2(0, CELL_SIZE.y * 12 * 8));
+
+        static bool child_created = false;
+        if (!child_created) {
+            child_created = true;
+            ImGui::SetScrollY(CELL_SIZE.y * (VIEW_RANGE - 60 - 1));
+        }
 
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
@@ -592,7 +600,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         if (button_size.y <= 0.0f) button_size.y = 1.0f;
 
         ImGui::InvisibleButton("pattern_editor_click_area",
-            Vec2(-1.0f, CELL_SIZE.y * (12 * 8 + 1)),
+            Vec2(-1.0f, CELL_SIZE.y * VIEW_RANGE),
             ImGuiButtonFlags_MouseButtonLeft
         );
 
