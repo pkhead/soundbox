@@ -66,20 +66,26 @@ namespace audiomod {
     class ModuleBase : public ModuleOutputTarget {
     protected:
         ModuleOutputTarget* _output;
+        bool _has_interface;
         
         float* _audio_buffer;
         size_t _audio_buffer_size;
 
         virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;
     public:
+        bool show_interface;
+
         ModuleBase(const ModuleBase&) = delete;
-        ModuleBase();
+        ModuleBase(bool has_interface);
         ~ModuleBase();
 
         virtual void event(const NoteEvent& event) {};
         void connect(ModuleOutputTarget* dest);
         void disconnect();
         void remove_all_connections();
+
+        inline bool has_interface() const; // does this module have an interface?
+        virtual bool render_interface() { return false; }; // render the ImGui interface
 
         float* get_audio(size_t buffer_size, int sample_rate, int channel_count);
     };
@@ -123,7 +129,13 @@ namespace audiomod {
             Triangle
         } waveform_type;
 
+        float attack = 0.0f;
+        float decay = 0.0f;
+        float sustain = 1.0f;
+        float release = 0.0f;
+
         void event(const NoteEvent& event) override;
+        bool render_interface() override;
     };
 
     class VolumeModule : public ModuleBase {

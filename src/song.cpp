@@ -28,7 +28,8 @@ Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget
         patterns.push_back(new Pattern());
     }
 
-    synth_mod.connect(&vol_mod);
+    synth_mod = new audiomod::WaveformSynth();
+    synth_mod->connect(&vol_mod);
     vol_mod.connect(&audio_out);
 }
 
@@ -36,6 +37,8 @@ Channel::~Channel() {
     for (Pattern* pattern : patterns) {
         delete pattern;
     }
+
+    delete synth_mod;
 }
 
 
@@ -118,7 +121,7 @@ void Song::stop() {
     is_playing = false;
 
     for (NoteData note_data : cur_notes) {
-        channels[note_data.channel_i]->synth_mod.event({
+        channels[note_data.channel_i]->synth_mod->event({
             audiomod::NoteEventKind::NoteOff,
             note_data.note.key
         });
@@ -168,7 +171,7 @@ void Song::update(double elapsed) {
             }
 
             if (is_new) {
-                channels[new_note.channel_i]->synth_mod.event({
+                channels[new_note.channel_i]->synth_mod->event({
                     audiomod::NoteEventKind::NoteOn,
                     {
                         new_note.note.key,
@@ -192,7 +195,7 @@ void Song::update(double elapsed) {
             }
 
             if (is_old) {
-                channels[old_note.channel_i]->synth_mod.event({
+                channels[old_note.channel_i]->synth_mod->event({
                     audiomod::NoteEventKind::NoteOff,
                     old_note.note.key
                 });

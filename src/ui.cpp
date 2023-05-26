@@ -346,7 +346,23 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
     {
-        ImGui::OpenPopup("inst_load");
+        audiomod::ModuleBase* mod = cur_channel->synth_mod;
+
+        mod->show_interface = !mod->show_interface;
+        
+        // if want to show interface, add module to interfaces list
+        if (cur_channel->synth_mod->show_interface) {
+            song.mod_interfaces.push_back(mod);
+
+        // if want to hide interface, remove module from interfaces list
+        } else {
+            for (auto it = song.mod_interfaces.begin(); it != song.mod_interfaces.end(); it++) {
+                if (*it == mod) {
+                    song.mod_interfaces.erase(it);
+                    break;
+                }
+            }
+        }
     }
 
     if (ImGui::BeginPopup("inst_load"))
@@ -683,7 +699,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                 // stop already currently playing note
                 if (play_key) {
                     // turn off old note
-                    selected_channel->synth_mod.event(audiomod::NoteEvent {
+                    selected_channel->synth_mod->event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         {
                             played_key
@@ -695,7 +711,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                 int key = scroll - mouse_cy;
                 played_key = key;
 
-                selected_channel->synth_mod.event(audiomod::NoteEvent {
+                selected_channel->synth_mod->event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOn,
                     {
                         key,
@@ -717,7 +733,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             } else if (play_key) {
                 if (prev_mouse_cy != mouse_cy) {
                     // turn off old note
-                    selected_channel->synth_mod.event(audiomod::NoteEvent {
+                    selected_channel->synth_mod->event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         {
                             played_key
@@ -726,7 +742,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                     // turn on new note
                     played_key = scroll - mouse_cy;
-                    selected_channel->synth_mod.event(audiomod::NoteEvent {
+                    selected_channel->synth_mod->event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOn,
                         {
                             played_key,
@@ -806,7 +822,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         // if selected channel changed, turn off currently playing note
         if (selected_channel != prev_channel) {
             if (prev_channel != nullptr && play_key) {
-                prev_channel->synth_mod.event(audiomod::NoteEvent {
+                prev_channel->synth_mod->event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
                     {
                         played_key
@@ -841,7 +857,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             // if currently playing a note
             if (play_key) {
                 // turn off old note
-                selected_channel->synth_mod.event(audiomod::NoteEvent {
+                selected_channel->synth_mod->event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
                     {
                         played_key
@@ -941,6 +957,15 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         prev_mouse_cy = mouse_cy;
 
         ImGui::End();
+    }
+
+    for (size_t i = 0; i < song.mod_interfaces.size();) {
+        auto interface = song.mod_interfaces[i];
+        
+        if (interface->render_interface()) i++;
+        else {
+            song.mod_interfaces.erase(song.mod_interfaces.begin() + i);
+        }
     }
 
     // Info panel //

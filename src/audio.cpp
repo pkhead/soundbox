@@ -5,6 +5,7 @@
 #include <string.h>
 #include <iostream>
 #include "audio.h"
+#include "../imgui/imgui.h"
 
 static void write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
     AudioDevice* handle = (AudioDevice*)outstream->userdata;
@@ -188,7 +189,13 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //   MODULE BASE    //
 //////////////////////
 
-ModuleBase::ModuleBase() : _output(nullptr), _audio_buffer(nullptr), _audio_buffer_size(0) {};
+ModuleBase::ModuleBase(bool has_interface) :
+    _output(nullptr),
+    _audio_buffer(nullptr),
+    _audio_buffer_size(0),
+    show_interface(false),
+    _has_interface(has_interface)
+{};
 
 ModuleBase::~ModuleBase() {
     remove_all_connections();
@@ -236,6 +243,10 @@ float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_co
 
     delete[] input_arrays;
     return _audio_buffer;
+}
+
+inline bool ModuleBase::has_interface() const {
+    return _has_interface;
 }
 
 
@@ -311,7 +322,7 @@ size_t DestinationModule::process(float** output) {
 static constexpr double PI = 3.14159265359;
 static constexpr double PI2 = 2.0f * PI;
 
-WaveformSynth::WaveformSynth() {
+WaveformSynth::WaveformSynth() : ModuleBase(true) {
     time = 0.0;
     waveform_type = Sine;
 }
@@ -355,6 +366,43 @@ void WaveformSynth::event(const NoteEvent& event) {
     }
 }
 
+static void render_slider(const char* id, float* var, float max, float ramp, const char* fmt) {
+    float val = powf(*var / max, 1.0f / ramp);
+    ImGui::VSliderFloat(id, ImVec2(18, 80), &val, 0.0f, 1.0f, "");
+    *var = powf(val, ramp) * max;
+
+    if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+        ImGui::SetTooltip(fmt, *var);
+    }
+}
+
+bool WaveformSynth::render_interface() {
+    if (!show_interface) return false;
+
+    char buf[128];
+    sprintf(buf, "Waveform Synth##%x", this);
+    ImGui::Begin(buf, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking);
+    
+    // Attack slider
+    render_slider("A", &this->attack, 5.0f, 2.0f, "%.3f secs");
+
+    // Decay slider
+    ImGui::SameLine();
+    render_slider("D", &this->decay, 10.0f, 2.0f, "%.3f secs");
+
+    // Sustain slider
+    ImGui::SameLine();
+    render_slider("S", &this->sustain, 1.0f, 1.0f, "%.3f");
+
+    // Release slider
+    ImGui::SameLine();
+    render_slider("R", &this->release, 10.0f, 2.0f, "%.3f secs");
+
+    ImGui::End();
+
+    return true;
+}
+
 
 
 
@@ -381,7 +429,7 @@ inline bool is_zero_crossing(float prev, float next) {
     return (prev == 0.0f && next == 0.0f) || (sign(prev) != sign(next));
 }
 
-VolumeModule::VolumeModule() {
+VolumeModule::VolumeModule() : ModuleBase(false) {
     cur_volume[0] = volume;
     cur_volume[1] = volume;
     last_sample[0] = 0.0f;

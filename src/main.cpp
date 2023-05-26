@@ -376,7 +376,7 @@ int main()
                 prompt_unsaved_work = false;
             }
 
-            if (ImGui::BeginPopupModal("Unsaved work##prompt_new_song", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+            if (ImGui::BeginPopupModal("Unsaved work##prompt_new_song", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
                 ImGui::Text("Do you want to save your work before continuing?");
                 ImGui::NewLine();
                 

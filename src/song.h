@@ -34,7 +34,7 @@ public:
     ~Channel();
 
     audiomod::VolumeModule vol_mod;
-    audiomod::WaveformSynth synth_mod;
+    audiomod::ModuleBase* synth_mod;
 
     char name[32];
     float volume;
@@ -83,6 +83,8 @@ public:
 
     float editor_quantization = 0.25f;
     float tempo = 120;
+
+    std::vector<audiomod::ModuleBase*> mod_interfaces;
     
     int length() const;
     void set_length(int len);
