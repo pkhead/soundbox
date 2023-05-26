@@ -177,7 +177,7 @@ void Song::update(double elapsed) {
                     {
                         new_note.note.key,
                         get_key_frequency(new_note.note.key),
-                        0.2f
+                        0.8f
                     }
                 });
             }

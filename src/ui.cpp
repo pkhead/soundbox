@@ -716,7 +716,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     {
                         key,
                         song.get_key_frequency(key),
-                        0.2f
+                        0.8f
                     }
                 });
             }
@@ -747,7 +747,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                         {
                             played_key,
                             song.get_key_frequency(scroll - mouse_cy),
-                            0.2f
+                            0.8f
                         }
                     });
                 }
