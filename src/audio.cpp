@@ -328,19 +328,47 @@ WaveformSynth::WaveformSynth() : ModuleBase(true) {
 }
 
 void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
+    if (release < 0.001f) release = 0.001f;
+    float t;
+
     for (size_t i = 0; i < buffer_size; i += channel_count) {
         // set both channels to zero
         for (size_t ch = 0; ch < channel_count; ch++) output[i + ch] = 0.0f;
 
         // compute all voices
-        for (Voice& voice : voices) {
-            float sample = sin(voice.phase) * voice.volume;
+        for (size_t j = 0; j < voices.size();) {
+            Voice& voice = voices[j];
+
+            float env = sustain; // envelope value
+
+            if (voice.time < attack) {
+                env = voice.time / attack;
+            } else if (voice.time < decay) {
+                t = (voice.time - attack) / decay;
+                if (t > 1.0f) t = 1.0f;
+                env = (sustain - 1.0f) * t + 1.0f;
+            }
+
+            // if note is in the release state
+            if (voice.release_time >= 0.0f) {
+                t = (voice.time - voice.release_time) / release;
+                if (t > 1.0f) {
+                    // time has gone past the release envelope, officially end the note
+                    voices.erase(voices.begin() + j);
+                    continue;
+                }
+
+                env = (1.0f - t) * voice.release_env;
+            }
+
+            float sample = sin((PI2 * voice.freq) * voice.time) * (env * voice.volume);
 
             for (size_t ch = 0; ch < channel_count; ch++) {
                 output[i + ch] += sample;
             }
 
-            voice.phase += (PI2 * voice.freq) / sample_rate;
+            voice.time += 1.0 / sample_rate;
+            j++;
         }
     }
 }
@@ -348,28 +376,44 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
 void WaveformSynth::event(const NoteEvent& event) {
     if (event.kind == NoteEventKind::NoteOn) {
         NoteOnEvent event_data = event.note_on;
+        std::cout << "note on " << event_data.key << "\n";
         voices.push_back({
             event_data.key,
             event_data.freq,
             event_data.volume,
-            0.0
+            0.0,
+            -1.0f,
         });
     
     } else if (event.kind == NoteEventKind::NoteOff) {
         NoteOffEvent event_data = event.note_off;
+        std::cout << "note off " << event_data.key << "\n";
         for (auto it = voices.begin(); it != voices.end(); it++) {
-            if (it->key == event_data.key) {
-                voices.erase(it);
+            if (it->key == event_data.key && it->release_time < 0.0f) {
+                it->release_time = it->time;
+
+                // calculate envelope at release time
+                it->release_env = sustain;
+                float t;
+
+                if (it->time < attack) {
+                    it->release_env = it->time / attack;
+                } else if (it->time < decay) {
+                    t = (it->time - attack) / decay;
+                    if (t > 1.0f) t = 1.0f;
+                    it->release_env = (sustain - 1.0f) * t + 1.0f;
+                }
+
                 break;
             }
         }
     }
 }
 
-static void render_slider(const char* id, float* var, float max, float ramp, const char* fmt) {
-    float val = powf(*var / max, 1.0f / ramp);
+static void render_slider(const char* id, float* var, float max, float ramp, const char* fmt, float start = 0.0f) {
+    float val = powf((*var - start) / max, 1.0f / ramp);
     ImGui::VSliderFloat(id, ImVec2(18, 80), &val, 0.0f, 1.0f, "");
-    *var = powf(val, ramp) * max;
+    *var = powf(val, ramp) * max + start;
 
     if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
         ImGui::SetTooltip(fmt, *var);
@@ -384,11 +428,11 @@ bool WaveformSynth::render_interface() {
 
     if (ImGui::Begin(buf, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking)) {
         // Attack slider
-        render_slider("A", &this->attack, 5.0f, 2.0f, "%.3f secs");
+        render_slider("A", &this->attack, 5.0f, 4.0f, "%.3f secs");
 
         // Decay slider
         ImGui::SameLine();
-        render_slider("D", &this->decay, 10.0f, 2.0f, "%.3f secs");
+        render_slider("D", &this->decay, 10.0f, 4.0f, "%.3f secs");
 
         // Sustain slider
         ImGui::SameLine();
@@ -396,8 +440,7 @@ bool WaveformSynth::render_interface() {
 
         // Release slider
         ImGui::SameLine();
-        render_slider("R", &this->release, 10.0f, 2.0f, "%.3f secs");
-
+        render_slider("R", &this->release, 10.0f, 4.0f, "%.3f secs", 0.001f);
     }
         ImGui::End();
 

@@ -112,7 +112,9 @@ namespace audiomod {
             int key;
             float freq;
             float volume;
-            double phase;
+            double time;
+            double release_time;
+            float release_env;
         };
 
         std::vector<Voice> voices;
