@@ -135,7 +135,9 @@ namespace audiomod {
             Square = (uint8_t)1,
             Sawtooth = (uint8_t)2,
             Triangle = (uint8_t)3
-        } waveform_types[3];
+        };
+        
+        WaveformType waveform_types[3];
         float volume[3];
         float panning[3];
         int coarse[3];

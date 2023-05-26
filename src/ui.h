@@ -2,7 +2,7 @@
 
 #include <functional>
 #include "song.h"
-#include "../imgui/imgui.h"
+#include <imgui.h>
 
 constexpr uint8_t USERMOD_SHIFT = 1;
 constexpr uint8_t USERMOD_CTRL = 2;
