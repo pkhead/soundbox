@@ -25,6 +25,10 @@ static inline T min(T a, T b) {
     return a < b ? a : b;
 }
 
+static inline ImU32 vec4_color(const ImVec4 &vec4) {
+    return IM_COL32(int(vec4.x * 255), int(vec4.y * 255), int(vec4.z * 255), int(vec4.w * 255));
+}
+
 struct Vec2 {
     float x, y;
     constexpr Vec2() : x(0.0f), y(0.0f) {}
@@ -435,7 +439,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     draw_list->AddRectFilled(
                         rect_pos,
                         Vec2(rect_pos.x + CELL_SIZE.x - CELL_MARGIN * 2, rect_pos.y + CELL_SIZE.y - CELL_MARGIN * 2),
-                        is_selected ? Colors::channel[ch % Colors::channel_num][1] : IM_RGB32(50, 50, 50)
+                        is_selected ? Colors::channel[ch % Colors::channel_num][1] : vec4_color(style.Colors[ImGuiCol_FrameBg])
                     );
                 
                 snprintf(str_buf, 8, "%i", pattern_num); // convert pattern_num to string (too lazy to figure out how to do it the C++ way)
@@ -450,7 +454,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                 // draw mouse hover
                 if (ch == mouse_row && bar == mouse_col) {
                     Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x, canvas_p0.y + CELL_SIZE.y * ch);
-                    draw_list->AddRect(rect_pos, rect_pos + CELL_SIZE, IM_COL32_WHITE, 0.0f, 0, 1.0f);
+                    draw_list->AddRect(rect_pos, rect_pos + CELL_SIZE, vec4_color(style.Colors[ImGuiCol_Text]), 0.0f, 0, 1.0f);
                 }
             }
         }
@@ -458,7 +462,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         // draw playhead
         double song_pos = song.is_playing ? (song.position / song.beats_per_bar) : (song.bar_position);
         Vec2 playhead_pos = canvas_p0 + Vec2(song_pos * CELL_SIZE.x, 0);
-        draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y), IM_COL32_WHITE);
+        draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y), vec4_color(style.Colors[ImGuiCol_Text]));
 
         // set scrollable area
         ImGui::SetCursorPos(content_size);
@@ -871,7 +875,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             draw_list->AddRectFilled(
                 piano_rect_pos + Vec2(CELL_MARGIN, CELL_MARGIN),
                 piano_rect_pos + Vec2(PIANO_KEY_WIDTH - CELL_MARGIN * 2, CELL_SIZE.y - CELL_MARGIN * 2),
-                key % 12 == 0 ? IM_RGB32(95, 23, 23) : ACCIDENTAL[key % 12] ? IM_RGB32(38, 38, 38) : IM_RGB32(20, 20, 20)
+                key % 12 == 0 ?
+                    /*IM_RGB32(95, 23, 23)*/ vec4_color(style.Colors[ImGuiCol_Button]) : // octave
+                    ACCIDENTAL[key % 12] ? IM_RGB32(38, 38, 38) : // fifth
+                    IM_RGB32(20, 20, 20) // default
             );
 
             // get key name
@@ -889,9 +896,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             );
 
             ImU32 row_color =
-                key % 12 == 0 ? IM_RGB32(191, 46, 46) : // highlight each octave
-                key % 12 == 7 ? IM_RGB32(74, 68, 68) : // highlight each fifth
-                IM_RGB32(50, 50, 50); // default color
+                key % 12 == 0 ? /*IM_RGB32(191, 46, 46)*/ vec4_color(style.Colors[ImGuiCol_ButtonHovered]) : // highlight each octave
+                key % 12 == 7 ? /*IM_RGB32(74, 68, 68)*/ vec4_color(style.Colors[ImGuiCol_FrameBgHovered]) : // highlight each fifth
+                vec4_color(style.Colors[ImGuiCol_FrameBg]); // default color
 
             // draw cells in this row
             for (int col = 0; col < 8; col++) {
@@ -929,14 +936,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                 
                 draw_list->AddRect(
                     rect_pos, rect_pos + CELL_SIZE * Vec2(len, 1.0f),
-                    IM_COL32_WHITE
+                    vec4_color(style.Colors[ImGuiCol_Text])
                 );
             } else {
                 Vec2 rect_pos = Vec2(draw_origin.x, draw_origin.y + CELL_SIZE.y * mouse_cy);
                 
                 draw_list->AddRect(
                     rect_pos, rect_pos + Vec2(PIANO_KEY_WIDTH, CELL_SIZE.y),
-                    IM_COL32_WHITE
+                    vec4_color(style.Colors[ImGuiCol_Text])
                 );
             }
         }
@@ -944,7 +951,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         // draw playhead
         if (song.is_playing && selected_channel->sequence[song.bar_position] - 1 == pattern_id) {
             Vec2 playhead_pos = draw_origin + Vec2(PIANO_KEY_WIDTH + fmodf(song.position, song.beats_per_bar) * CELL_SIZE.x, 0.0f);
-            draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y + style.WindowPadding.y * 2.0f), IM_COL32_WHITE);
+            draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y + style.WindowPadding.y * 2.0f), vec4_color(style.Colors[ImGuiCol_Text]));
         }
 
         prev_mouse_cy = mouse_cy;

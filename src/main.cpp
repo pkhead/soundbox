@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include "../imgui/imgui.h"
 #include "../imgui/backends/imgui_impl_glfw.h"
@@ -41,7 +42,7 @@ int main()
     if (window == nullptr)
         return 1;
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(0); // disable vsync
+    glfwSwapInterval(1); // enable vsync
 
     // setup dear imgui
     IMGUI_CHECKVERSION();
@@ -256,12 +257,28 @@ int main()
         int last_selected_bar = song->selected_bar;
         int last_selected_ch = song->selected_channel;
 
-        static const double FRAME_LENGTH = 1.0 / 120.0;
+        static const double FRAME_LENGTH = 1.0 / 240.0;
 
         double next_time = glfwGetTime();
         double prev_time = next_time;
 
         bool run_app = true;
+
+        // create audio processor thread
+        std::thread audio_thread([&]() {
+            while (run_app) {
+                while (device.num_queued_frames() < device.sample_rate() * 0.05) {
+                    song->update(1.0 / device.sample_rate() * BUFFER_SIZE);
+
+                    float* buf;
+                    size_t buf_size = destination.process(&buf);
+
+                    device.queue(buf, buf_size * sizeof(float));
+                }
+
+                sleep(1.0f / 30.0f);
+            }
+        });
 
         while (run_app)
         {
@@ -278,18 +295,6 @@ int main()
             next_time = glfwGetTime() + FRAME_LENGTH;
             
             glfwPollEvents();
-
-            int num_buffers = 0;
-
-            while (device.num_queued_frames() < device.sample_rate() * 0.05) {
-                song->update(1.0 / device.sample_rate() * BUFFER_SIZE);
-
-                float* buf;
-                size_t buf_size = destination.process(&buf);
-
-                device.queue(buf, buf_size * sizeof(float));
-                num_buffers++;
-            }
 
             //song->update(now_time - prev_time);
 
@@ -418,8 +423,10 @@ int main()
                 next_time = cur_time;
             }
             
-            sleep(next_time - cur_time);
+            //sleep(next_time - cur_time);
         }
+
+        audio_thread.join();
 
         delete song;
     }
