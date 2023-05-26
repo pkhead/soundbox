@@ -74,18 +74,25 @@ namespace audiomod {
         virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;
     public:
         bool show_interface;
+        const char* id;
 
         ModuleBase(const ModuleBase&) = delete;
         ModuleBase(bool has_interface);
-        ~ModuleBase();
+        virtual ~ModuleBase();
 
         virtual void event(const NoteEvent& event) {};
         void connect(ModuleOutputTarget* dest);
         void disconnect();
         void remove_all_connections();
 
-        inline bool has_interface() const; // does this module have an interface?
-        virtual bool render_interface() { return false; }; // render the ImGui interface
+        bool has_interface() const; // does this module have an interface?
+        virtual bool render_interface(const char* channel_name) { return false; }; // render the ImGui interface
+
+        // report a newly allocated block of memory which holds the serialized state of the module
+        virtual size_t save_state(void** output) const { return 0; };
+
+        // load a serialized state. return true if successful, otherwise return false
+        virtual bool load_state(void* state, size_t size) { return true; };
 
         float* get_audio(size_t buffer_size, int sample_rate, int channel_count);
     };
@@ -123,11 +130,11 @@ namespace audiomod {
     public:
         WaveformSynth();
 
-        enum WaveformType {
-            Sine = 0,
-            Square = 1,
-            Sawtooth = 2,
-            Triangle = 3
+        enum WaveformType: uint8_t {
+            Sine = (uint8_t)0,
+            Square = (uint8_t)1,
+            Sawtooth = (uint8_t)2,
+            Triangle = (uint8_t)3
         } waveform_types[3];
         float volume[3];
         float panning[3];
@@ -140,7 +147,9 @@ namespace audiomod {
         float release = 0.0f;
 
         void event(const NoteEvent& event) override;
-        bool render_interface() override;
+        bool render_interface(const char* channel_name) override;
+        size_t save_state(void** output) const override;
+        bool load_state(void* state, size_t size) override;
     };
 
     class VolumeModule : public ModuleBase {
@@ -150,8 +159,11 @@ namespace audiomod {
         float last_sample[2];
     
     public:
-        VolumeModule();
-        float volume = 1.0f;
+        float volume = 0.5f;
         float panning = 0.0f;
+
+        VolumeModule();
+        size_t save_state(void** output) const override;
+        bool load_state(void* state, size_t size) override;
     };
 }

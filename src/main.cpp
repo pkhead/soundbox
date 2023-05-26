@@ -15,15 +15,27 @@
 #include "ui.h"
 #include "song.h"
 #include "audio.h"
-#include "os.h"
+#include "sys.h"
+
+bool IS_BIG_ENDIAN;
 
 static void glfw_error_callback(int error, const char *description)
 {
     std::cerr << "GLFW error " << error << ": " << description << "\n";
 }
 
+
 int main()
 {
+    { // record endianness
+        union {
+            uint32_t i;
+            char c[4];
+        } static bint = {0x01020304};
+
+        IS_BIG_ENDIAN = bint.c[0] == 1;
+    }
+
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
@@ -83,7 +95,7 @@ int main()
     std::function<void()> unsaved_work_callback;
 
     {
-        const size_t BUFFER_SIZE = 1024;
+        const size_t BUFFER_SIZE = 256;
 
         AudioDevice device(soundio, -1);
         audiomod::DestinationModule destination(device, BUFFER_SIZE);
@@ -211,6 +223,9 @@ int main()
                     if (new_song != nullptr) {
                         delete song;
                         song = new_song;
+
+                        last_file_path = out_path;
+                        last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
                     } else {
                         status_message = "Error reading file";
                         status_time = glfwGetTime();
@@ -274,6 +289,8 @@ int main()
                     size_t buf_size = destination.process(&buf);
 
                     device.queue(buf, buf_size * sizeof(float));
+
+                    if (!run_app) return;
                 }
 
                 sleep(1.0f / 30.0f);

@@ -37,8 +37,6 @@ public:
     audiomod::ModuleBase* synth_mod;
 
     char name[32];
-    float volume;
-    float panning;
     std::vector<int> sequence;
     std::vector<Pattern*> patterns;
 
@@ -84,7 +82,12 @@ public:
     float editor_quantization = 0.25f;
     float tempo = 120;
 
-    std::vector<audiomod::ModuleBase*> mod_interfaces;
+    struct ModInterfaceStruct {
+        Channel* channel;
+        audiomod::ModuleBase* module;
+    };
+
+    std::vector<ModInterfaceStruct> mod_interfaces;
     
     int length() const;
     void set_length(int len);

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <iostream>
 #include "audio.h"
+#include "sys.h"
 #include "../imgui/imgui.h"
 
 static void write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
@@ -32,7 +33,7 @@ AudioDevice::AudioDevice(SoundIo* soundio, int output_device) {
 
     // create output stream
     outstream = soundio_outstream_create(device);
-    outstream->software_latency = 0.02;
+    outstream->software_latency = 0.05;
     outstream->sample_rate = 48000;
     outstream->format = SoundIoFormatFloat32NE;
     outstream->userdata = this;
@@ -194,7 +195,8 @@ ModuleBase::ModuleBase(bool has_interface) :
     _audio_buffer(nullptr),
     _audio_buffer_size(0),
     show_interface(false),
-    _has_interface(has_interface)
+    _has_interface(has_interface),
+    id("")
 {};
 
 ModuleBase::~ModuleBase() {
@@ -245,7 +247,7 @@ float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_co
     return _audio_buffer;
 }
 
-inline bool ModuleBase::has_interface() const {
+bool ModuleBase::has_interface() const {
     return _has_interface;
 }
 
@@ -326,6 +328,8 @@ static constexpr double PI = 3.14159265359;
 static constexpr double PI2 = 2.0f * PI;
 
 WaveformSynth::WaveformSynth() : ModuleBase(true) {
+    id = "synth.waveform";
+
     waveform_types[0] = Triangle;
     volume[0] = 0.5f;
     coarse[0] = 0;
@@ -418,8 +422,8 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                 voice.phase[osc] += (PI2 * freq) / sample_rate;
             }
 
-            output[i] = samples[0][0] + samples[1][0] + samples[2][0];
-            output[i + 1] = samples[0][1] + samples[1][1] + samples[2][1];
+            output[i] += samples[0][0] + samples[1][0] + samples[2][0];
+            output[i + 1] += samples[0][1] + samples[1][1] + samples[2][1];
 
             voice.time += 1.0 / sample_rate;
             j++;
@@ -430,7 +434,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
 void WaveformSynth::event(const NoteEvent& event) {
     if (event.kind == NoteEventKind::NoteOn) {
         NoteOnEvent event_data = event.note_on;
-        std::cout << "note on " << event_data.key << "\n";
+        //std::cout << "note on " << event_data.key << "\n";
         voices.push_back({
             event_data.key,
             event_data.freq,
@@ -443,7 +447,7 @@ void WaveformSynth::event(const NoteEvent& event) {
     
     } else if (event.kind == NoteEventKind::NoteOff) {
         NoteOffEvent event_data = event.note_off;
-        std::cout << "note off " << event_data.key << "\n";
+        //std::cout << "note off " << event_data.key << "\n";
         for (auto it = voices.begin(); it != voices.end(); it++) {
             if (it->key == event_data.key && it->release_time < 0.0f) {
                 it->release_time = it->time;
@@ -466,17 +470,20 @@ void WaveformSynth::event(const NoteEvent& event) {
     }
 }
 
-static void render_slider(const char* id, float* var, float max, float ramp, const char* fmt, float start = 0.0f) {
-    float val = powf((*var - start) / max, 1.0f / ramp);
-    ImGui::VSliderFloat(id, ImVec2(18, 80), &val, 0.0f, 1.0f, "");
-    *var = powf(val, ramp) * max + start;
+static void render_slider(const char* id, const char* label, float* var, float max, float ramp, const char* fmt, float start = 0.0f) {
+    static char display_buf[8];
+    snprintf(display_buf, 8, fmt, *var);
 
-    if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
-        ImGui::SetTooltip(fmt, *var);
-    }
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("%s", label);
+    ImGui::SameLine();
+    
+    float val = powf((*var - start) / max, 1.0f / ramp);
+    ImGui::SliderFloat(id, &val, 0.0f, 1.0f, display_buf);
+    *var = powf(val, ramp) * max + start;
 }
 
-bool WaveformSynth::render_interface() {
+bool WaveformSynth::render_interface(const char* channel_name) {
     if (!show_interface) return false;
 
     static const char* WAVEFORM_NAMES[] = {
@@ -486,10 +493,10 @@ bool WaveformSynth::render_interface() {
         "Triangle"
     };
 
-    char buf[128];
-    snprintf(buf, 128, "Waveform Synth##%x", this);
+    char window_name[128];
+    snprintf(window_name, 128, "%s - Waveform Synth###%p", channel_name == nullptr ? "" : channel_name, this);
 
-    if (ImGui::Begin(buf, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::Begin(window_name, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
         char sep_text[] = "Oscillator 1";
 
         for (int osc = 0; osc < 3; osc++) {
@@ -553,27 +560,66 @@ bool WaveformSynth::render_interface() {
         }
 
         ImGui::SeparatorText("Envelope");
+        ImGui::PushItemWidth(80.0f);
 
         // Attack slider
-        render_slider("A", &this->attack, 5.0f, 4.0f, "%.3f secs");
+        render_slider("##attack", "Atk", &this->attack, 5.0f, 4.0f, "%.3f secs");
         if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
 
         // Decay slider
         ImGui::SameLine();
-        render_slider("D", &this->decay, 10.0f, 4.0f, "%.3f secs");
+        render_slider("##decay", "Dky", &this->decay, 10.0f, 4.0f, "%.3f secs");
         if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
 
         // Sustain slider
-        ImGui::SameLine();
-        render_slider("S", &this->sustain, 1.0f, 1.0f, "%.3f");
+        render_slider("##sustain", "Sus", &this->sustain, 1.0f, 1.0f, "%.3f");
         if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 1.0f;
 
         // Release slider
         ImGui::SameLine();
-        render_slider("R", &this->release, 10.0f, 4.0f, "%.3f secs", 0.001f);
+        render_slider("##release", "Rls", &this->release, 10.0f, 4.0f, "%.3f secs", 0.001f);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.001f;
+
+        ImGui::PopItemWidth();
+    } ImGui::End();
+
+    return true;
+}
+
+struct WaveformSynthState {
+    uint8_t waveform_types[3];
+    float volume[3];
+    float panning[3];
+    int coarse[3];
+    float fine[3];
+};
+
+size_t WaveformSynth::save_state(void** output) const {
+    WaveformSynthState* state = new WaveformSynthState;
+
+    for (size_t osc = 0; osc < 3; osc++) {
+        state->waveform_types[osc] = static_cast<uint8_t>(waveform_types[osc]);
+        state->volume[osc] = swap_little_endian(volume[osc]);
+        state->panning[osc] = swap_little_endian(panning[osc]);
+        state->coarse[osc] = swap_little_endian(coarse[osc]);
+        state->fine[osc] = swap_little_endian(fine[osc]);
     }
-        ImGui::End();
+
+    *output = state;
+    return sizeof(WaveformSynthState);
+}
+
+bool WaveformSynth::load_state(void* state_ptr, size_t size) {
+    if (size != sizeof(WaveformSynthState)) return false;
+    WaveformSynthState* state = (WaveformSynthState*)state_ptr;
+
+    for (size_t osc = 0; osc < 3; osc++) {
+        waveform_types[osc] = static_cast<WaveformType>(state->waveform_types[osc]);
+        volume[osc] = swap_little_endian(state->volume[osc]);
+        panning[osc] = swap_little_endian(state->panning[osc]);
+        coarse[osc] = swap_little_endian(state->coarse[osc]);
+        fine[osc] = swap_little_endian(state->fine[osc]);
+    }
 
     return true;
 }
@@ -605,6 +651,7 @@ inline bool is_zero_crossing(float prev, float next) {
 }
 
 VolumeModule::VolumeModule() : ModuleBase(false) {
+    id = "effect.volume";
     cur_volume[0] = volume;
     cur_volume[1] = volume;
     last_sample[0] = 0.0f;
@@ -632,4 +679,28 @@ void VolumeModule::process(float** inputs, float* output, size_t num_inputs, siz
             last_sample[1] = output[i + 1];
         }
     }
+}
+
+struct VolumeModuleState {
+    float volume, panning;
+};
+
+size_t VolumeModule::save_state(void** output) const {
+    VolumeModuleState* state = new VolumeModuleState;
+
+    state->volume = swap_little_endian(volume);
+    state->panning = swap_little_endian(panning);
+
+    *output = state;
+    return sizeof(VolumeModuleState);
+}
+
+bool VolumeModule::load_state(void* state_ptr, size_t size) {
+    if (size != sizeof(VolumeModuleState)) return false;
+    VolumeModuleState* state = (VolumeModuleState*)state_ptr;
+    
+    volume = swap_little_endian(state->volume);
+    panning = swap_little_endian(state->panning);
+
+    return true;
 }

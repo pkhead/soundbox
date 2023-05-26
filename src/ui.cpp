@@ -353,12 +353,15 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             
             // if want to show interface, add module to interfaces list
             if (cur_channel->synth_mod->show_interface) {
-                song.mod_interfaces.push_back(mod);
+                song.mod_interfaces.push_back({
+                    cur_channel,
+                    mod
+                });
 
             // if want to hide interface, remove module from interfaces list
             } else {
                 for (auto it = song.mod_interfaces.begin(); it != song.mod_interfaces.end(); it++) {
-                    if (*it == mod) {
+                    if ((*it).module == mod) {
                         song.mod_interfaces.erase(it);
                         break;
                     }
@@ -474,7 +477,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ////////////////////
     // PATTERN EDITOR //
     ////////////////////
-    if (ImGui::Begin("Pattern Editor")); {
+    if (ImGui::Begin("Pattern Editor")) {
         // cell size including margin
         static const Vec2 CELL_SIZE = Vec2(50, 16);
         // empty space inbetween cells
@@ -885,7 +888,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             strncpy(key_name, KEY_NAMES[key % 12], 8);
 
             // if key is C, then add the octave number
-            if (key % 12 == 0) snprintf(key_name + 1, 8, "%i", key / 12); //
+            if (key % 12 == 0) snprintf(key_name + 1, 7, "%i", key / 12); //
 
             // draw key name
             Vec2 text_size = ImGui::CalcTextSize(KEY_NAMES[key % 12]);
@@ -957,11 +960,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         prev_mouse_cy = mouse_cy;
     } ImGui::End();
 
-    // render audio interfaces
+    // render module interfaces
     for (size_t i = 0; i < song.mod_interfaces.size();) {
-        auto interface = song.mod_interfaces[i];
+        auto data = song.mod_interfaces[i];
         
-        if (interface->render_interface()) i++;
+        if (data.module->render_interface(data.channel->name)) i++;
         else {
             song.mod_interfaces.erase(song.mod_interfaces.begin() + i);
         }

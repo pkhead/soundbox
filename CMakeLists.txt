@@ -30,6 +30,7 @@ set(SOURCES
     src/song.cpp
     src/audio.cpp
     src/ui.cpp
+    src/sys.cpp
 )
 
 set(INCLUDE ${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)

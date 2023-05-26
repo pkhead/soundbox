@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include "song.h"
+#include "sys.h"
 
 Pattern::Pattern() { };
 
@@ -17,7 +18,7 @@ inline bool Pattern::is_empty() const {
 /*************************
 *        CHANNEL         *
 *************************/
-Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), volume(0.5f), panning(0.0f) {
+Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out) {
     strcpy(name, "Channel");
     
     for (int i = 0; i < song_length; i++) {
@@ -206,19 +207,10 @@ void Song::update(double elapsed) {
     }
 }
 
-static bool is_big_endian() {
-    union {
-        uint32_t i;
-        char c[4];
-    } static bint = {0x01020304};
-
-    return bint.c[0] == 1;
-}
-
 // push the bytes of data in little-endian order
 template <typename T>
 static void push_bytes(std::ostream& out, T data) {
-    if (is_big_endian()) {
+    if (IS_BIG_ENDIAN) {
         for (size_t i = sizeof(data) - 1; i > 0; i--) {
             out << ((uint8_t*)(&data)) [i];
         }
@@ -236,7 +228,7 @@ static void pull_bytes(std::istream& in, T& output) {
     char next_char;
     uint8_t bytes[sizeof(T)];
 
-    if (is_big_endian()) {
+    if (IS_BIG_ENDIAN) {
         for (size_t i = sizeof(T) - 1; i > 0; i--) {
             in.get(next_char);
             bytes[i] = next_char;
@@ -273,6 +265,11 @@ struct channel {
     char name[name_size];
 
     float volume, panning;
+    uint8_t inst_id_size;
+    char inst_id[inst_id_size];
+    uint64_t inst_state_size;
+    uint8_t inst_state[inst_state_size];
+
     uint32_t sequence[song::length];
     struct pattern patterns[song::max_patterns];
 }
@@ -306,7 +303,7 @@ void Song::serialize(std::ostream& out) const {
     // version number (major, minor, revision)
     push_bytes(out, (uint8_t)0);
     push_bytes(out, (uint8_t)0);
-    push_bytes(out, (uint8_t)0);
+    push_bytes(out, (uint8_t)1);
 
     // write song data
     push_bytes(out, (uint8_t) strlen(name));
@@ -323,8 +320,22 @@ void Song::serialize(std::ostream& out) const {
         push_bytes(out, (uint8_t) strlen(channel->name));
         out << channel->name;
 
-        push_bytes(out, (float) channel->volume);
-        push_bytes(out, (float) channel->panning);
+        push_bytes(out, (float) channel->vol_mod.volume);
+        push_bytes(out, (float) channel->vol_mod.panning);
+
+        // store instrument type
+        push_bytes(out, (uint8_t) strlen(channel->synth_mod->id));
+        out << channel->synth_mod->id;
+
+        // store instrument state
+        uint8_t* inst_state = nullptr;
+        uint64_t inst_state_size = channel->synth_mod->save_state((void**)&inst_state);
+
+        push_bytes(out, inst_state_size);
+        if (inst_state != nullptr) {
+            out.write((char*)inst_state, inst_state_size);
+            delete inst_state;
+        }
 
         // write channel sequence
         for (int& id : channel->sequence) {
@@ -395,6 +406,35 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
         pull_bytes(input, volume);
         pull_bytes(input, panning);
+
+        channel->vol_mod.volume = volume;
+        channel->vol_mod.panning = panning;
+
+        // instrument data
+        if (version[2] >= 1) {
+            // read instrument id
+            uint8_t id_size;
+            pull_bytes(input, id_size);
+
+            char* inst_id = new char[id_size + 1];
+            input.read(inst_id, id_size);
+            inst_id[id_size] = 0;
+
+            // TODO: load module based off id
+
+            // load instrument state
+            uint64_t inst_state_size;
+            pull_bytes(input, inst_state_size);
+            if (inst_state_size > 0) {
+                uint8_t* inst_state = new uint8_t[inst_state_size];
+                input.read((char*)inst_state, inst_state_size);
+                channel->synth_mod->load_state(inst_state, inst_state_size);
+
+                delete[] inst_state;
+            }
+
+            delete[] inst_id;
+        }
 
         // get sequence
         uint32_t pattern_id;
