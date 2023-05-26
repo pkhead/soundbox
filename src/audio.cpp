@@ -380,25 +380,26 @@ bool WaveformSynth::render_interface() {
     if (!show_interface) return false;
 
     char buf[128];
-    sprintf(buf, "Waveform Synth##%x", this);
-    ImGui::Begin(buf, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking);
-    
-    // Attack slider
-    render_slider("A", &this->attack, 5.0f, 2.0f, "%.3f secs");
+    snprintf(buf, 128, "Waveform Synth##%x", this);
 
-    // Decay slider
-    ImGui::SameLine();
-    render_slider("D", &this->decay, 10.0f, 2.0f, "%.3f secs");
+    if (ImGui::Begin(buf, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking)) {
+        // Attack slider
+        render_slider("A", &this->attack, 5.0f, 2.0f, "%.3f secs");
 
-    // Sustain slider
-    ImGui::SameLine();
-    render_slider("S", &this->sustain, 1.0f, 1.0f, "%.3f");
+        // Decay slider
+        ImGui::SameLine();
+        render_slider("D", &this->decay, 10.0f, 2.0f, "%.3f secs");
 
-    // Release slider
-    ImGui::SameLine();
-    render_slider("R", &this->release, 10.0f, 2.0f, "%.3f secs");
+        // Sustain slider
+        ImGui::SameLine();
+        render_slider("S", &this->sustain, 1.0f, 1.0f, "%.3f");
 
-    ImGui::End();
+        // Release slider
+        ImGui::SameLine();
+        render_slider("R", &this->release, 10.0f, 2.0f, "%.3f secs");
+
+    }
+        ImGui::End();
 
     return true;
 }

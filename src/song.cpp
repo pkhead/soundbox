@@ -51,7 +51,7 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
         Channel* ch = new Channel(_length, _max_patterns, audio_out);
-        sprintf(ch->name, "Channel %i", ch_i + 1);
+        snprintf(ch->name, 32, "Channel %i", ch_i + 1);
         channels.push_back(ch);
     }
 }

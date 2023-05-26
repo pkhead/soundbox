@@ -248,122 +248,128 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     // SONG SETTINGS //
     ///////////////////
 
-    ImGui::Begin("Song Settings");
+    if (ImGui::Begin("Song Settings")) {
+        // song name input
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Name");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputText("##song_name", song.name, song.name_capcity);
 
-    // song name input
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Name");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputText("##song_name", song.name, song.name_capcity);
+        // play/prev/next
+        if (ImGui::Button(song.is_playing ? "Pause##play_pause" : "Play##play_pause", ImVec2(-1.0f, 0.0f)))
+            user_actions.fire("song_play_pause");
+                
+        if (ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f))) user_actions.fire("song_prev_bar");
+        ImGui::SameLine();
+        if (ImGui::Button("Next", ImVec2(-1.0f, 0.0f))) user_actions.fire("song_next_bar");
+        
+        // tempo
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Tempo (bpm)");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputFloat("bpm##song_tempo", &song.tempo, 0.0f, 0.0f, "%.0f");
+        if (song.tempo < 0) song.tempo = 0;
 
-    // play/prev/next
-    if (ImGui::Button(song.is_playing ? "Pause##play_pause" : "Play##play_pause", ImVec2(-1.0f, 0.0f)))
-        user_actions.fire("song_play_pause");
-            
-    if (ImGui::Button("Prev", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f))) user_actions.fire("song_prev_bar");
-    ImGui::SameLine();
-    if (ImGui::Button("Next", ImVec2(-1.0f, 0.0f))) user_actions.fire("song_next_bar");
-    
-    // tempo
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Tempo (bpm)");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputFloat("bpm##song_tempo", &song.tempo, 0.0f, 0.0f, "%.0f");
-    if (song.tempo < 0) song.tempo = 0;
-
-    // TODO: controller/mod channels
-    if (ImGui::BeginPopupContextItem()) {
-        ImGui::Selectable("Controller 1", true);
-        ImGui::Selectable("Controller 2", false);
-        ImGui::Selectable("Controller 3", false);
-        ImGui::EndPopup();
-    }
-
-    ImGui::End();
+        // TODO: controller/mod channels
+        if (ImGui::BeginPopupContextItem()) {
+            ImGui::Selectable("Controller 1", true);
+            ImGui::Selectable("Controller 2", false);
+            ImGui::Selectable("Controller 3", false);
+            ImGui::EndPopup();
+        }
+    } ImGui::End();
 
     //////////////////////
     // CHANNEL SETTINGS //
     //////////////////////
 
-    ImGui::Begin("Channel Settings", nullptr);
-
     Channel* cur_channel = song.channels[song.selected_channel];
 
-    // channel name
-    ImGui::PushItemWidth(-1.0f);
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Name");
-    ImGui::SameLine();
-    ImGui::InputText("##channel_name", cur_channel->name, 64);
-
-    // volume slider
-    {
-        float volume = cur_channel->vol_mod.volume * 100.0f;
+    if (ImGui::Begin("Channel Settings")) {
+        // channel name
+        ImGui::PushItemWidth(-1.0f);
         ImGui::AlignTextToFramePadding();
-        ImGui::Text("Volume");
+        ImGui::Text("Name");
         ImGui::SameLine();
-        ImGui::SliderFloat("##channel_volume", &volume, 0, 100, "%.0f");
-        cur_channel->vol_mod.volume = volume / 100.0f;
-    }
+        ImGui::InputText("##channel_name", cur_channel->name, 64);
 
-    // panning slider
-    {
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Panning");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##channel_panning", &cur_channel->vol_mod.panning, -1, 1, "%.2f");
-    }
-
-    // fx mixer bus combobox
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("FX Bus");
-    ImGui::SameLine();
-    if (ImGui::BeginCombo("##channel_bus", bus_names[bus_index]))
-    {
-        for (int i = 0; i < 4; i++) {
-            if (ImGui::Selectable(bus_names[i], i == bus_index)) bus_index = i;
-
-            if (i == bus_index) {
-                ImGui::SetItemDefaultFocus();
-            }
+        // volume slider
+        {
+            float volume = cur_channel->vol_mod.volume * 100.0f;
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Volume");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##channel_volume", &volume, 0, 100, "%.0f");
+            cur_channel->vol_mod.volume = volume / 100.0f;
         }
 
-        ImGui::EndCombo();
-    }
+        // panning slider
+        {
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Panning");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##channel_panning", &cur_channel->vol_mod.panning, -1, 1, "%.2f");
+        }
 
-    ImGui::PopItemWidth();
-    ImGui::NewLine();
+        // fx mixer bus combobox
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("FX Bus");
+        ImGui::SameLine();
+        if (ImGui::BeginCombo("##channel_bus", bus_names[bus_index]))
+        {
+            for (int i = 0; i < 4; i++) {
+                if (ImGui::Selectable(bus_names[i], i == bus_index)) bus_index = i;
 
-    // loaded instrument
-    ImGui::Text("Instrument: [No Instrument]");
-    if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
-    {
-        ImGui::OpenPopup("inst_load");
-    }
-    ImGui::SameLine();
+                if (i == bus_index) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
 
-    if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
-    {
-        audiomod::ModuleBase* mod = cur_channel->synth_mod;
+            ImGui::EndCombo();
+        }
 
-        mod->show_interface = !mod->show_interface;
-        
-        // if want to show interface, add module to interfaces list
-        if (cur_channel->synth_mod->show_interface) {
-            song.mod_interfaces.push_back(mod);
+        ImGui::PopItemWidth();
+        ImGui::NewLine();
 
-        // if want to hide interface, remove module from interfaces list
-        } else {
-            for (auto it = song.mod_interfaces.begin(); it != song.mod_interfaces.end(); it++) {
-                if (*it == mod) {
-                    song.mod_interfaces.erase(it);
-                    break;
+        // loaded instrument
+        ImGui::Text("Instrument: [No Instrument]");
+        if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
+        {
+            ImGui::OpenPopup("inst_load");
+        }
+        ImGui::SameLine();
+
+        if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
+        {
+            audiomod::ModuleBase* mod = cur_channel->synth_mod;
+
+            mod->show_interface = !mod->show_interface;
+            
+            // if want to show interface, add module to interfaces list
+            if (cur_channel->synth_mod->show_interface) {
+                song.mod_interfaces.push_back(mod);
+
+            // if want to hide interface, remove module from interfaces list
+            } else {
+                for (auto it = song.mod_interfaces.begin(); it != song.mod_interfaces.end(); it++) {
+                    if (*it == mod) {
+                        song.mod_interfaces.erase(it);
+                        break;
+                    }
                 }
             }
         }
-    }
+
+        // effects
+        ImGui::NewLine();
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Effects");
+        ImGui::SameLine();
+        ImGui::Button("+##Add");
+    } ImGui::End();
 
     if (ImGui::BeginPopup("inst_load"))
     {
@@ -371,23 +377,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::EndPopup();
     }
 
-    // effects
-    ImGui::NewLine();
-
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Effects");
-    ImGui::SameLine();
-    ImGui::Button("+##Add");
-
-    ImGui::End();
-
     //////////////////
     // TRACK EDITOR //
     //////////////////
 
-    {
-        ImGui::Begin("Track Editor");
-
+    if (ImGui::Begin("Track Editor")) {
         // cell size including margin
         static const Vec2 CELL_SIZE = Vec2(26, 26);
         // empty space inbetween cells
@@ -444,7 +438,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                         is_selected ? Colors::channel[ch % Colors::channel_num][1] : IM_RGB32(50, 50, 50)
                     );
                 
-                sprintf(str_buf, "%i", pattern_num); // convert pattern_num to string (too lazy to figure out how to do it the C++ way)
+                snprintf(str_buf, 8, "%i", pattern_num); // convert pattern_num to string (too lazy to figure out how to do it the C++ way)
                 
                 // draw pattern number
                 draw_list->AddText(
@@ -470,14 +464,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::SetCursorPos(content_size);
 
         ImGui::EndChild();
-        ImGui::End();
-    }
+    } ImGui::End();
 
 
     ////////////////////
     // PATTERN EDITOR //
     ////////////////////
-    ImGui::Begin("Pattern Editor"); {
+    if (ImGui::Begin("Pattern Editor")); {
         // cell size including margin
         static const Vec2 CELL_SIZE = Vec2(50, 16);
         // empty space inbetween cells
@@ -882,10 +875,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             );
 
             // get key name
-            strcpy(key_name, KEY_NAMES[key % 12]);
+            strncpy(key_name, KEY_NAMES[key % 12], 8);
 
             // if key is C, then add the octave number
-            if (key % 12 == 0) sprintf(key_name + 1, "%i", key / 12);
+            if (key % 12 == 0) snprintf(key_name + 1, 8, "%i", key / 12); //
 
             // draw key name
             Vec2 text_size = ImGui::CalcTextSize(KEY_NAMES[key % 12]);
@@ -955,10 +948,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
 
         prev_mouse_cy = mouse_cy;
+    } ImGui::End();
 
-        ImGui::End();
-    }
-
+    // render audio interfaces
     for (size_t i = 0; i < song.mod_interfaces.size();) {
         auto interface = song.mod_interfaces[i];
         
