@@ -317,19 +317,38 @@ size_t DestinationModule::process(float** output) {
 //////////////////////////
 //    WAVEFORM SYNTH    //
 //////////////////////////
+static double _mod(double a, double b) {
+    return fmod(fmod(a, b) + b, b);
+}
 
 #include <math.h>
 static constexpr double PI = 3.14159265359;
 static constexpr double PI2 = 2.0f * PI;
 
 WaveformSynth::WaveformSynth() : ModuleBase(true) {
-    time = 0.0;
-    waveform_type = Sine;
+    waveform_types[0] = Triangle;
+    volume[0] = 0.5f;
+    coarse[0] = 0;
+    fine[0] = 0.0f;
+    panning[0] = 0.0f;
+
+    waveform_types[1] = Sawtooth;
+    volume[1] = 0.5f;
+    coarse[1] = 0.0;
+    fine[1] = 6.0f;
+    panning[1] = 0.0f;
+
+    waveform_types[2] = Sine;
+    volume[2] = 0.0f;
+    coarse[2] = 0;
+    fine[2] = 0.0f;
+    panning[2] = 0.0f;
 }
 
 void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     if (release < 0.001f) release = 0.001f;
-    float t;
+    float t, env;
+    float samples[3][2];
 
     for (size_t i = 0; i < buffer_size; i += channel_count) {
         // set both channels to zero
@@ -339,7 +358,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
         for (size_t j = 0; j < voices.size();) {
             Voice& voice = voices[j];
 
-            float env = sustain; // envelope value
+            env = sustain; // envelope value
 
             if (voice.time < attack) {
                 env = voice.time / attack;
@@ -361,11 +380,46 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                 env = (1.0f - t) * voice.release_env;
             }
 
-            float sample = sin((PI2 * voice.freq) * voice.time) * (env * voice.volume);
+            for (size_t osc = 0; osc < 3; osc++) {
+                float freq = voice.freq * powf(2.0f, ((float)coarse[osc] + fine[osc] / 100.0f) / 12.0f);
+                double phase = voice.phase[osc];
+                double period = 1.0 / freq;
+                float sample;
 
-            for (size_t ch = 0; ch < channel_count; ch++) {
-                output[i + ch] += sample;
+                float r_mult = (panning[osc] + 1.0f) / 2.0f;
+                float l_mult = 1.0f - r_mult;
+
+                switch (waveform_types[osc]) {
+                    case Sine:
+                        sample = sin(phase);
+                        break;
+
+                    case Triangle: {
+                        double moda = phase / (PI2 * freq) - period / 4.0;
+                        sample = (4.0 / period) * abs(_mod(moda, period) - period / 2.0) - 1.0;
+                        break;
+                    }
+
+                    case Square:
+                        sample = sin(phase) >= 0.0 ? 1.0 : -1.0;
+                        break;
+
+                    case Sawtooth:
+                        sample = 2.0 * _mod(phase / PI2 + 0.5, 1.0) - 1.0;
+                        break;
+
+                    // a pulse wave: value[w] = (2.0f * _modf(phase / M_2PI + 0.5f, 1.3f) - 1.0f) > 0.0f ? 1.0f : -1.0f;
+                }
+
+                sample *= env * voice.volume * volume[osc];
+                samples[osc][0] = sample * l_mult;
+                samples[osc][1] = sample * r_mult;
+
+                voice.phase[osc] += (PI2 * freq) / sample_rate;
             }
+
+            output[i] = samples[0][0] + samples[1][0] + samples[2][0];
+            output[i + 1] = samples[0][1] + samples[1][1] + samples[2][1];
 
             voice.time += 1.0 / sample_rate;
             j++;
@@ -381,8 +435,10 @@ void WaveformSynth::event(const NoteEvent& event) {
             event_data.key,
             event_data.freq,
             event_data.volume,
+            { 0.0, 0.0, 0.0 },
             0.0,
             -1.0f,
+            // undefined: release_env
         });
     
     } else if (event.kind == NoteEventKind::NoteOff) {
@@ -423,24 +479,99 @@ static void render_slider(const char* id, float* var, float max, float ramp, con
 bool WaveformSynth::render_interface() {
     if (!show_interface) return false;
 
+    static const char* WAVEFORM_NAMES[] = {
+        "Sine",
+        "Square",
+        "Sawtooth",
+        "Triangle"
+    };
+
     char buf[128];
     snprintf(buf, 128, "Waveform Synth##%x", this);
 
-    if (ImGui::Begin(buf, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking)) {
+    if (ImGui::Begin(buf, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
+        char sep_text[] = "Oscillator 1";
+
+        for (int osc = 0; osc < 3; osc++) {
+            ImGui::PushID(osc);
+
+            snprintf(sep_text, 13, "Oscillator %i", osc);
+            ImGui::SeparatorText(sep_text);
+
+            // waveform dropdown
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Waveform");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1.0f);
+            if (ImGui::BeginCombo("##channel_bus", WAVEFORM_NAMES[waveform_types[osc]]))
+            {
+                for (int i = 0; i < 4; i++) {
+                    if (ImGui::Selectable(WAVEFORM_NAMES[i], i == waveform_types[osc])) waveform_types[osc] = static_cast<WaveformType>(i);
+
+                    if (i == waveform_types[osc]) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+
+                ImGui::EndCombo();
+            }
+
+            ImGui::PushItemWidth(80.0f);
+
+            // volume slider
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Vol");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##volume", volume + osc, 0.0f, 1.0f);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) volume[osc] = 1.0f;
+
+            // panning slider
+            ImGui::SameLine();
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Pan");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##panning", panning + osc, -1.0f, 1.0f);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) panning[osc] = 0.0f;
+
+            // coarse slider
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Crs");
+            ImGui::SameLine();
+            ImGui::SliderInt("##coarse", coarse + osc, -24, 24);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) coarse[osc] = 0;
+
+            // fine slider
+            ImGui::SameLine();
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Fne");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##fine", fine + osc, -100.0f, 100.0f);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) fine[osc] = 0.0f;
+
+            ImGui::PopItemWidth();
+            ImGui::PopID();
+        }
+
+        ImGui::SeparatorText("Envelope");
+
         // Attack slider
         render_slider("A", &this->attack, 5.0f, 4.0f, "%.3f secs");
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
 
         // Decay slider
         ImGui::SameLine();
         render_slider("D", &this->decay, 10.0f, 4.0f, "%.3f secs");
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
 
         // Sustain slider
         ImGui::SameLine();
         render_slider("S", &this->sustain, 1.0f, 1.0f, "%.3f");
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 1.0f;
 
         // Release slider
         ImGui::SameLine();
         render_slider("R", &this->release, 10.0f, 4.0f, "%.3f secs", 0.001f);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.001f;
     }
         ImGui::End();
 

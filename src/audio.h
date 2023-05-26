@@ -112,24 +112,27 @@ namespace audiomod {
             int key;
             float freq;
             float volume;
+            double phase[3];
             double time;
             double release_time;
             float release_env;
         };
 
         std::vector<Voice> voices;
-        double time;
-
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
     public:
         WaveformSynth();
 
         enum WaveformType {
-            Sine,
-            Square,
-            Sawtooth,
-            Triangle
-        } waveform_type;
+            Sine = 0,
+            Square = 1,
+            Sawtooth = 2,
+            Triangle = 3
+        } waveform_types[3];
+        float volume[3];
+        float panning[3];
+        int coarse[3];
+        float fine[3];
 
         float attack = 0.0f;
         float decay = 0.0f;
