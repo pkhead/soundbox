@@ -51,6 +51,7 @@ int main()
 #endif
 
     // create window w/ graphics context
+    glfwWindowHint(GLFW_VISIBLE, 0); // hide first, show later when everything is ready
     GLFWwindow *window = glfwCreateWindow(1280, 720, "soundbox", nullptr, nullptr);
     if (window == nullptr)
         return 1;
@@ -315,6 +316,8 @@ int main()
                 sleep(1.0f / 30.0f);
             }
         });
+
+        glfwShowWindow(window);
 
         while (run_app)
         {

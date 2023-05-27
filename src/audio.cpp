@@ -405,7 +405,7 @@ ModuleBase* EffectsRack::remove(size_t position) {
     
     // remove the first module
     } else if (position == 0) {
-        if (input != nullptr) input->connect(modules[2]);
+        if (input != nullptr) input->connect(modules[1]);
     
     // remove the last module
     } else if (position == modules.size() - 1) {

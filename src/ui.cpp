@@ -363,30 +363,63 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             cur_channel->effects_rack.insert(mod);
         }
 
-        ImGui::SameLine();
-        if (ImGui::Button("Edit##effect_edit")) {
-            song.toggle_module_interface(song.selected_channel, cur_channel->selected_effect);
-        }
-
-        if (ImGui::BeginListBox("##effects_rack", ImVec2(-1.0f, -1.0f))) {
+        { // effects list
+            ImVec2 size = ImGui::GetContentRegionAvail();
             size_t i = 0;
-            for (audiomod::ModuleBase* module : cur_channel->effects_rack.modules) {
-                ImGui::PushID(i);
+            audiomod::EffectsRack& effects_rack = cur_channel->effects_rack;
+            
+            static int delete_index;
+            delete_index = -1;
 
-                bool is_selected = cur_channel->selected_effect == i;
-                if (ImGui::Selectable(module->name.c_str(), is_selected)) {
-                    std::cout << "select\n";
+            for (audiomod::ModuleBase* module : effects_rack.modules) {
+                ImGui::PushID(module);
+
+                //bool is_selected = cur_channel->selected_effect == i;
+                bool is_selected = false;
+                if (ImGui::Selectable(module->name.c_str(), module->show_interface)) {
                     cur_channel->selected_effect = i;
                 }
 
-                if (is_selected)
-                    ImGui::SetItemDefaultFocus();
+                // drag to reorder
+                if (ImGui::IsItemActive() && !ImGui::IsItemHovered()) {
+                    int delta = ImGui::GetMouseDragDelta(0).y < 0.f ? -1 : 1;
+                    int n_next = i + delta;
+
+                    if (n_next >= 0 && n_next < effects_rack.modules.size()) {
+                        // swap n and n_next
+                        int min = i > n_next ? n_next : i;
+                        audiomod::ModuleBase* m = effects_rack.remove(min);
+                        effects_rack.insert(m, min + 1);
+                        cur_channel->selected_effect += delta;
+                        ImGui::ResetMouseDragDelta();
+                    }
+                }
+
+                // double click to edit
+                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                    cur_channel->selected_effect = i;
+                    song.toggle_module_interface(song.selected_channel, i);
+                }
+
+                // right click to delete
+                if (ImGui::BeginPopupContextItem()) {
+                    if (ImGui::Selectable("Remove", false)) {
+                        // defer deletion until after the loop has finished
+                        delete_index = i;
+                    }
+                    ImGui::EndPopup();
+                }
 
                 ImGui::PopID();
                 i++;
             }
 
-            ImGui::EndListBox();
+            // delete the requested module
+            if (delete_index >= 0) {
+                audiomod::ModuleBase* mod = effects_rack.remove(delete_index);
+                if (mod != nullptr) delete mod;
+                delete_index = -1;
+            }
         }
     } ImGui::End();
 
