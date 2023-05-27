@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <string.h>
 #include "../audio.h"
+#include "modules.h"
 #include "../sys.h"
 
 using namespace audiomod;

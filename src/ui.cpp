@@ -1,6 +1,7 @@
 #include <math.h>
 #include <iostream>
 #include "audio.h"
+#include "modules/modules.h"
 #include "imgui.h"
 #include "ui.h"
 
@@ -421,7 +422,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     song.hide_module_interface(mod);
                     delete mod;
                 }
-                
+
                 delete_index = -1;
             }
         }

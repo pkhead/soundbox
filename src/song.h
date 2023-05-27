@@ -4,6 +4,7 @@
 #include <istream>
 #include <string>
 #include "audio.h"
+#include "modules/modules.h"
 
 struct Note {
     float time;
