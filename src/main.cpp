@@ -406,9 +406,36 @@ int main()
 
             compute_imgui(io, *song, user_actions);
 
-            // show status info as a tooltip
+            // show status info as an overlay
             if (now_time < status_time + 2.0) {
-                ImGui::SetTooltip("%s", status_message.c_str());
+                const static float PAD = 10.0f;
+
+                ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoMove |
+                    ImGuiWindowFlags_NoDecoration |
+                    ImGuiWindowFlags_NoDocking |
+                    ImGuiWindowFlags_AlwaysAutoResize |
+                    ImGuiWindowFlags_NoSavedSettings |
+                    ImGuiWindowFlags_NoFocusOnAppearing |
+                    ImGuiWindowFlags_NoMouseInputs |
+                    ImGuiWindowFlags_NoNav;
+
+                const ImGuiViewport* viewport = ImGui::GetMainViewport();
+                ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+                ImVec2 work_size = viewport->WorkSize;
+                ImVec2 window_pos, window_pos_pivot;
+                window_pos.x = work_pos.x + PAD;
+                window_pos.y = work_pos.y + work_size.y - PAD;
+                window_pos_pivot.x = 0.0f;
+                window_pos_pivot.y = 1.0f;
+                ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+                ImGui::SetNextWindowViewport(viewport->ID);
+                window_flags |= ImGuiWindowFlags_NoMove;
+                
+                ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+                if (ImGui::Begin("status", nullptr, window_flags)) {
+                    ImGui::Text("%s", status_message.c_str());
+                    ImGui::End();
+                }
             }
 
             // show new prompt
