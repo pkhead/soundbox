@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <mutex>
 
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -102,6 +103,10 @@ int main()
 
         // initialize song
         Song* song = new Song(4, 8, 8, destination);
+
+        // this mutex is locked by the audio thread while audio is being processed
+        // and it locked by the main thread when a new song is being loaded
+        std::mutex song_mutex;
         
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
@@ -164,17 +169,16 @@ int main()
                 last_file_path.clear();
                 last_file_name.clear();
                 
+                song_mutex.lock();
                 delete song;
                 song = new Song(4, 8, 8, destination);
+                song_mutex.unlock();
             };
         });
 
         // song play/pause
         user_actions.set_callback("song_play_pause", [&song]() {
-            if (song->is_playing)
-                song->stop();
-            else
-                song->play();
+            song->is_playing = !song->is_playing;
         });
 
         // song next bar
@@ -221,8 +225,10 @@ int main()
                     file.close();
 
                     if (new_song != nullptr) {
+                        song_mutex.lock();
                         delete song;
                         song = new_song;
+                        song_mutex.unlock();
 
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
@@ -281,7 +287,18 @@ int main()
 
         // create audio processor thread
         std::thread audio_thread([&]() {
+            bool last_playing = false;
+
             while (run_app) {
+                song_mutex.lock();
+
+                if (song->is_playing != last_playing) {
+                    last_playing = song->is_playing;
+
+                    if (song->is_playing) song->play();
+                    else song->stop();
+                }
+
                 while (device.num_queued_frames() < device.sample_rate() * 0.05) {
                     song->update(1.0 / device.sample_rate() * BUFFER_SIZE);
 
@@ -292,6 +309,8 @@ int main()
 
                     if (!run_app) return;
                 }
+
+                song_mutex.unlock();
 
                 sleep(1.0f / 30.0f);
             }

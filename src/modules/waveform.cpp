@@ -275,7 +275,8 @@ bool WaveformSynth::render_interface(const char* channel_name) {
     return true;
 }
 
-struct WaveformSynthState {
+// TODO: in a later version, remove the alpha v1 version
+struct WaveformSynthState_v1 {
     uint8_t waveform_types[3];
     float volume[3];
     float panning[3];
@@ -283,8 +284,18 @@ struct WaveformSynthState {
     float fine[3];
 };
 
+struct WaveformSynthState_v2 {
+    uint8_t waveform_types[3];
+    float volume[3];
+    float panning[3];
+    int coarse[3];
+    float fine[3];
+
+    float atk, dky, sus, rls;
+};
+
 size_t WaveformSynth::save_state(void** output) const {
-    WaveformSynthState* state = new WaveformSynthState;
+    WaveformSynthState_v2* state = new WaveformSynthState_v2;
 
     for (size_t osc = 0; osc < 3; osc++) {
         state->waveform_types[osc] = static_cast<uint8_t>(waveform_types[osc]);
@@ -294,21 +305,50 @@ size_t WaveformSynth::save_state(void** output) const {
         state->fine[osc] = swap_little_endian(fine[osc]);
     }
 
+    state->atk = attack;
+    state->dky = decay;
+    state->sus = sustain;
+    state->rls = release;
+
     *output = state;
-    return sizeof(WaveformSynthState);
+    return sizeof(WaveformSynthState_v2);
 }
 
 bool WaveformSynth::load_state(void* state_ptr, size_t size) {
-    if (size != sizeof(WaveformSynthState)) return false;
-    WaveformSynthState* state = (WaveformSynthState*)state_ptr;
+    switch(size) {
+        case sizeof(WaveformSynthState_v1): {
+            WaveformSynthState_v1* state = (WaveformSynthState_v1*)state_ptr;
 
-    for (size_t osc = 0; osc < 3; osc++) {
-        waveform_types[osc] = static_cast<WaveformType>(state->waveform_types[osc]);
-        volume[osc] = swap_little_endian(state->volume[osc]);
-        panning[osc] = swap_little_endian(state->panning[osc]);
-        coarse[osc] = swap_little_endian(state->coarse[osc]);
-        fine[osc] = swap_little_endian(state->fine[osc]);
+            for (size_t osc = 0; osc < 3; osc++) {
+                waveform_types[osc] = static_cast<WaveformType>(state->waveform_types[osc]);
+                volume[osc] = swap_little_endian(state->volume[osc]);
+                panning[osc] = swap_little_endian(state->panning[osc]);
+                coarse[osc] = swap_little_endian(state->coarse[osc]);
+                fine[osc] = swap_little_endian(state->fine[osc]);
+            }
+
+            return true;
+        }
+
+        case sizeof(WaveformSynthState_v2): {
+            WaveformSynthState_v2* state = (WaveformSynthState_v2*)state_ptr;
+
+            for (size_t osc = 0; osc < 3; osc++) {
+                waveform_types[osc] = static_cast<WaveformType>(state->waveform_types[osc]);
+                volume[osc] = swap_little_endian(state->volume[osc]);
+                panning[osc] = swap_little_endian(state->panning[osc]);
+                coarse[osc] = swap_little_endian(state->coarse[osc]);
+                fine[osc] = swap_little_endian(state->fine[osc]);
+            }
+
+            attack = state->atk;
+            decay = state->dky;
+            sustain = state->sus;
+            release = state->rls;
+
+            return true;
+        }
     }
 
-    return true;
+    return false;
 }

@@ -120,6 +120,7 @@ void Song::play() {
 
 void Song::stop() {
     is_playing = false;
+    position = bar_position * beats_per_bar;
 
     for (NoteData note_data : cur_notes) {
         channels[note_data.channel_i]->synth_mod->event({
