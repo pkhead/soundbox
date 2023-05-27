@@ -1,4 +1,6 @@
 #pragma once
+#include <stddef.h>
+#include <stdint.h>
 #include <vector>
 #include <soundio.h>
 
@@ -80,13 +82,25 @@ namespace audiomod {
         ModuleBase(bool has_interface);
         virtual ~ModuleBase();
 
+        // send a note event to the module
         virtual void event(const NoteEvent& event) {};
+
+        // connect this module's output to a target's input
         void connect(ModuleOutputTarget* dest);
+
+        // disconnect this from its output
         void disconnect();
+
+        // disconnect inputs and outputs
         void remove_all_connections();
 
-        bool has_interface() const; // does this module have an interface?
-        virtual bool render_interface(const char* channel_name) { return false; }; // render the ImGui interface
+        inline ModuleOutputTarget* get_output() const;
+
+        // does this module have an interface?
+        bool has_interface() const;
+        
+        // render the ImGui interface
+        virtual bool render_interface(const char* channel_name) { return false; };
 
         // report a newly allocated block of memory which holds the serialized state of the module
         virtual size_t save_state(void** output) const { return 0; };
@@ -111,6 +125,49 @@ namespace audiomod {
         size_t buffer_size;
 
         size_t process(float** output);
+    };
+
+    /**
+    * A module which holds a doubly-linked list of other modules,
+    * grouped together as a single unit.
+    **/
+    class EffectsRack {
+    protected:
+        ModuleBase* input;
+        ModuleOutputTarget* output;
+
+    public:
+        EffectsRack();
+        ~EffectsRack();
+        
+        std::vector<ModuleBase*> modules;
+
+        void insert(ModuleBase* module, size_t position);
+        ModuleBase* remove(size_t position);
+
+        /**
+        * Connect a module to the effects rack
+        * @returns The previous input module
+        */
+        ModuleBase* connect_input(ModuleBase* input);
+
+        /**
+        * Connect the effects rack to a module
+        * @returns The previous output module
+        */
+        ModuleOutputTarget* connect_output(ModuleOutputTarget* output);
+
+        /**
+        * Disconnect the input from effects rack
+        * @returns A pointer to the now disconnected input module
+        */
+        ModuleBase* disconnect_input();
+
+        /**
+        * Disconnect the effects rack to its output
+        * @returns A pointer to the now disconnected output module
+        */
+        ModuleOutputTarget* disconnect_output();
     };
 
     class WaveformSynth : public ModuleBase {

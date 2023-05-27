@@ -31,7 +31,8 @@ Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget
 
     synth_mod = new audiomod::WaveformSynth();
     synth_mod->connect(&vol_mod);
-    vol_mod.connect(&audio_out);
+    effects_rack.connect_input(&vol_mod);
+    effects_rack.connect_output(&audio_out);
 }
 
 Channel::~Channel() {

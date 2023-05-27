@@ -35,6 +35,7 @@ public:
 
     audiomod::VolumeModule vol_mod;
     audiomod::ModuleBase* synth_mod;
+    audiomod::EffectsRack effects_rack;
 
     char name[32];
     std::vector<int> sequence;

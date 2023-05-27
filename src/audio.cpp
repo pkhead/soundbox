@@ -226,6 +226,10 @@ void ModuleBase::remove_all_connections() {
     _inputs.clear();
 }
 
+inline ModuleOutputTarget* ModuleBase::get_output() const {
+    return _output;
+}
+
 float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {
     if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
@@ -304,4 +308,153 @@ size_t DestinationModule::process(float** output) {
 
     *output = _audio_buffer;
     return buffer_size * channel_count;
+}
+
+
+
+
+
+
+
+
+//////////////////////
+//   EFFECTS RACK   //
+//////////////////////
+EffectsRack::EffectsRack() : input(nullptr), output(nullptr)
+{}
+
+EffectsRack::~EffectsRack() {
+    if (input != nullptr) input->disconnect();
+    if (!modules.empty()) modules.back()->disconnect();
+
+    for (ModuleBase* module : modules) {
+        delete module;
+    }
+}
+
+void EffectsRack::insert(ModuleBase* module, size_t position) {
+    // if there is nothing in the effects rack, this is a simple operation
+    if (modules.empty()) {
+        if (input != nullptr) {
+            input->disconnect();
+            input->connect(module);
+        }
+
+        if (output != nullptr) {
+            module->connect(output);
+        } 
+
+    // insertion at beginning
+    } else if (position == 0) {
+        if (input != nullptr) {
+            input->disconnect();
+            input->connect(module);
+        }
+
+        module->connect(modules[1]);
+
+    // insertion at end
+    } else if (position == modules.size() - 1) {
+        modules.back()->disconnect();
+        modules[modules.size() - 2]->connect(module);
+        if (output != nullptr) module->connect(output);
+        
+    // insertion at middle
+    } else {
+        ModuleBase* prev = modules[position - 1];
+        ModuleBase* next = modules[position];
+        
+        prev->disconnect();
+        prev->connect(module);
+
+        module->connect(next);
+    }
+
+    // now, add module to the array
+    modules.insert(modules.begin() + position, module);
+}
+
+ModuleBase* EffectsRack::remove(size_t position) {
+    if (modules.empty()) return nullptr;
+
+    ModuleBase* target_module = modules[position];
+    target_module->remove_all_connections();
+
+    // if there is only one item in the rack
+    if (modules.size() == 1) {
+        if (input != nullptr) input->connect(output);
+    
+    // remove the first module
+    } else if (position == 0) {
+        if (input != nullptr) input->connect(modules[2]);
+    
+    // remove the last module
+    } else if (position == modules.size() - 1) {
+        if (output != nullptr) modules[modules.size() - 2]->connect(output);
+    
+    // remove a module in the middle
+    } else {
+        ModuleBase* prev = modules[position - 1];
+        ModuleBase* next = modules[position + 1];
+
+        prev->connect(next);
+    }
+
+    // now, remove the module in the array
+    modules.erase(modules.begin() + position);
+
+    // return the pointer to the module so caller can potentially free it
+    return target_module;
+}
+
+ModuleBase* EffectsRack::disconnect_input() {
+    ModuleBase* old_input = input;
+    
+    if (input != nullptr) {
+        input->disconnect();
+        input = nullptr;
+    }
+
+    return old_input;
+}
+
+ModuleOutputTarget* EffectsRack::disconnect_output() {
+    ModuleOutputTarget* old_output = output;
+
+    if (output != nullptr && !modules.empty()) {
+        modules.back()->disconnect();
+    }
+
+    output = nullptr;
+    return old_output;
+}
+
+ModuleBase* EffectsRack::connect_input(ModuleBase* new_input) {
+    ModuleBase* old_input = disconnect_input();
+    input = new_input;
+
+    if (input != nullptr) {
+        if (modules.empty()) {
+            if (output != nullptr) input->connect(output);
+        } else {
+            input->connect(modules.front());
+        }
+    }
+
+    return old_input;
+}
+
+ModuleOutputTarget* EffectsRack::connect_output(ModuleOutputTarget* new_output) {
+    ModuleOutputTarget* old_output = disconnect_output();
+    output = new_output;
+
+    if (output != nullptr) {
+        if (modules.empty()) {
+            if (input != nullptr) input->connect(output);
+        } else {
+            modules.back()->connect(output);
+        }
+    }
+    
+    return old_output;
 }
