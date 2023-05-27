@@ -43,11 +43,8 @@ public:
     char name[32];
     std::vector<int> sequence;
     std::vector<Pattern*> patterns;
-
-    // instrument
-    // volumeModule
-
-    // public async loadInstrument
+    
+    void set_instrument(audiomod::ModuleBase* new_instrument);
 };
 
 class Song {
@@ -112,5 +109,5 @@ public:
     void update(double elasped);
 
     void serialize(std::ostream& out) const;
-    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out);
+    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string& error_msg);
 };

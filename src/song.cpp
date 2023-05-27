@@ -44,6 +44,12 @@ Channel::~Channel() {
     delete synth_mod;
 }
 
+void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
+    if (synth_mod != nullptr) delete synth_mod;
+    synth_mod = new_instrument;
+    synth_mod->connect(&vol_mod);
+}
+
 
 /*************************
 *         SONG           *
@@ -245,45 +251,6 @@ void Song::toggle_module_interface(int channel_index, int effect_index) {
     }
 }
 
-// push the bytes of data in little-endian order
-template <typename T>
-static void push_bytes(std::ostream& out, T data) {
-    if (IS_BIG_ENDIAN) {
-        for (size_t i = sizeof(data) - 1; i > 0; i--) {
-            out << ((uint8_t*)(&data)) [i];
-        }
-        out << ((uint8_t*)(&data)) [0];
-    } else {
-        for (size_t i = 0; i < sizeof(data); i++) {
-            out << ((uint8_t*)(&data)) [i];
-        }
-    }
-}
-
-// retrieve bytes from an input stream in little-endian order
-template <typename T>
-static void pull_bytes(std::istream& in, T& output) {
-    char next_char;
-    uint8_t bytes[sizeof(T)];
-
-    if (IS_BIG_ENDIAN) {
-        for (size_t i = sizeof(T) - 1; i > 0; i--) {
-            in.get(next_char);
-            bytes[i] = next_char;
-        }
-
-        in.get(next_char);
-        bytes[0] = next_char;
-    } else {
-        for (size_t i = 0; i < sizeof(T); i++) {
-            in.get(next_char);
-            bytes[i] = next_char;
-        }
-    }
-
-    output = *((T*)bytes);
-}
-
 /*
 Song data structure:
 
@@ -393,7 +360,7 @@ void Song::serialize(std::ostream& out) const {
     }
 }
 
-Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out) {
+Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string& error_msg) {
     // check if the magic number is valid
     char magic_number[4];
     input.read(magic_number, 4);
@@ -428,6 +395,8 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
     song->beats_per_bar = beats_per_bar;
     song->tempo = tempo;
 
+    delete[] song_name;
+
     // retrive channel data
     for (uint32_t channel_i = 0; channel_i < num_channels; channel_i++) {
         Channel* channel = song->channels[channel_i];
@@ -458,7 +427,15 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             input.read(inst_id, id_size);
             inst_id[id_size] = 0;
 
-            // TODO: load module based off id
+            // load module based off id
+            audiomod::ModuleBase* instrument = audiomod::create_module(inst_id);
+            if (instrument == nullptr) {
+                error_msg = "unknown module type " + std::string(inst_id);
+                delete[] inst_id;
+                delete song;
+                return nullptr;
+            }
+            channel->set_instrument(instrument);
 
             // load instrument state
             uint64_t inst_state_size;
@@ -500,8 +477,6 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             }
         }
     }
-
-    delete[] song_name;
 
     return song;
 }

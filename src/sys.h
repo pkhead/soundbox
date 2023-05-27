@@ -18,6 +18,10 @@
 
 #endif
 
+#include <stdint.h>
+#include <ostream>
+#include <istream>
+
 extern bool IS_BIG_ENDIAN;
 
 // procedure to convert between native endian and little endian
@@ -35,4 +39,43 @@ T swap_little_endian(const T& value) {
     } else {
         return value;       
     }
+}
+
+// push the bytes of data in little-endian order
+template <typename T>
+static void push_bytes(std::ostream& out, T data) {
+    if (IS_BIG_ENDIAN) {
+        for (size_t i = sizeof(data) - 1; i > 0; i--) {
+            out << ((uint8_t*)(&data)) [i];
+        }
+        out << ((uint8_t*)(&data)) [0];
+    } else {
+        for (size_t i = 0; i < sizeof(data); i++) {
+            out << ((uint8_t*)(&data)) [i];
+        }
+    }
+}
+
+// retrieve bytes from an input stream in little-endian order
+template <typename T>
+static void pull_bytes(std::istream& in, T& output) {
+    char next_char;
+    uint8_t bytes[sizeof(T)];
+
+    if (IS_BIG_ENDIAN) {
+        for (size_t i = sizeof(T) - 1; i > 0; i--) {
+            in.get(next_char);
+            bytes[i] = next_char;
+        }
+
+        in.get(next_char);
+        bytes[0] = next_char;
+    } else {
+        for (size_t i = 0; i < sizeof(T); i++) {
+            in.get(next_char);
+            bytes[i] = next_char;
+        }
+    }
+
+    output = *((T*)bytes);
 }

@@ -222,7 +222,8 @@ int main()
                 file.open(out_path, std::ios::in | std::ios::binary);
 
                 if (file.is_open()) {
-                    Song* new_song = Song::from_file(file, destination);
+                    std::string error_msg = "unknown error";
+                    Song* new_song = Song::from_file(file, destination, error_msg);
                     file.close();
 
                     if (new_song != nullptr) {
@@ -234,7 +235,7 @@ int main()
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
                     } else {
-                        status_message = "Error reading file";
+                        status_message = "Error reading file: " + error_msg;
                         status_time = glfwGetTime();
                     }
                 } else {
