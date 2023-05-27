@@ -1,3 +1,4 @@
+#include <cassert>
 #include <math.h>
 #include <iostream>
 #include "audio.h"
@@ -360,7 +361,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::Text("Effects");
         ImGui::SameLine();
         if (ImGui::Button("Add##effect_add")) {
-            audiomod::GainModule* mod = new audiomod::GainModule();
+            audiomod::ModuleBase* mod = audiomod::create_module("effects.gain");
+            assert(mod != nullptr);
             cur_channel->effects_rack.insert(mod);
         }
 

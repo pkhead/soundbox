@@ -173,4 +173,6 @@ namespace audiomod {
         */
         ModuleOutputTarget* disconnect_output();
     };
+
+    ModuleBase* create_module(const std::string& mod_id);
 }
