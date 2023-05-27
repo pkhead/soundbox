@@ -1,5 +1,7 @@
 #include <math.h>
 #include <iostream>
+#include "audio.h"
+#include "imgui.h"
 #include "ui.h"
 
 #define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
@@ -182,7 +184,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGui::NewFrame();
 
     ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_AutoHideTabBar);
-    if (show_demo_window) ImGui::ShowDemoWindow();
+    if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
 
     if (ImGui::BeginMainMenuBar())
     {
@@ -347,26 +349,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
         {
-            audiomod::ModuleBase* mod = cur_channel->synth_mod;
-
-            mod->show_interface = !mod->show_interface;
-            
-            // if want to show interface, add module to interfaces list
-            if (cur_channel->synth_mod->show_interface) {
-                song.mod_interfaces.push_back({
-                    cur_channel,
-                    mod
-                });
-
-            // if want to hide interface, remove module from interfaces list
-            } else {
-                for (auto it = song.mod_interfaces.begin(); it != song.mod_interfaces.end(); it++) {
-                    if ((*it).module == mod) {
-                        song.mod_interfaces.erase(it);
-                        break;
-                    }
-                }
-            }
+            song.toggle_module_interface(song.selected_channel, -1);
         }
 
         // effects
@@ -375,7 +358,36 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Effects");
         ImGui::SameLine();
-        ImGui::Button("+##Add");
+        if (ImGui::Button("Add##effect_add")) {
+            audiomod::GainModule* mod = new audiomod::GainModule();
+            cur_channel->effects_rack.insert(mod);
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Edit##effect_edit")) {
+            song.toggle_module_interface(song.selected_channel, cur_channel->selected_effect);
+        }
+
+        if (ImGui::BeginListBox("##effects_rack", ImVec2(-1.0f, -1.0f))) {
+            size_t i = 0;
+            for (audiomod::ModuleBase* module : cur_channel->effects_rack.modules) {
+                ImGui::PushID(i);
+
+                bool is_selected = cur_channel->selected_effect == i;
+                if (ImGui::Selectable(module->name.c_str(), is_selected)) {
+                    std::cout << "select\n";
+                    cur_channel->selected_effect = i;
+                }
+
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+
+                ImGui::PopID();
+                i++;
+            }
+
+            ImGui::EndListBox();
+        }
     } ImGui::End();
 
     if (ImGui::BeginPopup("inst_load"))
@@ -1002,7 +1014,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     }
 
     // Info panel //
-    ImGui::Begin("Info");
-    ImGui::Text("framerate: %.2f", io.Framerate);
-    ImGui::End();
+    if (show_demo_window) {
+        ImGui::Begin("Info");
+        ImGui::Text("framerate: %.2f", io.Framerate);
+        ImGui::End();
+    }
 }

@@ -196,7 +196,8 @@ ModuleBase::ModuleBase(bool has_interface) :
     _audio_buffer_size(0),
     show_interface(false),
     _has_interface(has_interface),
-    id("")
+    id(""),
+    name("Module")
 {};
 
 ModuleBase::~ModuleBase() {
@@ -253,6 +254,19 @@ float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_co
 
 bool ModuleBase::has_interface() const {
     return _has_interface;
+}
+
+bool ModuleBase::render_interface(const char* channel_name) {
+    if (!show_interface) return false;
+
+    char window_name[128];
+    snprintf(window_name, 128, "%s - %s###%p", name.c_str(), channel_name == nullptr ? "" : channel_name, this);
+
+    if (ImGui::Begin(window_name, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
+        _interface_proc();
+    } ImGui::End();
+
+    return show_interface;
 }
 
 
@@ -332,6 +346,11 @@ EffectsRack::~EffectsRack() {
     }
 }
 
+void EffectsRack::insert(ModuleBase* module) {
+    if (modules.empty()) return insert(module, 0);
+    return insert(module, modules.size());
+}
+
 void EffectsRack::insert(ModuleBase* module, size_t position) {
     // if there is nothing in the effects rack, this is a simple operation
     if (modules.empty()) {
@@ -354,9 +373,9 @@ void EffectsRack::insert(ModuleBase* module, size_t position) {
         module->connect(modules[1]);
 
     // insertion at end
-    } else if (position == modules.size() - 1) {
+    } else if (position == modules.size()) {
         modules.back()->disconnect();
-        modules[modules.size() - 2]->connect(module);
+        modules.back()->connect(module);
         if (output != nullptr) module->connect(output);
         
     // insertion at middle

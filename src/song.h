@@ -37,6 +37,8 @@ public:
     audiomod::ModuleBase* synth_mod;
     audiomod::EffectsRack effects_rack;
 
+    int selected_effect = 0;
+
     char name[32];
     std::vector<int> sequence;
     std::vector<Pattern*> patterns;
@@ -89,6 +91,9 @@ public:
     };
 
     std::vector<ModInterfaceStruct> mod_interfaces;
+
+    // An effect index of -1 means the instrument module
+    void toggle_module_interface(int channel_index, int effect_index);
     
     int length() const;
     void set_length(int len);

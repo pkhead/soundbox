@@ -18,6 +18,7 @@ static constexpr double PI2 = 2.0f * PI;
 
 WaveformSynth::WaveformSynth() : ModuleBase(true) {
     id = "synth.waveform";
+    name = "Waveform Synth";
 
     waveform_types[0] = Triangle;
     volume[0] = 0.5f;
@@ -172,107 +173,98 @@ static void render_slider(const char* id, const char* label, float* var, float m
     *var = powf(val, ramp) * max + start;
 }
 
-bool WaveformSynth::render_interface(const char* channel_name) {
-    if (!show_interface) return false;
-
+void WaveformSynth::_interface_proc() {
     static const char* WAVEFORM_NAMES[] = {
         "Sine",
         "Square",
         "Sawtooth",
         "Triangle"
     };
+    
+    char sep_text[] = "Oscillator 1";
 
-    char window_name[128];
-    snprintf(window_name, 128, "%s - Waveform Synth###%p", channel_name == nullptr ? "" : channel_name, this);
+    for (int osc = 0; osc < 3; osc++) {
+        ImGui::PushID(osc);
 
-    if (ImGui::Begin(window_name, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
-        char sep_text[] = "Oscillator 1";
+        snprintf(sep_text, 13, "Oscillator %i", osc);
+        ImGui::SeparatorText(sep_text);
 
-        for (int osc = 0; osc < 3; osc++) {
-            ImGui::PushID(osc);
+        // waveform dropdown
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Waveform");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::BeginCombo("##channel_bus", WAVEFORM_NAMES[waveform_types[osc]]))
+        {
+            for (int i = 0; i < 4; i++) {
+                if (ImGui::Selectable(WAVEFORM_NAMES[i], i == waveform_types[osc])) waveform_types[osc] = static_cast<WaveformType>(i);
 
-            snprintf(sep_text, 13, "Oscillator %i", osc);
-            ImGui::SeparatorText(sep_text);
-
-            // waveform dropdown
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Waveform");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(-1.0f);
-            if (ImGui::BeginCombo("##channel_bus", WAVEFORM_NAMES[waveform_types[osc]]))
-            {
-                for (int i = 0; i < 4; i++) {
-                    if (ImGui::Selectable(WAVEFORM_NAMES[i], i == waveform_types[osc])) waveform_types[osc] = static_cast<WaveformType>(i);
-
-                    if (i == waveform_types[osc]) {
-                        ImGui::SetItemDefaultFocus();
-                    }
+                if (i == waveform_types[osc]) {
+                    ImGui::SetItemDefaultFocus();
                 }
-
-                ImGui::EndCombo();
             }
 
-            ImGui::PushItemWidth(80.0f);
-
-            // volume slider
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Vol");
-            ImGui::SameLine();
-            ImGui::SliderFloat("##volume", volume + osc, 0.0f, 1.0f);
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) volume[osc] = 1.0f;
-
-            // panning slider
-            ImGui::SameLine();
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Pan");
-            ImGui::SameLine();
-            ImGui::SliderFloat("##panning", panning + osc, -1.0f, 1.0f);
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) panning[osc] = 0.0f;
-
-            // coarse slider
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Crs");
-            ImGui::SameLine();
-            ImGui::SliderInt("##coarse", coarse + osc, -24, 24);
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) coarse[osc] = 0;
-
-            // fine slider
-            ImGui::SameLine();
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Fne");
-            ImGui::SameLine();
-            ImGui::SliderFloat("##fine", fine + osc, -100.0f, 100.0f);
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) fine[osc] = 0.0f;
-
-            ImGui::PopItemWidth();
-            ImGui::PopID();
+            ImGui::EndCombo();
         }
 
-        ImGui::SeparatorText("Envelope");
         ImGui::PushItemWidth(80.0f);
 
-        // Attack slider
-        render_slider("##attack", "Atk", &this->attack, 5.0f, 4.0f, "%.3f secs");
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
-
-        // Decay slider
+        // volume slider
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Vol");
         ImGui::SameLine();
-        render_slider("##decay", "Dky", &this->decay, 10.0f, 4.0f, "%.3f secs");
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
+        ImGui::SliderFloat("##volume", volume + osc, 0.0f, 1.0f);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) volume[osc] = 1.0f;
 
-        // Sustain slider
-        render_slider("##sustain", "Sus", &this->sustain, 1.0f, 1.0f, "%.3f");
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 1.0f;
-
-        // Release slider
+        // panning slider
         ImGui::SameLine();
-        render_slider("##release", "Rls", &this->release, 10.0f, 4.0f, "%.3f secs", 0.001f);
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.001f;
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Pan");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##panning", panning + osc, -1.0f, 1.0f);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) panning[osc] = 0.0f;
+
+        // coarse slider
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Crs");
+        ImGui::SameLine();
+        ImGui::SliderInt("##coarse", coarse + osc, -24, 24);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) coarse[osc] = 0;
+
+        // fine slider
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Fne");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##fine", fine + osc, -100.0f, 100.0f);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) fine[osc] = 0.0f;
 
         ImGui::PopItemWidth();
-    } ImGui::End();
+        ImGui::PopID();
+    }
 
-    return true;
+    ImGui::SeparatorText("Envelope");
+    ImGui::PushItemWidth(80.0f);
+
+    // Attack slider
+    render_slider("##attack", "Atk", &this->attack, 5.0f, 4.0f, "%.3f secs");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
+
+    // Decay slider
+    ImGui::SameLine();
+    render_slider("##decay", "Dky", &this->decay, 10.0f, 4.0f, "%.3f secs");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
+
+    // Sustain slider
+    render_slider("##sustain", "Sus", &this->sustain, 1.0f, 1.0f, "%.3f");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 1.0f;
+
+    // Release slider
+    ImGui::SameLine();
+    render_slider("##release", "Rls", &this->release, 10.0f, 4.0f, "%.3f secs", 0.001f);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.001f;
+
+    ImGui::PopItemWidth();
 }
 
 // TODO: in a later version, remove the alpha v1 version

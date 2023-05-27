@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include <stddef.h>
 #include <stdint.h>
 #include <vector>
@@ -74,9 +75,11 @@ namespace audiomod {
         size_t _audio_buffer_size;
 
         virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;
+        virtual void _interface_proc() {};
     public:
         bool show_interface;
         const char* id;
+        std::string name;
 
         ModuleBase(const ModuleBase&) = delete;
         ModuleBase(bool has_interface);
@@ -100,7 +103,7 @@ namespace audiomod {
         bool has_interface() const;
         
         // render the ImGui interface
-        virtual bool render_interface(const char* channel_name) { return false; };
+        bool render_interface(const char* channel_name);
 
         // report a newly allocated block of memory which holds the serialized state of the module
         virtual size_t save_state(void** output) const { return 0; };
@@ -143,6 +146,7 @@ namespace audiomod {
         std::vector<ModuleBase*> modules;
 
         void insert(ModuleBase* module, size_t position);
+        void insert(ModuleBase* module);
         ModuleBase* remove(size_t position);
 
         /**
@@ -184,6 +188,7 @@ namespace audiomod {
 
         std::vector<Voice> voices;
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
+        void _interface_proc() override;
     public:
         WaveformSynth();
 
@@ -206,7 +211,6 @@ namespace audiomod {
         float release = 0.0f;
 
         void event(const NoteEvent& event) override;
-        bool render_interface(const char* channel_name) override;
         size_t save_state(void** output) const override;
         bool load_state(void* state, size_t size) override;
     };
@@ -224,5 +228,16 @@ namespace audiomod {
         VolumeModule();
         size_t save_state(void** output) const override;
         bool load_state(void* state, size_t size) override;
+    };
+
+    class GainModule : public ModuleBase {
+    protected:
+        void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
+        void _interface_proc() override;
+        
+    public:
+        float gain = 0.0f;
+
+        GainModule();
     };
 }
