@@ -4,6 +4,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <sstream>
 
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -13,6 +14,7 @@
 #include <soundio.h>
 #include <nfd.h>
 
+#include "audiofile.h"
 #include "ui.h"
 #include "song.h"
 #include "audio.h"
@@ -100,7 +102,7 @@ int main()
         const size_t BUFFER_SIZE = 256;
 
         AudioDevice device(soundio, -1);
-        audiomod::DestinationModule destination(device, BUFFER_SIZE);
+        audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
         // initialize song
         Song* song = new Song(4, 8, 8, destination);
@@ -223,7 +225,7 @@ int main()
 
                 if (file.is_open()) {
                     std::string error_msg = "unknown error";
-                    Song* new_song = Song::from_file(file, destination, error_msg);
+                    Song* new_song = Song::from_file(file, destination, &error_msg);
                     file.close();
 
                     if (new_song != nullptr) {
@@ -287,39 +289,152 @@ int main()
 
         bool run_app = true;
 
+        // exporting
+        struct ExportProcessData {
+            bool is_exporting;
+            bool is_done;
+            Song* song; // a copy of the current song for the export process
+            audiomod::DestinationModule* destination;
+            size_t total_frames;
+            size_t written_frames;
+            std::ofstream out_file;
+            std::thread* thread;
+        } export_data;
+
+        export_data.is_exporting = false;
+        export_data.is_done = false;
+        export_data.song = nullptr;
+        export_data.total_frames = 0;
+        export_data.written_frames = 0;
+
+        auto export_proc = [&export_data]() {
+            audiofile::WavWriter writer(
+                export_data.out_file,
+                export_data.total_frames,
+                export_data.destination->channel_count,
+                export_data.destination->sample_rate
+            );
+
+            export_data.song->bar_position = 0;
+            export_data.song->is_playing = true;
+            export_data.song->do_loop = false;
+            export_data.song->play();
+
+            while (export_data.song->is_playing) {
+                export_data.song->update(1.0 / export_data.destination->sample_rate * export_data.destination->buffer_size);
+
+                float* buf;
+                size_t buf_size = export_data.destination->process(&buf);
+
+                writer.write_block(buf, buf_size);
+
+                export_data.written_frames += export_data.destination->buffer_size;
+            }
+
+            delete export_data.song;
+            delete export_data.destination;
+            export_data.out_file.close();
+
+            export_data.is_done = true;
+        };
+
+        user_actions.set_callback("export", [&]() {
+            nfdchar_t* out_path = nullptr;
+            nfdresult_t result = NFD_SaveDialog("wav", nullptr, &out_path);
+
+            if (result == NFD_OKAY) {
+                export_data.out_file.open(out_path, std::ios::out | std::ios::trunc | std::ios::binary);
+
+                // if could not open file?
+                if (!export_data.out_file.is_open()) {
+                    status_message = "Could not save to " + std::string(out_path);
+                    status_time = glfwGetTime();
+                    return;
+                }
+
+                // calculate length of song
+                const int sample_rate = 48000;
+                int beat_len = song->length() * song->beats_per_bar;
+                float sec_len = (float)beat_len * song->tempo / 60.0f;
+                export_data.total_frames = sec_len * sample_rate;
+                export_data.written_frames = 0;
+
+                // create destination node
+                export_data.destination = new audiomod::DestinationModule(sample_rate, 2, 1024);
+
+                // create a clone of the song
+                std::stringstream song_serialized;
+                song->serialize(song_serialized);
+                export_data.song = Song::from_file(song_serialized, destination, nullptr);
+
+                if (export_data.song == nullptr) {
+                    status_message = "Error while exporting the song";
+                    status_time = glfwGetTime();
+
+                    delete export_data.destination;
+                    export_data.out_file.close();
+                    return;
+                }
+
+                // create thread to begin export
+                export_data.is_exporting = true;
+                export_data.is_done = false;
+                export_data.thread = new std::thread(export_proc);
+            } else if (result != NFD_CANCEL) {
+                std::cerr << "Error: " << NFD_GetError() << "\n";
+                return;
+            }
+        });
+
         // create audio processor thread
         std::thread audio_thread([&]() {
             bool last_playing = false;
 
+            size_t silence_buf_size = destination.buffer_size * device.num_channels();
+            float* silence_buf = new float[silence_buf_size];
+
+            // write silence to this buffer
+            for (size_t i = 0; i < silence_buf_size; i++) {
+                silence_buf[0] = 0.0f;
+            }
+
             while (run_app) {
-                song_mutex.lock();
+                if (export_data.is_exporting) {
+                    // fill output device with silence
+                    while (device.num_queued_frames() < device.sample_rate() * 0.05) {
+                        device.queue(silence_buf, silence_buf_size * sizeof(float));
+                    }
+                } else {
+                    song_mutex.lock();
 
-                if (song->is_playing != last_playing) {
-                    last_playing = song->is_playing;
+                    if (song->is_playing != last_playing) {
+                        last_playing = song->is_playing;
 
-                    if (song->is_playing) song->play();
-                    else song->stop();
+                        if (song->is_playing) song->play();
+                        else song->stop();
+                    }
+
+                    while (device.num_queued_frames() < device.sample_rate() * 0.05) {
+                        song->update(1.0 / device.sample_rate() * BUFFER_SIZE);
+
+                        float* buf;
+                        size_t buf_size = destination.process(&buf);
+
+                        device.queue(buf, buf_size * sizeof(float));
+
+                        if (!run_app) break;
+                    }
+
+                    song_mutex.unlock();
                 }
-
-                while (device.num_queued_frames() < device.sample_rate() * 0.05) {
-                    song->update(1.0 / device.sample_rate() * BUFFER_SIZE);
-
-                    float* buf;
-                    size_t buf_size = destination.process(&buf);
-
-                    device.queue(buf, buf_size * sizeof(float));
-
-                    if (!run_app) return;
-                }
-
-                song_mutex.unlock();
 
                 sleep(1.0f / 30.0f);
             }
+
+            delete[] silence_buf;
         });
 
         glfwShowWindow(window);
-
         while (run_app)
         {
             if (glfwWindowShouldClose(window)) {
@@ -335,8 +450,6 @@ int main()
             next_time = glfwGetTime() + FRAME_LENGTH;
             
             glfwPollEvents();
-
-            //song->update(now_time - prev_time);
 
             // if selected pattern changed
             if (last_selected_bar != song->selected_bar || last_selected_ch != song->selected_channel) {
@@ -399,6 +512,17 @@ int main()
                         if (pattern_input <= song->max_patterns())
                             song->channels[song->selected_channel]->sequence[song->selected_bar] = pattern_input;
                     }
+                }
+            }
+
+            // check export progress
+            if (export_data.is_exporting) {
+                if (export_data.is_done) {
+                    // if done, delete the thread
+                    if (export_data.thread->joinable()) export_data.thread->join();
+                    delete export_data.thread;
+
+                    export_data.is_exporting = false;
                 }
             }
 

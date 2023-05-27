@@ -3,10 +3,10 @@
 #include <cstdint>
 
 namespace audiofile {
-    void write_wav(std::ostream& stream, float* audio_data, size_t data_size, uint16_t channels, uint32_t sample_rate) {
+    WavWriter::WavWriter(std::ostream& stream, size_t total_frames, uint16_t channels, uint32_t sample_rate) : stream(stream) {
         // TODO: 24-bit samples?
         const uint32_t BYTES_PER_SAMPLE = sizeof(uint16_t);
-        uint32_t num_samples = data_size / sizeof(float) / channels;
+        uint32_t num_samples = total_frames / channels;
         uint32_t chunk_size = num_samples * channels * BYTES_PER_SAMPLE;
 
         // write wav header
@@ -24,9 +24,11 @@ namespace audiofile {
         // write wav data
         stream << "data";
         push_bytes(stream, chunk_size); // chunk size
+    }
 
-        for (size_t i = 0; i < data_size; i++) {
-            float float_smp = audio_data[i];
+    void WavWriter::write_block(float* data, size_t size) {
+        for (size_t i = 0; i < size; i++) {
+            float float_smp = data[i];
             if (float_smp > 1.0f) float_smp = 1.0f;
             if (float_smp < -1.0f) float_smp = -1.0f;
 

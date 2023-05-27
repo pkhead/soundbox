@@ -79,6 +79,7 @@ public:
     int bar_position = 0;
     double position = 0.0;
     bool is_playing = false;
+    bool do_loop = true;
 
     float editor_quantization = 0.25f;
     float tempo = 120;
@@ -109,5 +110,5 @@ public:
     void update(double elasped);
 
     void serialize(std::ostream& out) const;
-    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string& error_msg);
+    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string *error_msg);
 };

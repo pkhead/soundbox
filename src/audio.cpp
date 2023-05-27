@@ -282,7 +282,7 @@ bool ModuleBase::render_interface(const char* channel_name) {
 //  DESTINATION MODULE  //
 //////////////////////////
 
-DestinationModule::DestinationModule(AudioDevice& device, size_t buffer_size) : time(0.0), device(device), buffer_size(buffer_size) {
+DestinationModule::DestinationModule(int sample_rate, int num_channels, size_t buffer_size) : time(0.0), sample_rate(sample_rate), channel_count(num_channels), buffer_size(buffer_size) {
     _audio_buffer = nullptr;
     _prev_buffer_size = 0;
 }
@@ -292,9 +292,6 @@ DestinationModule::~DestinationModule() {
 }
 
 size_t DestinationModule::process(float** output) {
-    int sample_rate = device.sample_rate();
-    int channel_count = device.num_channels();
-
     if (_audio_buffer == nullptr || _prev_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
         _prev_buffer_size = buffer_size * channel_count;

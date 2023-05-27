@@ -41,7 +41,7 @@ set(SOURCES
     src/modules/volume.cpp
     src/modules/gain.cpp
     src/modules/create.cpp
-    src/modules/audiofile.cpp
+    src/audiofile.cpp
 )
 
 include_directories(${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)

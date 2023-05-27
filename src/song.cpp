@@ -143,10 +143,6 @@ void Song::stop() {
 
 void Song::update(double elapsed) {
     if (is_playing) {
-        position += elapsed * (tempo / 60.0);
-        if (position >= _length * beats_per_bar) position -= _length * beats_per_bar;
-        bar_position = position / beats_per_bar;
-
         // get notes at playhead
         float pos_in_bar = fmod(position, (double)beats_per_bar);
         cur_notes.clear();
@@ -213,6 +209,23 @@ void Song::update(double elapsed) {
         }
 
         prev_notes = cur_notes;
+
+        position += elapsed * (tempo / 60.0);
+
+        // if reached past the end of the song
+        if (position >= _length * beats_per_bar) {
+            if (do_loop) // loop back to the beginning of the song
+                position -= _length * beats_per_bar;
+            else {
+                // stop the song and set cursor to the beginning
+                bar_position = 0;
+                position = 0;
+                stop();
+                return;
+            }
+        }
+
+        bar_position = position / beats_per_bar;
     }
 }
 
@@ -360,7 +373,7 @@ void Song::serialize(std::ostream& out) const {
     }
 }
 
-Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string& error_msg) {
+Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string* error_msg) {
     // check if the magic number is valid
     char magic_number[4];
     input.read(magic_number, 4);
@@ -430,7 +443,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             // load module based off id
             audiomod::ModuleBase* instrument = audiomod::create_module(inst_id);
             if (instrument == nullptr) {
-                error_msg = "unknown module type " + std::string(inst_id);
+                if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
                 delete[] inst_id;
                 delete song;
                 return nullptr;

@@ -3,5 +3,14 @@
 #include <ostream>
 
 namespace audiofile {
-    void write_wav(std::ostream& stream, float* audio_data, size_t audio_size, int channels, int sample_rate);
+    class WavWriter {
+    private:
+        std::ostream& stream;
+
+    public:
+        WavWriter(std::ostream& stream, size_t total_frames, uint16_t channels, uint32_t sample_rate);
+
+        // Write a block of audio data to the stream
+        void write_block(float* data, size_t size);
+    };
 }

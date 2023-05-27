@@ -120,10 +120,12 @@ namespace audiomod {
         size_t _prev_buffer_size;
     public:
         DestinationModule(const DestinationModule&) = delete;
-        DestinationModule(AudioDevice& device, size_t buffer_size);
+        DestinationModule(int sample_rate, int num_channels, size_t buffer_size);
         ~DestinationModule();
 
-        AudioDevice& device;
+        int sample_rate;
+        int channel_count;
+
         double time;
         size_t buffer_size;
 
