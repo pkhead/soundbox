@@ -290,6 +290,15 @@ int main()
         bool run_app = true;
 
         // exporting
+        struct ExportConfigData {
+            bool p_open;
+            char* file_name;
+            int sample_rate;
+        } export_config;
+
+        export_config.p_open = false;
+        export_config.file_name = nullptr;
+
         struct ExportProcessData {
             bool is_exporting;
             bool is_done;
@@ -317,6 +326,8 @@ int main()
             int step = 0;
 
             while (export_data.song->is_playing) {
+                if (!export_data.is_exporting) break;
+
                 export_data.song->update(1.0 / export_data.destination->sample_rate * export_data.destination->buffer_size);
 
                 float* buf;
@@ -337,7 +348,45 @@ int main()
             export_data.out_file.close();
 
             export_data.is_done = true;
-            export_data.writer = nullptr;
+        };
+
+        auto begin_export = [&]() {
+            // calculate length of song
+            const int sample_rate = export_config.sample_rate;
+
+            int beat_len = song->length() * song->beats_per_bar;
+            float sec_len = (float)beat_len * (60.0f / song->tempo);
+            export_data.total_frames = sec_len * sample_rate;
+
+            // create destination node
+            export_data.destination = new audiomod::DestinationModule(sample_rate, 2, 64);
+
+            // create a clone of the song
+            std::stringstream song_serialized;
+            song->serialize(song_serialized);
+            export_data.song = Song::from_file(song_serialized, *export_data.destination, nullptr);
+
+            if (export_data.song == nullptr) {
+                status_message = "Error while exporting the song";
+                status_time = glfwGetTime();
+
+                delete export_data.destination;
+                export_data.out_file.close();
+                return;
+            }
+
+            // create writer
+            export_data.writer = new audiofile::WavWriter(
+                export_data.out_file,
+                export_data.total_frames,
+                export_data.destination->channel_count,
+                export_data.destination->sample_rate
+            );
+
+            // create thread to begin export
+            export_data.is_exporting = true;
+            export_data.is_done = false;
+            export_data.thread = new std::thread(export_proc);
         };
 
         user_actions.set_callback("export", [&]() {
@@ -354,41 +403,9 @@ int main()
                     return;
                 }
 
-                // calculate length of song
-                const int sample_rate = 48000;
-                int beat_len = song->length() * song->beats_per_bar;
-                float sec_len = (float)beat_len * (60.0f / song->tempo);
-                export_data.total_frames = sec_len * sample_rate;
-
-                // create destination node
-                export_data.destination = new audiomod::DestinationModule(sample_rate, 2, 64);
-
-                // create a clone of the song
-                std::stringstream song_serialized;
-                song->serialize(song_serialized);
-                export_data.song = Song::from_file(song_serialized, *export_data.destination, nullptr);
-
-                if (export_data.song == nullptr) {
-                    status_message = "Error while exporting the song";
-                    status_time = glfwGetTime();
-
-                    delete export_data.destination;
-                    export_data.out_file.close();
-                    return;
-                }
-
-                // create writer
-                export_data.writer = new audiofile::WavWriter(
-                    export_data.out_file,
-                    export_data.total_frames,
-                    export_data.destination->channel_count,
-                    export_data.destination->sample_rate
-                );
-
-                // create thread to begin export
-                export_data.is_exporting = true;
-                export_data.is_done = false;
-                export_data.thread = new std::thread(export_proc);
+                export_config.p_open = true;
+                export_config.file_name = out_path;
+                export_config.sample_rate = 48000;
             } else if (result != NFD_CANCEL) {
                 std::cerr << "Error: " << NFD_GetError() << "\n";
                 return;
@@ -408,7 +425,7 @@ int main()
             }
 
             while (run_app) {
-                if (export_data.is_exporting) {
+                if (false) {
                     // fill output device with silence
                     while (device.num_queued_frames() < device.sample_rate() * 0.05) {
                         device.queue(silence_buf, silence_buf_size * sizeof(float));
@@ -524,21 +541,6 @@ int main()
                 }
             }
 
-            // check export progress
-            if (export_data.is_exporting) {
-                if (export_data.is_done) {
-                    // if done, delete the thread
-                    if (export_data.thread->joinable()) export_data.thread->join();
-                    delete export_data.thread;
-                    delete export_data.writer;
-
-                    export_data.is_exporting = false;
-                    std::cout << "export done\n";
-                } else {
-                    std::cout << (float)export_data.writer->written_samples / export_data.writer->total_samples << "\n";
-                }
-            }
-
             int display_w, display_h;
             glfwGetFramebufferSize(window, &display_w, &display_h);
             
@@ -609,6 +611,105 @@ int main()
                 }
 
                 ImGui::EndPopup();
+            }
+
+            // show export prompt
+            if (export_config.p_open) {
+                if (ImGui::Begin("Export", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Export path: %s", export_config.file_name);
+
+                    static int rate_sel = 2;
+
+                    static const char* rate_options[] = {
+                        "96 kHz",
+                        "88.2 kHz",
+                        "48 kHz (recommended)",
+                        "44.1 kHz",
+                        "22.05 kHz"
+                    };
+
+                    static int rate_values[] = {
+                        96000,
+                        88200,
+                        48000,
+                        44100,
+                        22050
+                    };
+
+                    static const char* rate_option = "48 kHz";
+                    
+                    // sample rate selection
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::Text("Sample Rate");
+                    ImGui::SameLine();
+                    if (ImGui::BeginCombo("###export_sample_rate", rate_options[rate_sel])) {
+                        for (int i = 0; i < IM_ARRAYSIZE(rate_options); i++) {
+                            if (ImGui::Selectable(rate_options[i], rate_sel == i)) {
+                                rate_sel = i;
+                                export_config.sample_rate = rate_values[i];
+                            }
+
+                            if (rate_sel == i) {
+                                ImGui::SetItemDefaultFocus();
+                            }
+                        }
+                        
+                        ImGui::EndCombo();
+                    }
+
+                    if (ImGui::Button("Export")) {
+                        if (!export_data.is_exporting) begin_export();
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Cancel")) {
+                        if (export_data.is_exporting) {
+                            export_data.is_exporting = false;
+                            if (export_data.thread->joinable()) export_data.thread->join();
+
+                            delete export_data.thread;
+                            delete export_data.writer;
+                        }
+
+                        export_config.p_open = false;
+                    }
+
+                    if (export_data.is_exporting) {
+                        ImGui::ProgressBar((float)export_data.writer->written_samples / export_data.writer->total_samples);
+
+                        if (export_data.is_done) {
+                            if (export_data.thread->joinable()) export_data.thread->join();
+                            delete export_data.thread;
+                            delete export_data.writer;
+                            export_config.p_open = false;
+
+                            status_message = "Successfully exported to " + std::string(export_config.file_name);
+                            status_time = now_time;
+
+                            export_data.is_exporting = false;
+                        }
+                    } else {
+                        ImGui::ProgressBar(0.0f, ImVec2(-1.0f, 0.0f), "");
+                    }
+
+                    ImGui::End();
+                    
+                    /*
+                    if (export_data.is_exporting) {
+                        if (export_data.is_done) {
+                            // if done, delete the thread
+                            if (export_data.thread->joinable()) export_data.thread->join();
+                            delete export_data.thread;
+                            delete export_data.writer;
+
+                            export_data.is_exporting = false;
+                            std::cout << "export done\n";
+                        } else {
+                            std::cout << (float)export_data.writer->written_samples / export_data.writer->total_samples << "\n";
+                        }
+                    }
+                    */
+                }
             }
             
             ImGui::Render();
