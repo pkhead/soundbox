@@ -417,7 +417,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             // delete the requested module
             if (delete_index >= 0) {
                 audiomod::ModuleBase* mod = effects_rack.remove(delete_index);
-                if (mod != nullptr) delete mod;
+                if (mod != nullptr) {
+                    song.hide_module_interface(mod);
+                    delete mod;
+                }
+                
                 delete_index = -1;
             }
         }

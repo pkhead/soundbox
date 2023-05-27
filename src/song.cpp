@@ -210,6 +210,15 @@ void Song::update(double elapsed) {
     }
 }
 
+void Song::hide_module_interface(audiomod::ModuleBase* mod) {
+    for (auto it = mod_interfaces.begin(); it != mod_interfaces.end(); it++) {
+        if ((*it).module == mod) {
+            mod_interfaces.erase(it);
+            break;
+        }
+    }
+}
+
 void Song::toggle_module_interface(int channel_index, int effect_index) {
     Channel* cur_channel = channels[channel_index];
     audiomod::ModuleBase* mod;
@@ -232,12 +241,7 @@ void Song::toggle_module_interface(int channel_index, int effect_index) {
 
     // if want to hide interface, remove module from interfaces list
     } else {
-        for (auto it = mod_interfaces.begin(); it != mod_interfaces.end(); it++) {
-            if ((*it).module == mod) {
-                mod_interfaces.erase(it);
-                break;
-            }
-        }
+        hide_module_interface(mod);
     }
 }
 

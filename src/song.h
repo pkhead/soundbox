@@ -94,6 +94,7 @@ public:
 
     // An effect index of -1 means the instrument module
     void toggle_module_interface(int channel_index, int effect_index);
+    void hide_module_interface(audiomod::ModuleBase* mod);
     
     int length() const;
     void set_length(int len);
