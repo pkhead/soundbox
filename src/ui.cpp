@@ -99,6 +99,7 @@ UserActionList::UserActionList() {
     add_action("song_play_pause", 0, ImGuiKey_Space);
     add_action("song_prev_bar", 0, ImGuiKey_LeftBracket);
     add_action("song_next_bar", 0, ImGuiKey_RightBracket);
+    add_action("export", 0, ImGuiKey_None);
     add_action("quit", 0, ImGuiKey_None);
 
     add_action("undo", USERMOD_CTRL, ImGuiKey_Z);
@@ -197,7 +198,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             if (ImGui::MenuItem("Save", user_actions.combo_str("song_save"))) user_actions.fire("song_save");
             if (ImGui::MenuItem("Save As...", user_actions.combo_str("song_save_as"))) user_actions.fire("song_save_as");
             ImGui::Separator();
-            ImGui::MenuItem("Export...");
+            if (ImGui::MenuItem("Export...")) user_actions.fire("export");
             ImGui::MenuItem("Import...");
             ImGui::Separator();
             if (ImGui::MenuItem("Quit", "Alt+F4")) user_actions.fire("quit");

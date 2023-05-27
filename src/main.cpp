@@ -296,29 +296,25 @@ int main()
             Song* song; // a copy of the current song for the export process
             audiomod::DestinationModule* destination;
             size_t total_frames;
-            size_t written_frames;
             std::ofstream out_file;
             std::thread* thread;
+            audiofile::WavWriter* writer;
         } export_data;
 
         export_data.is_exporting = false;
         export_data.is_done = false;
         export_data.song = nullptr;
         export_data.total_frames = 0;
-        export_data.written_frames = 0;
 
         auto export_proc = [&export_data]() {
-            audiofile::WavWriter writer(
-                export_data.out_file,
-                export_data.total_frames,
-                export_data.destination->channel_count,
-                export_data.destination->sample_rate
-            );
+            audiofile::WavWriter& writer = *export_data.writer;
 
             export_data.song->bar_position = 0;
             export_data.song->is_playing = true;
             export_data.song->do_loop = false;
             export_data.song->play();
+
+            int step = 0;
 
             while (export_data.song->is_playing) {
                 export_data.song->update(1.0 / export_data.destination->sample_rate * export_data.destination->buffer_size);
@@ -328,7 +324,12 @@ int main()
 
                 writer.write_block(buf, buf_size);
 
-                export_data.written_frames += export_data.destination->buffer_size;
+                step++;
+
+                if (step > 1000) {
+                    step = 0;
+                    sleep(0.001);
+                }
             }
 
             delete export_data.song;
@@ -336,6 +337,7 @@ int main()
             export_data.out_file.close();
 
             export_data.is_done = true;
+            export_data.writer = nullptr;
         };
 
         user_actions.set_callback("export", [&]() {
@@ -355,17 +357,16 @@ int main()
                 // calculate length of song
                 const int sample_rate = 48000;
                 int beat_len = song->length() * song->beats_per_bar;
-                float sec_len = (float)beat_len * song->tempo / 60.0f;
+                float sec_len = (float)beat_len * (60.0f / song->tempo);
                 export_data.total_frames = sec_len * sample_rate;
-                export_data.written_frames = 0;
 
                 // create destination node
-                export_data.destination = new audiomod::DestinationModule(sample_rate, 2, 1024);
+                export_data.destination = new audiomod::DestinationModule(sample_rate, 2, 64);
 
                 // create a clone of the song
                 std::stringstream song_serialized;
                 song->serialize(song_serialized);
-                export_data.song = Song::from_file(song_serialized, destination, nullptr);
+                export_data.song = Song::from_file(song_serialized, *export_data.destination, nullptr);
 
                 if (export_data.song == nullptr) {
                     status_message = "Error while exporting the song";
@@ -375,6 +376,14 @@ int main()
                     export_data.out_file.close();
                     return;
                 }
+
+                // create writer
+                export_data.writer = new audiofile::WavWriter(
+                    export_data.out_file,
+                    export_data.total_frames,
+                    export_data.destination->channel_count,
+                    export_data.destination->sample_rate
+                );
 
                 // create thread to begin export
                 export_data.is_exporting = true;
@@ -415,7 +424,7 @@ int main()
                     }
 
                     while (device.num_queued_frames() < device.sample_rate() * 0.05) {
-                        song->update(1.0 / device.sample_rate() * BUFFER_SIZE);
+                        song->update(1.0 / destination.sample_rate * BUFFER_SIZE);
 
                         float* buf;
                         size_t buf_size = destination.process(&buf);
@@ -521,8 +530,12 @@ int main()
                     // if done, delete the thread
                     if (export_data.thread->joinable()) export_data.thread->join();
                     delete export_data.thread;
+                    delete export_data.writer;
 
                     export_data.is_exporting = false;
+                    std::cout << "export done\n";
+                } else {
+                    std::cout << (float)export_data.writer->written_samples / export_data.writer->total_samples << "\n";
                 }
             }
 
