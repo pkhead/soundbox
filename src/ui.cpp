@@ -95,7 +95,7 @@ UserActionList::UserActionList() {
     add_action("song_play_pause", 0, ImGuiKey_Space);
     add_action("song_prev_bar", 0, ImGuiKey_LeftBracket);
     add_action("song_next_bar", 0, ImGuiKey_RightBracket);
-    add_action("song_quit", 0, ImGuiKey_None);
+    add_action("quit", 0, ImGuiKey_None);
 
     add_action("undo", USERMOD_CTRL, ImGuiKey_Z);
 #ifdef _WIN32

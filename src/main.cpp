@@ -413,11 +413,12 @@ int main()
 
             // show new prompt
             if (prompt_unsaved_work) {
+                ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
                 ImGui::OpenPopup("Unsaved work##prompt_new_song");
                 prompt_unsaved_work = false;
             }
 
-            if (ImGui::BeginPopupModal("Unsaved work##prompt_new_song", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+            if (ImGui::BeginPopupModal("Unsaved work##prompt_new_song", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 ImGui::Text("Do you want to save your work before continuing?");
                 ImGui::NewLine();
                 
