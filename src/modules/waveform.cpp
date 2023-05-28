@@ -182,6 +182,7 @@ void WaveformSynth::_interface_proc() {
         "Triangle"
     };
     
+    const float slider_width = ImGui::GetTextLineHeight() * 6.0f;
     char sep_text[] = "Oscillator 1";
 
     for (int osc = 0; osc < 3; osc++) {
@@ -208,7 +209,7 @@ void WaveformSynth::_interface_proc() {
             ImGui::EndCombo();
         }
 
-        ImGui::PushItemWidth(80.0f);
+        ImGui::PushItemWidth(slider_width);
 
         // volume slider
         ImGui::AlignTextToFramePadding();
@@ -245,7 +246,7 @@ void WaveformSynth::_interface_proc() {
     }
 
     ImGui::SeparatorText("Envelope");
-    ImGui::PushItemWidth(80.0f);
+    ImGui::PushItemWidth(slider_width);
 
     // Attack slider
     render_slider("##attack", "Atk", &this->attack, 5.0f, 4.0f, "%.3f secs");

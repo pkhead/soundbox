@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -231,6 +232,9 @@ int main()
                     file.close();
 
                     if (new_song != nullptr) {
+                        // a strange bug keeps happening...
+                        assert(new_song->channels[0]->name[0] != 0);
+
                         delete song;
                         song = new_song;
 

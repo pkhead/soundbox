@@ -455,11 +455,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     if (ImGui::Begin("Track Editor")) {
         // cell size including margin
-        static const Vec2 CELL_SIZE = Vec2(26, 26);
+        const Vec2 CELL_SIZE = Vec2(ImGui::GetFrameHeightWithSpacing() * 1.1f, ImGui::GetFrameHeightWithSpacing() * 1.1f);
         // empty space inbetween cells
         static const int CELL_MARGIN = 1;
         // space dedicated to channel properties
-        static const float CHANNEL_COLUMN_WIDTH = 100.0f;
+        const float CHANNEL_COLUMN_WIDTH = ImGui::GetTextLineHeightWithSpacing() * 8.0f;
 
         static int num_channels = song.channels.size();
         static int num_bars = song.length();
@@ -573,11 +573,12 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ////////////////////
     if (ImGui::Begin("Pattern Editor")) {
         // cell size including margin
-        static const Vec2 CELL_SIZE = Vec2(50, 16);
+        const Vec2 CELL_SIZE = Vec2(int((ImGui::GetTextLineHeight() + 2.0f) * 3.125f), int(ImGui::GetTextLineHeight() + 2.0f));
         // empty space inbetween cells
-        static const int CELL_MARGIN = 1;
+        const int CELL_MARGIN = 1;
 
-        static constexpr float PIANO_KEY_WIDTH = 30;
+        const float PIANO_KEY_WIDTH = int(ImGui::GetTextLineHeight() * 2.307f);
+
 
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
         Vec2 offset = Vec2(canvas_size.x - (CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH), 0) / 2.0f;
@@ -605,7 +606,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Rhythm");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(60.0f);
+        ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 2.7f);
         if (ImGui::BeginCombo("##pattern_editor_step", step_names[selected_step]))
         {
             for (int i = 0; i < 5; i++) {
@@ -626,7 +627,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         ImGui::SameLine();
         ImGui::Text("Scale");
-        ImGui::SetNextItemWidth(150.0f);
+        ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 8.0f);
         ImGui::SameLine();
         if (ImGui::BeginCombo("##pattern_editor_scale", "Ionian (major)")) {
             ImGui::Selectable("Ionian (major)", true);

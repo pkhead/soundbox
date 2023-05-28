@@ -77,6 +77,7 @@ namespace audiomod {
         // 0 = view samples
         // 1 = view spectrogram
         int mode = 0;
+        float range = 1.0f;
 
         size_t buf_size = 0;
         float* left_channel = nullptr;

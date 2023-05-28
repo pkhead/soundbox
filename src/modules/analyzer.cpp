@@ -45,5 +45,32 @@ void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, s
 }
 
 void AnalyzerModule::_interface_proc() {
-	ImGui::PlotLines("###samples", left_channel, buf_size, 0, nullptr, -1.0f, 1.0f, ImVec2(400.0f, 160.0f));
+	ImGui::PlotLines(
+		"###left_samples", 
+		left_channel,
+		buf_size,
+		0,
+		nullptr,
+		-range,
+		range,
+		ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f)
+	);
+
+	ImGui::SameLine();
+	ImGui::PlotLines(
+		"###right_samples", 
+		right_channel,
+		buf_size,
+		0,
+		nullptr,
+		-range,
+		range,
+		ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f)
+	);
+	
+	ImGui::SameLine();
+	ImGui::VSliderFloat("###range", ImVec2(ImGui::GetTextLineHeight() * 1.5f, ImGui::GetTextLineHeight() * 10.0f), &range, 0.1f, 1.0f, "");
+	if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+		ImGui::SetTooltip("%.3f", range);
+	}
 }
