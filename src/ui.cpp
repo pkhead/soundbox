@@ -446,6 +446,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         static const Vec2 CELL_SIZE = Vec2(26, 26);
         // empty space inbetween cells
         static const int CELL_MARGIN = 1;
+        // space dedicated to channel properties
+        static const float CHANNEL_COLUMN_WIDTH = 100.0f;
 
         static int num_channels = song.channels.size();
         static int num_bars = song.length();
@@ -456,13 +458,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 canvas_p1 = canvas_p0 + canvas_size;
         Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
-        Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
-        Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
+        Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0 - Vec2(CHANNEL_COLUMN_WIDTH, 0.0f);
+        Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE + Vec2(CHANNEL_COLUMN_WIDTH, 0.0f);
 
         int mouse_row = -1;
         int mouse_col = -1;
 
-        ImGui::InvisibleButton("track_editor_mouse_target", content_size, ImGuiButtonFlags_MouseButtonLeft);
+        ImGui::SetCursorPos(Vec2(CHANNEL_COLUMN_WIDTH, 0.0f));
+        ImGui::InvisibleButton("track_editor_mouse_target", content_size - Vec2(CHANNEL_COLUMN_WIDTH, 0.0f), ImGuiButtonFlags_MouseButtonLeft);
         if (ImGui::IsItemHovered()) {
             mouse_row = (int)mouse_pos.y / CELL_SIZE.y;
             mouse_col = (int)mouse_pos.x / CELL_SIZE.x;
@@ -484,9 +487,17 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         
         char str_buf[8];
 
+        // draw patterns
+        Vec2 view_origin = (Vec2)ImGui::GetWindowPos() + Vec2(CHANNEL_COLUMN_WIDTH, 0.0f);
+        ImGui::PushClipRect(
+            view_origin,
+            view_origin + content_size - Vec2(CHANNEL_COLUMN_WIDTH, 0.0f),
+            true
+        );
+
         for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
             for (int bar = bar_start; bar < min(bar_end, num_bars); bar++) {
-                Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x + CELL_MARGIN, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
+                Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x + CELL_MARGIN + CHANNEL_COLUMN_WIDTH, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
                 int pattern_num = song.channels[ch]->sequence[bar];
                 bool is_selected = song.selected_bar == bar && song.selected_channel == ch;
 
@@ -509,7 +520,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                 // draw mouse hover
                 if (ch == mouse_row && bar == mouse_col) {
-                    Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x, canvas_p0.y + CELL_SIZE.y * ch);
+                    Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, canvas_p0.y + CELL_SIZE.y * ch);
                     draw_list->AddRect(rect_pos, rect_pos + CELL_SIZE, vec4_color(style.Colors[ImGuiCol_Text]), 0.0f, 0, 1.0f);
                 }
             }
@@ -517,11 +528,29 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         // draw playhead
         double song_pos = song.is_playing ? (song.position / song.beats_per_bar) : (song.bar_position);
-        Vec2 playhead_pos = canvas_p0 + Vec2(song_pos * CELL_SIZE.x, 0);
+        Vec2 playhead_pos = canvas_p0 + Vec2(song_pos * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, 0);
         draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y), vec4_color(style.Colors[ImGuiCol_Text]));
 
+        ImGui::PopClipRect();
+
+        // draw channel info
+        for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
+            Vec2 row_start = Vec2(
+                viewport_scroll.x,
+                CELL_SIZE.y * ch + CELL_MARGIN + (CELL_SIZE.y - ImGui::GetTextLineHeightWithSpacing()) / 2.0f
+            );
+            
+            ImGui::SetCursorPos(row_start);
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("%s", song.channels[ch]->name);
+            
+            ImGui::SetCursorPos(row_start + Vec2(CHANNEL_COLUMN_WIDTH - 20.0f, 0.0f));
+            ImGui::Button("M###channel_mute");
+            //draw_list->AddText(row_start, vec4_color(style.Colors[ImGuiCol_Text]), song.channels[ch]->name);
+        }
+
         // set scrollable area
-        ImGui::SetCursorPos(content_size);
+        //ImGui::SetCursorPos(content_size);
 
         ImGui::EndChild();
     } ImGui::End();
