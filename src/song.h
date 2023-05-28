@@ -39,6 +39,8 @@ public:
     audiomod::EffectsRack effects_rack;
 
     int selected_effect = 0;
+    
+    bool solo = false;
 
     char name[16];
     std::vector<int> sequence;

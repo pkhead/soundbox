@@ -213,8 +213,8 @@ void ModuleBase::connect(ModuleOutputTarget* dest) {
 }
 
 void ModuleBase::disconnect() {
-    if (this->_output != nullptr) this->_output->remove_input(this);
-    this->_output = nullptr;
+    if (_output != nullptr) _output->remove_input(this);
+    _output = nullptr;
 }
 
 void ModuleBase::remove_all_connections() {
@@ -434,11 +434,17 @@ ModuleBase* EffectsRack::disconnect_input() {
     return old_input;
 }
 
-ModuleOutputTarget* EffectsRack::disconnect_output() {
+ModuleOutputTarget* EffectsRack::disconnect_output()
+{
     ModuleOutputTarget* old_output = output;
 
-    if (output != nullptr && !modules.empty()) {
-        modules.back()->disconnect();
+    if (output != nullptr)
+    {
+        if (modules.empty())
+        {
+            if (input)  input->disconnect();
+        }
+        else            modules.back()->disconnect();
     }
 
     output = nullptr;

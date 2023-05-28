@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cstdint>
 #include <string.h>
 #include <math.h>
 #include "audio.h"
@@ -31,9 +32,12 @@ Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget
     }
 
     synth_mod = new audiomod::WaveformSynth();
-    synth_mod->connect(&vol_mod);
-    effects_rack.connect_input(&vol_mod);
-    effects_rack.connect_output(&audio_out);
+    effects_rack.connect_input(synth_mod);
+    effects_rack.connect_output(&vol_mod);
+    vol_mod.connect(&audio_out);
+    //synth_mod->connect(&vol_mod);
+    //effects_rack.connect_input(&vol_mod);
+    //effects_rack.connect_output(&audio_out);
 }
 
 Channel::~Channel() {
@@ -41,13 +45,18 @@ Channel::~Channel() {
         delete pattern;
     }
 
+    effects_rack.disconnect_input();
+    effects_rack.disconnect_output();
+
     delete synth_mod;
 }
 
 void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
+    effects_rack.disconnect_input();
     if (synth_mod != nullptr) delete synth_mod;
+    
     synth_mod = new_instrument;
-    synth_mod->connect(&vol_mod);
+    effects_rack.connect_input(synth_mod);
 }
 
 
@@ -321,7 +330,7 @@ void Song::serialize(std::ostream& out) const {
     // version number (major, minor, revision)
     push_bytes(out, (uint8_t)0);
     push_bytes(out, (uint8_t)0);
-    push_bytes(out, (uint8_t)1);
+    push_bytes(out, (uint8_t)2);
 
     // write song data
     push_bytes(out, (uint8_t) strlen(name));
@@ -340,6 +349,13 @@ void Song::serialize(std::ostream& out) const {
 
         push_bytes(out, (float) channel->vol_mod.volume);
         push_bytes(out, (float) channel->vol_mod.panning);
+
+        // write channel flags (mute, solo)
+        uint8_t channel_flags = 0;
+        if (channel->vol_mod.mute)  channel_flags |= 1;
+        if (channel->solo)          channel_flags |= 2;
+
+        push_bytes(out, (uint8_t) channel_flags);
 
         // store instrument type
         push_bytes(out, (uint8_t) strlen(channel->synth_mod->id));
@@ -429,6 +445,14 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
         channel->vol_mod.volume = volume;
         channel->vol_mod.panning = panning;
+
+        if (version[2] >= 2) {
+            uint8_t channel_flags;
+            pull_bytes(input, channel_flags);
+
+            channel->vol_mod.mute = (channel_flags & 1) == 1;
+            channel->solo =         (channel_flags & 2) == 2;
+        }
 
         // instrument data
         if (version[2] >= 1) {

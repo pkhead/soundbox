@@ -376,7 +376,19 @@ int main()
                 status_time = glfwGetTime();
 
                 delete export_data.destination;
-                export_data.out_file.close();
+                return;
+            }
+
+            // open file
+            export_data.out_file.open(export_config.file_name, std::ios::out | std::ios::trunc | std::ios::binary);
+
+            // if could not open file?
+            if (!export_data.out_file.is_open()) {
+                status_message = "Could not save to " + std::string(export_config.file_name);
+                status_time = glfwGetTime();
+
+                delete export_data.song;
+                delete export_data.destination;
                 return;
             }
 
@@ -399,15 +411,6 @@ int main()
             nfdresult_t result = NFD_SaveDialog("wav", nullptr, &out_path);
 
             if (result == NFD_OKAY) {
-                export_data.out_file.open(out_path, std::ios::out | std::ios::trunc | std::ios::binary);
-
-                // if could not open file?
-                if (!export_data.out_file.is_open()) {
-                    status_message = "Could not save to " + std::string(out_path);
-                    status_time = glfwGetTime();
-                    return;
-                }
-
                 export_config.p_open = true;
                 export_config.file_name = out_path;
                 export_config.sample_rate = 48000;
@@ -622,6 +625,10 @@ int main()
             if (export_config.p_open) {
                 if (ImGui::Begin("Export", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
                     ImGui::Text("Export path: %s", export_config.file_name);
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Choose...")) {
+                        user_actions.fire("export");
+                    };
 
                     static int rate_sel = 2;
 
@@ -679,8 +686,10 @@ int main()
                         export_config.p_open = false;
                     }
 
+                    ImVec2 bar_size = ImVec2(ImGui::GetTextLineHeight() * 20.0f, 0.0f);
+                    ImGui::SameLine();
                     if (export_data.is_exporting) {
-                        ImGui::ProgressBar((float)export_data.writer->written_samples / export_data.writer->total_samples);
+                        ImGui::ProgressBar((float)export_data.writer->written_samples / export_data.writer->total_samples, bar_size);
 
                         if (export_data.is_done) {
                             if (export_data.thread->joinable()) export_data.thread->join();
@@ -694,7 +703,7 @@ int main()
                             export_data.is_exporting = false;
                         }
                     } else {
-                        ImGui::ProgressBar(0.0f, ImVec2(-1.0f, 0.0f), "");
+                        ImGui::ProgressBar(0.0f, bar_size, "");
                     }
 
                     ImGui::End();
@@ -738,7 +747,7 @@ int main()
         }
 
         audio_thread.join();
-        if (song_mutex.try_lock()) song_mutex.unlock();
+        song_mutex.unlock();
 
         delete song;
     }

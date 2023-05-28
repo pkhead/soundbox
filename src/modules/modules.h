@@ -52,6 +52,11 @@ namespace audiomod {
     public:
         float volume = 0.5f;
         float panning = 0.0f;
+        
+        bool mute = false;
+
+        // used for soloing
+        bool mute_override = false;
 
         VolumeModule();
         size_t save_state(void** output) const override;

@@ -563,9 +563,26 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         ImGui::PopClipRect();
 
-        // draw channel info
+        // create colors for disabled buttons
+        ImVec4 disabled_btn_colors[3];
+        disabled_btn_colors[0] = style.Colors[ImGuiCol_Button];
+        disabled_btn_colors[1] = style.Colors[ImGuiCol_ButtonHovered];
+        disabled_btn_colors[2] = style.Colors[ImGuiCol_ButtonActive];
 
+        for (int i = 0; i < 3; i++) {
+            disabled_btn_colors[i].w *= 0.5f;
+        }
+
+        // mute keybind
+        if (ImGui::IsKeyPressed(ImGuiKey_M, false)) {
+            Channel* ch = song.channels[song.selected_channel];
+            ch->vol_mod.mute = !ch->vol_mod.mute;
+        }
+
+        // draw channel info
         for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
+            ImGui::PushID(ch);
+
             Vec2 row_start = Vec2(
                 viewport_scroll.x,
                 CELL_SIZE.y * ch + CELL_MARGIN + (CELL_SIZE.y - ImGui::GetTextLineHeightWithSpacing()) / 2.0f
@@ -578,10 +595,38 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                 CHANNEL_COLUMN_WIDTH - controls_width,
                 0.0f)
             );
-            ImGui::SmallButton("M");
+
+            Channel* ch_dat = song.channels[ch];
+            bool enable_mute = ch_dat->vol_mod.mute;
+            bool enable_solo = ch_dat->solo;
+
+            if (!enable_mute) {
+                ImGui::PushStyleColor(ImGuiCol_Button, disabled_btn_colors[0]);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, disabled_btn_colors[1]);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, disabled_btn_colors[2]);
+            }
+
+            // mute button
+            if (ImGui::SmallButton("M")) {
+                ch_dat->vol_mod.mute = !enable_mute;
+            }
+
+            if (!enable_mute) ImGui::PopStyleColor(3);
+
             ImGui::SameLine();
+
+            if (!enable_solo) {
+                ImGui::PushStyleColor(ImGuiCol_Button, disabled_btn_colors[0]);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, disabled_btn_colors[1]);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, disabled_btn_colors[2]);
+            }
+
+            // solo button
             ImGui::SmallButton("S");
-            //draw_list->AddText(row_start, vec4_color(style.Colors[ImGuiCol_Text]), song.channels[ch]->name);
+
+            if (!enable_solo) ImGui::PopStyleColor(3);
+            
+            ImGui::PopID();
         }
 
         // set scrollable area
