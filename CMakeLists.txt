@@ -3,13 +3,21 @@ project(soundbox)
 
 set(CMAKE_CXX_STANDARD 11)
 
+# send these options to libsoundio
+set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build libsoundio static libraries" FORCE)
+set(BUILD_EXAMPLE_PROGRAMS OFF CACHE BOOL "Build libsoundio example programs" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "Build libsoundio test programs" FORCE)
+
+add_subdirectory(libsoundio)
+
 mark_as_advanced(GLFW3_LIB)
 mark_as_advanced(GLFW3_INCLUDE)
-mark_as_advanced(NFD_LIBRARIES)
+mark_as_advanced(BUILD_STATIC_LIBS)
+mark_as_advanced(BUILD_EXAMPLE_PROGRAMS)
+mark_as_advanced(BUILD_TESTS)
 
 find_library(GLFW3_LIB NAMES glfw3)
 find_path(GLFW3_INCLUDE NAMES GLFW/glfw3.h)
-find_library(NFD_LIBRARIES PATH ${CMAKE_SOURCE_DIR}/nativefiledialog/build/lib/)
 
 if (NOT GLFW3_LIB)
     message(FATAL_ERROR "Could not find library glfw3")
@@ -72,7 +80,6 @@ else()
     )
 
     add_executable(soundbox ${SOURCES})
-    # target_include_directories(soundbox PUBLIC ${INCLUDE})
 
     find_package(OpenGL REQUIRED)
     find_package(X11 REQUIRED)
@@ -85,7 +92,5 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    target_link_directories(soundbox PUBLIC build)
-    file(COPY libsoundio/build/libsoundio.so DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FOLLOW_SYMLINK_CHAIN)
-    target_link_libraries(soundbox glfw3 ${OPENGL_LIBRARIES} ${X11_LIBRARIES} soundio)
+    target_link_libraries(soundbox glfw3 ${OPENGL_LIBRARIES} ${X11_LIBRARIES} libsoundio_shared)
 endif()
