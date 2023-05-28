@@ -379,6 +379,19 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::EndPopup();
         }
 
+        // effects help
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 15.0f);
+            ImGui::Text("These apply effects to the instrument before it is sent to the FX bus.");
+            ImGui::BulletText("Drag an item to reorder");
+            ImGui::BulletText("Double-click to configure");
+            ImGui::BulletText("Right-click to remove");
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+
         { // effects list
             ImVec2 size = ImGui::GetContentRegionAvail();
             size_t i = 0;
@@ -454,12 +467,17 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     //////////////////
 
     if (ImGui::Begin("Track Editor")) {
+        // width allocated for the mute and solo controls
+        float btn_text_size = ImGui::CalcTextSize("M").x;
+        float controls_width = 5.0f + 2.0f * (btn_text_size + style.FramePadding.x * 2.0f) + style.ItemSpacing.x;
         // cell size including margin
-        const Vec2 CELL_SIZE = Vec2(ImGui::GetFrameHeightWithSpacing() * 1.1f, ImGui::GetFrameHeightWithSpacing() * 1.1f);
+        const Vec2 CELL_SIZE = Vec2(int(ImGui::GetFrameHeightWithSpacing() * 1.1f), int(ImGui::GetFrameHeightWithSpacing() * 1.1f));
         // empty space inbetween cells
         static const int CELL_MARGIN = 1;
         // space dedicated to channel properties
-        const float CHANNEL_COLUMN_WIDTH = ImGui::GetTextLineHeightWithSpacing() * 8.0f;
+        // the max characters allowed for a channel name is 16 characters
+        // so we test the width of 16 M's (the widest character in most fonts)
+        const float CHANNEL_COLUMN_WIDTH = ImGui::CalcTextSize("MMMMMMMMMMMMMMMM").x + controls_width + 5.0f;
 
         static int num_channels = song.channels.size();
         static int num_bars = song.length();
@@ -546,6 +564,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::PopClipRect();
 
         // draw channel info
+
         for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
             Vec2 row_start = Vec2(
                 viewport_scroll.x,
@@ -553,11 +572,15 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             );
             
             ImGui::SetCursorPos(row_start);
-            ImGui::AlignTextToFramePadding();
             ImGui::Text("%s", song.channels[ch]->name);
             
-            ImGui::SetCursorPos(row_start + Vec2(CHANNEL_COLUMN_WIDTH - 20.0f, 0.0f));
-            ImGui::Button("M###channel_mute");
+            ImGui::SetCursorPos(row_start + Vec2(
+                CHANNEL_COLUMN_WIDTH - controls_width,
+                0.0f)
+            );
+            ImGui::SmallButton("M");
+            ImGui::SameLine();
+            ImGui::SmallButton("S");
             //draw_list->AddText(row_start, vec4_color(style.Colors[ImGuiCol_Text]), song.channels[ch]->name);
         }
 
@@ -581,7 +604,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
 
         Vec2 canvas_size = ImGui::GetContentRegionAvail();
-        Vec2 offset = Vec2(canvas_size.x - (CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH), 0) / 2.0f;
+        Vec2 offset = Vec2(canvas_size.x - (CELL_SIZE.x * song.beats_per_bar + PIANO_KEY_WIDTH + style.ScrollbarSize), 0) / 2.0f;
 
         // min step
         static int selected_step = 0;
@@ -627,6 +650,18 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         ImGui::SameLine();
         ImGui::Text("Scale");
+        
+        // scale help
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 15.0f);
+            ImGui::Text("Right-click on a piano key to set the root of the scale.");
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+
+        // scale options
         ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 8.0f);
         ImGui::SameLine();
         if (ImGui::BeginCombo("##pattern_editor_scale", "Ionian (major)")) {

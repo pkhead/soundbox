@@ -50,7 +50,7 @@ void AnalyzerModule::_interface_proc() {
 		left_channel,
 		buf_size,
 		0,
-		nullptr,
+		"L",
 		-range,
 		range,
 		ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f)
@@ -62,7 +62,7 @@ void AnalyzerModule::_interface_proc() {
 		right_channel,
 		buf_size,
 		0,
-		nullptr,
+		"R",
 		-range,
 		range,
 		ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f)
