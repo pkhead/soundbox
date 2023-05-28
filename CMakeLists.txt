@@ -35,13 +35,14 @@ set(SOURCES
     src/audio.cpp
     src/ui.cpp
     src/sys.cpp
+    src/audiofile.cpp
 
     # modules
+    src/modules/create.cpp
     src/modules/waveform.cpp
     src/modules/volume.cpp
     src/modules/gain.cpp
-    src/modules/create.cpp
-    src/audiofile.cpp
+    src/modules/analyzer.cpp
 )
 
 include_directories(${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)

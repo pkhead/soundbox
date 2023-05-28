@@ -302,7 +302,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Name");
         ImGui::SameLine();
-        ImGui::InputText("##channel_name", cur_channel->name, 64);
+        ImGui::InputText("##channel_name", cur_channel->name, 16);
 
         // volume slider
         {
@@ -362,9 +362,21 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::Text("Effects");
         ImGui::SameLine();
         if (ImGui::Button("Add##effect_add")) {
-            audiomod::ModuleBase* mod = audiomod::create_module("effects.gain");
-            assert(mod != nullptr);
-            cur_channel->effects_rack.insert(mod);
+            ImGui::OpenPopup("add_effect");
+        }
+
+        if (ImGui::BeginPopup("add_effect")) {
+            if (ImGui::Selectable("Gain")) {
+                audiomod::ModuleBase* mod = audiomod::create_module("effects.gain");
+                cur_channel->effects_rack.insert(mod);
+            }
+
+            if (ImGui::Selectable("Analyzer")) {
+                audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer");
+                cur_channel->effects_rack.insert(mod);
+            }
+
+            ImGui::EndPopup();
         }
 
         { // effects list

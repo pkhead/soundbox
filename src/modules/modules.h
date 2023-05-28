@@ -68,4 +68,22 @@ namespace audiomod {
 
         GainModule();
     };
+
+    class AnalyzerModule : public ModuleBase {
+    protected:
+        void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
+        void _interface_proc() override;
+
+        // 0 = view samples
+        // 1 = view spectrogram
+        int mode = 0;
+
+        size_t buf_size = 0;
+        float* left_channel = nullptr;
+        float* right_channel = nullptr;
+
+    public:
+        AnalyzerModule();
+        ~AnalyzerModule();
+    };
 }

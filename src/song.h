@@ -40,7 +40,7 @@ public:
 
     int selected_effect = 0;
 
-    char name[32];
+    char name[16];
     std::vector<int> sequence;
     std::vector<Pattern*> patterns;
     

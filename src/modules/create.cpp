@@ -14,6 +14,7 @@ ModuleBase* audiomod::create_module(const std::string& mod_id) {
     // TODO: Slicer synth?
 
     // effects
+    MAP("effects.analyzer", AnalyzerModule);
     MAP("effects.volume", VolumeModule);
     MAP("effects.gain", GainModule);
     // TODO: equalizer
