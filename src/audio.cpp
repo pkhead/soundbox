@@ -331,11 +331,13 @@ size_t DestinationModule::process(float** output) {
 //////////////////////
 //   EFFECTS RACK   //
 //////////////////////
-EffectsRack::EffectsRack() : input(nullptr), output(nullptr)
+EffectsRack::EffectsRack() : output(nullptr)
 {}
 
 EffectsRack::~EffectsRack() {
-    if (input != nullptr) input->disconnect();
+    for (ModuleBase* input : inputs)
+        input->disconnect();
+    
     if (!modules.empty()) modules.back()->disconnect();
 
     for (ModuleBase* module : modules) {
@@ -351,22 +353,24 @@ void EffectsRack::insert(ModuleBase* module) {
 void EffectsRack::insert(ModuleBase* module, size_t position) {
     // if there is nothing in the effects rack, this is a simple operation
     if (modules.empty()) {
-        if (input != nullptr) {
+        for (ModuleBase* input : inputs)
+        {
             input->disconnect();
             input->connect(module);
         }
-
+        
         if (output != nullptr) {
             module->connect(output);
         } 
 
     // insertion at beginning
     } else if (position == 0) {
-        if (input != nullptr) {
+        for (ModuleBase* input : inputs)
+        {
             input->disconnect();
             input->connect(module);
         }
-
+        
         module->connect(modules[1]);
 
     // insertion at end
@@ -398,12 +402,14 @@ ModuleBase* EffectsRack::remove(size_t position) {
 
     // if there is only one item in the rack
     if (modules.size() == 1) {
-        if (input != nullptr) input->connect(output);
-    
+        for (ModuleBase* input : inputs)
+            input->connect(output);
+        
     // remove the first module
     } else if (position == 0) {
-        if (input != nullptr) input->connect(modules[1]);
-    
+        for (ModuleBase* input : inputs)
+            input->connect(modules[1]);
+        
     // remove the last module
     } else if (position == modules.size() - 1) {
         if (output != nullptr) modules[modules.size() - 2]->connect(output);
@@ -423,15 +429,17 @@ ModuleBase* EffectsRack::remove(size_t position) {
     return target_module;
 }
 
-ModuleBase* EffectsRack::disconnect_input() {
-    ModuleBase* old_input = input;
-    
-    if (input != nullptr) {
-        input->disconnect();
-        input = nullptr;
+bool EffectsRack::disconnect_input(ModuleBase* input) {
+    for (auto it = inputs.begin(); it != inputs.end(); it++)
+    {
+        if (*it == input)
+        {
+            inputs.erase(it);
+            return true;
+        }
     }
 
-    return old_input;
+    return false;
 }
 
 ModuleOutputTarget* EffectsRack::disconnect_output()
@@ -442,28 +450,25 @@ ModuleOutputTarget* EffectsRack::disconnect_output()
     {
         if (modules.empty())
         {
-            if (input)  input->disconnect();
+            for (ModuleBase* input : inputs)
+                input->disconnect();
         }
-        else            modules.back()->disconnect();
+        else modules.back()->disconnect();
     }
 
     output = nullptr;
     return old_output;
 }
 
-ModuleBase* EffectsRack::connect_input(ModuleBase* new_input) {
-    ModuleBase* old_input = disconnect_input();
-    input = new_input;
-
-    if (input != nullptr) {
-        if (modules.empty()) {
-            if (output != nullptr) input->connect(output);
-        } else {
-            input->connect(modules.front());
-        }
+void EffectsRack::connect_input(ModuleBase* new_input) {
+    if (modules.empty()) {
+        if (output != nullptr)   
+            new_input->connect(output);
+    } else {
+        new_input->connect(modules.front());
     }
-
-    return old_input;
+    
+    inputs.push_back(new_input);
 }
 
 ModuleOutputTarget* EffectsRack::connect_output(ModuleOutputTarget* new_output) {
@@ -472,11 +477,21 @@ ModuleOutputTarget* EffectsRack::connect_output(ModuleOutputTarget* new_output) 
 
     if (output != nullptr) {
         if (modules.empty()) {
-            if (input != nullptr) input->connect(output);
+            for (ModuleBase* input : inputs)
+                input->connect(output);
+            
         } else {
             modules.back()->connect(output);
         }
     }
     
     return old_output;
+}
+
+void EffectsRack::disconnect_all_inputs()
+{
+    for (ModuleBase* input : inputs)
+    {
+        input->disconnect();
+    }
 }

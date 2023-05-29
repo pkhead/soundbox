@@ -36,9 +36,6 @@ Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget
     effects_rack.connect_input(synth_mod);
     effects_rack.connect_output(&vol_mod);
     vol_mod.connect(&audio_out);
-    //synth_mod->connect(&vol_mod);
-    //effects_rack.connect_input(&vol_mod);
-    //effects_rack.connect_output(&audio_out);
 }
 
 Channel::~Channel() {
@@ -46,14 +43,14 @@ Channel::~Channel() {
         delete pattern;
     }
 
-    effects_rack.disconnect_input();
+    effects_rack.disconnect_all_inputs();
     effects_rack.disconnect_output();
 
     delete synth_mod;
 }
 
 void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
-    effects_rack.disconnect_input();
+    effects_rack.disconnect_input(synth_mod);
     if (synth_mod != nullptr) delete synth_mod;
     
     synth_mod = new_instrument;

@@ -136,9 +136,10 @@ namespace audiomod {
     * A module which holds a doubly-linked list of other modules,
     * grouped together as a single unit.
     **/
-    class EffectsRack {
+    class EffectsRack
+    {
     protected:
-        ModuleBase* input;
+        std::vector<ModuleBase*> inputs;
         ModuleOutputTarget* output;
 
     public:
@@ -153,9 +154,8 @@ namespace audiomod {
 
         /**
         * Connect a module to the effects rack
-        * @returns The previous input module
         */
-        ModuleBase* connect_input(ModuleBase* input);
+        void connect_input(ModuleBase* input);
 
         /**
         * Connect the effects rack to a module
@@ -165,9 +165,9 @@ namespace audiomod {
 
         /**
         * Disconnect the input from effects rack
-        * @returns A pointer to the now disconnected input module
         */
-        ModuleBase* disconnect_input();
+        bool disconnect_input(ModuleBase* input);
+        void disconnect_all_inputs();
 
         /**
         * Disconnect the effects rack to its output
