@@ -115,7 +115,7 @@ int main()
     std::function<void()> unsaved_work_callback;
 
     {
-        const size_t BUFFER_SIZE = 256;
+        const size_t BUFFER_SIZE = 128;
 
         AudioDevice device(soundio, -1);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
@@ -191,33 +191,9 @@ int main()
                 song_mutex.lock();
                 delete song;
                 song = new Song(4, 8, 8, destination);
+                ui_init(*song, user_actions);
                 song_mutex.unlock();
             };
-        });
-
-        // song play/pause
-        user_actions.set_callback("song_play_pause", [&song]() {
-            song->is_playing = !song->is_playing;
-        });
-
-        // song next bar
-        user_actions.set_callback("song_next_bar", [&song]() {
-            song->bar_position++;
-            song->position += song->beats_per_bar;
-
-            // wrap around
-            if (song->bar_position >= song->length()) song->bar_position -= song->length();
-            if (song->position >= song->length() * song->beats_per_bar) song->position -= song->length() * song->beats_per_bar;
-        });
-
-        // song previous bar
-        user_actions.set_callback("song_prev_bar", [&song]() {
-            song->bar_position--;
-            song->position -= song->beats_per_bar;
-
-            // wrap around
-            if (song->bar_position < 0) song->bar_position += song->length();
-            if (song->position < 0) song->position += song->length() * song->beats_per_bar;
         });
 
         // song save as
@@ -252,6 +228,7 @@ int main()
 
                         delete song;
                         song = new_song;
+                        ui_init(*song, user_actions);
 
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
@@ -270,32 +247,13 @@ int main()
             }
         });
 
-        // copy+paste
-        // TODO use system clipboard
-        user_actions.set_callback("copy", [&]() {
-            Channel* channel = song->channels[song->selected_channel];
-            int pattern_id = channel->sequence[song->selected_bar];
-            if (pattern_id > 0) {
-                Pattern* pattern = channel->patterns[pattern_id - 1];
-                song->note_clipboard = pattern->notes;
-            }
-        });
-
-        user_actions.set_callback("paste", [&]() {
-            if (!song->note_clipboard.empty()) {
-                Channel* channel = song->channels[song->selected_channel];
-                int pattern_id = channel->sequence[song->selected_bar];
-                if (pattern_id > 0) {
-                    Pattern* pattern = channel->patterns[pattern_id - 1];
-                    pattern->notes = song->note_clipboard;
-                }
-            }
-        });
-
         // application quit
         user_actions.set_callback("quit", [&window]() {
             glfwSetWindowShouldClose(window, 1);
         });
+
+        // actions that don't require window management/io are defined in ui.cpp
+        ui_init(*song, user_actions);
 
         int pattern_input = 0;
         

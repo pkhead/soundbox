@@ -152,6 +152,38 @@ void Song::stop() {
 
 void Song::update(double elapsed) {
     if (is_playing) {
+        // first check if any channels are solo'd
+        bool solo_mode = false;
+
+        for (Channel* channel : channels)
+        {
+            if (channel->solo)
+            {
+                solo_mode = true;
+                break;
+            }
+        }
+
+        // if a channel is solo'd, then mute all but the channels that are solo'd
+        if (solo_mode)
+        {
+            for (Channel* channel : channels)
+            {
+                channel->vol_mod.mute_override = !channel->solo;
+            }
+        }
+        
+        // no channels are solo'd
+        else {
+            for (Channel* channel : channels)
+            {
+                channel->vol_mod.mute_override = false;
+            }
+        }
+
+        // the method for soloing is probably like, the least efficient method possible
+        // But it doesn't matter until the user creates 10,000 channels
+
         // get notes at playhead
         float pos_in_bar = fmod(position, (double)beats_per_bar);
         cur_notes.clear();

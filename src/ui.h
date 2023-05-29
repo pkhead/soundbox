@@ -43,4 +43,5 @@ struct UserActionList {
 
 extern bool show_demo_window;
 
+void ui_init(Song& song, UserActionList& actions);
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& actions);

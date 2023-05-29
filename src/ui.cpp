@@ -110,6 +110,9 @@ UserActionList::UserActionList() {
 #endif
     add_action("copy", USERMOD_CTRL, ImGuiKey_C);
     add_action("paste", USERMOD_CTRL, ImGuiKey_V);
+
+    add_action("mute_channel", USERMOD_CTRL, ImGuiKey_M);
+    add_action("solo_channel", USERMOD_ALT, ImGuiKey_M);
 }
 
 void UserActionList::add_action(const std::string& action_name, uint8_t mod, ImGuiKey key) {
@@ -171,6 +174,65 @@ const char* UserActionList::combo_str(const std::string& action_name) const {
 
 
 bool show_demo_window;
+
+void ui_init(Song& song, UserActionList& user_actions) {
+    // copy+paste
+    // TODO use system clipboard
+    user_actions.set_callback("copy", [&]() {
+        Channel* channel = song.channels[song.selected_channel];
+        int pattern_id = channel->sequence[song.selected_bar];
+        if (pattern_id > 0) {
+            Pattern* pattern = channel->patterns[pattern_id - 1];
+            song.note_clipboard = pattern->notes;
+        }
+    });
+
+    user_actions.set_callback("paste", [&]() {
+        if (!song.note_clipboard.empty()) {
+            Channel* channel = song.channels[song.selected_channel];
+            int pattern_id = channel->sequence[song.selected_bar];
+            if (pattern_id > 0) {
+                Pattern* pattern = channel->patterns[pattern_id - 1];
+                pattern->notes = song.note_clipboard;
+            }
+        }
+    });
+
+    // song play/pause
+    user_actions.set_callback("song_play_pause", [&song]() {
+        song.is_playing = !song.is_playing;
+    });
+
+    // song next bar
+    user_actions.set_callback("song_next_bar", [&song]() {
+        song.bar_position++;
+        song.position += song.beats_per_bar;
+
+        // wrap around
+        if (song.bar_position >= song.length()) song.bar_position -= song.length();
+        if (song.position >= song.length() * song.beats_per_bar) song.position -= song.length() * song.beats_per_bar;
+    });
+
+    // song previous bar
+    user_actions.set_callback("song_prev_bar", [&song]() {
+        song.bar_position--;
+        song.position -= song.beats_per_bar;
+
+        // wrap around
+        if (song.bar_position < 0) song.bar_position += song.length();
+        if (song.position < 0) song.position += song.length() * song.beats_per_bar;
+    });
+
+    user_actions.set_callback("mute_channel", [&song]() {
+        Channel* ch = song.channels[song.selected_channel];
+        ch->vol_mod.mute = !ch->vol_mod.mute;
+    });
+
+    user_actions.set_callback("solo_channel", [&song]() {
+        Channel* ch = song.channels[song.selected_channel];
+        ch->solo = !ch->solo;
+    });
+}
 
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -573,12 +635,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             disabled_btn_colors[i].w *= 0.5f;
         }
 
-        // mute keybind
-        if (ImGui::IsKeyPressed(ImGuiKey_M, false)) {
-            Channel* ch = song.channels[song.selected_channel];
-            ch->vol_mod.mute = !ch->vol_mod.mute;
-        }
-
         // draw channel info
         for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
             ImGui::PushID(ch);
@@ -622,7 +678,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             }
 
             // solo button
-            ImGui::SmallButton("S");
+            if (ImGui::SmallButton("S")) {
+                ch_dat->solo = !ch_dat->solo;
+            }
 
             if (!enable_solo) ImGui::PopStyleColor(3);
             
