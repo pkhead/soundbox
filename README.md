@@ -27,12 +27,43 @@ make
 ```
 
 ### Windows (Visual Studio GUI)
-Make sure the C++ and CMake Tools components have been installed through the Visual Studio Installer.
-It will automatically configure CMake once this project is opened.
+Make sure the C++ and CMake Tools components have been installed through the Visual Studio installer.
+It will automatically configure CMake once the folder is opened through Visual Studio.
 
 Select `soundbox.exe` as the startup item.
 
-## Credits
+### Windows (VS Native Build Tools Command Prompt)
+Using the Ninja build system (check if it's installed):
+```batch
+Rem initialize repository
+git clone https://github.com/pkhead/soundbox
+cd soundbox
+git submodule init
+git submodule update
+
+Rem build the project using Ninja
+mkdir build && cd build
+cmake -GNinja ..
+ninja
+
+Rem run the program
+soundbox.exe
+```
+Using NMake:
+```batch
+Rem initialize repository, see above...
+
+Rem build the project using NMake
+mkdir build && cd build
+cmake -G "NMake Makefiles" ..
+nmake
+
+Rem run the program
+soundbox.exe
+```
+
+
+## Thanks to
 - [libsoundio](https://libsound.io) for the audio library
 - [GLFW](https://www.glfw.org/) for the graphics backend
-- Heavily influenced by [John Nesky](http://www.johnnesky.com/)'s [BeepBox](https://www.beepbox.co)
+- [John Nesky](http://www.johnnesky.com/)'s [BeepBox](https://www.beepbox.co)
