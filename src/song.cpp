@@ -21,7 +21,7 @@ inline bool Pattern::is_empty() const {
 /*************************
 *        CHANNEL         *
 *************************/
-Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out) {
+Channel::Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*>& fx_mixer) : fx_mixer(fx_mixer) {
     strcpy(name, "Channel");
     
     for (int i = 0; i < song_length; i++) {
@@ -35,7 +35,7 @@ Channel::Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget
     synth_mod = new audiomod::WaveformSynth();
     effects_rack.connect_input(synth_mod);
     effects_rack.connect_output(&vol_mod);
-    vol_mod.connect(&audio_out);
+    fx_mixer[0]->connect_input(&vol_mod);
 }
 
 Channel::~Channel() {
@@ -64,9 +64,13 @@ void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
 
 Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), _length(length), _max_patterns(max_patterns) {
     strcpy(name, "Untitled");
+
+    audiomod::FXBus* master_bus = new audiomod::FXBus();
+    master_bus->connect_output(&audio_out);
+    fx_mixer.push_back(master_bus);
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
-        Channel* ch = new Channel(_length, _max_patterns, audio_out);
+        Channel* ch = new Channel(_length, _max_patterns, fx_mixer);
         snprintf(ch->name, 32, "Channel %i", ch_i + 1);
         channels.push_back(ch);
     }
@@ -75,6 +79,11 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
 Song::~Song() {
     for (Channel* channel : channels) {
         delete channel;
+    }
+
+    for (audiomod::FXBus* bus : fx_mixer)
+    {
+        delete bus;
     }
 }
 
@@ -158,7 +167,7 @@ Channel* Song::insert_channel(int channel_id)
 {
     mutex.lock();
 
-    Channel* new_channel = new Channel(_length, _max_patterns, audio_out);
+    Channel* new_channel = new Channel(_length, _max_patterns, fx_mixer);
     snprintf(new_channel->name, 16, "Channel %i", (int) channels.size() + 1);
     channels.insert(channels.begin() + channel_id, new_channel);
 

@@ -97,7 +97,7 @@ namespace audiomod {
         // disconnect inputs and outputs
         void remove_all_connections();
 
-        inline ModuleOutputTarget* get_output() const;
+        inline ModuleOutputTarget* get_output() const { return _output; };
 
         // does this module have an interface?
         bool has_interface() const;
@@ -173,6 +173,47 @@ namespace audiomod {
         * Disconnect the effects rack to its output
         * @returns A pointer to the now disconnected output module
         */
+        ModuleOutputTarget* disconnect_output();
+    };
+
+
+    class FXBus
+    {
+    private:
+        EffectsRack rack;
+    public:
+        FXBus();
+
+        class ControllerModule : public ModuleBase
+        {
+        protected:
+            void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
+            
+        public:
+            float analysis_volume[2] = {0.0f, 0.0f};
+            float gain = 0.0f;
+            bool mute;
+
+            ControllerModule();
+        } controller;
+
+        inline const std::vector<ModuleBase*> get_modules() const
+        {
+            return rack.modules;
+        };
+
+        inline void insert(ModuleBase* module, size_t position) { rack.insert(module, position); };
+        inline void insert(ModuleBase* module) { rack.insert(module); };
+        inline ModuleBase* remove(size_t position) { return rack.remove(position); };
+        
+        // wrap around EffectsRack methods, because
+        // EffectsRack's output should always be the controller module
+        inline void connect_input(ModuleBase* input) { rack.connect_input(input); };
+        inline bool disconnect_input(ModuleBase* input) { return rack.disconnect_input(input); };
+        inline void disconnect_all_inputs() { rack.disconnect_all_inputs(); };
+
+        // these implementations aren't one-liners so maybe inlining isn't a good idea
+        ModuleOutputTarget* connect_output(ModuleOutputTarget* output);
         ModuleOutputTarget* disconnect_output();
     };
 

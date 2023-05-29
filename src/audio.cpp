@@ -227,10 +227,6 @@ void ModuleBase::remove_all_connections() {
     _inputs.clear();
 }
 
-inline ModuleOutputTarget* ModuleBase::get_output() const {
-    return _output;
-}
-
 float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {
     if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
@@ -493,5 +489,82 @@ void EffectsRack::disconnect_all_inputs()
     for (ModuleBase* input : inputs)
     {
         input->disconnect();
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////
+//   EFFECTS BUS    //
+//////////////////////
+FXBus::FXBus()
+{
+    rack.connect_output(&controller);
+}
+
+ModuleOutputTarget* FXBus::connect_output(ModuleOutputTarget* output)
+{
+    ModuleOutputTarget* old_output = controller.get_output();
+    controller.disconnect();
+    controller.connect(output);
+    return old_output; 
+}
+
+ModuleOutputTarget* FXBus::disconnect_output()
+{
+    ModuleOutputTarget* old_output = controller.get_output();
+    controller.disconnect();
+    return old_output;
+}
+
+FXBus::ControllerModule::ControllerModule() : ModuleBase(false) { }
+
+void FXBus::ControllerModule::process(
+    float** inputs,
+    float* output,
+    size_t num_inputs,
+    size_t buffer_size,
+    int sample_rate,
+    int channel_count
+)
+{
+    for (size_t i = 0; i < buffer_size; i++)
+        output[i] = 0.0f;
+
+    analysis_volume[0] = 0.0f;
+    analysis_volume[1] = 0.0f;
+
+    if (num_inputs == 0) return;
+
+    if (!mute)
+    {
+        float factor = powf(10.0f, gain / 10.0f);
+
+        for (size_t i = 0; i < buffer_size; i += 2)
+        {
+            for (size_t j = 0; j < num_inputs; j++)
+            {
+                output[i] += inputs[j][i] * factor;
+                output[i + 1] += inputs[j][i + 1] * factor;
+
+                analysis_volume[0] += inputs[j][i] * factor;
+                analysis_volume[1] += inputs[j][i + 1] * factor;
+            }
+        }
+
+        analysis_volume[0] /= ((float)buffer_size / 2);
+        analysis_volume[1] /= ((float)buffer_size / 2);
     }
 }

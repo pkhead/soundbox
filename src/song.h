@@ -28,11 +28,11 @@ struct Pattern {
 
 class Channel {
 private:
-    audiomod::ModuleOutputTarget& audio_out;
+    std::vector<audiomod::FXBus*>& fx_mixer;
 
 public:
     Channel(const Channel&) = delete; // prevent copy
-    Channel(int song_length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
+    Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*>& fx_mixer);
     ~Channel();
 
     audiomod::VolumeModule vol_mod;
@@ -78,6 +78,8 @@ public:
     int selected_channel = 0;
     int selected_bar = 0;
 
+    std::vector<audiomod::FXBus*> fx_mixer;
+
     std::vector<Note> note_clipboard;
 
     int beats_per_bar = 8;
@@ -110,7 +112,7 @@ public:
 
     void insert_bar(int bar_position);
     void remove_bar(int bar_position);
-    
+
     Channel* insert_channel(int channel_index);
     void remove_channel(int channel_index);
 
