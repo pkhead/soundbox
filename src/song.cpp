@@ -189,6 +189,7 @@ void Song::play() {
     is_playing = true;
     position = bar_position * beats_per_bar;
 
+    cur_notes.clear();
     prev_notes.clear();
 }
 
@@ -252,10 +253,11 @@ void Song::update(double elapsed) {
                 Pattern* pattern = channel->patterns[pattern_index];
 
                 for (Note& note : pattern->notes) {
-                    if (pos_in_bar > note.time && pos_in_bar < note.time + note.length) cur_notes.push_back({
-                        channel_i,
-                        note
-                    });
+                    if (pos_in_bar > note.time && pos_in_bar < note.time + note.length)    
+                        cur_notes.push_back({
+                            channel_i,
+                            note
+                        });
                 }
             }
 

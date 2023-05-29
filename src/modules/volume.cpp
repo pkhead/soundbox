@@ -49,51 +49,31 @@ void VolumeModule::process(float** inputs, float* output, size_t num_inputs, siz
     }
 }
 
-struct VolumeModuleState_v1 {
-    float volume, panning;
-};
-
-struct VolumeModuleState_v2 {
+struct VolumeModuleState {
     float volume, panning;
     uint8_t mute;
 };
 
 size_t VolumeModule::save_state(void** output) const {
-    VolumeModuleState_v2* state = new VolumeModuleState_v2;
+    VolumeModuleState* state = new VolumeModuleState;
 
     state->volume = swap_little_endian(volume);
     state->panning = swap_little_endian(panning);
     state->mute = mute;
 
     *output = state;
-    return sizeof(VolumeModuleState_v2);
+    return sizeof(VolumeModuleState);
 }
 
-bool VolumeModule::load_state(void* state_ptr, size_t size) {
-    //if (size != sizeof(VolumeModuleState)) return false;
-    switch (size) {
-        case(sizeof(VolumeModuleState_v1)): {
-            VolumeModuleState_v1* state = (VolumeModuleState_v1*)state_ptr;
-            
-            volume = swap_little_endian(state->volume);
-            panning = swap_little_endian(state->panning);
-            mute = false;
-
-            break;
-        }
-
-        case (sizeof(VolumeModuleState_v2)): {
-            VolumeModuleState_v2* state = (VolumeModuleState_v2*)state_ptr;
-            
-            volume = swap_little_endian(state->volume);
-            panning = swap_little_endian(state->panning);
-            mute = state->mute;
-
-            break;
-        }
-
-        default: return false;
-    }
-
+bool VolumeModule::load_state(void* state_ptr, size_t size)
+{
+    if (size != sizeof(VolumeModuleState)) return false;
+    
+    VolumeModuleState* state = (VolumeModuleState*)state_ptr;
+    
+    volume = swap_little_endian(state->volume);
+    panning = swap_little_endian(state->panning);
+    mute = state->mute;
+    
     return true;
 }
