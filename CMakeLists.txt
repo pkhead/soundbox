@@ -8,12 +8,20 @@ set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build libsoundio static libraries" FORCE)
 set(BUILD_EXAMPLE_PROGRAMS OFF CACHE BOOL "Build libsoundio example programs" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "Build libsoundio test programs" FORCE)
 
+# send these options to glfw
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
 add_subdirectory(libsoundio)
 add_subdirectory(glfw)
 
 mark_as_advanced(BUILD_STATIC_LIBS)
 mark_as_advanced(BUILD_EXAMPLE_PROGRAMS)
 mark_as_advanced(BUILD_TESTS)
+mark_as_advanced(GLFW_BUILD_DOCS)
+mark_as_advanced(GLFW_BUILD_TESTS)
+mark_as_advanced(GLFW_BUILD_EXAMPLES)
 
 set(SOURCES
     imgui/imgui_demo.cpp
@@ -97,3 +105,4 @@ else()
 endif()
 
 file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/imgui.ini DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
