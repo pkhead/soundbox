@@ -79,9 +79,15 @@ int main()
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    io.Fonts->AddFontFromFileTTF("fonts/ProggyClean.ttf", 13.0f * screen_yscale);
-    io.Fonts->AddFontFromFileTTF("fonts/Inconsolata-Regular.ttf", 13.0f * screen_yscale);
+    ImFont* font_proggy = io.Fonts->AddFontFromFileTTF("fonts/ProggyClean.ttf", 13.0f * screen_yscale);
+    ImFont* font_inconsolata = io.Fonts->AddFontFromFileTTF("fonts/Inconsolata-Regular.ttf", 13.0f * screen_yscale);
     ImGui::GetStyle().ScaleAllSizes(screen_yscale);
+
+    // on high dpi monitors, proggy doesn't display nicely
+    // so set the default font to inconsolata on such a monitor
+    // (probably a weird decision to do this, but i like the proggy font)
+    if (screen_yscale == 1.0f)  io.FontDefault = font_proggy;
+    else                        io.FontDefault = font_inconsolata;
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);

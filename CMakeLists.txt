@@ -40,6 +40,8 @@ set(SOURCES
     src/ui.cpp
     src/sys.cpp
     src/audiofile.cpp
+    src/pattern_editor.cpp
+    src/track_editor.cpp
 
     # modules
     src/modules/create.cpp
