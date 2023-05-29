@@ -14,36 +14,32 @@ Prerequisites:
 - Visual Studio (Windows)
 - Make (Linux)
 
-On Windows, open "x64 Native Tools Command Prompt for Visual Studio" or "x86 Native Tools Command Prompt For Visual Studio", and `cd` to the project directory.
+First, make sure you have GLFW3 installed. If it's not installed in a standard library/header path,
+then you can tell CMake to look at the needed directories by passing in `-DCMAKE_PREFIX_PATH=/path/to/glfw3`.
 
-First, build libsoundio:
+### GNU/Linux
 ```bash
-cd libsoundio
+# initialize repository
+git clone https://github.com/pkhead/soundbox
+cd soundbox
+git submodule init
+git submodule update
+
+# build the project
 mkdir build && cd build
-
-# GNU/Linux
-cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC_LIBS=off ..
-make
-
-# Windows
-cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC_LIBS=off -G "NMake Makefiles" ..
-nmake
-```
-
-Then you can build soundbox:
-```bash
-mkdir build
-cd build
 cmake ..
-
-# Linux
 make
 
-# Windows
-msbuild soundbox.sln /property:Configuration=Debug
+# run the program
+./soundbox
 ```
-Then, to run the application, run `build/soundbox` on GNU/Linux or `build/Debug/soundbox.exe` on Windows.
+
+### Windows (Visual Studio GUI)
+Assuming CMake is installed for Visual Studio, it will auto-configure once the folder is opened.
+
+If GLFW is not installed on a standard search path, you can tell CMake to look for by adding
+`-DCMAKE_PREFIX_PATH=C:\path\to\glfw3` in the project's CMakeSettings.json
 
 ## Credits
 - [libsoundio](https://libsound.io) for the audio library
-- Heavily influenced from [John Nesky](http://www.johnnesky.com/)'s [BeepBox](https://www.beepbox.co)
+- Heavily influenced by [John Nesky](http://www.johnnesky.com/)'s [BeepBox](https://www.beepbox.co)
