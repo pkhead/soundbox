@@ -55,14 +55,20 @@ set(SOURCES
 
 include_directories(${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)
 
+# Windows
 if (WIN32)
     # append platform-specific files for nativefiledialog sources
     set(SOURCES ${SOURCES}
         nativefiledialog/src/nfd_win.cpp
     )
 
-    add_executable(soundbox ${SOURCES})
-    # target_include_directories(soundbox PUBLIC ${INCLUDE})
+    if (CMAKE_BUILD_TYPE MATCHES Debug)
+      add_executable(soundbox ${SOURCES})
+    else()
+        # if not making a debug build, remove the console window
+        add_executable(soundbox WIN32 ${SOURCES})
+        target_compile_definitions(soundbox PUBLIC USE_WIN32_MAIN)
+    endif()
 
     find_package(OpenGL REQUIRED)
 
@@ -70,9 +76,15 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    file(COPY ${CMAKE_SOURCE_DIR}/libsoundio/build/soundio.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_directories(soundbox PUBLIC build)
-    target_link_libraries(soundbox comctl32.lib ${GLFW3_LIB} ${OPENGL_LIBRARIES} ${CMAKE_SOURCE_DIR}/libsoundio/build/soundio.lib)
+    target_link_libraries(soundbox comctl32.lib ${GLFW3_LIB} ${OPENGL_LIBRARIES} libsoundio_shared)
+
+    add_custom_command(TARGET soundbox POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_BINARY_DIR}/libsoundio/soundio.dll"
+            $<TARGET_FILE_DIR:soundbox>
+    )
+
+# Linux
 else()
     # append platform-specific files for nativefiledialog sources
     set(SOURCES ${SOURCES}
@@ -94,3 +106,5 @@ else()
 
     target_link_libraries(soundbox glfw3 ${OPENGL_LIBRARIES} ${X11_LIBRARIES} libsoundio_shared)
 endif()
+
+file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

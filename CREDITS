@@ -41,8 +41,3 @@ freely, subject to the following restrictions:
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 -- Native File Dialog LICENSE END --
-
-I, pkhead, have created some slight alterations to the source code of
-Native File Dialog, which allows creating a dialog with a default file
-name. I have also changed the Visual Studio 2010 solution to a Visual
-Studio 2022 solution.

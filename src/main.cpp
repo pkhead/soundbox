@@ -28,6 +28,14 @@ static void glfw_error_callback(int error, const char *description)
     std::cerr << "GLFW error " << error << ": " << description << "\n";
 }
 
+#ifdef USE_WIN32_MAIN
+int main();
+
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow) {
+    return main();
+}
+#endif
+
 
 int main()
 {
@@ -55,17 +63,25 @@ int main()
 
     // create window w/ graphics context
     glfwWindowHint(GLFW_VISIBLE, 0); // hide first, show later when everything is ready
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, 1);
     GLFWwindow *window = glfwCreateWindow(1280, 720, "soundbox", nullptr, nullptr);
     if (window == nullptr)
         return 1;
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // enable vsync
 
+    float screen_xscale, screen_yscale;
+    glfwGetWindowContentScale(window, &screen_xscale, &screen_yscale);
+
     // setup dear imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    io.Fonts->AddFontFromFileTTF("fonts/ProggyClean.ttf", 13.0f * screen_yscale);
+    io.Fonts->AddFontFromFileTTF("fonts/Inconsolata-Regular.ttf", 13.0f * screen_yscale);
+    ImGui::GetStyle().ScaleAllSizes(screen_yscale);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
@@ -728,12 +744,13 @@ int main()
             
             ImGui::Render();
 
+            glfwSwapBuffers(window);
+
             glViewport(0, 0, display_w, display_h);
             glClearColor(0.5, 0.7, 0.4, 1.0);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-            glfwSwapBuffers(window);
 
             prev_time = glfwGetTime();
 
@@ -747,7 +764,6 @@ int main()
         }
 
         audio_thread.join();
-        song_mutex.unlock();
 
         delete song;
     }
