@@ -1,11 +1,10 @@
 # Visual Studio files
 /.vscode
 /.vs
-/CMakeSettings.json
 
 # clangd cache
 /.cache
 
-# build directories (prefer build)
+# build directories
 /build
 /out

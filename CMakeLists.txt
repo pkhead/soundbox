@@ -9,23 +9,11 @@ set(BUILD_EXAMPLE_PROGRAMS OFF CACHE BOOL "Build libsoundio example programs" FO
 set(BUILD_TESTS OFF CACHE BOOL "Build libsoundio test programs" FORCE)
 
 add_subdirectory(libsoundio)
+add_subdirectory(glfw)
 
-mark_as_advanced(GLFW3_LIB)
-mark_as_advanced(GLFW3_INCLUDE)
 mark_as_advanced(BUILD_STATIC_LIBS)
 mark_as_advanced(BUILD_EXAMPLE_PROGRAMS)
 mark_as_advanced(BUILD_TESTS)
-
-find_library(GLFW3_LIB NAMES glfw3)
-find_path(GLFW3_INCLUDE NAMES GLFW/glfw3.h)
-
-if (NOT GLFW3_LIB)
-    message(FATAL_ERROR "Could not find library glfw3")
-endif()
-
-if (NOT GLFW3_INCLUDE)
-    message(FATAL_ERROR "Could not find GLFW/glfw3.h")
-endif()
 
 set(SOURCES
     imgui/imgui_demo.cpp
@@ -53,7 +41,7 @@ set(SOURCES
     src/modules/analyzer.cpp
 )
 
-include_directories(${GLFW3_INCLUDE} imgui libsoundio/soundio nativefiledialog/src/include)
+include_directories(glfw/include imgui libsoundio/soundio nativefiledialog/src/include)
 
 # Windows
 if (WIN32)
@@ -76,8 +64,9 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    target_link_libraries(soundbox comctl32.lib ${GLFW3_LIB} ${OPENGL_LIBRARIES} libsoundio_shared)
+    target_link_libraries(soundbox glfw comctl32.lib ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} libsoundio_shared)
 
+    # copy soundio.dll to the binary directory
     add_custom_command(TARGET soundbox POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_BINARY_DIR}/libsoundio/soundio.dll"
@@ -104,7 +93,7 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    target_link_libraries(soundbox glfw3 ${OPENGL_LIBRARIES} ${X11_LIBRARIES} libsoundio_shared)
+    target_link_libraries(soundbox glfw ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} libsoundio_shared)
 endif()
 
 file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
