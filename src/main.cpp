@@ -487,13 +487,14 @@ int main()
                         
                         // check if all required modifiers are pressed or not pressed
                         if (
-                            action.modifiers == 0 ||
                             (ImGui::IsKeyDown(ImGuiMod_Ctrl) == ((action.modifiers & USERMOD_CTRL) != 0) &&
                             ImGui::IsKeyDown(ImGuiMod_Shift) == ((action.modifiers & USERMOD_SHIFT) != 0) &&
                             ImGui::IsKeyDown(ImGuiMod_Alt) == ((action.modifiers & USERMOD_ALT) != 0))
                         ) {
-                            std::cout << action.name << "\n";
-                            action.callback();
+                            if (action.callback)
+                                action.callback();
+                            else
+                                std::cout << "no callback set for " << action.name << "\n";                    
                         }
                     }
                 }

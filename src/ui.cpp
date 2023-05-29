@@ -60,9 +60,12 @@ UserActionList::UserActionList() {
 
     add_action("new_channel", USERMOD_CTRL, ImGuiKey_Enter, true);
     add_action("remove_channel", USERMOD_CTRL, ImGuiKey_Backspace, true);
+    add_action("insert_bar", 0, ImGuiKey_Enter, true);
+    add_action("insert_bar_before", USERMOD_SHIFT, ImGuiKey_Enter, true);
+    add_action("remove_bar", 0, ImGuiKey_Backspace);
 
     add_action("mute_channel", USERMOD_CTRL, ImGuiKey_M);
-    add_action("solo_channel", USERMOD_ALT, ImGuiKey_M);
+    add_action("solo_channel", USERMOD_SHIFT, ImGuiKey_M);
 }
 
 void UserActionList::add_action(const std::string& action_name, uint8_t mod, ImGuiKey key, bool repeat) {
@@ -199,6 +202,26 @@ void ui_init(Song& song, UserActionList& user_actions) {
             if (song.selected_channel > 0) song.selected_channel--;
         }
     });
+
+    // insert bar
+    user_actions.set_callback("insert_bar", [&song]() {
+        song.selected_bar++;
+        song.insert_bar(song.selected_bar);
+    });
+
+    // insert bar before
+    user_actions.set_callback("insert_bar_before", [&song]() {
+        song.insert_bar(song.selected_bar);
+    });
+
+    // delete bar
+    user_actions.set_callback("remove_bar", [&song]() {
+        if (song.length() > 1)
+        {
+            song.remove_bar(song.selected_bar);
+            if (song.selected_bar > 0) song.selected_bar--;
+        }
+    });
 }
 
 
@@ -272,7 +295,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::Separator();
 
             MENU_ITEM("Insert Bar", "insert_bar");
-            MENU_ITEM("Delete Bar", "delete_bar");
+            MENU_ITEM("Insert Bar Before", "insert_bar_before");
+            MENU_ITEM("Delete Bar", "remove_bar");
             MENU_ITEM("New Channel", "new_channel");
             MENU_ITEM("Delete Channel", "remove_channel");
             MENU_ITEM("Duplicate Reused Patterns", "duplicate_patterns");

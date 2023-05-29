@@ -60,6 +60,11 @@ void render_track_editor(ImGuiIO &io, Song &song)
             Vec2 cursor_pos = Vec2(cursor_x * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, cursor_y * CELL_SIZE.y);
             Vec2 window_scroll = last_viewport_scroll;
 
+            if (cursor_x >= col_end)
+                window_scroll.x = cursor_pos.x + CELL_SIZE.x - last_canvas_size.x;
+            else if (cursor_x <= col_start)
+                window_scroll.x = cursor_pos.x - CHANNEL_COLUMN_WIDTH;
+
             if (cursor_y >= row_end)
                 window_scroll.y = cursor_pos.y + CELL_SIZE.y - last_canvas_size.y;
             else if (cursor_y <= row_start)
@@ -75,7 +80,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
 
         ImGui::BeginChild("###track_editor_area", Vec2(-1, -1), false, ImGuiWindowFlags_HorizontalScrollbar);
 
-        Vec2 canvas_size = ImGui::GetWindowSize();
+        Vec2 canvas_size = (Vec2)ImGui::GetWindowSize() - Vec2(style.ScrollbarSize, style.ScrollbarSize);
         last_canvas_size = canvas_size;
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
         Vec2 viewport_scroll = Vec2(ImGui::GetScrollX(), ImGui::GetScrollY());
@@ -104,7 +109,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
 
         // visible bounds of viewport
         col_start = (int)viewport_scroll.x / CELL_SIZE.x;
-        col_end = col_start + (int)canvas_size.x / CELL_SIZE.x;
+        col_end = col_start + (int)(canvas_size.x - CHANNEL_COLUMN_WIDTH) / CELL_SIZE.x;
         row_start = (int)viewport_scroll.y / CELL_SIZE.y;
         row_end = row_start + (int)canvas_size.y / CELL_SIZE.y;
         
@@ -217,7 +222,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
             
             ImGui::PopID();
         }
-        
+
         ImGui::EndChild();
     } ImGui::End();
 }

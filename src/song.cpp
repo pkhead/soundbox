@@ -125,6 +125,38 @@ int Song::new_pattern(int channel_id) {
     return _max_patterns;
 }
 
+void Song::insert_bar(int position)
+{
+    mutex.lock();
+
+    _length++;
+
+    for (Channel* channel : channels) {
+        channel->sequence.insert(channel->sequence.begin() + position, 0);
+    }
+
+    mutex.unlock();
+}
+
+void Song::remove_bar(int position)
+{
+    mutex.lock();
+
+    _length--;
+
+    for (Channel* channel : channels) {
+        channel->sequence.erase(channel->sequence.begin() + position);
+    }
+
+    if (bar_position >= _length)
+    {
+        bar_position = _length - 1;
+        position = bar_position * beats_per_bar;
+    }
+
+    mutex.unlock();
+}
+
 Channel* Song::insert_channel(int channel_id)
 {
     mutex.lock();

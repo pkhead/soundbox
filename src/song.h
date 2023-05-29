@@ -107,6 +107,10 @@ public:
     void set_max_patterns(int num_patterns);
 
     int new_pattern(int channel_index);
+
+    void insert_bar(int bar_position);
+    void remove_bar(int bar_position);
+    
     Channel* insert_channel(int channel_index);
     void remove_channel(int channel_index);
 
