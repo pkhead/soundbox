@@ -16,8 +16,9 @@ namespace Colors {
     };
 }
 
-UserAction::UserAction(const std::string& action_name, uint8_t mod, ImGuiKey key) {
+UserAction::UserAction(const std::string& action_name, uint8_t mod, ImGuiKey key, bool repeat) {
     name = action_name;
+    do_repeat = repeat;
     set_keybind(mod, key);
 }
 
@@ -28,10 +29,13 @@ void UserAction::set_keybind(uint8_t mod, ImGuiKey key) {
     // set combo string
     combo.clear();
 
-    if ((mod & USERMOD_SHIFT) != 0) combo += "Shift+";
-    if ((mod & USERMOD_CTRL) != 0) combo += "Ctrl+";
-    if ((mod & USERMOD_ALT) != 0) combo += "Alt+";
-    combo += ImGui::GetKeyName(key);
+    if (key != ImGuiKey_None)
+    {
+        if ((mod & USERMOD_SHIFT) != 0) combo += "Shift+";
+        if ((mod & USERMOD_CTRL) != 0)  combo += "Ctrl+";
+        if ((mod & USERMOD_ALT) != 0)   combo += "Alt+";
+        combo += ImGui::GetKeyName(key);
+    }
 }
 
 UserActionList::UserActionList() {
@@ -40,8 +44,8 @@ UserActionList::UserActionList() {
     add_action("song_save_as", USERMOD_CTRL | USERMOD_SHIFT, ImGuiKey_S);
     add_action("song_open", USERMOD_CTRL, ImGuiKey_O);
     add_action("song_play_pause", 0, ImGuiKey_Space);
-    add_action("song_prev_bar", 0, ImGuiKey_LeftBracket);
-    add_action("song_next_bar", 0, ImGuiKey_RightBracket);
+    add_action("song_prev_bar", 0, ImGuiKey_LeftBracket, true);
+    add_action("song_next_bar", 0, ImGuiKey_RightBracket, true);
     add_action("export", 0, ImGuiKey_None);
     add_action("quit", 0, ImGuiKey_None);
 
@@ -54,14 +58,15 @@ UserActionList::UserActionList() {
     add_action("copy", USERMOD_CTRL, ImGuiKey_C);
     add_action("paste", USERMOD_CTRL, ImGuiKey_V);
 
-    add_action("new_channel", USERMOD_CTRL, ImGuiKey_Enter);
+    add_action("new_channel", USERMOD_CTRL, ImGuiKey_Enter, true);
+    add_action("remove_channel", USERMOD_CTRL, ImGuiKey_Backspace, true);
 
     add_action("mute_channel", USERMOD_CTRL, ImGuiKey_M);
     add_action("solo_channel", USERMOD_ALT, ImGuiKey_M);
 }
 
-void UserActionList::add_action(const std::string& action_name, uint8_t mod, ImGuiKey key) {
-    actions.push_back(UserAction(action_name, mod, key));
+void UserActionList::add_action(const std::string& action_name, uint8_t mod, ImGuiKey key, bool repeat) {
+    actions.push_back(UserAction(action_name, mod, key, repeat));
 }
 
 void UserActionList::fire(const std::string& action_name) const {
@@ -185,6 +190,15 @@ void ui_init(Song& song, UserActionList& user_actions) {
         song.selected_channel++;
         song.insert_channel(song.selected_channel);
     });
+
+    // delete selected channel
+    user_actions.set_callback("remove_channel", [&song]() {
+        if (song.channels.size() > 1)
+        {
+            song.remove_channel(song.selected_channel);
+            if (song.selected_channel > 0) song.selected_channel--;
+        }
+    });
 }
 
 
@@ -218,61 +232,56 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     if (ImGui::BeginMainMenuBar())
     {
+        #define MENU_ITEM(label, action_name) if (ImGui::MenuItem(label, user_actions.combo_str(action_name))) user_actions.fire(action_name)
+
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("New", user_actions.combo_str("song_new")))
-                user_actions.fire("song_new");
-            if (ImGui::MenuItem("Open", user_actions.combo_str("song_open")))
-                user_actions.fire("song_open");
-            if (ImGui::MenuItem("Save", user_actions.combo_str("song_save")))
-                user_actions.fire("song_save");
-            if (ImGui::MenuItem("Save As...", user_actions.combo_str("song_save_as")))
-                user_actions.fire("song_save_as");
+            MENU_ITEM("New", "song_new");
+            MENU_ITEM("Open", "song_open");
+            MENU_ITEM("Save", "song_save");
+            MENU_ITEM("Save As...", "song_save_as");
+            
+            ImGui::Separator();
+
+            MENU_ITEM("Export...", "export");
+            MENU_ITEM("Import...", "import");
 
             ImGui::Separator();
 
-            if (ImGui::MenuItem("Export..."))
-                user_actions.fire("export");
-            ImGui::MenuItem("Import...");
-
-            ImGui::Separator();
-
-            if (ImGui::MenuItem("Quit", "Alt+F4"))
-                user_actions.fire("quit");
-
+            MENU_ITEM("Quit", "quit");
+            
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Edit"))
         {
-            ImGui::MenuItem("Undo", user_actions.combo_str("undo"));
-            ImGui::MenuItem("Redo", user_actions.combo_str("redo"));
+            MENU_ITEM("Undo", "undo");
+            MENU_ITEM("Redo", "redo");
 
             ImGui::Separator();
 
-            ImGui::MenuItem("Select All", user_actions.combo_str("select_all"));
-            ImGui::MenuItem("Select Channel", user_actions.combo_str("select_channel"));
+            MENU_ITEM("Select All", "select_all");
+            MENU_ITEM("Select Channel", "select_channel");
 
             ImGui::Separator();
 
-            ImGui::MenuItem("Copy Pattern", user_actions.combo_str("copy"));
-            ImGui::MenuItem("Paste Pattern", user_actions.combo_str("paste"));
-            ImGui::MenuItem("Paste Pattern Numbers", user_actions.combo_str("paste_pattern_numbers"));
+            MENU_ITEM("Copy Pattern", "copy");
+            MENU_ITEM("Paste Pattern", "paste");
+            MENU_ITEM("Paste Pattern Numbers", "paste_pattern_numbers");
 
             ImGui::Separator();
 
-            ImGui::MenuItem("Insert Bar", user_actions.combo_str("insert_bar"));
-            ImGui::MenuItem("Delete Bar", user_actions.combo_str("delete_bar"));
-            if (ImGui::MenuItem("New Channel", user_actions.combo_str("new_channel")))
-                user_actions.fire("new_channel");
-            ImGui::MenuItem("Delete Channel", user_actions.combo_str("delete_channel"));
-            ImGui::MenuItem("Duplicate Reused Patterns", user_actions.combo_str("duplicate_patterns"));
+            MENU_ITEM("Insert Bar", "insert_bar");
+            MENU_ITEM("Delete Bar", "delete_bar");
+            MENU_ITEM("New Channel", "new_channel");
+            MENU_ITEM("Delete Channel", "remove_channel");
+            MENU_ITEM("Duplicate Reused Patterns", "duplicate_patterns");
 
             ImGui::Separator();
 
-            ImGui::MenuItem("New Pattern", user_actions.combo_str("new_pattern"));
-            ImGui::MenuItem("Move Notes Up", user_actions.combo_str("move_notes_up"));
-            ImGui::MenuItem("Move Notes Down", user_actions.combo_str("move_notes_down"));
+            MENU_ITEM("New Pattern", "new_pattern");
+            MENU_ITEM("Move Notes Up", "move_notes_up");
+            MENU_ITEM("Move Notes Down", "move_notes_down");
             
             ImGui::EndMenu();
         }
@@ -298,6 +307,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
 
         ImGui::EndMainMenuBar();
+
+        #undef MENU_ITEM
     }
 
     ///////////////////

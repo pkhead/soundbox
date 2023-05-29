@@ -254,7 +254,11 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                     } else {
                         is_adding_note = true;
                         note_drag_mode = DragMode::Any;
+
+                        song.mutex.lock();
                         selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, cursor_note_length);
+                        song.mutex.unlock();
+                        
                         note_anchor = mouse_cx;
                         note_start_length = cursor_note_length;
                     }

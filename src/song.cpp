@@ -127,11 +127,26 @@ int Song::new_pattern(int channel_id) {
 
 Channel* Song::insert_channel(int channel_id)
 {
+    mutex.lock();
+
     Channel* new_channel = new Channel(_length, _max_patterns, audio_out);
     snprintf(new_channel->name, 16, "Channel %i", (int) channels.size() + 1);
     channels.insert(channels.begin() + channel_id, new_channel);
 
+    mutex.unlock();
+
     return new_channel;
+}
+
+void Song::remove_channel(int channel_index)
+{
+    mutex.lock();
+
+    Channel* ch = channels[channel_index];
+    channels.erase(channels.begin() + channel_index);
+    delete ch;
+
+    mutex.unlock();
 }
 
 float Song::get_key_frequency(int key) const {

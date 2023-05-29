@@ -420,6 +420,7 @@ int main()
                     }
                 } else {
                     song_mutex.lock();
+                    song->mutex.lock();
 
                     if (song->is_playing != last_playing) {
                         last_playing = song->is_playing;
@@ -440,6 +441,7 @@ int main()
                     }
 
                     song_mutex.unlock();
+                    song->mutex.unlock();
                 }
 
                 sleep(1.0f / 30.0f);
@@ -480,7 +482,7 @@ int main()
 
                 // for each user action in the user action list struct
                 for (const UserAction& action : user_actions.actions) {
-                    if (ImGui::IsKeyPressed(action.key, false)) {
+                    if (ImGui::IsKeyPressed(action.key, action.do_repeat)) {
                         std::cout << action.key << "\n";
                         
                         // check if all required modifiers are pressed or not pressed

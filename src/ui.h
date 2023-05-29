@@ -22,8 +22,9 @@ struct UserAction {
     ImGuiKey key;
     std::function<void()> callback;
     std::string combo;
+    bool do_repeat;
 
-    UserAction(const std::string& name, uint8_t mod, ImGuiKey key);
+    UserAction(const std::string& name, uint8_t mod, ImGuiKey key, bool repeat = false);
     void set_keybind(uint8_t mod, ImGuiKey key);
 };
 
@@ -31,7 +32,7 @@ struct UserActionList {
     std::vector<UserAction> actions;
 
     UserActionList();
-    void add_action(const std::string& action_name, uint8_t mod, ImGuiKey key);
+    void add_action(const std::string& action_name, uint8_t mod, ImGuiKey key, bool repeat = false);
     void fire(const std::string& action_name) const;
     void set_keybind(const std::string& action_name, uint8_t mod, ImGuiKey key);
     void set_callback(const std::string& action_name, std::function<void()> callback);

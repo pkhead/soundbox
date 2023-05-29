@@ -3,6 +3,7 @@
 #include <ostream>
 #include <istream>
 #include <string>
+#include <mutex>
 #include "audio.h"
 #include "modules/modules.h"
 
@@ -68,6 +69,8 @@ public:
     Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
     ~Song();
 
+    std::mutex mutex;
+
     static constexpr size_t name_capcity = 128;
     char name[name_capcity];
 
@@ -103,8 +106,9 @@ public:
     int max_patterns() const;
     void set_max_patterns(int num_patterns);
 
-    int new_pattern(int channel_id);
-    Channel* insert_channel(int channel_id);
+    int new_pattern(int channel_index);
+    Channel* insert_channel(int channel_index);
+    void remove_channel(int channel_index);
 
     float get_key_frequency(int key) const;
 
