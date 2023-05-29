@@ -66,8 +66,17 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     strcpy(name, "Untitled");
 
     audiomod::FXBus* master_bus = new audiomod::FXBus();
+    strcpy(master_bus->name, "Master");
     master_bus->connect_output(&audio_out);
     fx_mixer.push_back(master_bus);
+
+    for (int i = 0; i < 3; i++)
+    {
+        audiomod::FXBus* bus = new audiomod::FXBus();
+        snprintf(bus->name, bus->name_size, "Bus %i", i);
+        bus->connect_output(&audio_out);
+        fx_mixer.push_back(bus);
+    }
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
         Channel* ch = new Channel(_length, _max_patterns, fx_mixer);

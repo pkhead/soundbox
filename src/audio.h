@@ -202,6 +202,9 @@ namespace audiomod {
             return rack.modules;
         };
 
+        static constexpr size_t name_size = 16;
+        char name[16];
+
         inline void insert(ModuleBase* module, size_t position) { rack.insert(module, position); };
         inline void insert(ModuleBase* module) { rack.insert(module); };
         inline ModuleBase* remove(size_t position) { return rack.remove(position); };

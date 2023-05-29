@@ -1,6 +1,7 @@
 #include <cassert>
 #include <math.h>
 #include <iostream>
+#include <string>
 #include "audio.h"
 #include "modules/modules.h"
 #include "imgui.h"
@@ -554,6 +555,40 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     // PATTERN EDITOR //
     ////////////////////
     render_pattern_editor(io, song);
+
+    ////////////////////
+    //    FX MIXER    //
+    ////////////////////
+    if (ImGui::Begin("FX Mixer"))
+    {
+        int i = 0;
+
+        float frame_width = ImGui::CalcTextSize("MMMMMMMMMMMMMMMM").x + style.FramePadding.x;
+        
+        for (audiomod::FXBus* bus : song.fx_mixer)
+        {
+            ImGui::PushID(i);
+            
+            std::string label = std::to_string(i) + " - " + bus->name;
+            ImGui::Selectable(label.c_str(), false);
+
+            // left channel
+            ImGui::ProgressBar(bus->controller.analysis_volume[0], Vec2(-1.0f, 1.0f), "");
+
+            // right channel
+            ImGui::ProgressBar(bus->controller.analysis_volume[1], Vec2(-1.0f, 1.0f), "");
+
+            ImGui::PopID();
+            
+            i++;
+        }
+
+        ImGui::Separator();
+        if (ImGui::Button("Add", ImVec2(-1.0f, 0.0f)))
+        {
+            song.fx_mixer.push_back(new audiomod::FXBus());
+        }
+    } ImGui::End();
     
 
     // render module interfaces

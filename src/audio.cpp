@@ -511,6 +511,7 @@ void EffectsRack::disconnect_all_inputs()
 //////////////////////
 FXBus::FXBus()
 {
+    strcpy(name, "FX Bus");
     rack.connect_output(&controller);
 }
 
@@ -543,10 +544,13 @@ void FXBus::ControllerModule::process(
     for (size_t i = 0; i < buffer_size; i++)
         output[i] = 0.0f;
 
-    analysis_volume[0] = 0.0f;
-    analysis_volume[1] = 0.0f;
+    float vol[2];
+    vol[0] = 0.0f;
+    vol[1] = 0.0f;
 
     if (num_inputs == 0) return;
+
+    float smp[2];
 
     if (!mute)
     {
@@ -556,15 +560,18 @@ void FXBus::ControllerModule::process(
         {
             for (size_t j = 0; j < num_inputs; j++)
             {
-                output[i] += inputs[j][i] * factor;
-                output[i + 1] += inputs[j][i + 1] * factor;
+                smp[0] = inputs[j][i] * factor;
+                smp[1] = inputs[j][i + 1] * factor;
 
-                analysis_volume[0] += inputs[j][i] * factor;
-                analysis_volume[1] += inputs[j][i + 1] * factor;
+                output[i] += smp[0];
+                output[i + 1] += smp[1];
+
+                if (smp[0] > vol[0]) vol[0] = smp[0];
+                if (smp[1] > vol[1]) vol[1] = smp[1];
             }
         }
-
-        analysis_volume[0] /= ((float)buffer_size / 2);
-        analysis_volume[1] /= ((float)buffer_size / 2);
     }
+
+    analysis_volume[0] = vol[0];
+    analysis_volume[1] = vol[1];
 }
