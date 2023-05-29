@@ -150,17 +150,17 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
 
         Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
 
-        // get data for the currently selected channel
         static Channel* prev_channel = nullptr;
+        
+        // get data for the currently selected channel
         Channel* selected_channel = song.channels[song.selected_channel];
         int pattern_id = selected_channel->sequence[song.selected_bar] - 1;
         Pattern* selected_pattern = nullptr;
+
         if (pattern_id >= 0) {
             selected_pattern = selected_channel->patterns[selected_channel->sequence[song.selected_bar] - 1];
         }
 
-        //Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
-        //Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE;
         Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
         float mouse_px = -1.0f; // cell position of mouse
         float mouse_cx = -1.0f; // mouse_px is in the center of the mouse cursor note
@@ -491,7 +491,11 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                 Vec2 cell_pos = draw_origin + CELL_SIZE * Vec2(note.time, scroll - note.key) + Vec2(PIANO_KEY_WIDTH, 0);
                 Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, 0);
 
-                draw_list->AddRectFilled(rect_pos, rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, 0) * 2.0f, Colors::channel[song.selected_channel][1]);
+                draw_list->AddRectFilled(
+                    rect_pos, 
+                    rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, 0) * 2.0f,
+                    Colors::channel[song.selected_channel % Colors::channel_num][1]
+                );
             }
         }
 

@@ -104,6 +104,7 @@ public:
     void set_max_patterns(int num_patterns);
 
     int new_pattern(int channel_id);
+    Channel* insert_channel(int channel_id);
 
     float get_key_frequency(int key) const;
 

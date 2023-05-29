@@ -130,7 +130,7 @@ int main()
         Song* song = new Song(4, 8, 8, destination);
 
         // this mutex is locked by the audio thread while audio is being processed
-        // and it locked by the main thread when a new song is being loaded
+        // and is locked by the main thread when a new song is being loaded
         std::mutex song_mutex;
         
         for (int i = 0; i < 4; i++) {

@@ -72,6 +72,14 @@ struct Vec2 {
         return Vec2(x / other.x, y / other.y);
     }
 
+    inline bool operator==(const Vec2& other) const {
+        return x == other.x && y == other.y;
+    }
+
+    inline bool operator!=(const Vec2& other) const {
+        return x != other.x || y != other.y;
+    }
+
     inline float magn_sq() const {
         return x * x + y * y; 
     }

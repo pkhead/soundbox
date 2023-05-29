@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <cstdint>
+#include <cstdio>
 #include <string.h>
 #include <math.h>
 #include "audio.h"
@@ -122,6 +123,15 @@ int Song::new_pattern(int channel_id) {
     // no unused patterns found, create a new one
     set_max_patterns(_max_patterns + 1);
     return _max_patterns;
+}
+
+Channel* Song::insert_channel(int channel_id)
+{
+    Channel* new_channel = new Channel(_length, _max_patterns, audio_out);
+    snprintf(new_channel->name, 16, "Channel %i", (int) channels.size() + 1);
+    channels.insert(channels.begin() + channel_id, new_channel);
+
+    return new_channel;
 }
 
 float Song::get_key_frequency(int key) const {

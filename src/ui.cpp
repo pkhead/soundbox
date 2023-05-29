@@ -54,6 +54,8 @@ UserActionList::UserActionList() {
     add_action("copy", USERMOD_CTRL, ImGuiKey_C);
     add_action("paste", USERMOD_CTRL, ImGuiKey_V);
 
+    add_action("new_channel", USERMOD_CTRL, ImGuiKey_Enter);
+
     add_action("mute_channel", USERMOD_CTRL, ImGuiKey_M);
     add_action("solo_channel", USERMOD_ALT, ImGuiKey_M);
 }
@@ -166,16 +168,36 @@ void ui_init(Song& song, UserActionList& user_actions) {
         if (song.position < 0) song.position += song.length() * song.beats_per_bar;
     });
 
+    // mute selected channel
     user_actions.set_callback("mute_channel", [&song]() {
         Channel* ch = song.channels[song.selected_channel];
         ch->vol_mod.mute = !ch->vol_mod.mute;
     });
 
+    // solo selected channel
     user_actions.set_callback("solo_channel", [&song]() {
         Channel* ch = song.channels[song.selected_channel];
         ch->solo = !ch->solo;
     });
+
+    // create new channel
+    user_actions.set_callback("new_channel", [&song]() {
+        song.selected_channel++;
+        song.insert_channel(song.selected_channel);
+    });
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -198,15 +220,25 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("New", user_actions.combo_str("song_new"))) user_actions.fire("song_new");
-            if (ImGui::MenuItem("Open", user_actions.combo_str("song_open"))) user_actions.fire("song_open");
-            if (ImGui::MenuItem("Save", user_actions.combo_str("song_save"))) user_actions.fire("song_save");
-            if (ImGui::MenuItem("Save As...", user_actions.combo_str("song_save_as"))) user_actions.fire("song_save_as");
+            if (ImGui::MenuItem("New", user_actions.combo_str("song_new")))
+                user_actions.fire("song_new");
+            if (ImGui::MenuItem("Open", user_actions.combo_str("song_open")))
+                user_actions.fire("song_open");
+            if (ImGui::MenuItem("Save", user_actions.combo_str("song_save")))
+                user_actions.fire("song_save");
+            if (ImGui::MenuItem("Save As...", user_actions.combo_str("song_save_as")))
+                user_actions.fire("song_save_as");
+
             ImGui::Separator();
-            if (ImGui::MenuItem("Export...")) user_actions.fire("export");
+
+            if (ImGui::MenuItem("Export..."))
+                user_actions.fire("export");
             ImGui::MenuItem("Import...");
+
             ImGui::Separator();
-            if (ImGui::MenuItem("Quit", "Alt+F4")) user_actions.fire("quit");
+
+            if (ImGui::MenuItem("Quit", "Alt+F4"))
+                user_actions.fire("quit");
 
             ImGui::EndMenu();
         }
@@ -215,19 +247,29 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         {
             ImGui::MenuItem("Undo", user_actions.combo_str("undo"));
             ImGui::MenuItem("Redo", user_actions.combo_str("redo"));
+
             ImGui::Separator();
+
             ImGui::MenuItem("Select All", user_actions.combo_str("select_all"));
             ImGui::MenuItem("Select Channel", user_actions.combo_str("select_channel"));
+
             ImGui::Separator();
+
             ImGui::MenuItem("Copy Pattern", user_actions.combo_str("copy"));
             ImGui::MenuItem("Paste Pattern", user_actions.combo_str("paste"));
             ImGui::MenuItem("Paste Pattern Numbers", user_actions.combo_str("paste_pattern_numbers"));
+
             ImGui::Separator();
+
             ImGui::MenuItem("Insert Bar", user_actions.combo_str("insert_bar"));
             ImGui::MenuItem("Delete Bar", user_actions.combo_str("delete_bar"));
+            if (ImGui::MenuItem("New Channel", user_actions.combo_str("new_channel")))
+                user_actions.fire("new_channel");
             ImGui::MenuItem("Delete Channel", user_actions.combo_str("delete_channel"));
             ImGui::MenuItem("Duplicate Reused Patterns", user_actions.combo_str("duplicate_patterns"));
+
             ImGui::Separator();
+
             ImGui::MenuItem("New Pattern", user_actions.combo_str("new_pattern"));
             ImGui::MenuItem("Move Notes Up", user_actions.combo_str("move_notes_up"));
             ImGui::MenuItem("Move Notes Down", user_actions.combo_str("move_notes_down"));

@@ -16,28 +16,69 @@ void render_track_editor(ImGuiIO &io, Song &song)
 {
     ImGuiStyle& style = ImGui::GetStyle();
 
-    if (ImGui::Begin("Track Editor")) {
-        // width allocated for the mute and solo controls
-        float btn_text_size = ImGui::CalcTextSize("M").x;
-        float controls_width = 5.0f + 2.0f * (btn_text_size + style.FramePadding.x * 2.0f) + style.ItemSpacing.x;
-        // cell size including margin
-        const Vec2 CELL_SIZE = Vec2(int(ImGui::GetFrameHeightWithSpacing() * 1.1f), int(ImGui::GetFrameHeightWithSpacing() * 1.1f));
-        // empty space inbetween cells
-        static const int CELL_MARGIN = 1;
-        // space dedicated to channel properties
-        // the max characters allowed for a channel name is 16 characters
-        // so we test the width of 16 M's (the widest character in most fonts)
-        const float CHANNEL_COLUMN_WIDTH = ImGui::CalcTextSize("MMMMMMMMMMMMMMMM").x + controls_width + 5.0f;
+    // width allocated for the mute and solo controls
+    float btn_text_size = ImGui::CalcTextSize("M").x;
+    float controls_width = 5.0f + 2.0f * (btn_text_size + style.FramePadding.x * 2.0f) + style.ItemSpacing.x;
+    // cell size including margin
+    const Vec2 CELL_SIZE = Vec2(int(ImGui::GetFrameHeightWithSpacing() * 1.1f), int(ImGui::GetFrameHeightWithSpacing() * 1.1f));
+    // empty space inbetween cells
+    static const int CELL_MARGIN = 1;
+    // space dedicated to channel properties
+    // the max characters allowed for a channel name is 16 characters
+    // so we test the width of 16 M's (the widest character in most fonts)
+    const float CHANNEL_COLUMN_WIDTH = ImGui::CalcTextSize("MMMMMMMMMMMMMMMM").x + controls_width + 5.0f;
 
-        static int num_channels = song.channels.size();
-        static int num_bars = song.length();
+    static int last_cursor_x = song.selected_bar;
+    static int last_cursor_y = song.selected_channel;
+    static int last_width = song.length();
+    static int last_height = song.channels.size();
+
+    int num_channels = song.channels.size();
+    int num_bars = song.length();
+
+    static Vec2 last_viewport_scroll = Vec2(0.0f, 0.0f);
+    static Vec2 last_canvas_size = Vec2(0.0f, 0.0f);
+    static int row_start = 0;
+    static int row_end = 0;
+    static int col_start = 0;
+    static int col_end = 0;
+    
+    if (ImGui::Begin("Track Editor")) {
+        // if song length or song channel count changed, then resize content size
+        if (last_width != num_bars || last_height != num_channels) {
+            Vec2 new_size = Vec2(num_bars, num_channels) * CELL_SIZE + Vec2(CHANNEL_COLUMN_WIDTH, 0.0f);
+            ImGui::SetNextWindowContentSize(new_size);
+
+            last_width = song.length();
+            last_height = song.channels.size();
+        }
+
+        if (last_cursor_x != song.selected_bar || last_cursor_y != song.selected_channel) {
+            int& cursor_x = song.selected_bar;
+            int& cursor_y = song.selected_channel;
+
+            Vec2 cursor_pos = Vec2(cursor_x * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, cursor_y * CELL_SIZE.y);
+            Vec2 window_scroll = last_viewport_scroll;
+
+            if (cursor_y >= row_end)
+                window_scroll.y = cursor_pos.y + CELL_SIZE.y - last_canvas_size.y;
+            else if (cursor_y <= row_start)
+                window_scroll.y = cursor_pos.y;
+
+            // if desired scroll position has changed
+            if (window_scroll != last_viewport_scroll)
+                ImGui::SetNextWindowScroll(window_scroll);
+
+            last_cursor_x = cursor_x;
+            last_cursor_y = cursor_y;
+        }
 
         ImGui::BeginChild("###track_editor_area", Vec2(-1, -1), false, ImGuiWindowFlags_HorizontalScrollbar);
-        
-        Vec2 canvas_size = ImGui::GetContentRegionAvail();
+
+        Vec2 canvas_size = ImGui::GetWindowSize();
+        last_canvas_size = canvas_size;
         Vec2 canvas_p0 = ImGui::GetCursorScreenPos();
-        Vec2 canvas_p1 = canvas_p0 + canvas_size;
-        Vec2 viewport_scroll = (Vec2)ImGui::GetWindowPos() - canvas_p0;
+        Vec2 viewport_scroll = Vec2(ImGui::GetScrollX(), ImGui::GetScrollY());
         Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0 - Vec2(CHANNEL_COLUMN_WIDTH, 0.0f);
         Vec2 content_size = Vec2(num_bars, num_channels) * CELL_SIZE + Vec2(CHANNEL_COLUMN_WIDTH, 0.0f);
 
@@ -45,7 +86,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
         int mouse_col = -1;
 
         ImGui::SetCursorPos(Vec2(CHANNEL_COLUMN_WIDTH, 0.0f));
-        ImGui::InvisibleButton("track_editor_mouse_target", content_size - Vec2(CHANNEL_COLUMN_WIDTH, 0.0f), ImGuiButtonFlags_MouseButtonLeft);
+        ImGui::InvisibleButton("track_editor_mouse_target", content_size - Vec2(CHANNEL_COLUMN_WIDTH, 0.0f));
         if (ImGui::IsItemHovered()) {
             mouse_row = (int)mouse_pos.y / CELL_SIZE.y;
             mouse_col = (int)mouse_pos.x / CELL_SIZE.x;
@@ -55,15 +96,17 @@ void render_track_editor(ImGuiIO &io, Song &song)
                 song.selected_channel = mouse_row;
             }
         }
+
+        last_viewport_scroll = viewport_scroll;
         
         // use canvas for rendering
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
         // visible bounds of viewport
-        int bar_start = (int)viewport_scroll.x / CELL_SIZE.x;
-        int bar_end = bar_start + (int)canvas_size.x / CELL_SIZE.x + 2;
-        int col_start = (int)viewport_scroll.y / CELL_SIZE.y;
-        int col_end = col_start + (int)canvas_size.y / CELL_SIZE.y + 2;
+        col_start = (int)viewport_scroll.x / CELL_SIZE.x;
+        col_end = col_start + (int)canvas_size.x / CELL_SIZE.x;
+        row_start = (int)viewport_scroll.y / CELL_SIZE.y;
+        row_end = row_start + (int)canvas_size.y / CELL_SIZE.y;
         
         char str_buf[8];
 
@@ -75,8 +118,8 @@ void render_track_editor(ImGuiIO &io, Song &song)
             true
         );
 
-        for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
-            for (int bar = bar_start; bar < min(bar_end, num_bars); bar++) {
+        for (int ch = row_start; ch < min(row_end + 2, num_channels); ch++) {
+            for (int bar = col_start; bar < min(col_end + 2, num_bars); bar++) {
                 Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x + CELL_MARGIN + CHANNEL_COLUMN_WIDTH, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
                 int pattern_num = song.channels[ch]->sequence[bar];
                 bool is_selected = song.selected_bar == bar && song.selected_channel == ch;
@@ -108,7 +151,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
 
         // draw playhead
         double song_pos = song.is_playing ? (song.position / song.beats_per_bar) : (song.bar_position);
-        Vec2 playhead_pos = canvas_p0 + Vec2(song_pos * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, 0);
+        Vec2 playhead_pos = canvas_p0 + Vec2(song_pos * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, viewport_scroll.y);
         draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y), vec4_color(style.Colors[ImGuiCol_Text]));
 
         ImGui::PopClipRect();
@@ -124,7 +167,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
         }
 
         // draw channel info
-        for (int ch = col_start; ch < min(col_end, num_channels); ch++) {
+        for (int ch = row_start; ch < min(row_end + 2, num_channels); ch++) {
             ImGui::PushID(ch);
 
             Vec2 row_start = Vec2(
@@ -174,10 +217,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
             
             ImGui::PopID();
         }
-
-        // set scrollable area
-        //ImGui::SetCursorPos(content_size);
-
+        
         ImGui::EndChild();
     } ImGui::End();
 }
