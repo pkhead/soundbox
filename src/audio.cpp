@@ -543,6 +543,7 @@ void FXBus::ControllerModule::process(
 )
 {
     float smp[2];
+    float accum[2];
     bool is_muted = mute;
 
     float factor = powf(10.0f, gain / 10.0f);
@@ -561,17 +562,16 @@ void FXBus::ControllerModule::process(
         output[i] = is_muted ? 0.0f : smp[0];
         output[i + 1] = is_muted ? 0.0f : smp[1];
 
-        rms_accum[0] += smp[0] * smp[0];
-        rms_accum[1] += smp[1] * smp[1];
+        if (fabsf(smp[0]) > smp_accum[0]) smp_accum[0] = fabsf(smp[0]);
+        if (fabsf(smp[1]) > smp_accum[1]) smp_accum[1] = fabsf(smp[1]);
 
         if (++smp_count > window_size)
         {
-            smp_count = 0;
+            analysis_volume[0] = smp_accum[0];
+            analysis_volume[1] = smp_accum[1];
 
-            analysis_volume[0] = sqrtf(rms_accum[0] / (buffer_size / channel_count));
-            analysis_volume[1] = sqrtf(rms_accum[1] / (buffer_size / channel_count));
-            rms_accum[0] = 0.0f;
-            rms_accum[1] = 0.0f;
+            smp_accum[0] = smp_accum[1] = 0.0f;
+            smp_count = 0;
         }
     }
 }

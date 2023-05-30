@@ -91,12 +91,14 @@ public:
     float editor_quantization = 0.25f;
     float tempo = 120;
 
-    struct ModInterfaceStruct {
+    struct ModInterfaceStruct
+    {
         Channel* channel;
         audiomod::ModuleBase* module;
     };
 
     std::vector<ModInterfaceStruct> mod_interfaces;
+    std::vector<audiomod::FXBus*> fx_interfaces;
 
     // An effect index of -1 means the instrument module
     void toggle_module_interface(int channel_index, int effect_index);

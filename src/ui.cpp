@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstdio>
 #include <math.h>
 #include <iostream>
 #include <string>
@@ -600,12 +601,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             float width = ImGui::GetContentRegionAvail().x;
             
             std::string label = std::to_string(i) + " - " + bus->name;
-            ImGui::Selectable(
+            if (ImGui::Selectable(
                 label.c_str(),
-                false,
+                bus->interface_open,
                 0,
                 Vec2(width - mute_btn_size - solo_btn_size - style.ItemSpacing.x * 2.0f, 0.0f)
-            );
+            ))
+            // if selectable is clicked,
+                bus->interface_open = !bus->interface_open;
 
             // mute button
             push_btn_disabled(style, !bus->controller.mute);
@@ -642,13 +645,36 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     
 
     // render module interfaces
-    for (size_t i = 0; i < song.mod_interfaces.size();) {
+    for (size_t i = 0; i < song.mod_interfaces.size();)
+    {
         auto data = song.mod_interfaces[i];
         
         if (data.module->render_interface(data.channel->name)) i++;
         else {
             song.mod_interfaces.erase(song.mod_interfaces.begin() + i);
         }
+    }
+
+    // render fx interfaces
+    static char window_id[64];
+    int i = 0;
+
+    for (audiomod::FXBus* fx_bus : song.fx_mixer)
+    {
+        if (!fx_bus->interface_open) continue;
+        
+        snprintf(window_id, 64, "FX: %i - %s###%p", i, fx_bus->name, fx_bus);
+        
+        if (ImGui::Begin(
+            window_id,
+            &fx_bus->interface_open,
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking
+        )) {
+            ImGui::Text("%s", fx_bus->name);
+        }
+        ImGui::End();
+
+        i++;
     }
 
     // Info panel //

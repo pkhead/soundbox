@@ -463,8 +463,6 @@ int main()
                 // for each user action in the user action list struct
                 for (const UserAction& action : user_actions.actions) {
                     if (ImGui::IsKeyPressed(action.key, action.do_repeat)) {
-                        std::cout << action.key << "\n";
-                        
                         // check if all required modifiers are pressed or not pressed
                         if (
                             (ImGui::IsKeyDown(ImGuiMod_Ctrl) == ((action.modifiers & USERMOD_CTRL) != 0) &&
@@ -670,22 +668,6 @@ int main()
                     }
 
                     ImGui::End();
-                    
-                    /*
-                    if (export_data.is_exporting) {
-                        if (export_data.is_done) {
-                            // if done, delete the thread
-                            if (export_data.thread->joinable()) export_data.thread->join();
-                            delete export_data.thread;
-                            delete export_data.writer;
-
-                            export_data.is_exporting = false;
-                            std::cout << "export done\n";
-                        } else {
-                            std::cout << (float)export_data.writer->written_samples / export_data.writer->total_samples << "\n";
-                        }
-                    }
-                    */
                 }
             }
             

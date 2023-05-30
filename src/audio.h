@@ -189,11 +189,10 @@ namespace audiomod {
         protected:
             void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
 
-            // used for calculating loudness of signal
-            int smp_count = 0;
-            int window_size = 1500; // maybe make this dependent on the sample rate?
-            float rms_accum[2] = { 0.0f, 0.0f };
-
+            // used for calculating loudness
+            float smp_count = 0;
+            float window_size = 1024;
+            float smp_accum[2] = { 0.0f, 0.0f };
         public:
             float analysis_volume[2] = {0.0f, 0.0f};
             float gain = 0.0f;
@@ -223,6 +222,8 @@ namespace audiomod {
         // these implementations aren't one-liners so maybe inlining isn't a good idea
         ModuleOutputTarget* connect_output(ModuleOutputTarget* output);
         ModuleOutputTarget* disconnect_output();
+
+        bool interface_open = false;
     };
 
     ModuleBase* create_module(const std::string& mod_id);

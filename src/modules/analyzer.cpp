@@ -1,3 +1,6 @@
+// TODO:	shift graph to closest zero crossing to the middle
+//			this may require storing audio data in some sort of ring buffer
+
 #include <imgui.h>
 #include "modules.h"
 #include "../audio.h"
