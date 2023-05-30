@@ -113,3 +113,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& actions);
 
 void render_track_editor(ImGuiIO& io, Song& song);
 void render_pattern_editor(ImGuiIO& io, Song& song);
+
+// these functions make it so the following items
+// are slightly transparent if disabled
+void push_btn_disabled(ImGuiStyle& style, bool is_disabled);
+void pop_btn_disabled();

@@ -192,33 +192,23 @@ void render_track_editor(ImGuiIO &io, Song &song)
             bool enable_mute = ch_dat->vol_mod.mute;
             bool enable_solo = ch_dat->solo;
 
-            if (!enable_mute) {
-                ImGui::PushStyleColor(ImGuiCol_Button, disabled_btn_colors[0]);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, disabled_btn_colors[1]);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, disabled_btn_colors[2]);
-            }
-
             // mute button
+            push_btn_disabled(style, !enable_mute);
             if (ImGui::SmallButton("M")) {
                 ch_dat->vol_mod.mute = !enable_mute;
             }
 
-            if (!enable_mute) ImGui::PopStyleColor(3);
-
-            ImGui::SameLine();
-
-            if (!enable_solo) {
-                ImGui::PushStyleColor(ImGuiCol_Button, disabled_btn_colors[0]);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, disabled_btn_colors[1]);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, disabled_btn_colors[2]);
-            }
+            pop_btn_disabled();
 
             // solo button
+            ImGui::SameLine();
+            push_btn_disabled(style, !enable_solo);
+            
             if (ImGui::SmallButton("S")) {
                 ch_dat->solo = !ch_dat->solo;
             }
 
-            if (!enable_solo) ImGui::PopStyleColor(3);
+            pop_btn_disabled();
             
             ImGui::PopID();
         }

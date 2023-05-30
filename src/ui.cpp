@@ -111,7 +111,29 @@ const char* UserActionList::combo_str(const std::string& action_name) const {
     return "";
 }
 
+void push_btn_disabled(ImGuiStyle& style, bool is_disabled)
+{
+    ImVec4 btn_colors[3];
+    btn_colors[0] = style.Colors[ImGuiCol_Button];
+    btn_colors[1] = style.Colors[ImGuiCol_ButtonHovered];
+    btn_colors[2] = style.Colors[ImGuiCol_ButtonActive];
 
+    if (is_disabled)
+    {
+        for (int i = 0; i < 3; i++) {
+            btn_colors[i].w *= 0.5f;
+        }
+    }
+
+    ImGui::PushStyleColor(ImGuiCol_Button, btn_colors[0]);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, btn_colors[1]);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, btn_colors[2]);
+}
+
+void pop_btn_disabled()
+{
+    ImGui::PopStyleColor(3);
+}
 
 
 
@@ -358,10 +380,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         
         // tempo
         ImGui::AlignTextToFramePadding();
-        ImGui::Text("Tempo (bpm)");
+        ImGui::Text("Tempo");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputFloat("bpm##song_tempo", &song.tempo, 0.0f, 0.0f, "%.0f");
+        ImGui::DragFloat("###song_tempo", &song.tempo, 0.1f, 0.0f, 5000.0f, "%.3f");
         if (song.tempo < 0) song.tempo = 0;
 
         // TODO: controller/mod channels
@@ -426,7 +448,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::NewLine();
 
         // loaded instrument
-        ImGui::Text("Instrument: [No Instrument]");
+        ImGui::Text("Instrument: %s", cur_channel->synth_mod->name.c_str());
         if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
         {
             ImGui::OpenPopup("inst_load");
@@ -565,12 +587,37 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         float frame_width = ImGui::CalcTextSize("MMMMMMMMMMMMMMMM").x + style.FramePadding.x;
         
+        float mute_btn_size = ImGui::CalcTextSize("M").x + style.FramePadding.x * 2.0f;
+        float solo_btn_size = ImGui::CalcTextSize("S").x + style.FramePadding.x * 2.0f;
+
         for (audiomod::FXBus* bus : song.fx_mixer)
         {
             ImGui::PushID(i);
+
+            float width = ImGui::GetContentRegionAvail().x;
             
             std::string label = std::to_string(i) + " - " + bus->name;
-            ImGui::Selectable(label.c_str(), false);
+            ImGui::Selectable(
+                label.c_str(),
+                false,
+                0,
+                Vec2(width - mute_btn_size - solo_btn_size - style.ItemSpacing.x * 2.0f, 0.0f)
+            );
+
+            // mute button
+            push_btn_disabled(style, !bus->controller.mute);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("M"))
+            {
+                bus->controller.mute = !bus->controller.mute;
+            }
+            pop_btn_disabled();
+
+            // solo button
+            push_btn_disabled(style, true);
+            ImGui::SameLine();
+            ImGui::SmallButton("S");
+            pop_btn_disabled();
 
             // left channel
             ImGui::ProgressBar(bus->controller.analysis_volume[0], Vec2(-1.0f, 1.0f), "");

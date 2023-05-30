@@ -5,6 +5,7 @@
 #include <string.h>
 #include <iostream>
 #include "audio.h"
+#include "modules/modules.h"
 #include "sys.h"
 #include <imgui.h>
 
@@ -490,6 +491,8 @@ void EffectsRack::disconnect_all_inputs()
     {
         input->disconnect();
     }
+
+    inputs.clear();
 }
 
 
@@ -542,37 +545,35 @@ void FXBus::ControllerModule::process(
 )
 {
     float smp[2];
+    bool is_muted = mute;
 
-    if (!mute)
+    float factor = powf(10.0f, gain / 10.0f);
+
+    for (size_t i = 0; i < buffer_size; i += 2)
     {
-        float factor = powf(10.0f, gain / 10.0f);
+        smp[0] = 0.0f;
+        smp[1] = 0.0f;
 
-        for (size_t i = 0; i < buffer_size; i += 2)
+        for (size_t j = 0; j < num_inputs; j++)
         {
-            smp[0] = 0.0f;
-            smp[1] = 0.0f;
+            smp[0] += inputs[j][i] * factor;
+            smp[1] += inputs[j][i + 1] * factor;
+        }
 
-            for (size_t j = 0; j < num_inputs; j++)
-            {
-                smp[0] += inputs[j][i] * factor;
-                smp[1] += inputs[j][i + 1] * factor;
-            }
+        output[i] = is_muted ? 0.0f : smp[0];
+        output[i + 1] = is_muted ? 0.0f : smp[1];
 
-            output[i] = smp[0];
-            output[i + 1] = smp[1];
+        rms_accum[0] += smp[0] * smp[0];
+        rms_accum[1] += smp[1] * smp[1];
 
-            rms_accum[0] += smp[0] * smp[0];
-            rms_accum[1] += smp[1] * smp[1];
+        if (++smp_count > window_size)
+        {
+            smp_count = 0;
 
-            if (++smp_count > window_size)
-            {
-                smp_count = 0;
-
-                analysis_volume[0] = sqrtf(rms_accum[0] / (buffer_size / channel_count));
-                analysis_volume[1] = sqrtf(rms_accum[1] / (buffer_size / channel_count));
-                rms_accum[0] = 0.0f;
-                rms_accum[1] = 0.0f;
-            }
+            analysis_volume[0] = sqrtf(rms_accum[0] / (buffer_size / channel_count));
+            analysis_volume[1] = sqrtf(rms_accum[1] / (buffer_size / channel_count));
+            rms_accum[0] = 0.0f;
+            rms_accum[1] = 0.0f;
         }
     }
 }

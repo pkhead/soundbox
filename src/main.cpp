@@ -404,50 +404,33 @@ int main()
         std::thread audio_thread([&]() {
             bool last_playing = false;
 
-            size_t silence_buf_size = destination.buffer_size * device.num_channels();
-            float* silence_buf = new float[silence_buf_size];
-
-            // write silence to this buffer
-            for (size_t i = 0; i < silence_buf_size; i++) {
-                silence_buf[0] = 0.0f;
-            }
-
             while (run_app) {
-                if (false) {
-                    // fill output device with silence
-                    while (device.num_queued_frames() < device.sample_rate() * 0.05) {
-                        device.queue(silence_buf, silence_buf_size * sizeof(float));
-                    }
-                } else {
-                    song_mutex.lock();
-                    song->mutex.lock();
+                song_mutex.lock();
+                song->mutex.lock();
 
-                    if (song->is_playing != last_playing) {
-                        last_playing = song->is_playing;
+                if (song->is_playing != last_playing) {
+                    last_playing = song->is_playing;
 
-                        if (song->is_playing) song->play();
-                        else song->stop();
-                    }
-
-                    while (device.num_queued_frames() < device.sample_rate() * 0.05) {
-                        song->update(1.0 / destination.sample_rate * BUFFER_SIZE);
-
-                        float* buf;
-                        size_t buf_size = destination.process(&buf);
-
-                        device.queue(buf, buf_size * sizeof(float));
-
-                        if (!run_app) break;
-                    }
-
-                    song_mutex.unlock();
-                    song->mutex.unlock();
+                    if (song->is_playing) song->play();
+                    else song->stop();
                 }
+
+                while (device.num_queued_frames() < device.sample_rate() * 0.05) {
+                    song->update(1.0 / destination.sample_rate * BUFFER_SIZE);
+
+                    float* buf;
+                    size_t buf_size = destination.process(&buf);
+
+                    device.queue(buf, buf_size * sizeof(float));
+
+                    if (!run_app) break;
+                }
+
+                song_mutex.unlock();
+                song->mutex.unlock();
 
                 sleep(1.0f / 30.0f);
             }
-
-            delete[] silence_buf;
         });
 
         glfwShowWindow(window);
