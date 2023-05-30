@@ -222,10 +222,8 @@ void ModuleBase::remove_all_connections() {
     disconnect();
 
     for (ModuleBase* input : _inputs) {
-        remove_input(input);
+        input->disconnect();
     }
-
-    _inputs.clear();
 }
 
 float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {

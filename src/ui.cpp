@@ -259,6 +259,11 @@ void ui_init(Song& song, UserActionList& user_actions) {
 
 
 
+// menu item helper
+#define MENU_ITEM(label, action_name) \
+    if (ImGui::MenuItem(label, user_actions.combo_str(action_name))) \
+        deferred_actions.push_back(action_name)
+
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
 
@@ -273,13 +278,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     ImGui::NewFrame();
 
+    std::vector<const char*> deferred_actions;
+
     ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_AutoHideTabBar);
     if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
 
     if (ImGui::BeginMainMenuBar())
     {
-        #define MENU_ITEM(label, action_name) if (ImGui::MenuItem(label, user_actions.combo_str(action_name))) user_actions.fire(action_name)
-
         if (ImGui::BeginMenu("File"))
         {
             MENU_ITEM("New", "song_new");
@@ -354,8 +359,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
 
         ImGui::EndMainMenuBar();
-
-        #undef MENU_ITEM
     }
 
     ///////////////////
@@ -653,5 +656,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::Begin("Info");
         ImGui::Text("framerate: %.2f", io.Framerate);
         ImGui::End();
+    }
+
+    // run all scheduled actions
+    // (run them last so that the song pointer doesn't change mid-function
+    // and cause memory errors)
+    for (const char* action_name : deferred_actions)
+    {
+        user_actions.fire(action_name);
     }
 }

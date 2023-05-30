@@ -46,6 +46,7 @@ Channel::~Channel() {
     effects_rack.disconnect_all_inputs();
     effects_rack.disconnect_output();
 
+    fx_mixer[0]->disconnect_input(&vol_mod);
     delete synth_mod;
 }
 
