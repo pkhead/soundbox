@@ -197,7 +197,7 @@ namespace audiomod {
         public:
             float analysis_volume[2] = {0.0f, 0.0f};
             float gain = 0.0f;
-            bool mute;
+            bool mute = false;
 
             ControllerModule();
         } controller;
