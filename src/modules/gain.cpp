@@ -16,10 +16,16 @@ GainModule::GainModule() : ModuleBase(true) {
 
 void GainModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     float factor = powf(10.0f, gain / 10.0f);
-
+    
     for (size_t i = 0; i < buffer_size; i += channel_count) {
-        output[i] = inputs[0][i] * factor;
-        output[i+1] = inputs[0][i+1] * factor;
+        output[i] = 0.0f;
+        output[i+1] = 0.0f;
+
+        for (size_t k = 0; k < num_inputs; k++)
+        {
+            output[i] += inputs[k][i] * factor;
+            output[i+1] += inputs[k][i+1] * factor;
+        }
     }
 }
 

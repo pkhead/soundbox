@@ -563,11 +563,15 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
             case EffectsInterfaceAction::Delete: {
                 // delete the selected module
+                song.mutex.lock();
+
                 audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(target_index);
                 if (mod != nullptr) {
                     song.hide_module_interface(mod);
                     delete mod;
                 }
+
+                song.mutex.unlock();
                 break;
             }
 
@@ -667,7 +671,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     }
 
     // render fx interfaces
-    static char window_id[64];
+    static char char_buf[64];
     int i = 0;
 
     for (audiomod::FXBus* fx_bus : song.fx_mixer)
@@ -678,14 +682,60 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             continue;
         }
         
-        snprintf(window_id, 64, "FX: %i - %s###%p", i, fx_bus->name, fx_bus);
+        // write window id
+        snprintf(char_buf, 64, "FX: %i - %s###%p", i, fx_bus->name, fx_bus);
         
         if (ImGui::Begin(
-            window_id,
+            char_buf, // window id
             &fx_bus->interface_open,
             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking
         )) {
+            // set next item width to make sure window title is not truncated
+            ImGui::SetNextItemWidth(ImGui::CalcTextSize("FX: 0 MM - MMMMMMMMMMMMMMMMMM").x);
             ImGui::InputText("##name", fx_bus->name, fx_bus->name_capacity);
+
+            // if i am not the master bus
+            if (i > 0)
+            {
+                ImGui::SameLine();
+                ImGui::Button("Delete");
+
+                ImGui::AlignTextToFramePadding();
+                ImGui::Text("Output Bus");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(-1.0f);
+
+                // write preview value
+                snprintf(char_buf, 64, "%i - %s", fx_bus->target_bus, song.fx_mixer[fx_bus->target_bus]->name);
+
+                if (ImGui::BeginCombo("##fx_target", char_buf))
+                {
+                    // list potential targets
+                    for (size_t target_i = 0; target_i < song.fx_mixer.size(); target_i++)
+                    {
+                        audiomod::FXBus* target_bus = song.fx_mixer[target_i];
+                        if (target_bus == fx_bus) continue;
+
+                        // write target bus name
+                        snprintf(char_buf, 64, "%lu - %s", target_i, target_bus->name);
+
+                        bool is_selected = target_i == fx_bus->target_bus;
+                        if (ImGui::Selectable(char_buf, is_selected))
+                        {
+                            // remove old connection
+                            song.fx_mixer[fx_bus->target_bus]->disconnect_input(&fx_bus->controller);
+
+                            // create new connection
+                            fx_bus->target_bus = target_i;
+                            target_bus->connect_input(&fx_bus->controller);
+                        }
+
+                        if (is_selected) ImGui::SetItemDefaultFocus();
+                    }
+                    
+                    ImGui::EndCombo();
+                }
+            }
 
             int target_index;
             switch (effect_rack_ui(&fx_bus->rack, fx_bus->name, &target_index))
@@ -696,11 +746,15 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                 case EffectsInterfaceAction::Delete: {
                     // delete the selected module
+                    song.mutex.lock();
+
                     audiomod::ModuleBase* mod = fx_bus->rack.remove(target_index);
                     if (mod != nullptr) {
                         song.hide_module_interface(mod);
                         delete mod;
                     }
+
+                    song.mutex.unlock();
                     break;
                 }
 

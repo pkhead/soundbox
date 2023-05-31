@@ -210,6 +210,11 @@ namespace audiomod {
         static constexpr size_t name_capacity = 16;
         char name[16];
 
+        bool interface_open = false;
+
+        // index of target bus
+        int target_bus = 0;
+
         inline void insert(ModuleBase* module, size_t position) { rack.insert(module, position); };
         inline void insert(ModuleBase* module) { rack.insert(module); };
         inline ModuleBase* remove(size_t position) { return rack.remove(position); };
@@ -223,8 +228,6 @@ namespace audiomod {
         // these implementations aren't one-liners so maybe inlining isn't a good idea
         ModuleOutputTarget* connect_output(ModuleOutputTarget* output);
         ModuleOutputTarget* disconnect_output();
-
-        bool interface_open = false;
     };
 
     ModuleBase* create_module(const std::string& mod_id);
