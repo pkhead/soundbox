@@ -39,8 +39,7 @@ public:
     audiomod::ModuleBase* synth_mod;
     audiomod::EffectsRack effects_rack;
 
-    int selected_effect = 0;
-    
+    int fx_target_idx = 0;
     bool solo = false;
 
     char name[16];
@@ -48,6 +47,7 @@ public:
     std::vector<Pattern*> patterns;
     
     void set_instrument(audiomod::ModuleBase* new_instrument);
+    void set_fx_target(int fx_index);
 };
 
 class Song {

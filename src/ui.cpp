@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "modules/modules.h"
 #include "imgui.h"
+#include "song.h"
 #include "ui.h"
 
 namespace Colors {
@@ -357,15 +358,7 @@ EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* effects_rack, const
 
 void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
-
-    static int bus_index = 0;
-
-    static const char* bus_names[] = {
-        "0 - master",
-        "1 - bus 1",
-        "2 - bus 2",
-        "3 - drums",
-    };
+    static char char_buf[64];
 
     ImGui::NewFrame();
 
@@ -521,21 +514,36 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::SliderFloat("##channel_panning", &cur_channel->vol_mod.panning, -1, 1, "%.2f");
         }
 
-        // fx mixer bus combobox
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("FX Bus");
-        ImGui::SameLine();
-        if (ImGui::BeginCombo("##channel_bus", bus_names[bus_index]))
+        
         {
-            for (int i = 0; i < 4; i++) {
-                if (ImGui::Selectable(bus_names[i], i == bus_index)) bus_index = i;
+            // fx mixer bus combobox
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("FX Output");
+            ImGui::SameLine();
 
-                if (i == bus_index) {
-                    ImGui::SetItemDefaultFocus();
+            // write preview value
+            audiomod::FXBus* cur_fx_bus = song.fx_mixer[cur_channel->fx_target_idx];
+            snprintf(char_buf, 64, "%i - %s", cur_channel->fx_target_idx, cur_fx_bus->name);
+
+            if (ImGui::BeginCombo("##channel_fx_target", char_buf))
+            {
+                // list potential targets
+                for (size_t target_i = 0; target_i < song.fx_mixer.size(); target_i++)
+                {
+                    audiomod::FXBus* target_bus = song.fx_mixer[target_i];
+
+                    // write target bus name
+                    snprintf(char_buf, 64, "%lu - %s", target_i, target_bus->name);
+
+                    bool is_selected = target_i == cur_channel->fx_target_idx;
+                    if (ImGui::Selectable(char_buf, is_selected))
+                        cur_channel->set_fx_target(target_i);
+
+                    if (is_selected) ImGui::SetItemDefaultFocus();
                 }
+                
+                ImGui::EndCombo();
             }
-
-            ImGui::EndCombo();
         }
 
         ImGui::PopItemWidth();
@@ -671,7 +679,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     }
 
     // render fx interfaces
-    static char char_buf[64];
     int i = 0;
 
     for (audiomod::FXBus* fx_bus : song.fx_mixer)

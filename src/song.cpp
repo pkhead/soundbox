@@ -36,7 +36,7 @@ Channel::Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*
     synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
     effects_rack.connect_output(&vol_mod);
-    fx_mixer[1]->connect_input(&vol_mod);
+    fx_mixer[0]->connect_input(&vol_mod);
 }
 
 Channel::~Channel() {
@@ -59,6 +59,14 @@ void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
     effects_rack.connect_input(synth_mod);
 }
 
+void Channel::set_fx_target(int fx_index)
+{
+    // disconnect old target
+    fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
+
+    fx_target_idx = fx_index;
+    fx_mixer[fx_index]->connect_input(&vol_mod);
+}
 
 /*************************
 *         SONG           *
