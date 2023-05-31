@@ -650,7 +650,6 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
             // left channel
             ImGui::ProgressBar(bus->controller.analysis_volume[0], Vec2(-1.0f, 1.0f), "");
-
             // right channel
             ImGui::ProgressBar(bus->controller.analysis_volume[1], Vec2(-1.0f, 1.0f), "");
 
@@ -701,17 +700,27 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::SetNextItemWidth(ImGui::CalcTextSize("FX: 0 MM - MMMMMMMMMMMMMMMMMM").x);
             ImGui::InputText("##name", fx_bus->name, fx_bus->name_capacity);
 
-            // if i am not the master bus
+            // show delete button
             if (i > 0)
             {
                 ImGui::SameLine();
                 ImGui::Button("Delete");
+            }
 
+            // show volume analysis and TODO: gain slider
+            // left channel
+            float bar_height = ImGui::GetTextLineHeight() * 0.25f;
+            ImGui::ProgressBar(fx_bus->controller.analysis_volume[0], Vec2(-1.0f, bar_height), "");
+            // right channel
+            ImGui::ProgressBar(fx_bus->controller.analysis_volume[1], Vec2(-1.0f, bar_height), "");
+
+            // show output bus combobox
+            if (i > 0)
+            {
                 ImGui::AlignTextToFramePadding();
                 ImGui::Text("Output Bus");
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(-1.0f);
-
                 // write preview value
                 snprintf(char_buf, 64, "%i - %s", fx_bus->target_bus, song.fx_mixer[fx_bus->target_bus]->name);
 
@@ -721,7 +730,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     for (size_t target_i = 0; target_i < song.fx_mixer.size(); target_i++)
                     {
                         audiomod::FXBus* target_bus = song.fx_mixer[target_i];
-                        if (target_bus == fx_bus) continue;
+
+                        // skip if looking at myself or an input of myself
+                        if (target_bus == fx_bus || song.fx_mixer[target_bus->target_bus] == fx_bus) continue;
 
                         // write target bus name
                         snprintf(char_buf, 64, "%lu - %s", target_i, target_bus->name);
