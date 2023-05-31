@@ -33,6 +33,7 @@ Channel::Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*
     }
 
     synth_mod = new audiomod::WaveformSynth();
+    synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
     effects_rack.connect_output(&vol_mod);
     fx_mixer[0]->connect_input(&vol_mod);
@@ -347,32 +348,19 @@ void Song::update(double elapsed) {
 
 void Song::hide_module_interface(audiomod::ModuleBase* mod) {
     for (auto it = mod_interfaces.begin(); it != mod_interfaces.end(); it++) {
-        if ((*it).module == mod) {
+        if (*it == mod) {
             mod_interfaces.erase(it);
             break;
         }
     }
 }
 
-void Song::toggle_module_interface(int channel_index, int effect_index) {
-    Channel* cur_channel = channels[channel_index];
-    audiomod::ModuleBase* mod;
-
-    if (effect_index < 0)
-        mod = cur_channel->synth_mod;
-    else {
-        if (effect_index >= cur_channel->effects_rack.modules.size()) return;
-        mod = cur_channel->effects_rack.modules[effect_index];
-    }
-
+void Song::toggle_module_interface(audiomod::ModuleBase* mod) {
     mod->show_interface = !mod->show_interface;
     
     // if want to show interface, add module to interfaces list
     if (mod->show_interface) {
-        mod_interfaces.push_back({
-            cur_channel,
-            mod
-        });
+        mod_interfaces.push_back(mod);
 
     // if want to hide interface, remove module from interfaces list
     } else {

@@ -258,7 +258,7 @@ void ui_init(Song& song, UserActionList& user_actions) {
 
 
 
-EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* effects_rack, int* selected_index)
+EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* effects_rack, const char* parent_name, int* selected_index)
 {
     EffectsInterfaceAction action = EffectsInterfaceAction::Nothing;
 
@@ -273,11 +273,13 @@ EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* effects_rack, int* 
     if (ImGui::BeginPopup("add_effect")) {
         if (ImGui::Selectable("Gain")) {
             audiomod::ModuleBase* mod = audiomod::create_module("effects.gain");
+            mod->parent_name = parent_name;
             effects_rack->insert(mod);
         }
 
         if (ImGui::Selectable("Analyzer")) {
             audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer");
+            mod->parent_name = parent_name;
             effects_rack->insert(mod);
         }
 
@@ -549,14 +551,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
         {
-            song.toggle_module_interface(song.selected_channel, -1);
+            song.toggle_module_interface(cur_channel->synth_mod);
         }
 
         int target_index;
-        switch (effect_rack_ui(&cur_channel->effects_rack, &target_index))
+        switch (effect_rack_ui(&cur_channel->effects_rack, cur_channel->name, &target_index))
         {
             case EffectsInterfaceAction::Edit:
-                song.toggle_module_interface(song.selected_channel, target_index);
+                song.toggle_module_interface(cur_channel->effects_rack.modules[target_index]);
                 break;
 
             case EffectsInterfaceAction::Delete: {
@@ -656,9 +658,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     // render module interfaces
     for (size_t i = 0; i < song.mod_interfaces.size();)
     {
-        auto data = song.mod_interfaces[i];
+        auto mod = song.mod_interfaces[i];
         
-        if (data.module->render_interface(data.channel->name)) i++;
+        if (mod->render_interface()) i++;
         else {
             song.mod_interfaces.erase(song.mod_interfaces.begin() + i);
         }
@@ -686,22 +688,20 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::InputText("##name", fx_bus->name, fx_bus->name_capacity);
 
             int target_index;
-            switch (effect_rack_ui(&fx_bus->rack, &target_index))
+            switch (effect_rack_ui(&fx_bus->rack, fx_bus->name, &target_index))
             {
                 case EffectsInterfaceAction::Edit:
-                    //song.toggle_module_interface(song.selected_channel, target_index);
+                    song.toggle_module_interface(fx_bus->rack.modules[target_index]);
                     break;
 
                 case EffectsInterfaceAction::Delete: {
                     // delete the selected module
-                    /*
-                    audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(target_index);
+                    audiomod::ModuleBase* mod = fx_bus->rack.remove(target_index);
                     if (mod != nullptr) {
                         song.hide_module_interface(mod);
                         delete mod;
                     }
                     break;
-                    */
                 }
 
                 case EffectsInterfaceAction::Nothing: break;

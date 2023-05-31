@@ -251,11 +251,11 @@ bool ModuleBase::has_interface() const {
     return _has_interface;
 }
 
-bool ModuleBase::render_interface(const char* channel_name) {
+bool ModuleBase::render_interface() {
     if (!show_interface) return false;
 
     char window_name[128];
-    snprintf(window_name, 128, "%s - %s###%p", name.c_str(), channel_name == nullptr ? "" : channel_name, this);
+    snprintf(window_name, 128, "%s - %s###%p", name.c_str(), parent_name == nullptr ? "" : parent_name, this);
 
     if (ImGui::Begin(window_name, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
         _interface_proc();

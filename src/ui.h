@@ -129,4 +129,4 @@ enum class EffectsInterfaceAction
     Nothing, Edit, Delete
 };
 
-EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* rack, int** target_index);
+EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* rack, const char* parent_name, int** target_index);

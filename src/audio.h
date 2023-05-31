@@ -80,6 +80,7 @@ namespace audiomod {
         bool show_interface;
         const char* id;
         std::string name;
+        const char* parent_name;
 
         ModuleBase(const ModuleBase&) = delete;
         ModuleBase(bool has_interface);
@@ -103,7 +104,7 @@ namespace audiomod {
         bool has_interface() const;
         
         // render the ImGui interface
-        bool render_interface(const char* channel_name);
+        bool render_interface();
 
         // report a newly allocated block of memory which holds the serialized state of the module
         virtual size_t save_state(void** output) const { return 0; };
