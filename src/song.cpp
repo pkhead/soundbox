@@ -77,7 +77,7 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
 
     audiomod::FXBus* master_bus = new audiomod::FXBus();
     strcpy(master_bus->name, "Master");
-    master_bus->target_bus = -1;
+    master_bus->target_bus = 0;
     master_bus->connect_output(&audio_out);
     fx_mixer.push_back(master_bus);
 
