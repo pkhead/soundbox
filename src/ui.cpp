@@ -258,7 +258,95 @@ void ui_init(Song& song, UserActionList& user_actions) {
 
 
 
+EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* effects_rack, int* selected_index)
+{
+    EffectsInterfaceAction action = EffectsInterfaceAction::Nothing;
 
+    // effects
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Effects");
+    ImGui::SameLine();
+    if (ImGui::Button("Add##effect_add")) {
+        ImGui::OpenPopup("add_effect");
+    }
+
+    if (ImGui::BeginPopup("add_effect")) {
+        if (ImGui::Selectable("Gain")) {
+            audiomod::ModuleBase* mod = audiomod::create_module("effects.gain");
+            effects_rack->insert(mod);
+        }
+
+        if (ImGui::Selectable("Analyzer")) {
+            audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer");
+            effects_rack->insert(mod);
+        }
+
+        ImGui::EndPopup();
+    }
+
+    // effects help
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 15.0f);
+        ImGui::BulletText("Drag an item to reorder");
+        ImGui::BulletText("Double-click to configure");
+        ImGui::BulletText("Right-click to remove");
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+
+    { // effects list
+        ImVec2 size = ImGui::GetContentRegionAvail();
+        size_t i = 0;
+        
+        static int delete_index;
+        delete_index = -1;
+
+        for (audiomod::ModuleBase* module : effects_rack->modules) {
+            ImGui::PushID(module);
+
+            //bool is_selected = cur_channel->selected_effect == i;
+            bool is_selected = false;
+            ImGui::Selectable(module->name.c_str(), module->show_interface);
+
+            // drag to reorder
+            if (ImGui::IsItemActive() && !ImGui::IsItemHovered()) {
+                int delta = ImGui::GetMouseDragDelta(0).y < 0.f ? -1 : 1;
+                int n_next = i + delta;
+
+                if (n_next >= 0 && n_next < effects_rack->modules.size()) {
+                    // swap n and n_next
+                    int min = i > n_next ? n_next : i;
+                    audiomod::ModuleBase* m = effects_rack->remove(min);
+                    effects_rack->insert(m, min + 1);
+                    ImGui::ResetMouseDragDelta();
+                }
+            }
+
+            // double click to edit
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                *selected_index = i;
+                action = EffectsInterfaceAction::Edit;
+            }
+
+            // right click to delete
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::Selectable("Remove", false)) {
+                    // defer deletion until after the loop has finished
+                    *selected_index = i;
+                    action = EffectsInterfaceAction::Delete;
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::PopID();
+            i++;
+        }
+    }
+
+    return action;
+}
 
 // menu item helper
 #define MENU_ITEM(label, action_name) \
@@ -464,105 +552,26 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             song.toggle_module_interface(song.selected_channel, -1);
         }
 
-        // effects
-        ImGui::NewLine();
+        int target_index;
+        switch (effect_rack_ui(&cur_channel->effects_rack, &target_index))
+        {
+            case EffectsInterfaceAction::Edit:
+                song.toggle_module_interface(song.selected_channel, target_index);
+                break;
 
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Effects");
-        ImGui::SameLine();
-        if (ImGui::Button("Add##effect_add")) {
-            ImGui::OpenPopup("add_effect");
-        }
-
-        if (ImGui::BeginPopup("add_effect")) {
-            if (ImGui::Selectable("Gain")) {
-                audiomod::ModuleBase* mod = audiomod::create_module("effects.gain");
-                cur_channel->effects_rack.insert(mod);
-            }
-
-            if (ImGui::Selectable("Analyzer")) {
-                audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer");
-                cur_channel->effects_rack.insert(mod);
-            }
-
-            ImGui::EndPopup();
-        }
-
-        // effects help
-        ImGui::SameLine();
-        ImGui::TextDisabled("(?)");
-        if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
-            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 15.0f);
-            ImGui::Text("These apply effects to the instrument before it is sent to the FX bus.");
-            ImGui::BulletText("Drag an item to reorder");
-            ImGui::BulletText("Double-click to configure");
-            ImGui::BulletText("Right-click to remove");
-            ImGui::PopTextWrapPos();
-            ImGui::EndTooltip();
-        }
-
-        { // effects list
-            ImVec2 size = ImGui::GetContentRegionAvail();
-            size_t i = 0;
-            audiomod::EffectsRack& effects_rack = cur_channel->effects_rack;
-            
-            static int delete_index;
-            delete_index = -1;
-
-            for (audiomod::ModuleBase* module : effects_rack.modules) {
-                ImGui::PushID(module);
-
-                //bool is_selected = cur_channel->selected_effect == i;
-                bool is_selected = false;
-                if (ImGui::Selectable(module->name.c_str(), module->show_interface)) {
-                    cur_channel->selected_effect = i;
-                }
-
-                // drag to reorder
-                if (ImGui::IsItemActive() && !ImGui::IsItemHovered()) {
-                    int delta = ImGui::GetMouseDragDelta(0).y < 0.f ? -1 : 1;
-                    int n_next = i + delta;
-
-                    if (n_next >= 0 && n_next < effects_rack.modules.size()) {
-                        // swap n and n_next
-                        int min = i > n_next ? n_next : i;
-                        audiomod::ModuleBase* m = effects_rack.remove(min);
-                        effects_rack.insert(m, min + 1);
-                        cur_channel->selected_effect += delta;
-                        ImGui::ResetMouseDragDelta();
-                    }
-                }
-
-                // double click to edit
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                    cur_channel->selected_effect = i;
-                    song.toggle_module_interface(song.selected_channel, i);
-                }
-
-                // right click to delete
-                if (ImGui::BeginPopupContextItem()) {
-                    if (ImGui::Selectable("Remove", false)) {
-                        // defer deletion until after the loop has finished
-                        delete_index = i;
-                    }
-                    ImGui::EndPopup();
-                }
-
-                ImGui::PopID();
-                i++;
-            }
-
-            // delete the requested module
-            if (delete_index >= 0) {
-                audiomod::ModuleBase* mod = effects_rack.remove(delete_index);
+            case EffectsInterfaceAction::Delete: {
+                // delete the selected module
+                audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(target_index);
                 if (mod != nullptr) {
                     song.hide_module_interface(mod);
                     delete mod;
                 }
-
-                delete_index = -1;
+                break;
             }
+
+            case EffectsInterfaceAction::Nothing: break;
         }
+        
     } ImGui::End();
 
     if (ImGui::BeginPopup("inst_load"))
@@ -661,17 +670,44 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     for (audiomod::FXBus* fx_bus : song.fx_mixer)
     {
-        if (!fx_bus->interface_open) continue;
+        if (!fx_bus->interface_open)
+        {
+            i++;
+            continue;
+        }
         
         snprintf(window_id, 64, "FX: %i - %s###%p", i, fx_bus->name, fx_bus);
         
         if (ImGui::Begin(
             window_id,
             &fx_bus->interface_open,
-            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking
         )) {
-            ImGui::Text("%s", fx_bus->name);
+            ImGui::InputText("##name", fx_bus->name, fx_bus->name_capacity);
+
+            int target_index;
+            switch (effect_rack_ui(&fx_bus->rack, &target_index))
+            {
+                case EffectsInterfaceAction::Edit:
+                    //song.toggle_module_interface(song.selected_channel, target_index);
+                    break;
+
+                case EffectsInterfaceAction::Delete: {
+                    // delete the selected module
+                    /*
+                    audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(target_index);
+                    if (mod != nullptr) {
+                        song.hide_module_interface(mod);
+                        delete mod;
+                    }
+                    break;
+                    */
+                }
+
+                case EffectsInterfaceAction::Nothing: break;
+            }
         }
+
         ImGui::End();
 
         i++;

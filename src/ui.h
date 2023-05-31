@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <math.h>
+#include "audio.h"
 #include "song.h"
 #include <imgui.h>
 
@@ -118,3 +120,13 @@ void render_pattern_editor(ImGuiIO& io, Song& song);
 // are slightly transparent if disabled
 void push_btn_disabled(ImGuiStyle& style, bool is_disabled);
 void pop_btn_disabled();
+
+// if action = 0, do nothing
+// if action = 1, edit selected module
+// if aciton = 2, delete selected module
+enum class EffectsInterfaceAction
+{
+    Nothing, Edit, Delete
+};
+
+EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* rack, int** target_index);

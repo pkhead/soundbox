@@ -179,10 +179,10 @@ namespace audiomod {
 
     class FXBus
     {
-    private:
-        EffectsRack rack;
     public:
         FXBus();
+
+        EffectsRack rack;
 
         class ControllerModule : public ModuleBase
         {
@@ -206,7 +206,7 @@ namespace audiomod {
             return rack.modules;
         };
 
-        static constexpr size_t name_size = 16;
+        static constexpr size_t name_capacity = 16;
         char name[16];
 
         inline void insert(ModuleBase* module, size_t position) { rack.insert(module, position); };
