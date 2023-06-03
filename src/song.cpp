@@ -1,8 +1,19 @@
+#include <algorithm>
 #include <assert.h>
+#include <cctype>
+#include <cinttypes>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ios>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
 #include <string.h>
 #include <math.h>
+#include <string>
 #include "audio.h"
 #include "song.h"
 #include "sys.h"
@@ -74,6 +85,16 @@ void Channel::set_fx_target(int fx_index)
 
 Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), _length(length), _max_patterns(max_patterns) {
     strcpy(name, "Untitled");
+
+    // create 12edo scale
+    Scale* scale = new Scale();
+    scale->name = "12edo";
+    scale->desc = "The default scale";
+    
+    for (int i = 0; i < 12; i++)
+    {
+        scale->pitches.push_back(log2((float)i / 12.0f));
+    }
 
     audiomod::FXBus* master_bus = new audiomod::FXBus();
     strcpy(master_bus->name, "Master");
@@ -622,4 +643,116 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
     }
 
     return song;
+}
+
+static std::string& string_trim(std::string& str)
+{
+    // trim the start
+    for (auto it = str.begin(); it != str.end(); it++) {
+        if (!std::isspace(*it)) {
+            str.erase(str.begin(), it);
+            break;
+        }
+    }
+
+    // trim the end
+    for (auto it = str.rbegin(); it != str.rend(); it++) {
+        if (!std::isspace(*it)) {
+            str.erase(it.base(), str.end());
+            break;
+        }
+    }
+
+    return str;
+}
+
+Scale* Song::load_scale_scl(std::istream& input, std::string* err)
+{
+    int line_num = 0; // line num excluding comments
+    int actual_line_num = 0; // line num including comments
+    int note_count;
+
+    Scale* scale = new Scale();
+    scale->name = "Scale";
+    std::string buf;
+
+    try {
+        while (!input.eof())
+        {
+            // skip comment
+            if (input.peek() == '!')
+                input.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+            else
+            {
+                // first line is a description
+                if (line_num == 0) std::getline(input, scale->desc);
+
+                // second line is the number of notes
+                else if (line_num == 1)
+                {
+                    std::getline(input, buf);
+                    note_count = std::stoul(buf);
+                }
+
+                // a pitch value
+                else
+                {
+                    buf.clear();
+                    std::getline(input, buf);
+                    string_trim(buf);
+
+                    if (!buf.empty())
+                    {
+                        std::cout << buf << "\t";
+
+                        float pitch;
+
+                        // if pitch value is in cents
+                        if (buf.find(".") != std::string::npos)
+                        {
+                            float pitch = log2(std::stof(buf) / 1200.0f);
+                        }
+
+                        // if pitch value is a ratio
+                        else {
+                            size_t delim_pos = buf.find('/');
+
+                            // if there is no slash
+                            if (delim_pos == std::string::npos)
+                            {
+                                pitch = (float)std::stoul(buf);
+                            }
+
+                            // there is a slash, read as fraction
+                            else
+                            {
+                                unsigned long numer = std::stoul(buf.substr(0, delim_pos));
+                                unsigned long denom = std::stoul(buf.substr(delim_pos + 1));
+                                pitch = (float)numer / denom;
+                            }
+                        }
+
+                        std::cout << pitch << "\n";
+                        scale->pitches.push_back(pitch);
+                    }
+                }
+
+                line_num++;
+            }
+
+            actual_line_num++;
+        }
+    }
+    catch(...)
+    {
+        if (err) *err = std::string("read error on line ") + std::to_string(actual_line_num);
+        delete scale;
+        return nullptr;
+    }
+
+    std::cout << "done reading\n" << "num notes: " << note_count << "\n";
+
+    scales.push_back(scale);
+    return scale;
 }
