@@ -250,6 +250,57 @@ int main()
             }
         });
 
+        user_actions.set_callback("load_tuning", [&]()
+        {
+            nfdchar_t* out_path;
+            nfdresult_t result = NFD_OpenDialog("scl,kbm", nullptr, &out_path);
+
+            if (result == NFD_OKAY) {
+                song->mutex.lock();
+
+                std::string error_msg = "unknown error";
+                std::fstream file;
+                file.open(out_path);
+
+                if (!file.is_open())
+                {
+                    status_message = "Could not open " + std::string(out_path);
+                    status_time = glfwGetTime();
+                }
+                else
+                {
+                    Tuning* tun;
+                    std::string err;
+                    if ((tun = song->load_scale_scl(file, &err)))
+                    {
+                        // get file name without extension
+                        std::string file_path = std::string(out_path);
+                        file_path = file_path.substr(file_path.find_last_of("/\\") + 1);
+                        
+                        int dot_index;
+                        file_path = (dot_index = file_path.find_last_of(".")) > 0 ?
+                            file_path.substr(0, dot_index) :
+                            file_path.substr(dot_index + 1); // if dot is at the beginning of file, just remove it
+
+                        // write it as name of the tuning
+                        tun->name = file_path; 
+                    }
+                    else
+                    {
+                        // error reading file
+                        status_message = std::string("Error: ") + err;
+                        status_time = glfwGetTime(); 
+                    }
+                    
+                    file.close();
+                }
+                
+                song->mutex.unlock();
+            } else if (result != NFD_CANCEL) {
+                std::cerr << "Error: " << NFD_GetError() << "\n";
+            }
+        });
+
         // application quit
         user_actions.set_callback("quit", [&window]() {
             glfwSetWindowShouldClose(window, 1);

@@ -87,9 +87,10 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     strcpy(name, "Untitled");
 
     // create 12edo scale
-    Scale* scale = new Scale();
+    Tuning* scale = new Tuning();
     scale->name = "12edo";
     scale->desc = "The default scale";
+    tunings.push_back(scale);
     
     for (int i = 0; i < 12; i++)
     {
@@ -648,11 +649,22 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 static std::string& string_trim(std::string& str)
 {
     // trim the start
+    bool all_whitespace = true;
+
     for (auto it = str.begin(); it != str.end(); it++) {
         if (!std::isspace(*it)) {
+            all_whitespace = false;
             str.erase(str.begin(), it);
             break;
         }
+    }
+
+    // no non-whitespace character was found, so the entire string is whitespace
+    // so the entire string must be cleared
+    if (all_whitespace)
+    {
+        str.clear();
+        return str;
     }
 
     // trim the end
@@ -666,13 +678,13 @@ static std::string& string_trim(std::string& str)
     return str;
 }
 
-Scale* Song::load_scale_scl(std::istream& input, std::string* err)
+Tuning* Song::load_scale_scl(std::istream& input, std::string* err)
 {
     int line_num = 0; // line num excluding comments
     int actual_line_num = 0; // line num including comments
     int note_count;
 
-    Scale* scale = new Scale();
+    Tuning* scale = new Tuning();
     scale->name = "Scale";
     std::string buf;
 
@@ -686,7 +698,11 @@ Scale* Song::load_scale_scl(std::istream& input, std::string* err)
             else
             {
                 // first line is a description
-                if (line_num == 0) std::getline(input, scale->desc);
+                if (line_num == 0)
+                {
+                    std::getline(input, scale->desc);
+                    string_trim(scale->desc);
+                }
 
                 // second line is the number of notes
                 else if (line_num == 1)
@@ -753,6 +769,6 @@ Scale* Song::load_scale_scl(std::istream& input, std::string* err)
 
     std::cout << "done reading\n" << "num notes: " << note_count << "\n";
 
-    scales.push_back(scale);
+    tunings.push_back(scale);
     return scale;
 }

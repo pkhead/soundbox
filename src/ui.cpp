@@ -69,6 +69,8 @@ UserActionList::UserActionList() {
 
     add_action("mute_channel", USERMOD_CTRL, ImGuiKey_M);
     add_action("solo_channel", USERMOD_SHIFT, ImGuiKey_M);
+
+    add_action("load_tuning", 0, ImGuiKey_None);
 }
 
 void UserActionList::add_action(const std::string& action_name, uint8_t mod, ImGuiKey key, bool repeat) {
@@ -418,6 +420,11 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             MENU_ITEM("New Pattern", "new_pattern");
             MENU_ITEM("Move Notes Up", "move_notes_up");
             MENU_ITEM("Move Notes Down", "move_notes_down");
+
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Tuning..."))
+                song.show_tuning_window = !song.show_tuning_window;
             
             ImGui::EndMenu();
         }
@@ -783,6 +790,48 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::End();
 
         i++;
+    }
+
+    // tunings window
+    if (song.show_tuning_window) {
+        if (ImGui::Begin("Tunings", &song.show_tuning_window))
+        {
+            if (ImGui::Button("Load"))
+                    user_actions.fire("load_tuning");
+            
+            if (ImGui::BeginChild("list", ImVec2(ImGui::GetContentRegionAvail().x * 0.4f, -1.0f)))
+            {
+                int i = 0;
+
+                for (Tuning* tuning : song.tunings)
+                {
+                    if (ImGui::Selectable(tuning->name.c_str(), i == song.selected_tuning))
+                    {
+                        song.selected_tuning = i;
+                    }
+
+                    if (song.selected_tuning == i) ImGui::SetItemDefaultFocus();
+
+                    i++;
+                }
+            }
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+            ImGui::BeginGroup();
+
+            Tuning* selected_tuning = song.tunings[song.selected_tuning];
+
+            ImGui::Text("Description");
+            ImGui::Separator();
+
+            if (selected_tuning->desc.empty())
+                ImGui::TextDisabled("(no description)");
+            else
+                ImGui::Text("%s", selected_tuning->desc.c_str());
+
+            ImGui::EndGroup();
+        } ImGui::End();
     }
 
     // Info panel //

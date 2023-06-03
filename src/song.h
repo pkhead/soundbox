@@ -50,7 +50,7 @@ public:
     void set_fx_target(int fx_index);
 };
 
-struct Scale
+struct Tuning
 {
     std::string name;
     std::string desc;
@@ -99,7 +99,11 @@ public:
     float editor_quantization = 0.25f;
     float tempo = 120;
 
-    std::vector<Scale*> scales;
+    // there can be multiple tunings
+    // and song may be able to switch between them while playing
+    std::vector<Tuning*> tunings;
+    int selected_tuning = 0;
+    bool show_tuning_window = false;
 
     std::vector<audiomod::ModuleBase*> mod_interfaces;
     std::vector<audiomod::FXBus*> fx_interfaces;
@@ -133,7 +137,7 @@ public:
     * @param error the pointer to the string which may hold the error message
     * @returns the newly created Scale, or nullptr if there was an error 
     **/
-    Scale* load_scale_scl(std::istream& input, std::string* error);
+    Tuning* load_scale_scl(std::istream& input, std::string* error);
 
     void serialize(std::ostream& out) const;
     static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string *error_msg);
