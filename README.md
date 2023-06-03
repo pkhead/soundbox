@@ -3,6 +3,22 @@
 
 A cross-platform, free, and open-source digital audio workstation.
 
+## Features
+Anything BeepBox has, plus:
+
+- Custom tuning
+- Automation
+- Song change markers (time signature or tuning)
+- Variable-length patterns
+- Plugin support (VST, LADPSA, LV2, CLAP)
+- FX Mixer
+- Sample instrument (including a slicer)
+- Channel for playing audio clips 
+- Many other effects
+
+To see which features are not currently implemented, consult [TODO.txt](TODO.txt).
+Most features aren't implemented as this is still fairly early into development.
+
 ## Installation
 Prerequisites:
 - CMake
