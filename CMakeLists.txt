@@ -13,8 +13,8 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-add_subdirectory(libsoundio)
-add_subdirectory(glfw)
+add_subdirectory(deps/libsoundio)
+add_subdirectory(deps/glfw)
 
 mark_as_advanced(BUILD_STATIC_LIBS)
 mark_as_advanced(BUILD_EXAMPLE_PROGRAMS)
@@ -24,16 +24,19 @@ mark_as_advanced(GLFW_BUILD_TESTS)
 mark_as_advanced(GLFW_BUILD_EXAMPLES)
 
 set(SOURCES
-    imgui/imgui_demo.cpp
-    imgui/imgui_draw.cpp
-    imgui/imgui_tables.cpp
-    imgui/imgui_widgets.cpp
-    imgui/imgui.cpp
-    imgui/backends/imgui_impl_glfw.cpp
-    imgui/backends/imgui_impl_opengl3.cpp
+    # imgui sources
+    deps/imgui/imgui_demo.cpp
+    deps/imgui/imgui_draw.cpp
+    deps/imgui/imgui_tables.cpp
+    deps/imgui/imgui_widgets.cpp
+    deps/imgui/imgui.cpp
+    deps/imgui/backends/imgui_impl_glfw.cpp
+    deps/imgui/backends/imgui_impl_opengl3.cpp
 
-    nativefiledialog/src/nfd_common.c
+    # native file dialog
+    deps/nativefiledialog/src/nfd_common.c
 
+    # app sources
     src/main.cpp
     src/song.cpp
     src/audio.cpp
@@ -43,7 +46,7 @@ set(SOURCES
     src/pattern_editor.cpp
     src/track_editor.cpp
 
-    # modules
+    # audio modules
     src/modules/create.cpp
     src/modules/waveform.cpp
     src/modules/volume.cpp
@@ -51,17 +54,17 @@ set(SOURCES
     src/modules/analyzer.cpp
 )
 
-include_directories(glfw/include imgui libsoundio/soundio nativefiledialog/src/include)
+include_directories(deps/glfw/include deps/imgui deps/libsoundio/soundio deps/nativefiledialog/src/include)
 
 # Windows
 if (WIN32)
     # append platform-specific files for nativefiledialog sources
     set(SOURCES ${SOURCES}
-        nativefiledialog/src/nfd_win.cpp
+        deps/nativefiledialog/src/nfd_win.cpp
     )
 
     if (CMAKE_BUILD_TYPE MATCHES Debug)
-      add_executable(soundbox ${SOURCES})
+        add_executable(soundbox ${SOURCES})
     else()
         # if not making a debug build, remove the console window
         add_executable(soundbox WIN32 ${SOURCES})
@@ -87,7 +90,7 @@ if (WIN32)
 else()
     # append platform-specific files for nativefiledialog sources
     set(SOURCES ${SOURCES}
-        nativefiledialog/src/nfd_zenity.c
+        deps/nativefiledialog/src/nfd_zenity.c
     )
 
     add_executable(soundbox ${SOURCES})
