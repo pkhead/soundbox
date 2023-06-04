@@ -36,6 +36,11 @@ set(SOURCES
     # native file dialog
     deps/nativefiledialog/src/nfd_common.c
 
+    # anamark tuning library
+    deps/AnaMark-Tuning-Library/TUN_Scale.cpp
+    deps/AnaMark-Tuning-Library/TUN_StringTools.cpp
+    deps/AnaMark-Tuning-Library/SCL_Import.cpp
+
     # app sources
     src/main.cpp
     src/song.cpp
@@ -54,7 +59,7 @@ set(SOURCES
     src/modules/analyzer.cpp
 )
 
-include_directories(deps/glfw/include deps/imgui deps/libsoundio/soundio deps/nativefiledialog/src/include)
+include_directories(deps/AnaMark-Tuning-Library deps/glfw/include deps/imgui deps/libsoundio/soundio deps/nativefiledialog/src/include)
 
 # Windows
 if (WIN32)

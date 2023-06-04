@@ -9,3 +9,6 @@
 	path = deps/glfw
 	url = https://github.com/glfw/glfw
 	branch = 3.3-stable
+[submodule "deps/AnaMark-Tuning-Library"]
+	path = deps/AnaMark-Tuning-Library
+	url = https://github.com/zardini123/AnaMark-Tuning-Library

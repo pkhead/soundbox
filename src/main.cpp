@@ -253,7 +253,7 @@ int main()
         user_actions.set_callback("load_tuning", [&]()
         {
             nfdchar_t* out_path;
-            nfdresult_t result = NFD_OpenDialog("scl,kbm", nullptr, &out_path);
+            nfdresult_t result = NFD_OpenDialog("tun", nullptr, &out_path);
 
             if (result == NFD_OKAY) {
                 song->mutex.lock();
@@ -271,7 +271,7 @@ int main()
                 {
                     Tuning* tun;
                     std::string err;
-                    if ((tun = song->load_scale_scl(file, &err)))
+                    if ((tun = song->load_scale_tun(file, &err)))
                     {
                         // get file name without extension
                         std::string file_path = std::string(out_path);

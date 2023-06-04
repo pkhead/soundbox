@@ -4,6 +4,8 @@
 #include <istream>
 #include <string>
 #include <mutex>
+
+#include <TUN_Scale.h>
 #include "audio.h"
 #include "modules/modules.h"
 
@@ -54,7 +56,7 @@ struct Tuning
 {
     std::string name;
     std::string desc;
-    std::vector<float> pitches;
+    TUN::CSingleScale scale;
 };
 
 class Song {
@@ -133,11 +135,11 @@ public:
     void update(double elasped);
 
     /**
-    * Load scale data in the Scala format
+    * Load scale data in the AnaMark tuning file format
     * @param error the pointer to the string which may hold the error message
-    * @returns the newly created Scale, or nullptr if there was an error 
+    * @returns the newly created tuning, or nullptr if there was an error 
     **/
-    Tuning* load_scale_scl(std::istream& input, std::string* error);
+    Tuning* load_scale_tun(std::istream& input, std::string* error);
 
     void serialize(std::ostream& out) const;
     static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string *error_msg);
