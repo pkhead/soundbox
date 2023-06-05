@@ -83,6 +83,72 @@ void Channel::set_fx_target(int fx_index)
 }
 
 /*************************
+*        TUNING          *
+*************************/
+
+void Tuning::analyze()
+{
+    octaves.clear();
+    fifths.clear();
+
+    // frequency of the base note of this octave
+    double octave_freq = -9999;
+
+    for (int midi_key : scale.GetMapping())
+    {
+        double freq = scale.GetMIDINoteFreqHz(midi_key);
+
+        // if this is the first note, then mark this note as an octave key
+        if (octave_freq == -9999)
+        {
+            octaves.push_back(midi_key);
+            octave_freq = freq;
+
+            std::cout << "new octave\n";
+        }
+        else
+        {
+            std::cout << (freq / octave_freq) << "\n";
+
+            // if a 2/1 interval was found, the next octave was found
+            if (octave_freq * 2.0 == freq)
+            {
+                octaves.push_back(midi_key);
+                octave_freq = freq;
+
+                std::cout << "new octave\n";
+            }
+
+            // if a 3/2 interval was found, this is a fifth
+            else if (std::abs(freq / octave_freq - 1.5) < 0.05)
+            {
+                fifths.push_back(midi_key);
+                std::cout << "fifth found\n";
+            }
+        }
+    }
+}
+
+bool Tuning::is_octave_key(int key) const
+{
+    for (int k : octaves)
+    {
+        if (k == key) return true;
+    }
+
+    return false;
+}
+
+bool Tuning::is_fifth_key(int key) const
+{
+    for (int k : fifths)
+    {
+        if (k == key) return true;
+    }
+
+    return false;
+}
+/*************************
 *         SONG           *
 *************************/
 
@@ -92,8 +158,10 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     // create 12edo scale
     Tuning* tuning = new Tuning();
     tuning->name = "12edo";
-    tuning->desc = "The default scale";
+    tuning->desc = "The standard tuning system";
+    tuning->is_12edo = true;
     tuning->scale.InitEqual(57, 440.0);
+    tuning->analyze();
     tunings.push_back(tuning);
 
     audiomod::FXBus* master_bus = new audiomod::FXBus();
@@ -691,6 +759,7 @@ Tuning* Song::load_scale_tun(std::istream& input, std::string* err)
     if (tuning->scale.Read(input, strparser) == 1)
     {   // if read was successful
         tuning->desc = tuning->scale.m_strDescription;
+        tuning->analyze();
         tunings.push_back(tuning);
         return tuning;
     }

@@ -250,10 +250,15 @@ int main()
             }
         });
 
+        std::string last_tuning_location;
         user_actions.set_callback("load_tuning", [&]()
         {
             nfdchar_t* out_path;
-            nfdresult_t result = NFD_OpenDialog("tun", nullptr, &out_path);
+            nfdresult_t result = NFD_OpenDialog(
+                "tun",
+                last_tuning_location.empty() ? nullptr : last_tuning_location.c_str(),
+                &out_path
+            );
 
             if (result == NFD_OKAY) {
                 song->mutex.lock();
@@ -273,9 +278,13 @@ int main()
                     std::string err;
                     if ((tun = song->load_scale_tun(file, &err)))
                     {
+                        std::string path_str = std::string(out_path);
+
+                        // store location
+                        last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
+
                         // get file name without extension
-                        std::string file_path = std::string(out_path);
-                        file_path = file_path.substr(file_path.find_last_of("/\\") + 1);
+                        std::string file_path = path_str.substr(path_str.find_last_of("/\\") + 1);
                         
                         int dot_index;
                         file_path = (dot_index = file_path.find_last_of(".")) > 0 ?

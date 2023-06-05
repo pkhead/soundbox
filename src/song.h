@@ -57,6 +57,15 @@ struct Tuning
     std::string name;
     std::string desc;
     TUN::CSingleScale scale;
+    bool is_12edo = false;
+
+    std::vector<int> octaves;
+    std::vector<int> fifths;
+
+    void analyze();
+
+    bool is_octave_key(int key) const;
+    bool is_fifth_key(int key) const;
 };
 
 class Song {

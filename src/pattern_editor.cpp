@@ -8,6 +8,8 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
 {
     ImGuiStyle& style = ImGui::GetStyle();
 
+    Tuning* tuning = song.tunings[song.selected_tuning];
+
     if (ImGui::Begin("Pattern Editor")) {
         // cell size including margin
         const Vec2 CELL_SIZE = Vec2(int((ImGui::GetTextLineHeight() + 2.0f) * 3.125f), int(ImGui::GetTextLineHeight() + 2.0f));
@@ -454,10 +456,17 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             draw_list->AddRectFilled(
                 piano_rect_pos + Vec2(CELL_MARGIN, CELL_MARGIN),
                 piano_rect_pos + Vec2(PIANO_KEY_WIDTH - CELL_MARGIN * 2, CELL_SIZE.y - CELL_MARGIN * 2),
-                key % 12 == 0 ?
-                    /*IM_RGB32(95, 23, 23)*/ vec4_color(style.Colors[ImGuiCol_Button]) : // octave
-                    ACCIDENTAL[key % 12] ? IM_RGB32(38, 38, 38) : // fifth
-                    IM_RGB32(20, 20, 20) // default
+
+                // color based on accidental/octave
+                tuning->is_12edo ?
+                    key % 12 == 0 ?
+                        vec4_color(style.Colors[ImGuiCol_Button]) : // octave
+                        ACCIDENTAL[key % 12] ? IM_RGB32(38, 38, 38) : // fifth
+                        IM_RGB32(20, 20, 20) // default
+                    : // if tuning system is not 12edo
+                    tuning->is_octave_key(key) ?
+                        vec4_color(style.Colors[ImGuiCol_Button]) : // octave
+                        IM_RGB32(20, 20, 20) // default
             );
 
             // get key name
@@ -474,10 +483,10 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                 IM_COL32_WHITE,
                 key_name
             );
-
+            
             ImU32 row_color =
-                key % 12 == 0 ? /*IM_RGB32(191, 46, 46)*/ vec4_color(style.Colors[ImGuiCol_ButtonHovered]) : // highlight each octave
-                key % 12 == 7 ? /*IM_RGB32(74, 68, 68)*/ vec4_color(style.Colors[ImGuiCol_FrameBgHovered]) : // highlight each fifth
+                tuning->is_octave_key(key) ? vec4_color(style.Colors[ImGuiCol_ButtonHovered]) : // highlight each octave
+                tuning->is_fifth_key(key) ? vec4_color(style.Colors[ImGuiCol_FrameBgHovered]) : // highlight each fifth
                 vec4_color(style.Colors[ImGuiCol_FrameBg]); // default color
 
             // draw cells in this row
