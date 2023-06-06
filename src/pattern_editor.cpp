@@ -453,33 +453,47 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             // draw piano key
             Vec2 piano_rect_pos = draw_origin + CELL_SIZE * Vec2(0, row);
 
-            draw_list->AddRectFilled(
-                piano_rect_pos + Vec2(CELL_MARGIN, CELL_MARGIN),
-                piano_rect_pos + Vec2(PIANO_KEY_WIDTH - CELL_MARGIN * 2, CELL_SIZE.y - CELL_MARGIN * 2),
+            ImU32 key_color;
 
+            if (tuning->is_12edo)
+            {
                 // color based on accidental/octave
-                tuning->is_12edo ?
+                key_color =
                     key % 12 == 0 ?
                         vec4_color(style.Colors[ImGuiCol_Button]) : // octave
                         ACCIDENTAL[key % 12] ? IM_RGB32(38, 38, 38) : // fifth
-                        IM_RGB32(20, 20, 20) // default
-                    : // if tuning system is not 12edo
-                    tuning->is_octave_key(key) ?
-                        vec4_color(style.Colors[ImGuiCol_Button]) : // octave
-                        IM_RGB32(20, 20, 20) // default
+                        IM_RGB32(20, 20, 20); // default
+            }
+            else
+            {
+                key_color = tuning->key_colors[key];
+            }
+
+            draw_list->AddRectFilled(
+                piano_rect_pos + Vec2(CELL_MARGIN, CELL_MARGIN),
+                piano_rect_pos + Vec2(PIANO_KEY_WIDTH - CELL_MARGIN * 2, CELL_SIZE.y - CELL_MARGIN * 2),
+                key_color
             );
 
             // get key name
-            int key_mod = (key % 12 + 12) % 12;
-            strncpy(key_name, KEY_NAMES[key_mod], 8);
+            float text_size;
 
-            // if key is C, then add the octave number
-            if (key % 12 == 0) snprintf(key_name + 1, 7, "%i", key / 12); //
+            if (tuning->is_12edo)
+            {
+                int key_mod = (key % 12 + 12) % 12;
+                strncpy(key_name, KEY_NAMES[key_mod], 8);
+
+                // if key is C, then add the octave number
+                if (key % 12 == 0) snprintf(key_name + 1, 7, "%i", key / 12);
+            }
+            else if (key >= 0)
+                strncpy(key_name, tuning->key_names[key].c_str(), 8);
 
             // draw key name
-            Vec2 text_size = ImGui::CalcTextSize(KEY_NAMES[key_mod]);
+            text_size = ImGui::GetFontSize();
+
             draw_list->AddText(
-                piano_rect_pos + Vec2(5, (CELL_SIZE.y - text_size.y) / 2.0f),
+                piano_rect_pos + Vec2(5, (CELL_SIZE.y - text_size) / 2.0f),
                 IM_COL32_WHITE,
                 key_name
             );

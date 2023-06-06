@@ -18,6 +18,7 @@
 #include <TUN_Scale.h>
 #include "TUN_StringTools.h"
 #include "audio.h"
+#include "imgui.h"
 #include "song.h"
 #include "sys.h"
 
@@ -86,25 +87,49 @@ void Channel::set_fx_target(int fx_index)
 *        TUNING          *
 *************************/
 
+static int gcd(int a, int b)
+{
+    if (a == 0)
+        return b;
+    else if (b == 0)
+        return a;
+
+    if (a < b)
+        return gcd(a, b % a);
+    else
+        return gcd(b, a % b);
+}
+
 void Tuning::analyze()
 {
     octaves.clear();
     fifths.clear();
+    key_names.clear();
+    key_colors.clear();
+
+    // number of the current octave
+    int octave_number = 0;
 
     // frequency of the base note of this octave
     double octave_freq = -9999;
 
+    bool is_octave, is_fifth;
+
     for (int midi_key : scale.GetMapping())
     {
+        is_octave = false;
+        is_fifth = false;
+
         double freq = scale.GetMIDINoteFreqHz(midi_key);
 
         // if this is the first note, then mark this note as an octave key
         if (octave_freq == -9999)
         {
+            is_octave = true;
             octaves.push_back(midi_key);
             octave_freq = freq;
-
-            std::cout << "new octave\n";
+            
+            octave_number++;
         }
         else
         {
@@ -113,19 +138,60 @@ void Tuning::analyze()
             // if a 2/1 interval was found, the next octave was found
             if (octave_freq * 2.0 == freq)
             {
+                is_octave = true;
                 octaves.push_back(midi_key);
                 octave_freq = freq;
-
-                std::cout << "new octave\n";
+                octave_number++;
             }
 
             // if a 3/2 interval was found, this is a fifth
-            else if (std::abs(freq / octave_freq - 1.5) < 0.05)
+            else if (std::abs(freq / octave_freq - 1.5) < 0.025)
             {
                 fifths.push_back(midi_key);
-                std::cout << "fifth found\n";
+                is_fifth = true;
             }
         }
+
+        // mark note name
+        if (is_octave)
+            key_names.push_back(std::to_string(octave_number));
+        else if (is_fifth)
+            key_names.push_back(std::string("3/2"));
+        else
+            key_names.push_back("");
+    }
+
+    // now, record the color of each note
+    // it will be a rainbow that wraps around every octave
+    int cur_octave = 0;
+    int next_octave = 0;
+
+    for (int key : scale.GetMapping())
+    {
+        // find the next octave
+        if (key == next_octave)
+        {
+            cur_octave = next_octave;
+            next_octave = scale.GetMapping().size(); // set next octave max in case it never finds it
+
+            for (int k = key + 1; k < scale.GetMapping().size(); k++)
+            {
+                if (is_octave_key(k))
+                {
+                    next_octave = k;
+                    break;
+                }
+            }
+        }
+
+        float r, g, b;
+        ImGui::ColorConvertHSVtoRGB(
+            float(key - cur_octave) / float(next_octave - cur_octave),
+            0.5f,
+            0.4f,
+            r, g, b
+        );
+        key_colors.push_back(IM_COL32(r * 255.0f, g * 255.0f, b * 255.0f, 255.0f));
     }
 }
 

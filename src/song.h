@@ -7,6 +7,7 @@
 
 #include <TUN_Scale.h>
 #include "audio.h"
+#include "imgui.h"
 #include "modules/modules.h"
 
 struct Note {
@@ -61,7 +62,10 @@ struct Tuning
 
     std::vector<int> octaves;
     std::vector<int> fifths;
+    std::vector<std::string> key_names;
+    std::vector<ImU32> key_colors;
 
+    // perform analysis for pattern editor display
     void analyze();
 
     bool is_octave_key(int key) const;
