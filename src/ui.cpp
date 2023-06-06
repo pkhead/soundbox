@@ -852,22 +852,42 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     // about window
     if (show_about_window && ImGui::Begin(
-        "soundbox###about",
+        "About",
         &show_about_window,
         ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize))
     {
-        // TODO: logo
+        float window_width = ImGui::GetWindowWidth();
+        ImGui::PushTextWrapPos(500.0f);
+        
+        // draw logo
+        if (logo_texture)
+        {
+            ImGui::SetCursorPosX((window_width - (float)logo_width) / 2.0f);
+            ImGui::Image((void*)(intptr_t)logo_texture, ImVec2(logo_width, logo_height));
+        }
+        
         // app version / file format version
+        const char* version = "version x.x.x / 0.0.3";
+        ImGui::SetCursorPosX((window_width - ImGui::CalcTextSize(version).x) / 2.0f);
         ImGui::Text("version x.x.x / 0.0.3");
+
         ImGui::NewLine();
-        ImGui::Text("Thanks to John Nesky's BeepBox");
+        ImGui::TextWrapped("Thanks to John Nesky's BeepBox");
         ImGui::NewLine();
-        ImGui::Text("Open-source libraries:");
-        ImGui::BulletText("libsoundio: https://libsound.io/");
-        ImGui::BulletText("Dear ImGui: https://www.dearimgui.com/");
-        ImGui::BulletText("glfw: https://www.glfw.org/");
-        ImGui::BulletText("AnaMark tuning library: https://github.com/zardini123/AnaMark-Tuning-Library");
-        ImGui::BulletText("nativefiledialog: https://github.com/mlabbe/nativefiledialog");
+        ImGui::TextWrapped("Open-source libraries:");
+
+        ImGui::Bullet();
+        ImGui::TextWrapped("libsoundio: https://libsound.io/");
+        ImGui::Bullet();
+        ImGui::TextWrapped("Dear ImGui: https://www.dearimgui.com/");
+        ImGui::Bullet();
+        ImGui::TextWrapped("glfw: https://www.glfw.org/");
+        ImGui::Bullet();
+        ImGui::TextWrapped("AnaMark tuning library: https://github.com/zardini123/AnaMark-Tuning-Library");
+        ImGui::Bullet();
+        ImGui::TextWrapped("nativefiledialog: https://github.com/mlabbe/nativefiledialog");
+        ImGui::Bullet();
+        ImGui::TextWrapped("stb_image: https://github.com/nothings/stb");
         ImGui::End();
     }
 

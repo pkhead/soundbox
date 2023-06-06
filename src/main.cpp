@@ -1,3 +1,4 @@
+#include <GL/gl.h>
 #include <cassert>
 #include <iostream>
 #include <fstream>
@@ -15,6 +16,8 @@
 #include <soundio.h>
 #include <nfd.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #include "audiofile.h"
 #include "ui.h"
 #include "song.h"
@@ -36,6 +39,8 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nC
 }
 #endif
 
+GLuint logo_texture;
+int logo_width, logo_height;
 
 int main()
 {
@@ -112,15 +117,53 @@ int main()
 
     show_demo_window = false;
 
-    std::string last_file_path;
-    std::string last_file_name;
-    std::string status_message;
-    double status_time = -9999.0;
+    // load logo
+    {
+        logo_texture = 0;
+        logo_width = 0;
+        logo_height = 0;
 
-    bool prompt_unsaved_work = false;
-    std::function<void()> unsaved_work_callback;
+        uint8_t* img_data = stbi_load("logo.png", &logo_width, &logo_height, NULL, 4);
+        if (img_data)
+        {
+            // create opengl texture
+            glGenTextures(1, &logo_texture);
+            glBindTexture(GL_TEXTURE_2D, logo_texture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            // upload pictures into texture
+#ifdef GL_UNPACK_ROW_LENGTH
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA,
+                logo_width,
+                logo_height,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                img_data
+            );
+
+            // we are done
+            stbi_image_free(img_data);
+        }
+    }
 
     {
+        std::string last_file_path;
+        std::string last_file_name;
+        std::string status_message;
+        double status_time = -9999.0;
+
+        bool prompt_unsaved_work = false;
+        std::function<void()> unsaved_work_callback;
+
         const size_t BUFFER_SIZE = 128;
 
         AudioDevice device(soundio, -1);

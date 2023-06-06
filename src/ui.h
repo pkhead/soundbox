@@ -1,5 +1,6 @@
 #pragma once
 
+#include <GL/gl.h>
 #include <cstdint>
 #include <functional>
 #include <math.h>
@@ -105,6 +106,8 @@ struct Vec2 {
 };
 
 extern bool show_demo_window;
+extern GLuint logo_texture;
+extern int logo_width, logo_height;
 
 inline ImU32 vec4_color(const ImVec4 &vec4) {
     return IM_COL32(int(vec4.x * 255), int(vec4.y * 255), int(vec4.z * 255), int(vec4.w * 255));
