@@ -796,10 +796,7 @@ int main()
             glfwSwapBuffers(window);
 
             glViewport(0, 0, display_w, display_h);
-            glClearColor(0.5, 0.7, 0.4, 1.0);
-            glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
 
             prev_time = glfwGetTime();
 
@@ -808,8 +805,6 @@ int main()
             if (next_time <= cur_time) {
                 next_time = cur_time;
             }
-            
-            //sleep(next_time - cur_time);
         }
 
         audio_thread.join();
