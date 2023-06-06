@@ -62,30 +62,32 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             ImGui::EndCombo();
         }
         
-        // TODO: set key by right-clicking on a key in the piano roll
+        // TODO: set key by right-clicking on a key in the piano rol
+        if (tuning->is_12edo)
+        {
+            ImGui::SameLine();
+            ImGui::Text("Scale");
+            
+            // scale help
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 15.0f);
+                ImGui::Text("Right-click on a piano key to set the root of the scale.");
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            }
 
-        ImGui::SameLine();
-        ImGui::Text("Scale");
-        
-        // scale help
-        ImGui::SameLine();
-        ImGui::TextDisabled("(?)");
-        if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
-            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 15.0f);
-            ImGui::Text("Right-click on a piano key to set the root of the scale.");
-            ImGui::PopTextWrapPos();
-            ImGui::EndTooltip();
-        }
+            // scale options
+            ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 8.0f);
+            ImGui::SameLine();
+            if (ImGui::BeginCombo("##pattern_editor_scale", "Ionian (major)")) {
+                ImGui::Selectable("Ionian (major)", true);
+                ImGui::SetItemDefaultFocus();
+                ImGui::Selectable("Aeolian (minor)", false);
 
-        // scale options
-        ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 8.0f);
-        ImGui::SameLine();
-        if (ImGui::BeginCombo("##pattern_editor_scale", "Ionian (major)")) {
-            ImGui::Selectable("Ionian (major)", true);
-            ImGui::SetItemDefaultFocus();
-            ImGui::Selectable("Aeolian (minor)", false);
-
-            ImGui::EndCombo();
+                ImGui::EndCombo();
+            }
         }
 
         ImGui::NewLine();
@@ -449,6 +451,7 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             row = i + (viewport_scroll.y / CELL_SIZE.y);
             
             int key = scroll - row;
+            Tuning::KeyInfoStruct& tuning_info = tuning->key_info[key];
 
             // draw piano key
             Vec2 piano_rect_pos = draw_origin + CELL_SIZE * Vec2(0, row);
@@ -466,7 +469,7 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             }
             else
             {
-                key_color = tuning->key_colors[key];
+                key_color = tuning->key_info[key].key_color;
             }
 
             draw_list->AddRectFilled(
@@ -487,7 +490,18 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                 if (key % 12 == 0) snprintf(key_name + 1, 7, "%i", key / 12);
             }
             else if (key >= 0)
-                strncpy(key_name, tuning->key_names[key].c_str(), 8);
+            {
+                // is fifth
+                if (tuning_info.is_fifth)
+                    strncpy(key_name, "3/2", 8);
+
+                // is octave
+                else if (tuning_info.is_octave)
+                    snprintf(key_name, 8, "%i", tuning_info.octave_number);
+
+                // no name
+                else strncpy(key_name, "", 8);
+            }
 
             // draw key name
             text_size = ImGui::GetFontSize();
@@ -499,8 +513,8 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             );
             
             ImU32 row_color =
-                tuning->is_octave_key(key) ? vec4_color(style.Colors[ImGuiCol_ButtonHovered]) : // highlight each octave
-                tuning->is_fifth_key(key) ? vec4_color(style.Colors[ImGuiCol_FrameBgHovered]) : // highlight each fifth
+                tuning_info.is_octave ? vec4_color(style.Colors[ImGuiCol_ButtonHovered]) : // highlight each octave
+                tuning_info.is_fifth ? vec4_color(style.Colors[ImGuiCol_FrameBgHovered]) : // highlight each fifth
                 vec4_color(style.Colors[ImGuiCol_FrameBg]); // default color
 
             // draw cells in this row

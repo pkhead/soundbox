@@ -87,7 +87,7 @@ void Channel::set_fx_target(int fx_index)
 *        TUNING          *
 *************************/
 
-static int gcd(int a, int b)
+static long gcd(long a, long b)
 {
     if (a == 0)
         return b;
@@ -102,33 +102,33 @@ static int gcd(int a, int b)
 
 void Tuning::analyze()
 {
-    octaves.clear();
-    fifths.clear();
-    key_names.clear();
-    key_colors.clear();
+    key_info.clear();
 
     // number of the current octave
-    int octave_number = 0;
+    int octave_number = -1;
 
     // frequency of the base note of this octave
     double octave_freq = -9999;
-
-    bool is_octave, is_fifth;
-
+    
     for (int midi_key : scale.GetMapping())
     {
-        is_octave = false;
-        is_fifth = false;
-
+        KeyInfoStruct info = {
+            false,
+            false,
+            octave_number,
+            0.0f,
+            0,
+            1,
+            0
+        };
+        
         double freq = scale.GetMIDINoteFreqHz(midi_key);
 
         // if this is the first note, then mark this note as an octave key
         if (octave_freq == -9999)
         {
-            is_octave = true;
-            octaves.push_back(midi_key);
+            info.is_octave = true;
             octave_freq = freq;
-            
             octave_number++;
         }
         else
@@ -138,8 +138,7 @@ void Tuning::analyze()
             // if a 2/1 interval was found, the next octave was found
             if (octave_freq * 2.0 == freq)
             {
-                is_octave = true;
-                octaves.push_back(midi_key);
+                info.is_octave = true;
                 octave_freq = freq;
                 octave_number++;
             }
@@ -147,18 +146,23 @@ void Tuning::analyze()
             // if a 3/2 interval was found, this is a fifth
             else if (std::abs(freq / octave_freq - 1.5) < 0.025)
             {
-                fifths.push_back(midi_key);
-                is_fifth = true;
+                info.is_fifth = true;
             }
         }
 
-        // mark note name
-        if (is_octave)
-            key_names.push_back(std::to_string(octave_number));
-        else if (is_fifth)
-            key_names.push_back(std::string("3/2"));
-        else
-            key_names.push_back("");
+        info.ratio_float = freq / octave_freq;
+        info.octave_number = octave_number;
+        
+        // calculate ratio numerator/denominator
+        constexpr long PRECISION = 16;
+        long num = freq / octave_freq * PRECISION;
+        long den = PRECISION;
+        long div = gcd(num, den);
+
+        info.ratio_num = num / div;
+        info.ratio_den = den / div;
+
+        key_info.push_back(info);
     }
 
     // now, record the color of each note
@@ -172,11 +176,11 @@ void Tuning::analyze()
         if (key == next_octave)
         {
             cur_octave = next_octave;
-            next_octave = scale.GetMapping().size(); // set next octave max in case it never finds it
+            next_octave = -1; // set identifier for no octave in case none is found
 
             for (int k = key + 1; k < scale.GetMapping().size(); k++)
             {
-                if (is_octave_key(k))
+                if (key_info[k].is_octave)
                 {
                     next_octave = k;
                     break;
@@ -184,36 +188,28 @@ void Tuning::analyze()
             }
         }
 
+        // if this scale has octaves, repeat colors every octave
+        // otherwise repeat colors an arbitrary amount so that
+        // it's easier to keep track of where you are in the
+        // piano roll
+        float repeat_len;
+        if (next_octave == -1)
+            repeat_len = 16;
+        else
+            repeat_len = next_octave - cur_octave;
+
         float r, g, b;
         ImGui::ColorConvertHSVtoRGB(
-            float(key - cur_octave) / float(next_octave - cur_octave),
+            float(key - cur_octave) / repeat_len,
             0.5f,
             0.4f,
             r, g, b
         );
-        key_colors.push_back(IM_COL32(r * 255.0f, g * 255.0f, b * 255.0f, 255.0f));
+
+        key_info[key].key_color = IM_COL32(r * 255.0f, g * 255.0f, b * 255.0f, 255.0f);
     }
 }
 
-bool Tuning::is_octave_key(int key) const
-{
-    for (int k : octaves)
-    {
-        if (k == key) return true;
-    }
-
-    return false;
-}
-
-bool Tuning::is_fifth_key(int key) const
-{
-    for (int k : fifths)
-    {
-        if (k == key) return true;
-    }
-
-    return false;
-}
 /*************************
 *         SONG           *
 *************************/

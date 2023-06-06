@@ -60,16 +60,21 @@ struct Tuning
     TUN::CSingleScale scale;
     bool is_12edo = false;
 
-    std::vector<int> octaves;
-    std::vector<int> fifths;
-    std::vector<std::string> key_names;
-    std::vector<ImU32> key_colors;
+    struct KeyInfoStruct
+    {
+        bool is_octave;
+        bool is_fifth;
+        int octave_number;
+        double ratio_float;
+        int ratio_num;
+        int ratio_den;
+        ImU32 key_color;
+    };
+
+    std::vector<KeyInfoStruct> key_info;
 
     // perform analysis for pattern editor display
     void analyze();
-
-    bool is_octave_key(int key) const;
-    bool is_fifth_key(int key) const;
 };
 
 class Song {

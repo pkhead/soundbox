@@ -828,7 +828,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             if (selected_tuning->desc.empty())
                 ImGui::TextDisabled("(no description)");
             else
-                ImGui::Text("%s", selected_tuning->desc.c_str());
+                ImGui::TextWrapped("%s", selected_tuning->desc.c_str());
 
             ImGui::EndGroup();
         } ImGui::End();
