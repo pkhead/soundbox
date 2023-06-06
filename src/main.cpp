@@ -141,8 +141,17 @@ int main()
 
         std::function<bool()> save_song;
 
+        // TODO: customizable default save dir
+#ifdef _WIN32
+        std::string default_save_dir = std::string(std::getenv("USERPROFILE")) + "\\";
+#else
+        std::string default_save_dir = std::string(std::getenv("HOME")) + "/";
+#endif
+
         auto save_song_as = [&]() -> bool {
-            std::string file_name = last_file_name.empty() ? std::string(song->name) + ".box" : last_file_name;
+            std::string file_name = last_file_path.empty()
+                ? default_save_dir + song->name + ".box"
+                : last_file_path;
             nfdchar_t* out_path = nullptr;
             nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
 
@@ -215,7 +224,7 @@ int main()
         // song open
         user_actions.set_callback("song_open", [&]() {
             nfdchar_t* out_path;
-            nfdresult_t result = NFD_OpenDialog("box", nullptr, &out_path);
+            nfdresult_t result = NFD_OpenDialog("box", last_file_path.empty() ? default_save_dir.c_str() : last_file_path.c_str(), &out_path);
 
             if (result == NFD_OKAY) {
                 std::ifstream file;
