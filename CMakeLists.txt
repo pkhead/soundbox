@@ -44,6 +44,7 @@ set(SOURCES
     # app sources
     src/main.cpp
     src/song.cpp
+    src/serialize.cpp
     src/audio.cpp
     src/ui.cpp
     src/sys.cpp

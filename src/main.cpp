@@ -253,6 +253,14 @@ int main()
         std::string last_tuning_location;
         user_actions.set_callback("load_tuning", [&]()
         {
+            // only 256 tunings can be loaded
+            if (song->tunings.size() >= 256)
+            {
+                status_message = "Cannot add more tunings";
+                status_time = glfwGetTime();
+                return;
+            }
+
             nfdchar_t* out_path;
             nfdresult_t result = NFD_OpenDialog(
                 "tun",

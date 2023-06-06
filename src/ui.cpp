@@ -796,8 +796,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     if (song.show_tuning_window) {
         if (ImGui::Begin("Tunings", &song.show_tuning_window))
         {
+            // TODO: remove tunings
             if (ImGui::Button("Load"))
-                    user_actions.fire("load_tuning");
+                user_actions.fire("load_tuning");
             
             if (ImGui::BeginChild("list", ImVec2(ImGui::GetContentRegionAvail().x * 0.4f, -1.0f)))
             {
@@ -805,6 +806,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                 for (Tuning* tuning : song.tunings)
                 {
+                    ImGui::PushID(i);
+
                     if (ImGui::Selectable(tuning->name.c_str(), i == song.selected_tuning))
                     {
                         song.selected_tuning = i;
@@ -812,6 +815,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                     if (song.selected_tuning == i) ImGui::SetItemDefaultFocus();
 
+                    ImGui::PopID();
                     i++;
                 }
             }

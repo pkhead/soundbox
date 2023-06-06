@@ -57,9 +57,10 @@ struct Tuning
 {
     std::string name;
     std::string desc;
-    TUN::CSingleScale scale;
     bool is_12edo = false;
 
+    std::vector<float> key_freqs;
+    
     struct KeyInfoStruct
     {
         bool is_octave;
