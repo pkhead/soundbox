@@ -80,7 +80,7 @@ namespace audiomod {
         bool show_interface;
         const char* id;
         std::string name;
-        const char* parent_name;
+        const char* parent_name = nullptr; // i keep forgetting to explicity set values to nullptr!
 
         ModuleBase(const ModuleBase&) = delete;
         ModuleBase(bool has_interface);
