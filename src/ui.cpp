@@ -153,9 +153,12 @@ void pop_btn_disabled()
 
 
 
-bool show_demo_window;
+bool show_demo_window = false;
+bool show_about_window = false;
 
 void ui_init(Song& song, UserActionList& user_actions) {
+    show_about_window = false;
+
     // copy+paste
     // TODO use system clipboard
     user_actions.set_callback("copy", [&]() {
@@ -436,7 +439,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         if (ImGui::BeginMenu("Help"))
         {
-            ImGui::MenuItem("About...");
+            if (ImGui::MenuItem("About..."))
+                show_about_window = !show_about_window;
+            
             ImGui::EndMenu();
         }
 
@@ -842,6 +847,27 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     if (show_demo_window) {
         ImGui::Begin("Info");
         ImGui::Text("framerate: %.2f", io.Framerate);
+        ImGui::End();
+    }
+
+    // about window
+    if (show_about_window && ImGui::Begin(
+        "soundbox###about",
+        &show_about_window,
+        ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        // TODO: logo
+        // app version / file format version
+        ImGui::Text("version x.x.x / 0.0.3");
+        ImGui::NewLine();
+        ImGui::Text("Thanks to John Nesky's BeepBox");
+        ImGui::NewLine();
+        ImGui::Text("Open-source libraries:");
+        ImGui::BulletText("libsoundio: https://libsound.io/");
+        ImGui::BulletText("Dear ImGui: https://www.dearimgui.com/");
+        ImGui::BulletText("glfw: https://www.glfw.org/");
+        ImGui::BulletText("AnaMark tuning library: https://github.com/zardini123/AnaMark-Tuning-Library");
+        ImGui::BulletText("nativefiledialog: https://github.com/mlabbe/nativefiledialog");
         ImGui::End();
     }
 
