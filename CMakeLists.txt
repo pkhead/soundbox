@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 project(soundbox)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 # send these options to libsoundio
 set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build libsoundio static libraries" FORCE)
@@ -41,6 +41,9 @@ set(SOURCES
     deps/AnaMark-Tuning-Library/TUN_StringTools.cpp
     deps/AnaMark-Tuning-Library/SCL_Import.cpp
 
+    # glad
+    src/glad/gl.c
+
     # app sources
     src/main.cpp
     src/song.cpp
@@ -60,7 +63,7 @@ set(SOURCES
     src/modules/analyzer.cpp
 )
 
-include_directories(deps/AnaMark-Tuning-Library deps/glfw/include deps/imgui deps/libsoundio/soundio deps/nativefiledialog/src/include)
+include_directories(src deps/AnaMark-Tuning-Library deps/glfw/include deps/imgui deps/libsoundio/soundio deps/nativefiledialog/src/include)
 
 # Windows
 if (WIN32)
@@ -83,12 +86,12 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    target_link_libraries(soundbox glfw comctl32.lib ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} libsoundio_shared)
+    target_link_libraries(soundbox glfw comctl32.lib libsoundio_shared ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
 
     # copy soundio.dll to the binary directory
     add_custom_command(TARGET soundbox POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_BINARY_DIR}/libsoundio/soundio.dll"
+            "${CMAKE_CURRENT_BINARY_DIR}/deps/libsoundio/soundio.dll"
             $<TARGET_FILE_DIR:soundbox>
     )
 

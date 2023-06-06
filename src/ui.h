@@ -1,12 +1,13 @@
 #pragma once
 
-#include <GL/gl.h>
 #include <cstdint>
 #include <functional>
 #include <math.h>
 #include "audio.h"
 #include "song.h"
 #include <imgui.h>
+
+#include "glad/gl.h"
 
 #define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
 

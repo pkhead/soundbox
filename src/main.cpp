@@ -1,4 +1,3 @@
-#include <GL/gl.h>
 #include <cassert>
 #include <iostream>
 #include <fstream>
@@ -9,6 +8,7 @@
 #include <sstream>
 
 #include <imgui.h>
+#include "glad/gl.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
@@ -74,6 +74,9 @@ int main()
         return 1;
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // enable vsync
+
+    // load glad
+    gladLoadGL(glfwGetProcAddress);
 
     float screen_xscale, screen_yscale;
     glfwGetWindowContentScale(window, &screen_xscale, &screen_yscale);

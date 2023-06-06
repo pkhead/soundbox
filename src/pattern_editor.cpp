@@ -451,6 +451,9 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             row = i + (viewport_scroll.y / CELL_SIZE.y);
             
             int key = scroll - row;
+            
+            if (key < 0) continue;
+
             Tuning::KeyInfoStruct& tuning_info = tuning->key_info[key];
 
             // draw piano key
