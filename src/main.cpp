@@ -523,10 +523,17 @@ int main()
         });
 
         // audio processing
-        bool last_playing;
+        bool last_playing = song->is_playing;
         device.write_callback = [&](AudioDevice* self, float** buffer)
         {
+            // locking this mutex is not a bad idea as this is only ever locked
+            // by the main thread when a song file is being loaded 
             file_mutex.lock();
+
+            // but this mutex lock may be a bad idea
+            // this mutex is locked when a channel/pattern is being modified
+            // or when a tuning is being added/removed
+            // basically operations that may require array reallocations
             song->mutex.lock();
 
             if (song->is_playing != last_playing) {

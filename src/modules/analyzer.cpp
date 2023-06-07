@@ -14,14 +14,14 @@ AnalyzerModule::AnalyzerModule() : ModuleBase(true)
 }
 
 AnalyzerModule::~AnalyzerModule() {
-	if (left_channel) delete left_channel;
-	if (right_channel) delete right_channel;
+	if (left_channel) delete[] left_channel;
+	if (right_channel) delete[] right_channel;
 }
 
 void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
 	if (buffer_size != this->buf_size) {
-		if (left_channel) delete left_channel;
-		if (right_channel) delete right_channel;
+		if (left_channel) delete[] left_channel;
+		if (right_channel) delete[] right_channel;
 
 		left_channel = new float[buffer_size / 2];
 		right_channel = new float[buffer_size / 2];

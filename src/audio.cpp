@@ -192,12 +192,14 @@ ModuleOutputTarget::~ModuleOutputTarget() {
 
 void ModuleOutputTarget::add_input(ModuleBase* module) {
     _inputs.push_back(module);
+    _input_arrays.push_back(nullptr);
 }
 
 bool ModuleOutputTarget::remove_input(ModuleBase* module) {
     for (auto it = _inputs.begin(); it != _inputs.end(); it++) {
         if (*it == module) {
             _inputs.erase(it);
+            _input_arrays.pop_back();
             return false;
         }
     }
@@ -246,23 +248,21 @@ void ModuleBase::remove_all_connections() {
 }
 
 float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {
+    // audio buffer array to correct size
     if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
         _audio_buffer_size = buffer_size * channel_count;
         _audio_buffer = new float[_audio_buffer_size];
     }
-
+    
     // accumulate inputs
-    float** input_arrays = new float*[_inputs.size()];
-
     for (size_t i = 0; i < _inputs.size(); i++) {
-        input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
+        _input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
     }
 
     // processing
-    process(input_arrays, _audio_buffer, _inputs.size(), buffer_size * channel_count, sample_rate, channel_count);
+    process(&_input_arrays.front(), _audio_buffer, _inputs.size(), buffer_size * channel_count, sample_rate, channel_count);
 
-    delete[] input_arrays;
     return _audio_buffer;
 }
 

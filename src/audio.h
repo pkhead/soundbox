@@ -69,6 +69,7 @@ namespace audiomod {
     class ModuleOutputTarget {
     protected:
         std::vector<ModuleBase*> _inputs;
+        std::vector<float*> _input_arrays;
 
     public:
         ModuleOutputTarget(const ModuleOutputTarget&) = delete;
