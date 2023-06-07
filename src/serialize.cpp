@@ -1,5 +1,7 @@
+#include "audio.h"
 #include "sys.h"
 #include "song.h"
+#include <cstddef>
 #include <cstdint>
 
 /*
@@ -52,16 +54,67 @@ struct file {
     struct song song_data;
 }
 */
+
+static void save_module(std::ostream& out, audiomod::ModuleBase* mod)
+{
+    // store module type
+    push_bytes(out, (uint8_t) strlen(mod->id));
+    out << mod->id;
+
+    // store module state
+    uint8_t* mod_state = nullptr;
+    uint64_t mod_state_size = mod->save_state((void**)&mod_state);
+    push_bytes(out, mod_state_size);
+    if (mod_state != nullptr) {
+        out.write((char*)mod_state, mod_state_size);
+        delete mod_state;
+    }
+}
+
+static audiomod::ModuleBase* load_module(std::istream& input, std::string* error_msg)
+{
+    // read mod type
+    uint8_t id_size;
+    pull_bytes(input, id_size);
+    char* inst_id = new char[id_size + 1];
+    input.read(inst_id, id_size);
+    inst_id[id_size] = 0;
+
+    // load module based off id
+    audiomod::ModuleBase* mod = audiomod::create_module(inst_id);
+    if (mod == nullptr) {
+        if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
+        delete[] inst_id;
+        return nullptr;
+    }
+
+    // load state
+    uint64_t mod_state_size;
+    pull_bytes(input, mod_state_size);
+
+    if (mod_state_size > 0) {
+        uint8_t* mod_state = new uint8_t[mod_state_size];
+        input.read((char*)mod_state, mod_state_size);
+        mod->load_state(mod_state, mod_state_size);
+        delete[] mod_state;
+    }
+
+    delete[] inst_id;
+    return mod;
+}
+
 void Song::serialize(std::ostream& out) const {
     // magic number
     out << "SnBx";
 
     // version number (major, minor, revision)
+    // TODO: ditch (major, minor, revision) for file versions
+    // just use a singular uint32
     push_bytes(out, (uint8_t)0);
     push_bytes(out, (uint8_t)0);
-    push_bytes(out, (uint8_t)3);
+    push_bytes(out, (uint8_t)4);
 
-    // write song data
+    // write song properties
     push_bytes(out, (uint8_t) strlen(name));
     out << name;
 
@@ -72,6 +125,7 @@ void Song::serialize(std::ostream& out) const {
     push_bytes(out, (float) tempo);
 
     // v3: tuning data
+    // first entry (12edo) is ignored, so subtract size by 1
     push_bytes(out, (uint8_t) (tunings.size() - 1));
     for (Tuning* tuning : tunings)
     {
@@ -98,6 +152,30 @@ void Song::serialize(std::ostream& out) const {
     // write the selected tuning
     push_bytes(out, (uint8_t) selected_tuning);
 
+    // v4: fx mixer
+    push_bytes(out, (uint16_t) fx_mixer.size());
+    for (audiomod::FXBus* bus : fx_mixer)
+    {
+        // write bus name
+        push_bytes(out, (uint8_t) strlen(bus->name));
+        out << bus->name;
+
+        // write mute/solo
+        uint8_t fx_state = 0;
+        if (bus->controller.mute)   fx_state |= 1;
+        if (bus->solo)              fx_state |= 2;
+        push_bytes(out, (uint8_t) fx_state);
+
+        // write output bus
+        if (bus != fx_mixer[0])
+            push_bytes(out, (uint16_t) bus->target_bus);
+
+        // write effects
+        push_bytes(out, (uint8_t) bus->get_modules().size());
+        for (audiomod::ModuleBase* mod : bus->get_modules())
+            save_module(out, mod);
+    }
+
     // write the channel data
     for (Channel* channel : channels) {
         push_bytes(out, (uint8_t) strlen(channel->name));
@@ -113,19 +191,17 @@ void Song::serialize(std::ostream& out) const {
 
         push_bytes(out, (uint8_t) channel_flags);
 
-        // store instrument type
-        push_bytes(out, (uint8_t) strlen(channel->synth_mod->id));
-        out << channel->synth_mod->id;
+        // v4: write output fx bus
+        push_bytes(out, (uint16_t) channel->fx_target_idx);
 
-        // store instrument state
-        uint8_t* inst_state = nullptr;
-        uint64_t inst_state_size = channel->synth_mod->save_state((void**)&inst_state);
+        // save channel instrument
+        save_module(out, channel->synth_mod);
+        
+        // v4: store effects
+        push_bytes(out, (uint8_t) channel->effects_rack.modules.size());
 
-        push_bytes(out, inst_state_size);
-        if (inst_state != nullptr) {
-            out.write((char*)inst_state, inst_state_size);
-            delete inst_state;
-        }
+        for (audiomod::ModuleBase* mod : channel->effects_rack.modules)
+            save_module(out, mod);
 
         // write channel sequence
         for (int& id : channel->sequence) {
@@ -223,6 +299,87 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
         song->selected_tuning = selected_tuning_uint8;
     }
 
+    // v4: fx mixer
+    if (version[2] >= 4)
+    {
+        uint16_t num_buses;
+        pull_bytes(input, num_buses);
+
+        for (uint16_t i = 0; i < num_buses; i++)
+        {
+            audiomod::FXBus* bus;
+            
+            if (i == 0)
+                bus = song->fx_mixer[0];
+            else {
+                bus = new audiomod::FXBus;
+                song->fx_mixer.push_back(bus);
+            }
+
+            // get bus name
+            uint8_t name_size;
+            pull_bytes(input, name_size);
+            input.read(bus->name, name_size);
+            bus->name[name_size] = 0;
+
+            // get mute/solo
+            uint8_t flags;
+            pull_bytes(input, flags);
+
+            if ((flags & 1) == 1) bus->controller.mute = true; // mute
+            if ((flags & 2) == 2) bus->solo = true;            // solo
+
+            // get output bus
+            if (i > 0) {
+                uint16_t target_bus;
+                pull_bytes(input, target_bus);
+                bus->target_bus = target_bus;
+            }
+
+            // get effects
+            uint8_t mod_count;
+            char inst_id[256];
+            pull_bytes(input, mod_count);
+
+            for (uint8_t j = 0; j < mod_count; j++)
+            {
+                // read mod type
+                uint8_t id_size;
+                pull_bytes(input, id_size);
+                input.read(inst_id, id_size);
+                inst_id[id_size] = 0;
+
+                // load module based off id
+                audiomod::ModuleBase* mod = audiomod::create_module(inst_id);
+                if (mod == nullptr) {
+                    if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
+                    delete song;
+                    return nullptr;
+                }
+
+                // load state
+                uint64_t mod_state_size;
+                pull_bytes(input, mod_state_size);
+
+                if (mod_state_size > 0) {
+                    uint8_t* mod_state = new uint8_t[mod_state_size];
+                    input.read((char*)mod_state, mod_state_size);
+                    mod->load_state(mod_state, mod_state_size);
+                    delete[] mod_state;
+                }
+
+                bus->insert(mod);
+            }
+        }
+
+        // connect the fx buses
+        for (audiomod::FXBus* bus : song->fx_mixer)
+        {
+            if (bus == song->fx_mixer.front()) continue;
+            song->fx_mixer[bus->target_bus]->connect_input(&bus->controller);
+        }
+    }
+
     // retrive channel data
     for (uint32_t channel_i = 0; channel_i < num_channels; channel_i++) {
         Channel* channel = song->channels[channel_i];
@@ -243,6 +400,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
         channel->vol_mod.volume = volume;
         channel->vol_mod.panning = panning;
 
+        // v2: mute/solo flags
         if (version[2] >= 2) {
             uint8_t channel_flags;
             pull_bytes(input, channel_flags);
@@ -251,38 +409,44 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             channel->solo =         (channel_flags & 2) == 2;
         }
 
+        // v4: output fx bus
+        if (version[2] >= 4) {
+            uint16_t output_bus;
+            pull_bytes(input, output_bus);
+            channel->fx_target_idx = output_bus;
+        }
+
         // instrument data
         if (version[2] >= 1) {
-            // read instrument id
-            uint8_t id_size;
-            pull_bytes(input, id_size);
-
-            char* inst_id = new char[id_size + 1];
-            input.read(inst_id, id_size);
-            inst_id[id_size] = 0;
-
-            // load module based off id
-            audiomod::ModuleBase* instrument = audiomod::create_module(inst_id);
-            if (instrument == nullptr) {
-                if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
-                delete[] inst_id;
+            audiomod::ModuleBase* mod = load_module(input, error_msg);
+            if (mod == nullptr) {
                 delete song;
                 return nullptr;
             }
-            channel->set_instrument(instrument);
 
-            // load instrument state
-            uint64_t inst_state_size;
-            pull_bytes(input, inst_state_size);
-            if (inst_state_size > 0) {
-                uint8_t* inst_state = new uint8_t[inst_state_size];
-                input.read((char*)inst_state, inst_state_size);
-                channel->synth_mod->load_state(inst_state, inst_state_size);
+            channel->set_instrument(mod);
+        }
 
-                delete[] inst_state;
+        // v4: instrument effects
+        if (version[2] >= 4)
+        {
+            uint8_t num_mods;
+            pull_bytes(input, num_mods);
+
+            for (uint8_t modi = 0; modi < num_mods; modi++)
+            {
+                audiomod::ModuleBase* mod = load_module(input, error_msg);
+                if (mod == nullptr) {
+                    delete song;
+                    return nullptr;
+                }
+
+                channel->effects_rack.insert(mod);
             }
 
-            delete[] inst_id;
+            // connect channel to target fx bus
+            song->fx_mixer.front()->connect_input(&channel->vol_mod);
+            song->fx_mixer[channel->fx_target_idx]->connect_input(&channel->vol_mod);
         }
 
         // get sequence

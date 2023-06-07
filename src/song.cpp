@@ -51,7 +51,7 @@ Channel::Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*
     synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
     effects_rack.connect_output(&vol_mod);
-    fx_mixer[0]->connect_input(&vol_mod);
+    fx_mixer[fx_target_idx]->connect_input(&vol_mod);
 }
 
 Channel::~Channel() {
@@ -62,7 +62,7 @@ Channel::~Channel() {
     effects_rack.disconnect_all_inputs();
     effects_rack.disconnect_output();
 
-    fx_mixer[0]->disconnect_input(&vol_mod);
+    fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
     delete synth_mod;
 }
 
@@ -231,16 +231,6 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     master_bus->target_bus = 0;
     master_bus->connect_output(&audio_out);
     fx_mixer.push_back(master_bus);
-
-    for (int i = 0; i < 3; i++)
-    {
-        audiomod::FXBus* bus = new audiomod::FXBus();
-        snprintf(bus->name, bus->name_capacity, "Bus %i", i);
-        bus->connect_output(&audio_out);
-        fx_mixer.push_back(bus);
-
-        master_bus->connect_input(&bus->controller);
-    }
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
         Channel* ch = new Channel(_length, _max_patterns, fx_mixer);

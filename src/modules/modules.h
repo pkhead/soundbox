@@ -73,6 +73,9 @@ namespace audiomod {
     public:
         float gain = 0.0f;
 
+        size_t save_state(void** output) const override;
+        bool load_state(void* state, size_t size) override;
+
         GainModule();
     };
 
