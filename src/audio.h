@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <string>
 #include <stddef.h>
 #include <stdint.h>
@@ -9,8 +10,20 @@ class AudioDevice {
 private:
     SoundIoDevice* device;
     SoundIoOutStream* outstream;
-    SoundIoRingBuffer* ring_buffer;
-    size_t buf_capacity;
+
+    size_t buffer_size = 0;
+    size_t buf_pos = 0;
+    float* audio_buffer = nullptr;
+
+    // set_buffer_size merely changes these values
+    // the audio thread reallocates the buffer when
+    // it detects that the user changed the buffer size
+    struct {
+        bool change = false;
+        size_t new_size = 0;
+    } buffer_size_change;
+
+    static void soundio_write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max);
 
 public:
     AudioDevice(const AudioDevice&) = delete;
@@ -19,11 +32,12 @@ public:
 
     int sample_rate() const;
     int num_channels() const;
+    void stop();
 
-    bool queue(const float* buffer, const size_t buffer_size);
-    int num_queued_frames() const;
-
-    void write(SoundIoOutStream* stream, int frame_count_min, int frame_count_max);
+    void set_buffer_size(size_t new_size);
+    inline size_t get_buffer_size() const { return buffer_size_change.new_size; };
+    
+    std::function<size_t (AudioDevice* self, float** buffer)> write_callback;
 };
 
 namespace audiomod {

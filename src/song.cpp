@@ -131,8 +131,6 @@ void Tuning::analyze()
         }
         else
         {
-            std::cout << (freq / octave_freq) << "\n";
-
             // if a 2/1 interval was found, the next octave was found
             if (octave_freq * 2.0 == freq)
             {

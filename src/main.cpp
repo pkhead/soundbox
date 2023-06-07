@@ -1,3 +1,4 @@
+#include <bits/types/clock_t.h>
 #include <cassert>
 #include <iostream>
 #include <fstream>
@@ -170,6 +171,7 @@ int main()
         const size_t BUFFER_SIZE = 128;
 
         AudioDevice device(soundio, -1);
+        device.set_buffer_size(BUFFER_SIZE);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
         // initialize song
@@ -177,7 +179,7 @@ int main()
 
         // this mutex is locked by the audio thread while audio is being processed
         // and is locked by the main thread when a new song is being loaded
-        std::mutex song_mutex;
+        std::mutex file_mutex;
         
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
@@ -249,11 +251,11 @@ int main()
                 last_file_path.clear();
                 last_file_name.clear();
                 
-                song_mutex.lock();
+                file_mutex.lock();
                 delete song;
                 song = new Song(4, 8, 8, destination);
                 ui_init(*song, user_actions);
-                song_mutex.unlock();
+                file_mutex.unlock();
             };
         });
 
@@ -277,7 +279,7 @@ int main()
                 file.open(out_path, std::ios::in | std::ios::binary);
 
                 if (file.is_open()) {
-                    song_mutex.lock();
+                    file_mutex.lock();
 
                     std::string error_msg = "unknown error";
                     Song* new_song = Song::from_file(file, destination, &error_msg);
@@ -295,7 +297,7 @@ int main()
                         status_time = glfwGetTime();
                     }
 
-                    song_mutex.unlock();
+                    file_mutex.unlock();
                 } else {
                     status_message = "Could not open " + std::string(out_path);
                     status_time = glfwGetTime();
@@ -520,38 +522,27 @@ int main()
             }
         });
 
-        // create audio processor thread
-        std::thread audio_thread([&]() {
-            bool last_playing = false;
+        // audio processing
+        bool last_playing;
+        device.write_callback = [&](AudioDevice* self, float** buffer)
+        {
+            file_mutex.lock();
+            song->mutex.lock();
 
-            while (run_app) {
-                song_mutex.lock();
-                song->mutex.lock();
+            if (song->is_playing != last_playing) {
+                last_playing = song->is_playing;
 
-                if (song->is_playing != last_playing) {
-                    last_playing = song->is_playing;
-
-                    if (song->is_playing) song->play();
-                    else song->stop();
-                }
-
-                while (device.num_queued_frames() < device.sample_rate() * 0.05) {
-                    song->update(1.0 / destination.sample_rate * BUFFER_SIZE);
-
-                    float* buf;
-                    size_t buf_size = destination.process(&buf);
-
-                    device.queue(buf, buf_size * sizeof(float));
-
-                    if (!run_app) break;
-                }
-
-                song_mutex.unlock();
-                song->mutex.unlock();
-
-                sleep(1.0f / 30.0f);
+                if (song->is_playing) song->play();
+                else song->stop();
             }
-        });
+
+            song->update(1.0 / destination.sample_rate * destination.buffer_size);
+            size_t buf_size = destination.process(buffer);
+
+            file_mutex.unlock();
+            song->mutex.unlock();
+            return buf_size;
+        };
 
         glfwShowWindow(window);
         while (run_app)
@@ -810,8 +801,7 @@ int main()
             }
         }
 
-        audio_thread.join();
-
+        device.stop();
         delete song;
     }
 

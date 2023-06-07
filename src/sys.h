@@ -11,16 +11,20 @@
 #undef min
 
 #else
-// Unix
+// Linux/Unix
 #include <unistd.h>
 
 #define sleep(time) usleep((time) * 1000000)
 
 #endif
 
+#include <ctime>
 #include <stdint.h>
 #include <ostream>
 #include <istream>
+
+inline const clock_t elapsed_start() { return clock(); };
+const double elapsed(const clock_t& since);
 
 extern bool IS_BIG_ENDIAN;
 

@@ -1,3 +1,4 @@
+#include <cassert>
 #include <exception>
 #include <stdlib.h>
 #include <stdio.h>
@@ -6,12 +7,97 @@
 #include <iostream>
 #include "audio.h"
 #include "modules/modules.h"
+#include "soundio.h"
 #include "sys.h"
 #include <imgui.h>
 
-static void write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
-    AudioDevice* handle = (AudioDevice*)outstream->userdata;
-    handle->write(outstream, frame_count_min, frame_count_max);
+void AudioDevice::soundio_write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
+    AudioDevice* self = (AudioDevice*)outstream->userdata;
+
+    // reallocate buffer if change was detected
+    if (self->buffer_size_change.change)
+    {
+        self->buffer_size_change.change = false;
+        self->buffer_size = self->buffer_size_change.new_size * self->num_channels();
+
+        if (self->audio_buffer != nullptr) delete[] self->audio_buffer;
+        self->audio_buffer = new float[self->buffer_size];
+        self->buf_pos = self->buffer_size;
+    }
+
+    SoundIoChannelArea* areas;
+    int frame_count, err;
+    int frames_left = frame_count_max;
+    float* buffer; // data from write_callback
+    
+    // if a write callback was provided
+    if (self->write_callback)
+    {
+        while (frames_left > 0)
+        {
+            frame_count = frames_left;
+            if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count)))
+            {
+                fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
+                return;
+            }
+            if (frame_count <= 0) break;
+
+            for (int frame = 0; frame < frame_count; frame++)
+            {
+                for (int ch = 0; ch < outstream->layout.channel_count; ch++)
+                {
+                    // if ran out of data in buffer, compute new data
+                    if (self->buf_pos >= self->buffer_size)
+                    {
+                        assert(self->write_callback(self, &buffer) == self->buffer_size);
+                        memcpy(self->audio_buffer, buffer, self->buffer_size * sizeof(float));
+                        self->buf_pos = 0;
+                    }
+
+                    // write this sample
+                    memcpy(areas[ch].ptr, &self->audio_buffer[self->buf_pos], outstream->bytes_per_sample);
+                    areas[ch].ptr += areas[ch].step;
+                    self->buf_pos++;
+                }
+            }
+
+            if ((err = soundio_outstream_end_write(outstream))) {
+                fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
+                return;
+            }
+
+            frames_left -= frame_count;
+        }
+    }
+    else
+    {
+        // there is no write callback, fill with zeroes
+        printf("no write callback!\n");
+
+        while (frames_left > 0) {
+            frame_count = frames_left;
+            if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count))) {
+                fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
+                return;
+            }
+            if (frame_count <= 0) break;
+
+            for (int frame = 0; frame < frame_count; frame++) {
+                for (int ch = 0; ch < outstream->layout.channel_count; ch++) {
+                    memset(areas[ch].ptr, 0, outstream->bytes_per_sample);
+                    areas[ch].ptr += areas[ch].step;
+                }
+            }
+
+            if ((err = soundio_outstream_end_write(outstream))) {
+                fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
+                return;
+            }
+
+            frames_left -= frame_count;
+        }
+    }
 }
 
 AudioDevice::AudioDevice(SoundIo* soundio, int output_device) {
@@ -38,7 +124,7 @@ AudioDevice::AudioDevice(SoundIo* soundio, int output_device) {
     outstream->sample_rate = 48000;
     outstream->format = SoundIoFormatFloat32NE;
     outstream->userdata = this;
-    outstream->write_callback = write_callback;
+    outstream->write_callback = soundio_write_callback;
 
     // initialize output stream
     int err;
@@ -51,32 +137,27 @@ AudioDevice::AudioDevice(SoundIo* soundio, int output_device) {
     if (outstream->layout_error)
         fprintf(stderr, "unable to set channel layout: %s\n", soundio_strerror(outstream->layout_error));
 
-    // create ring buffer
-    buf_capacity = (size_t)(outstream->software_latency * outstream->sample_rate) * 4;
-    size_t capacity = buf_capacity * outstream->bytes_per_frame;
-    ring_buffer = soundio_ring_buffer_create(soundio, capacity);
-    buf_capacity = soundio_ring_buffer_capacity(ring_buffer);
-    printf("buf_capacity: %li\n", buf_capacity);
-
     if ((err = soundio_outstream_start(outstream))) {
         fprintf(stderr, "unable to start device: %s\n", soundio_strerror(err));
         exit(1);
     }
 }
 
-AudioDevice::~AudioDevice() {
-    soundio_outstream_destroy(outstream);
-    soundio_device_unref(device);
+AudioDevice::~AudioDevice()
+{
+    stop();
 }
 
-bool AudioDevice::queue(const float* buffer, const size_t buffer_size) {
-    if (buffer_size > (size_t)soundio_ring_buffer_free_count(ring_buffer)) return true;
+void AudioDevice::stop() {
+    if (outstream) soundio_outstream_destroy(outstream);
+    if (device) soundio_device_unref(device);
+    outstream = nullptr;
+    device = nullptr;
 
-    char* write_ptr = soundio_ring_buffer_write_ptr(ring_buffer);
-    memcpy(write_ptr, buffer, buffer_size);
-    soundio_ring_buffer_advance_write_ptr(ring_buffer, buffer_size);
-
-    return false;
+    if (audio_buffer != nullptr) {
+        delete[] audio_buffer;
+        audio_buffer = nullptr;
+    }
 }
 
 int AudioDevice::sample_rate() const {
@@ -87,74 +168,12 @@ int AudioDevice::num_channels() const {
     return outstream->layout.channel_count;
 }
 
-int AudioDevice::num_queued_frames() const {
-    size_t bytes_queued = buf_capacity - soundio_ring_buffer_free_count(ring_buffer);
-    return bytes_queued / outstream->bytes_per_frame;
+void AudioDevice::set_buffer_size(size_t new_size)
+{
+    buffer_size_change.new_size = new_size;
+    buffer_size_change.change = true;
 }
 
-void AudioDevice::write(SoundIoOutStream* stream, int frame_count_min, int frame_count_max) {
-    SoundIoChannelArea* areas;
-    int frames_left, frame_count, err;
-
-    char* read_ptr = soundio_ring_buffer_read_ptr(ring_buffer);
-    int fill_bytes = soundio_ring_buffer_fill_count(ring_buffer);
-    int fill_count = fill_bytes / stream->bytes_per_frame;
-
-    if (fill_count < frame_count_min) {
-        // ring buffer doesn't have enough data, fill with zeroes
-        while (true) {
-            frames_left = frame_count_min;
-
-            if (frame_count_min <= 0) return;
-            if ((err = soundio_outstream_begin_write(stream, &areas, &frame_count))) {
-                fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
-                return;
-            }
-            if (frame_count <= 0) return;
-
-            for (int frame = 0; frame < frame_count; frame++) {
-                for (int ch = 0; ch < stream->layout.channel_count; ch++) {
-                    memset(areas[ch].ptr, 0, stream->bytes_per_sample);
-                    areas[ch].ptr += areas[ch].step;
-                }
-            }
-
-            if ((err = soundio_outstream_end_write(stream))) {
-                fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
-                return;
-            }
-        }
-    }
-
-    int read_count = frame_count_max < fill_count ? frame_count_max : fill_count;
-    frames_left = read_count;
-
-    while (frames_left > 0) {
-        frame_count = frames_left;
-        if ((err = soundio_outstream_begin_write(stream, &areas, &frame_count))) {
-            fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
-            return;
-        }
-        if (frame_count <= 0) break;
-
-        for (int frame = 0; frame < frame_count; frame++) {
-            for (int ch = 0; ch < stream->layout.channel_count; ch++) {
-                memcpy(areas[ch].ptr, read_ptr, stream->bytes_per_sample);
-                areas[ch].ptr += areas[ch].step;
-                read_ptr += stream->bytes_per_sample;
-            }
-        }
-
-        if ((err = soundio_outstream_end_write(stream))) {
-            fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
-            return;
-        }
-
-        frames_left -= frame_count;
-    }
-
-    soundio_ring_buffer_advance_read_ptr(ring_buffer, read_count * stream->bytes_per_frame);
-}
 
 
 
