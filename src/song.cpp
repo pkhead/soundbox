@@ -360,6 +360,56 @@ void Song::remove_channel(int channel_index)
     mutex.unlock();
 }
 
+void Song::delete_fx_bus(audiomod::FXBus* bus_to_delete)
+{
+    // can't delete the master bus
+    if (bus_to_delete == fx_mixer[0]) {
+        std::cerr << "attempt to delete the master bus\n";
+        abort();
+    }
+
+    // remove interface
+    bus_to_delete->interface_open = false;
+    for (auto it = fx_interfaces.begin(); it != fx_interfaces.end(); it++)
+        if (*it == bus_to_delete) {
+            fx_interfaces.erase(it);
+            break;
+        }
+
+    size_t bus_idx = 0;
+
+    for (auto it = fx_mixer.begin(); it != fx_mixer.end(); it++) {
+        if (*it == bus_to_delete)
+        {
+            fx_mixer[0]->disconnect_input(&bus_to_delete->controller);
+            fx_mixer.erase(it);
+
+            // move any connections to the deleted bus to master
+            for (Channel* ch : channels)
+                if (ch->fx_target_idx == bus_idx)
+                {
+                    bus_to_delete->disconnect_input(&ch->vol_mod);
+                    fx_mixer[0]->connect_input(&ch->vol_mod);
+                    ch->fx_target_idx = 0;
+                }
+
+            for (audiomod::FXBus* bus : fx_mixer)
+                if (bus->target_bus == bus_idx)
+                {
+                    bus_to_delete->disconnect_input(&bus->controller);
+                    fx_mixer[0]->connect_input(&bus->controller);
+                    bus->target_bus = 0;
+                }
+
+            delete bus_to_delete;
+            break;
+        }
+
+        bus_idx++;
+    }
+
+}
+
 float Song::get_key_frequency(int key) const {
     Tuning* tuning = tunings[selected_tuning];
 

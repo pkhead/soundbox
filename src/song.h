@@ -147,6 +147,8 @@ public:
     Channel* insert_channel(int channel_index);
     void remove_channel(int channel_index);
 
+    void delete_fx_bus(audiomod::FXBus* bus_to_delete);
+
     float get_key_frequency(int key) const;
 
     void play();

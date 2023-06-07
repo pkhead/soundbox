@@ -636,6 +636,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         float mute_btn_size = ImGui::CalcTextSize("M").x + style.FramePadding.x * 2.0f;
         float solo_btn_size = ImGui::CalcTextSize("S").x + style.FramePadding.x * 2.0f;
 
+        audiomod::FXBus* bus_to_delete = nullptr;
+
         for (audiomod::FXBus* bus : song.fx_mixer)
         {
             ImGui::PushID(i);
@@ -651,6 +653,15 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ))
             // if selectable is clicked,
                 bus->interface_open = !bus->interface_open;
+
+            // right click to remove
+            if (i != 0 && ImGui::BeginPopupContextItem())
+            {
+                if (ImGui::Selectable("Remove", false))
+                    bus_to_delete = bus;
+
+                ImGui::EndPopup();
+            }
 
             // mute button
             push_btn_disabled(style, !bus->controller.mute);
@@ -680,6 +691,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             i++;
         }
 
+        // delete requested bus
+        if (bus_to_delete)
+        {
+            song.mutex.lock();
+            song.delete_fx_bus(bus_to_delete);
+            song.mutex.unlock();
+        }
+
         ImGui::Separator();
         if (ImGui::Button("Add", ImVec2(-1.0f, 0.0f)))
         {
@@ -707,6 +726,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     // render fx interfaces
     int i = 0;
+    audiomod::FXBus* bus_to_delete = nullptr;
 
     for (audiomod::FXBus* fx_bus : song.fx_mixer)
     {
@@ -732,7 +752,15 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             if (i > 0)
             {
                 ImGui::SameLine();
-                ImGui::Button("Delete");
+                if (ImGui::Button("Remove"))
+                    ImGui::OpenPopup("Remove");
+
+                if (ImGui::BeginPopup("Remove")) {
+                    if (ImGui::Selectable("Confirm?"))
+                        bus_to_delete = fx_bus;
+
+                    ImGui::EndPopup();
+                }
             }
 
             // show volume analysis and TODO: gain slider
@@ -812,6 +840,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         i++;
     }
+
+    if (bus_to_delete)
+        song.delete_fx_bus(bus_to_delete);
 
     // tunings window
     if (song.show_tuning_window) {
