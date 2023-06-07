@@ -5,6 +5,7 @@ namespace audiomod {
     class WaveformSynth : public ModuleBase {
     protected:
         struct Voice {
+            bool active;
             int key;
             float freq;
             float volume;
@@ -14,7 +15,8 @@ namespace audiomod {
             float release_env;
         };
 
-        std::vector<Voice> voices;
+        static constexpr size_t MAX_VOICES = 16;
+        Voice voices[MAX_VOICES];
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
     public:

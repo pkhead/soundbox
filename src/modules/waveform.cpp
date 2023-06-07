@@ -38,6 +38,9 @@ WaveformSynth::WaveformSynth() : ModuleBase(true) {
     coarse[2] = 0;
     fine[2] = 0.0f;
     panning[2] = 0.0f;
+
+    for (size_t i = 0; i < MAX_VOICES; i++)
+        voices[i].active = false;
 }
 
 void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
@@ -50,8 +53,9 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
         for (size_t ch = 0; ch < channel_count; ch++) output[i + ch] = 0.0f;
 
         // compute all voices
-        for (size_t j = 0; j < voices.size();) {
+        for (size_t j = 0; j < MAX_VOICES; j++) {
             Voice& voice = voices[j];
+            if (!voice.active) continue;
 
             env = sustain; // envelope value
 
@@ -68,7 +72,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                 t = (voice.time - voice.release_time) / release;
                 if (t > 1.0f) {
                     // time has gone past the release envelope, officially end the note
-                    voices.erase(voices.begin() + j);
+                    voice.active = false;
                     continue;
                 }
 
@@ -117,7 +121,6 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
             output[i + 1] += samples[0][1] + samples[1][1] + samples[2][1];
 
             voice.time += 1.0 / sample_rate;
-            j++;
         }
     }
 }
@@ -125,8 +128,22 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
 void WaveformSynth::event(const NoteEvent& event) {
     if (event.kind == NoteEventKind::NoteOn) {
         NoteOnEvent event_data = event.note_on;
-        //std::cout << "note on " << event_data.key << "\n";
-        voices.push_back({
+        
+        // create new voice in first found empty slot
+        // if there are no empty slots, replace the first voice in memory
+        Voice* voice = voices+0;
+
+        for (size_t i = 0; i < MAX_VOICES; i++)
+        {
+            if (!voices[i].active)
+            {
+                voice = voices+i;
+                break;
+            }
+        }
+
+        *voice = {
+            true,
             event_data.key,
             event_data.freq,
             event_data.volume,
@@ -134,25 +151,27 @@ void WaveformSynth::event(const NoteEvent& event) {
             0.0,
             -1.0f,
             // undefined: release_env
-        });
+        };
     
     } else if (event.kind == NoteEventKind::NoteOff) {
         NoteOffEvent event_data = event.note_off;
-        //std::cout << "note off " << event_data.key << "\n";
-        for (auto it = voices.begin(); it != voices.end(); it++) {
-            if (it->key == event_data.key && it->release_time < 0.0f) {
-                it->release_time = it->time;
+        
+        for (size_t i = 0; i < MAX_VOICES; i++) {
+            Voice& voice = voices[i];
+
+            if (voice.active && voice.key == event_data.key && voice.release_time < 0.0f) {
+                voice.release_time = voice.time;
 
                 // calculate envelope at release time
-                it->release_env = sustain;
+                voice.release_env = sustain;
                 float t;
 
-                if (it->time < attack) {
-                    it->release_env = it->time / attack;
-                } else if (it->time < decay) {
-                    t = (it->time - attack) / decay;
+                if (voice.time < attack) {
+                    voice.release_env = voice.time / attack;
+                } else if (voice.time < decay) {
+                    t = (voice.time - attack) / decay;
                     if (t > 1.0f) t = 1.0f;
-                    it->release_env = (sustain - 1.0f) * t + 1.0f;
+                    voice.release_env = (sustain - 1.0f) * t + 1.0f;
                 }
 
                 break;
