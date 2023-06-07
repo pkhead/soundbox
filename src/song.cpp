@@ -396,35 +396,55 @@ void Song::update(double elapsed) {
     if (is_playing) {
         // first check if any channels are solo'd
         bool solo_mode = false;
-
-        for (Channel* channel : channels)
-        {
-            if (channel->solo)
-            {
+        for (Channel* channel : channels) {
+            if (channel->solo) {
                 solo_mode = true;
                 break;
             }
         }
 
         // if a channel is solo'd, then mute all but the channels that are solo'd
-        if (solo_mode)
-        {
+        if (solo_mode) {
             for (Channel* channel : channels)
             {
                 channel->vol_mod.mute_override = !channel->solo;
             }
-        }
-        
-        // no channels are solo'd
-        else {
+        } else {
             for (Channel* channel : channels)
             {
                 channel->vol_mod.mute_override = false;
             }
         }
 
-        // the method for soloing is probably like, the least efficient method possible
-        // But it doesn't matter until the user creates 10,000 channels
+        // then, do the same for fx channels
+        solo_mode = false;
+        for (audiomod::FXBus* bus : fx_mixer) {
+            if (bus->solo) {
+                solo_mode = true;
+                break;
+            }
+        }
+        if (solo_mode) {
+            for (audiomod::FXBus* bus : fx_mixer) {
+                bus->controller.mute_override = !bus->solo;
+            }
+
+            // unmute any buses that are connected to the soloed bus
+            for (audiomod::FXBus* bus : fx_mixer) {
+                if (bus->solo) {
+                    while (bus != fx_mixer[0])
+                    {
+                        bus->controller.mute_override = false;
+                        bus = fx_mixer[bus->target_bus];
+                    }
+                    bus->controller.mute_override = false;
+                }
+            }
+        } else {
+            for (audiomod::FXBus* bus : fx_mixer) {
+                bus->controller.mute_override = false;
+            }
+        }
 
         // get notes at playhead
         float pos_in_bar = fmod(position, (double)beats_per_bar);

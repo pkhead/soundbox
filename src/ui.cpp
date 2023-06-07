@@ -394,7 +394,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
             ImGui::Separator();
 
-            MENU_ITEM("Quit", "quit");
+            if (ImGui::MenuItem("Quit", "Alt+F4"))
+                user_actions.fire("quit");
             
             ImGui::EndMenu();
         }
@@ -661,9 +662,12 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             pop_btn_disabled();
 
             // solo button
-            push_btn_disabled(style, true);
+            push_btn_disabled(style, !bus->solo);
             ImGui::SameLine();
-            ImGui::SmallButton("S");
+            if (ImGui::SmallButton("S"))
+            {
+                bus->solo = !bus->solo;
+            }
             pop_btn_disabled();
 
             // left channel
@@ -679,7 +683,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::Separator();
         if (ImGui::Button("Add", ImVec2(-1.0f, 0.0f)))
         {
-            song.fx_mixer.push_back(new audiomod::FXBus());
+            song.mutex.lock();
+
+            audiomod::FXBus* bus = new audiomod::FXBus;
+            song.fx_mixer[0]->connect_input(&bus->controller);
+            song.fx_mixer.push_back(bus);
+
+            song.mutex.unlock();
         }
     } ImGui::End();
     

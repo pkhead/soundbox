@@ -563,9 +563,15 @@ void FXBus::ControllerModule::process(
 {
     float smp[2];
     float accum[2];
-    bool is_muted = mute;
+    bool is_muted = mute || mute_override;
 
     float factor = powf(10.0f, gain / 10.0f);
+
+    // clear buffer to zero
+    for (size_t i = 0; i < buffer_size; i++)
+    {
+        output[i] = 0.0f;
+    }
 
     for (size_t i = 0; i < buffer_size; i += 2)
     {
@@ -578,9 +584,12 @@ void FXBus::ControllerModule::process(
             smp[1] += inputs[j][i + 1] * factor;
         }
 
-        output[i] = is_muted ? 0.0f : smp[0];
-        output[i + 1] = is_muted ? 0.0f : smp[1];
-
+        if (!is_muted)
+        {
+            output[i] = smp[0];
+            output[i + 1] = smp[1];
+        }
+        
         if (fabsf(smp[0]) > smp_accum[0]) smp_accum[0] = fabsf(smp[0]);
         if (fabsf(smp[1]) > smp_accum[1]) smp_accum[1] = fabsf(smp[1]);
 

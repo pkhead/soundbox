@@ -213,6 +213,7 @@ namespace audiomod {
             float analysis_volume[2] = {0.0f, 0.0f};
             float gain = 0.0f;
             bool mute = false;
+            bool mute_override = false;
 
             ControllerModule();
         } controller;
@@ -226,6 +227,7 @@ namespace audiomod {
         char name[16];
 
         bool interface_open = false;
+        bool solo = false;
 
         // index of target bus
         int target_bus = 0;
