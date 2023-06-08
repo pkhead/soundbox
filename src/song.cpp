@@ -268,12 +268,18 @@ void Song::set_max_patterns(int num_patterns) {
     } else if (num_patterns < _max_patterns) {
         // remove patterns
         for (Channel* ch : channels) {
+            // if pattern#'s in sequence will no longer be valid,
+            // set them to zero
+            for (int& num : ch->sequence) {
+                if (num > num_patterns) num = 0;
+            }
+
             for (auto it = ch->patterns.begin() + num_patterns; it != ch->patterns.end(); it++) {
                 delete *it;
             }
             ch->patterns.erase(ch->patterns.begin() + num_patterns, ch->patterns.end());
 
-            assert(ch->patterns.size() != num_patterns);
+            assert(ch->patterns.size() == num_patterns);
         }
     }
 
@@ -286,12 +292,12 @@ int Song::new_pattern(int channel_id) {
 
     // find first unused pattern slot in channel
     for (int i = 0; i < channel->patterns.size(); i++) {
-        if (channel->patterns[i]->is_empty()) return i + 1;
+        if (channel->patterns[i]->is_empty()) return i;
     }
 
     // no unused patterns found, create a new one
     set_max_patterns(_max_patterns + 1);
-    return _max_patterns;
+    return _max_patterns - 1;
 }
 
 void Song::insert_bar(int position)

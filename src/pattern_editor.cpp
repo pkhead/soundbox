@@ -239,7 +239,16 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                 did_mouse_move = false;
                 
                 // add note on click
-                if (selected_pattern != nullptr && ImGui::IsItemHovered()) {
+                if (ImGui::IsItemHovered()) {
+                    // if selected null pattern, create a new pattern
+                    // or reuse an empty one
+                    if (selected_pattern == nullptr)
+                    {
+                        int pattern = song.new_pattern(song.selected_channel);
+                        selected_channel->sequence[song.selected_bar] = pattern + 1;
+                        selected_pattern = selected_channel->patterns[pattern];
+                    }
+                    
                     mouse_start = mouse_px;
 
                     if (note_hovered) {

@@ -67,6 +67,8 @@ UserActionList::UserActionList() {
     add_action("insert_bar_before", USERMOD_SHIFT, ImGuiKey_Enter, true);
     add_action("remove_bar", 0, ImGuiKey_Backspace);
 
+    add_action("new_pattern", USERMOD_CTRL, ImGuiKey_P, false);
+
     add_action("mute_channel", USERMOD_CTRL, ImGuiKey_M);
     add_action("solo_channel", USERMOD_SHIFT, ImGuiKey_M);
 
@@ -252,8 +254,13 @@ void ui_init(Song& song, UserActionList& user_actions) {
             if (song.selected_bar > 0) song.selected_bar--;
         }
     });
-}
 
+    // insert new pattern
+    user_actions.set_callback("new_pattern", [&song]() {
+        int pattern_id = song.new_pattern(song.selected_channel);
+        song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_id + 1;
+    });
+}
 
 
 
@@ -489,16 +496,43 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::Text("Tempo");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-1.0f);
-        ImGui::DragFloat("###song_tempo", &song.tempo, 0.1f, 0.0f, 5000.0f, "%.3f");
+        ImGui::DragFloat("###song_tempo", &song.tempo, 1.0f, 0.0f, 5000.0f, "%.3f");
         if (song.tempo < 0) song.tempo = 0;
 
         // TODO: controller/mod channels
         if (ImGui::BeginPopupContextItem()) {
-            ImGui::Selectable("Controller 1", true);
-            ImGui::Selectable("Controller 2", false);
-            ImGui::Selectable("Controller 3", false);
+            ImGui::Selectable("Add to selected modulator", false);
             ImGui::EndPopup();
         }
+
+        // max patterns per channel
+        int max_patterns = song.max_patterns();
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Max Patterns");
+
+        // patterns help
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 20.0f);
+            
+            ImGui::TextWrapped(
+                "Each channel has an individual list of patterns, and this input "
+                "controls the available amount of patterns per channel. "
+                "You can use this input to add more patterns, but you can also "
+                "place a new note on a null pattern (pattern 0) or select Edit > New Pattern"
+            );
+            
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+
+        // max patterns input
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputInt("###song_patterns", &max_patterns);
+        if (max_patterns != song.max_patterns() && max_patterns >= 1)
+            song.set_max_patterns(max_patterns);
     } ImGui::End();
 
     //////////////////////
