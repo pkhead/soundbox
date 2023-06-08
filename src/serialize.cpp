@@ -344,30 +344,13 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             for (uint8_t j = 0; j < mod_count; j++)
             {
                 // read mod type
-                uint8_t id_size;
-                pull_bytes(input, id_size);
-                input.read(inst_id, id_size);
-                inst_id[id_size] = 0;
-
-                // load module based off id
-                audiomod::ModuleBase* mod = audiomod::create_module(inst_id);
+                audiomod::ModuleBase* mod = load_module(input, error_msg);
                 if (mod == nullptr) {
-                    if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
                     delete song;
                     return nullptr;
                 }
 
-                // load state
-                uint64_t mod_state_size;
-                pull_bytes(input, mod_state_size);
-
-                if (mod_state_size > 0) {
-                    uint8_t* mod_state = new uint8_t[mod_state_size];
-                    input.read((char*)mod_state, mod_state_size);
-                    mod->load_state(mod_state, mod_state_size);
-                    delete[] mod_state;
-                }
-
+                mod->parent_name = bus->name;
                 bus->insert(mod);
             }
         }
@@ -424,6 +407,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
                 return nullptr;
             }
 
+            mod->parent_name = channel->name;
             channel->set_instrument(mod);
         }
 
@@ -441,6 +425,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
                     return nullptr;
                 }
 
+                mod->parent_name = channel->name;
                 channel->effects_rack.insert(mod);
             }
 

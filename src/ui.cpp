@@ -795,6 +795,21 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                     ImGui::EndPopup();
                 }
+
+                // show help explaining alternative method to remove buses
+                ImGui::SameLine();
+                ImGui::TextDisabled("(?)");
+                if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 20.0f);
+                    
+                    ImGui::TextWrapped(
+                        "You can also remove FX buses by right-clicking on them "
+                        "in the bus list. "
+                    );
+                    
+                    ImGui::PopTextWrapPos();
+                    ImGui::EndTooltip();
+                }
             }
 
             // show volume analysis and TODO: gain slider
@@ -948,9 +963,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
         
         // app version / file format version
-        const char* version = "version x.x.x / 0.0.3";
+        const char* version = "version 0.1.0-dev / 0.0.4";
         ImGui::SetCursorPosX((window_width - ImGui::CalcTextSize(version).x) / 2.0f);
-        ImGui::Text("version x.x.x / 0.0.3");
+        ImGui::Text("%s", version);
 
         ImGui::NewLine();
         ImGui::TextWrapped("Thanks to John Nesky's BeepBox");
