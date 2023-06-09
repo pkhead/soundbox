@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <string>
+#include <atomic>
 #include <stddef.h>
 #include <stdint.h>
 #include <vector>
@@ -13,6 +14,8 @@ private:
     size_t buffer_size = 0;
     size_t buf_pos = 0;
     float* audio_buffer = nullptr;
+
+    std::atomic<double> _time = 0.0;
 
     // set_buffer_size merely changes these values
     // the audio thread reallocates the buffer when
@@ -43,7 +46,6 @@ private:
         PaStreamCallbackFlags status_flags
     );
 public:
-
     static bool _pa_start();
     static void _pa_stop();
 
@@ -53,6 +55,7 @@ public:
 
     inline int sample_rate() const { return SAMPLE_RATE; };
     inline int num_channels() const { return 2; };
+    inline double time() const { return _time; };
     void stop();
 
     void set_buffer_size(size_t new_size);
@@ -86,6 +89,7 @@ namespace audiomod {
     };
 
     class ModuleBase;
+    class DestinationModule;
 
     class ModuleOutputTarget {
     protected:
@@ -105,6 +109,7 @@ namespace audiomod {
     class ModuleBase : public ModuleOutputTarget {
     protected:
         ModuleOutputTarget* _output;
+        DestinationModule* _dest = nullptr;
         bool _has_interface;
         
         float* _audio_buffer;
@@ -148,7 +153,8 @@ namespace audiomod {
         // load a serialized state. return true if successful, otherwise return false
         virtual bool load_state(void* state, size_t size) { return true; };
 
-        float* get_audio(size_t buffer_size, int sample_rate, int channel_count);
+        float* get_audio();
+        void prepare_audio(DestinationModule* destination);
     };
 
     class DestinationModule : public ModuleOutputTarget {
@@ -167,6 +173,7 @@ namespace audiomod {
         size_t buffer_size;
 
         size_t process(float** output);
+        void prepare();
     };
 
     /**

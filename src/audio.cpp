@@ -122,6 +122,9 @@ int AudioDevice::_pa_stream_callback(
         if (phase > 2.0 * M_PI) phase -= 2.0 * M_PI;
     }
 
+    double dt = (double)frame_count / sample_rate();
+    _time = _time + dt;
+
     return 0;
 }
 
@@ -196,22 +199,39 @@ void ModuleBase::remove_all_connections() {
     }
 }
 
-float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {
+// allocate buffers, not called by audio thread
+void ModuleBase::prepare_audio(DestinationModule* dest)
+{
+    _dest = dest;
+
     // audio buffer array to correct size
-    if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size * channel_count) {
+    size_t desired_size = dest->buffer_size * dest->channel_count;
+    if (_audio_buffer == nullptr || _audio_buffer_size != desired_size) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
-        _audio_buffer_size = buffer_size * channel_count;
+        _audio_buffer_size = desired_size;
         _audio_buffer = new float[_audio_buffer_size];
     }
-    
+
+    for (ModuleBase* input : _inputs)
+        input->prepare_audio(dest);
+}
+
+float* ModuleBase::get_audio() {
     // accumulate inputs
     for (size_t i = 0; i < _inputs.size(); i++) {
-        _input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
+        _input_arrays[i] = _inputs[i]->get_audio();
     }
 
     // processing
     size_t num_inputs = _inputs.size();
-    process(num_inputs > 0 ? &_input_arrays.front() : nullptr, _audio_buffer, num_inputs, buffer_size * channel_count, sample_rate, channel_count);
+    process(
+        num_inputs > 0 ? &_input_arrays.front() : nullptr, // float input[][]
+        _audio_buffer, // float output[]
+        num_inputs, // num inputs
+        _dest->buffer_size * _dest->channel_count, // number of samples
+        _dest->sample_rate, // sample rate
+        _dest->channel_count // channel count
+    );
 
     return _audio_buffer;
 }
@@ -255,19 +275,25 @@ DestinationModule::~DestinationModule() {
     if (_audio_buffer != nullptr) delete[] _audio_buffer;
 }
 
-size_t DestinationModule::process(float** output) {
+// allocate buffers, not called by audio thread
+void DestinationModule::prepare()
+{
     if (_audio_buffer == nullptr || _prev_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
         _prev_buffer_size = buffer_size * channel_count;
         _audio_buffer = new float[_prev_buffer_size];
     }
 
+    for (ModuleBase* input : _inputs)
+        input->prepare_audio(this);
+}
+
+size_t DestinationModule::process(float** output) {
     // accumulate inputs
     size_t num_inputs = _inputs.size();
-    float** input_arrays = new float*[num_inputs];
 
     for (size_t i = 0; i < num_inputs; i++) {
-        input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
+        _input_arrays[i] = _inputs[i]->get_audio();
     }
 
     // combine all inputs into one buffer
@@ -275,11 +301,9 @@ size_t DestinationModule::process(float** output) {
         _audio_buffer[i] = 0.0f;
         
         for (size_t j = 0; j < num_inputs; j++) {
-            _audio_buffer[i] += input_arrays[j][i];
+            _audio_buffer[i] += _input_arrays[j][i];
         }
     }
-
-    delete[] input_arrays;
 
     *output = _audio_buffer;
     return buffer_size * channel_count;
