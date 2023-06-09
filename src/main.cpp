@@ -334,8 +334,6 @@ int main()
                 // read scl file
                 if (file_ext == "scl")
                 {
-                    std::cout << "read scl file\n";
-
                     Tuning* tun;
 
                     if ((tun = song->load_scale_scl(out_path, &error_msg)))
@@ -363,7 +361,6 @@ int main()
                 // read kbm file
                 else if (file_ext == "kbm")
                 {
-                    std::cout << "read kbm file\n";
                     Tuning* tun = song->tunings[song->selected_tuning];
 
                     if (tun->scl_import != nullptr)
@@ -386,8 +383,6 @@ int main()
                 // read tun file
                 else if (file_ext == "tun")
                 {
-                    std::cout << "read tun file\n";
-
                     std::fstream file;
                     file.open(out_path);
 
