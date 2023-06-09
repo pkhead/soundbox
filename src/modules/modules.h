@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include "../audio.h"
 
 namespace audiomod {
@@ -90,8 +91,12 @@ namespace audiomod {
         float range = 1.0f;
 
         size_t buf_size = 0;
-        float* left_channel = nullptr;
-        float* right_channel = nullptr;
+
+        // use double buffering because of concurrency
+        std::atomic<int> front_buf = 0;
+        std::atomic<bool> ready = false;
+        float* left_channel[2] = { nullptr, nullptr };
+        float* right_channel[2] = { nullptr, nullptr };
 
     public:
         AnalyzerModule();

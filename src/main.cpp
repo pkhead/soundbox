@@ -1,4 +1,3 @@
-#include <bits/types/clock_t.h>
 #include <cassert>
 #include <cstdio>
 #include <iostream>

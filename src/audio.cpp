@@ -261,7 +261,8 @@ float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_co
     }
 
     // processing
-    process(&_input_arrays.front(), _audio_buffer, _inputs.size(), buffer_size * channel_count, sample_rate, channel_count);
+    size_t num_inputs = _inputs.size();
+    process(num_inputs > 0 ? &_input_arrays.front() : nullptr, _audio_buffer, num_inputs, buffer_size * channel_count, sample_rate, channel_count);
 
     return _audio_buffer;
 }

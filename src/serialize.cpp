@@ -275,8 +275,12 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
         uint32_t project_notes_len;
 
         pull_bytes(input, project_notes_len);
-        project_notes.resize(project_notes_len);
-        input.read(&project_notes.front(), project_notes_len);
+
+        if (project_notes_len > 0)
+        {
+            project_notes.resize(project_notes_len);
+            input.read(&project_notes.front(), project_notes_len);
+        }
     }
 
     // get song data
@@ -314,13 +318,23 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
             // read name
             pull_bytes(input, name_size);
-            tuning->name.resize(name_size);
-            input.read(&tuning->name.front(), name_size);
+
+            if (name_size > 0)
+            {
+                tuning->name.resize(name_size);
+                input.read(&tuning->name.front(), name_size);
+            }
+            else tuning->name.clear();
 
             // read description
             pull_bytes(input, desc_size);
-            tuning->desc.resize(desc_size);
-            input.read(&tuning->desc.front(), desc_size);
+            
+            if (desc_size > 0)
+            {
+                tuning->desc.resize(desc_size);
+                input.read(&tuning->desc.front(), desc_size);
+            }
+            else tuning->desc.clear();
 
             // get key frequencies
             pull_bytes(input, keys_size);
@@ -515,7 +529,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             }
 
             // connect channel to target fx bus
-            song->fx_mixer.front()->connect_input(&channel->vol_mod);
+            song->fx_mixer.front()->disconnect_input(&channel->vol_mod);
             song->fx_mixer[channel->fx_target_idx]->connect_input(&channel->vol_mod);
         }
 

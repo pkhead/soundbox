@@ -14,30 +14,45 @@ AnalyzerModule::AnalyzerModule() : ModuleBase(true)
 }
 
 AnalyzerModule::~AnalyzerModule() {
-	if (left_channel) delete[] left_channel;
-	if (right_channel) delete[] right_channel;
+	ready = false;
+
+	if (left_channel[0]) delete[] left_channel[0];
+	if (right_channel[0]) delete[] right_channel[0];
+	if (left_channel[1]) delete[] left_channel[1];
+	if (right_channel[1]) delete[] right_channel[1];
 }
 
 void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
 	if (buffer_size != this->buf_size) {
-		if (left_channel) delete[] left_channel;
-		if (right_channel) delete[] right_channel;
+		// tell renderer process not to render
+		ready = false;
 
-		left_channel = new float[buffer_size / 2];
-		right_channel = new float[buffer_size / 2];
-		this->buf_size = buffer_size / 2;
+		if (left_channel[0]) delete[] left_channel[0];
+		if (right_channel[0]) delete[] right_channel[0];
+		if (left_channel[1]) delete[] left_channel[1];
+		if (right_channel[1]) delete[] right_channel[1];
+
+		buf_size = buffer_size / 2;
+		left_channel[0] = new float[buf_size];
+		right_channel[0] = new float[buf_size];
+		left_channel[1] = new float[buf_size];
+		right_channel[1] = new float[buf_size];
 	}
+
+	int buf_idx = 1 - front_buf;
+	float* buf_left = left_channel[buf_idx];
+	float* buf_right = right_channel[buf_idx];
 
 	size_t j = 0;
 	for (size_t i = 0; i < buffer_size; i += channel_count) {
-		left_channel[j] = 0;
-		right_channel[j] = 0;
+		buf_left[j] = 0;
+		buf_right[j] = 0;
 		output[i] = 0;
 		output[i + 1] = 0;
 
 		for (size_t k = 0; k < num_inputs; k++) {
-			left_channel[j] += inputs[k][i];
-			right_channel[j] += inputs[k][i + 1];
+			buf_left[j] += inputs[k][i];
+			buf_right[j] += inputs[k][i + 1];
 
 			output[i] += inputs[k][i];
 			output[i + 1] += inputs[k][i + 1];
@@ -45,13 +60,20 @@ void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, s
 
 		j++;
 	}
+
+	front_buf = buf_idx;
+	if (!ready) ready = true;
 }
 
 void AnalyzerModule::_interface_proc() {
+	// use placeholder if audio process isn't ready to show analysis
+	float placeholder[2] = { 0.0f, 0.0f };
+	bool ready = this->ready;
+
 	ImGui::PlotLines(
 		"###left_samples", 
-		left_channel,
-		buf_size,
+		ready ? left_channel[front_buf] : placeholder,
+		ready ? buf_size : 2,
 		0,
 		"L",
 		-range,
@@ -62,8 +84,8 @@ void AnalyzerModule::_interface_proc() {
 	ImGui::SameLine();
 	ImGui::PlotLines(
 		"###right_samples", 
-		right_channel,
-		buf_size,
+		ready ? right_channel[front_buf] : placeholder,
+		ready ? buf_size : 2,
 		0,
 		"R",
 		-range,
