@@ -18,6 +18,7 @@
 #include <TUN_Scale.h>
 #include "SCL_Import.h"
 #include "TUN_StringTools.h"
+#include "Tunings.h"
 #include "audio.h"
 #include "imgui.h"
 #include "song.h"
@@ -631,34 +632,37 @@ Tuning* Song::load_scale_tun(std::istream& input, std::string* err)
     }
 }
 
+static void tune_scala(Tuning* tuning)
+{
+    Tunings::Tuning tuning_data(tuning->scl_import->scl, tuning->scl_import->kbm);
+
+    for (int midi_key = 0; midi_key < 128; midi_key++)
+    {
+        float freq = tuning_data.frequencyForMidiNote(midi_key);
+        tuning->key_freqs.push_back(freq);
+    }
+
+    tuning->analyze();
+}
+
 Tuning* Song::load_scale_scl(const char* file_path, std::string* err)
 {
-    TUN::CSCL_Import* scl_import = new TUN::CSCL_Import;
     Tuning* tuning = new Tuning();
+    TuningSclImport* scl_import = new TuningSclImport;
     tuning->scl_import = scl_import;
+    
+    try {
+        scl_import->scl = Tunings::readSCLFile(file_path);
+        scl_import->kbm = Tunings::tuneA69To(440.0);
+        tuning->desc = scl_import->scl.description;
 
-    TUN::CSingleScale scale;
- 
-    if (scl_import->ReadSCL(file_path))
-    {
-        // if read was successful
-        tuning->name = scl_import->GetTuningName();
-        scl_import->SetSingleScale(scale);
-
-        for (int midi_key : scale.GetMapping())
-        {
-            float freq = scale.GetMIDINoteFreqHz(midi_key);
-            tuning->key_freqs.push_back(freq);
-        }
-
-        tuning->analyze();
+        tune_scala(tuning);
         tunings.push_back(tuning);
         return tuning;
     }
-    else
+    catch (Tunings::TuningError& tun_err)
     {
-        // if there was an error
-        if (err) *err = scl_import->Err().GetLastError();
+        if (err) *err = tun_err.what();
         delete tuning;
         delete scl_import;
         return nullptr;
@@ -667,25 +671,17 @@ Tuning* Song::load_scale_scl(const char* file_path, std::string* err)
 
 bool Song::load_kbm(const char* file_path, Tuning& tuning, std::string* err)
 {
-    if (tuning.scl_import->ReadKBM(file_path))
-    {
-        TUN::CSingleScale scale;
+    TuningSclImport* scl_import = tuning.scl_import;
+    if (scl_import == nullptr) return false;
 
-        // read was successful
-        tuning.scl_import->SetSingleScale(scale);
-        
-        tuning.key_freqs.clear();
-        for (int midi_key : scale.GetMapping())
-        {
-            float freq = scale.GetMIDINoteFreqHz(midi_key);
-            tuning.key_freqs.push_back(freq);
-        }
-
-        tuning.analyze();
+    try {
+        scl_import->kbm = Tunings::readKBMFile(file_path);
+        tune_scala(&tuning);
         return true;
     }
-    else { // error
-        if (err) *err = tuning.scl_import->Err().GetLastError();
+    catch (Tunings::TuningError& tun_err)
+    {
+        if (err) *err = tun_err.what();
         return false;
     }
 }

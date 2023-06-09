@@ -6,7 +6,7 @@
 #include <mutex>
 
 #include <TUN_Scale.h>
-#include "SCL_Import.h"
+#include <Tunings.h>
 #include "audio.h"
 #include "imgui.h"
 #include "modules/modules.h"
@@ -54,6 +54,12 @@ public:
     void set_fx_target(int fx_index);
 };
 
+struct TuningSclImport
+{
+    Tunings::Scale scl;
+    Tunings::KeyboardMapping kbm;
+};
+
 struct Tuning
 {
     std::string name;
@@ -75,8 +81,9 @@ struct Tuning
 
     std::vector<KeyInfoStruct> key_info;
 
-    // SCL import data, used for providing .kbm files in the future
-    TUN::CSCL_Import* scl_import = nullptr;
+    // SCL import data
+    // if this is nullptr, then it is assumed this is a .tun import
+    TuningSclImport* scl_import = nullptr;
 
     // perform analysis for pattern editor display
     void analyze();

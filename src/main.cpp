@@ -328,6 +328,9 @@ int main()
                 // get file name extension
                 std::string file_ext = path_str.substr(path_str.find_last_of(".") + 1);
 
+                // store location
+                last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
+
                 // read scl file
                 if (file_ext == "scl")
                 {
@@ -337,8 +340,19 @@ int main()
 
                     if ((tun = song->load_scale_scl(out_path, &error_msg)))
                     {
-                        // store location
-                        last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
+                        // if tuning name was not found, write file name as name of the tuning
+                        if (tun->name.empty())
+                        {
+                            // get file name without extension
+                            std::string file_path = path_str.substr(path_str.find_last_of("/\\") + 1);
+                            
+                            int dot_index;
+                            file_path = (dot_index = file_path.find_last_of(".")) > 0 ?
+                                file_path.substr(0, dot_index) :
+                                file_path.substr(dot_index + 1); // if dot is at the beginning of file, just remove it
+
+                            tun->name = file_path;
+                        } 
                     }
                     else // error reading file
                     {
@@ -386,11 +400,7 @@ int main()
                         Tuning* tun;
                         if ((tun = song->load_scale_tun(file, &error_msg)))
                         {
-                            // store location
-                            last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
-
                             // if tuning name was not found, write file name as name of the tuning
-                            // TODO: use TUN import from file name
                             if (tun->name.empty())
                             {
                                 // get file name without extension
@@ -416,7 +426,7 @@ int main()
 
                 // unknown file extension
                 else {
-
+                    show_status("Incompatible file extension .%s", file_ext.c_str());
                 }
 
                 song->mutex.unlock();

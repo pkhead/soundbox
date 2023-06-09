@@ -987,6 +987,28 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             else
                 ImGui::TextWrapped("%s", selected_tuning->desc.c_str());
 
+            // file extension info (exists to tell the user if they can apply kbm to the tuning)
+            if (selected_tuning->is_12edo)
+                ImGui::NewLine();
+            else if (selected_tuning->scl_import == nullptr)
+                ImGui::Text("TUN file");
+            else
+            {
+                ImGui::Text("SCL file");
+
+                // kbm import help
+                ImGui::SameLine();
+                ImGui::TextDisabled("(?)");
+                if (ImGui::IsItemHovered() && ImGui::BeginTooltip()) {
+                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 15.0f);
+                    
+                    ImGui::Text("Loading a .kbm file while an .scl tuning is selected will apply the keyboard mapping to the scale.");
+
+                    ImGui::PopTextWrapPos();
+                    ImGui::EndTooltip();
+                }
+            }
+
             ImGui::EndGroup();
         } ImGui::End();
     }
@@ -1032,6 +1054,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::TextWrapped("glfw: https://www.glfw.org/");
         ImGui::Bullet();
         ImGui::TextWrapped("AnaMark tuning library: https://github.com/zardini123/AnaMark-Tuning-Library");
+        ImGui::Bullet();
+        ImGui::TextWrapped("Surge Synth tuning library: https://surge-synth-team.org/tuning-library/");
         ImGui::Bullet();
         ImGui::TextWrapped("nativefiledialog: https://github.com/mlabbe/nativefiledialog");
         ImGui::Bullet();

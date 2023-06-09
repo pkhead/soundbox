@@ -1,5 +1,4 @@
 - Custom tuning
-    - what to do with kbm files?
     - rework synth tuning to work like CLAP
         currently, note frequency is sent alongside the NoteEvent
         however, CLAP plugins ask the host for the frequency of a key and if it is playable 

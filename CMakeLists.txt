@@ -64,7 +64,15 @@ set(SOURCES
     src/modules/analyzer.cpp
 )
 
-include_directories(src deps/AnaMark-Tuning-Library deps/glfw/include deps/imgui deps/libsoundio/soundio deps/nativefiledialog/src/include)
+include_directories(
+    src
+    deps/AnaMark-Tuning-Library
+    deps/glfw/include
+    deps/imgui
+    deps/libsoundio/soundio
+    deps/nativefiledialog/src/include
+    deps/tuning-library/include
+)
 
 # Windows
 if (WIN32)
