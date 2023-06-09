@@ -24,16 +24,35 @@ private:
     } buffer_size_change;
 
     static constexpr float SAMPLE_RATE = 48000;
+
+    // this function will convert userdata to an AudioDevice* and call _pa_stream_callback
+    static int _pa_stream_callback_raw(
+        const void* input_buffer,
+        void* output_buffer,
+        unsigned long frame_count,
+        const PaStreamCallbackTimeInfo* time_info,
+        PaStreamCallbackFlags status_flags,
+        void* userdata
+    );
+
+    int _pa_stream_callback(
+        const void* input_buffer,
+        void* output_buffer,
+        unsigned long frame_count,
+        const PaStreamCallbackTimeInfo* time_info,
+        PaStreamCallbackFlags status_flags
+    );
 public:
-    static bool backend_start();
-    static void backend_stop();
+
+    static bool _pa_start();
+    static void _pa_stop();
 
     AudioDevice(const AudioDevice&) = delete;
     AudioDevice(int output_device);
     ~AudioDevice();
 
-    int sample_rate() const;
-    int num_channels() const;
+    inline int sample_rate() const { return SAMPLE_RATE; };
+    inline int num_channels() const { return 2; };
     void stop();
 
     void set_buffer_size(size_t new_size);

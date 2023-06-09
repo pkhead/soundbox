@@ -11,133 +11,27 @@
 #include "sys.h"
 #include <imgui.h>
 
-/*
-void AudioDevice::soundio_write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
-    AudioDevice* self = (AudioDevice*)outstream->userdata;
-
-    // reallocate buffer if change was detected
-    if (self->buffer_size_change.change)
-    {
-        self->buffer_size_change.change = false;
-        self->buffer_size = self->buffer_size_change.new_size * self->num_channels();
-
-        if (self->audio_buffer != nullptr) delete[] self->audio_buffer;
-        self->audio_buffer = new float[self->buffer_size];
-        self->buf_pos = self->buffer_size;
-    }
-
-    SoundIoChannelArea* areas;
-    int frame_count, err;
-    int frames_left = frame_count_max;
-    float* buffer; // data from write_callback
-    
-    // if a write callback was provided
-    if (self->write_callback)
-    {
-        while (frames_left > 0)
-        {
-            frame_count = frames_left;
-            if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count)))
-            {
-                fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
-                return;
-            }
-            if (frame_count <= 0) break;
-
-            for (int frame = 0; frame < frame_count; frame++)
-            {
-                for (int ch = 0; ch < outstream->layout.channel_count; ch++)
-                {
-                    // if ran out of data in buffer, compute new data
-                    if (self->buf_pos >= self->buffer_size)
-                    {
-                        assert(self->write_callback(self, &buffer) == self->buffer_size);
-                        memcpy(self->audio_buffer, buffer, self->buffer_size * sizeof(float));
-                        self->buf_pos = 0;
-                    }
-
-                    // write this sample
-                    memcpy(areas[ch].ptr, &self->audio_buffer[self->buf_pos], outstream->bytes_per_sample);
-                    areas[ch].ptr += areas[ch].step;
-                    self->buf_pos++;
-                }
-            }
-
-            if ((err = soundio_outstream_end_write(outstream))) {
-                fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
-                return;
-            }
-
-            frames_left -= frame_count;
-        }
-    }
-    else
-    {
-        // there is no write callback, fill with zeroes
-        printf("no write callback!\n");
-
-        while (frames_left > 0) {
-            frame_count = frames_left;
-            if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count))) {
-                fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
-                return;
-            }
-            if (frame_count <= 0) break;
-
-            for (int frame = 0; frame < frame_count; frame++) {
-                for (int ch = 0; ch < outstream->layout.channel_count; ch++) {
-                    memset(areas[ch].ptr, 0, outstream->bytes_per_sample);
-                    areas[ch].ptr += areas[ch].step;
-                }
-            }
-
-            if ((err = soundio_outstream_end_write(outstream))) {
-                fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
-                return;
-            }
-
-            frames_left -= frame_count;
-        }
-    }
-}*/
-
-static int pa_stream_callback(
+int AudioDevice::_pa_stream_callback_raw(
     const void* input_buffer,
     void* output_buffer,
     unsigned long frame_count,
     const PaStreamCallbackTimeInfo* time_info,
     PaStreamCallbackFlags status_flags,
-    void* user_data
+    void* userdata
 )
 {
-    static float left_phase = 0.0f;
-    static float right_phase = 0.0f;
-
-    float* out = (float*) output_buffer;
-    unsigned int i;
-    (void)input_buffer; // prevent unused variable warning
-
-    for (i = 0; i < frame_count; i++)
-    {
-        *out++ = left_phase;
-        *out++ = right_phase;
-        left_phase += 0.01f;
-        if (left_phase >= 1.0f) left_phase -= 2.0f;
-        right_phase += 0.03f;
-        if (right_phase >= 1.0f) right_phase -= 2.0f;
-    }
-
-    return 0;
+    AudioDevice* device = (AudioDevice*)userdata;
+    return device->_pa_stream_callback(input_buffer, output_buffer, frame_count, time_info, status_flags);
 }
 
 static void _pa_panic(PaError err)
 {
     printf("PortAudio Error: %s\n", Pa_GetErrorText(err));
-    AudioDevice::backend_stop();
+    AudioDevice::_pa_stop();
     exit(1);
 }
 
-bool AudioDevice::backend_start()
+bool AudioDevice::_pa_start()
 {
     PaError err = Pa_Initialize();
     if (err != paNoError)
@@ -149,7 +43,7 @@ bool AudioDevice::backend_start()
     return false;
 }
 
-void AudioDevice::backend_stop()
+void AudioDevice::_pa_stop()
 {
     PaError err = Pa_Terminate();
     if (err != paNoError)
@@ -170,7 +64,7 @@ AudioDevice::AudioDevice(int output_device) {
         paFloat32, // 32-bit float output
         SAMPLE_RATE, // sample rate
         paFramesPerBufferUnspecified, // num frames per buffer (am using own buffer so this is not needed)
-        pa_stream_callback, // callback function
+        _pa_stream_callback_raw, // callback function
         (void*)this // user data
     );
     if (err != paNoError) _pa_panic(err);
@@ -197,21 +91,39 @@ void AudioDevice::stop() {
     }
 }
 
-int AudioDevice::sample_rate() const {
-    return SAMPLE_RATE;
-}
-
-int AudioDevice::num_channels() const {
-    return 2;
-}
-
 void AudioDevice::set_buffer_size(size_t new_size)
 {
     buffer_size_change.new_size = new_size;
     buffer_size_change.change = true;
 }
 
+int AudioDevice::_pa_stream_callback(
+    const void* input_buffer,
+    void* output_buffer,
+    unsigned long frame_count,
+    const PaStreamCallbackTimeInfo* time_info,
+    PaStreamCallbackFlags status_flags
+)
+{
+    constexpr double M_PI = 3.14159265358979323846;
+    static double phase = 0.0f;
 
+    float* out = (float*)output_buffer;
+    unsigned int i;
+    (void)input_buffer; // prevent unused variable warning
+
+    for (i = 0; i < frame_count; i++)
+    {
+        float val = sin(phase) * 0.1f;
+        *out++ = val;
+        *out++ = val;
+
+        phase += 440.0 * (2.0 * M_PI) / sample_rate();
+        if (phase > 2.0 * M_PI) phase -= 2.0 * M_PI;
+    }
+
+    return 0;
+}
 
 
 

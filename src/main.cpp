@@ -103,7 +103,7 @@ int main()
     ImGui::StyleColorsClassic();
 
     // setup audio backend
-    AudioDevice::backend_start();
+    AudioDevice::_pa_start();
 
     show_demo_window = false;
 
@@ -817,6 +817,6 @@ int main()
         delete song;
     }
 
-    AudioDevice::backend_stop();
+    AudioDevice::_pa_stop();
     return 0;
 }
