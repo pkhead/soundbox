@@ -54,6 +54,7 @@ set(SOURCES
     src/audiofile.cpp
     src/pattern_editor.cpp
     src/track_editor.cpp
+    src/imgui_stdlib.cpp
 
     # audio modules
     src/modules/create.cpp

@@ -102,6 +102,8 @@ public:
     static constexpr size_t name_capcity = 128;
     char name[name_capcity];
 
+    std::string project_notes;
+
     std::vector<Channel*> channels;
     int selected_channel = 0;
     int selected_bar = 0;

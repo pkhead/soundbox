@@ -3,6 +3,7 @@
 #include "song.h"
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 /*
 Song data structure:
@@ -112,12 +113,17 @@ void Song::serialize(std::ostream& out) const {
     // just use a singular uint32
     push_bytes(out, (uint8_t)0);
     push_bytes(out, (uint8_t)0);
-    push_bytes(out, (uint8_t)4);
+    push_bytes(out, (uint8_t)5);
 
-    // write song properties
+    // song name
     push_bytes(out, (uint8_t) strlen(name));
     out << name;
 
+    // v5: project notes
+    push_bytes(out, (uint32_t)project_notes.size());
+    out << project_notes;
+
+    // write song properties
     push_bytes(out, (uint32_t) length());
     push_bytes(out, (uint32_t) channels.size());
     push_bytes(out, (uint32_t) max_patterns());
@@ -236,8 +242,21 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
     uint8_t song_name_size;
     pull_bytes(input, song_name_size);
 
-    char* song_name = new char[song_name_size];
+    char* song_name = new char[song_name_size + 1];
     input.read(song_name, song_name_size);
+    song_name[song_name_size] = 0;
+
+    // v5: read song notes
+    std::string project_notes = "";
+
+    if (version[2] >= 5)
+    {
+        uint32_t project_notes_len;
+
+        pull_bytes(input, project_notes_len);
+        project_notes.resize(project_notes_len);
+        input.read(&project_notes.front(), project_notes_len);
+    }
 
     // get song data
     uint32_t length, num_channels, max_patterns, beats_per_bar;
@@ -251,7 +270,8 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
     // create song
     Song* song = new Song(num_channels, length, max_patterns, audio_out);
-    memcpy(song->name, song_name, song_name_size);
+    strncpy(song->name, song_name, song->name_capcity);
+    song->project_notes = project_notes;
     song->name[song_name_size] = 0;
     song->beats_per_bar = beats_per_bar;
     song->tempo = tempo;
@@ -319,7 +339,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             // get bus name
             uint8_t name_size;
             pull_bytes(input, name_size);
-            input.read(bus->name, name_size);
+            input.read(bus->name, name_size); // TODO: cap to bus->name_capacity
             bus->name[name_size] = 0;
 
             // get mute/solo
@@ -371,7 +391,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
         uint8_t channel_name_size;
         pull_bytes(input, channel_name_size);
 
-        input.read(channel->name, channel_name_size);
+        input.read(channel->name, channel_name_size); // TODO: cap to channel name capacity (16 bytes)
         channel->name[channel_name_size] = 0;
 
         // volume, panning

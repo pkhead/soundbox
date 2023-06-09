@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include "audio.h"
+#include "imgui_stdlib.h"
 #include "modules/modules.h"
 #include "imgui.h"
 #include "song.h"
@@ -448,6 +449,17 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
         if (ImGui::BeginMenu("Preferences"))
         {
+            ImGui::MenuItem("Keep Current Pattern Selected");
+            ImGui::MenuItem("Hear Preview of Added Notes");
+            ImGui::MenuItem("Allow Adding Notes Not in Scale");
+            ImGui::MenuItem("Show Notes From All Channels");
+            
+            ImGui::Separator();
+
+            ImGui::MenuItem("Theme...");
+            ImGui::MenuItem("Directories...");
+            ImGui::MenuItem("MIDI Configuration...");
+            
             ImGui::EndMenu();
         }
 
@@ -533,6 +545,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::InputInt("###song_patterns", &max_patterns);
         if (max_patterns != song.max_patterns() && max_patterns >= 1)
             song.set_max_patterns(max_patterns);
+
+        // project notes
+        ImGui::Text("Project Notes");
+        ImGui::InputTextMultiline_str("###project_notes", &song.project_notes, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 16.0f));
     } ImGui::End();
 
     //////////////////////
@@ -985,7 +1001,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
         
         // app version / file format version
-        const char* version = "version 0.1.0-dev / 0.0.4";
+        const char* version = "version 0.1.0-dev / 0.0.5";
         ImGui::SetCursorPosX((window_width - ImGui::CalcTextSize(version).x) / 2.0f);
         ImGui::Text("%s", version);
 
