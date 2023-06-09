@@ -125,6 +125,9 @@ void render_pattern_editor(ImGuiIO& io, Song& song);
 void push_btn_disabled(ImGuiStyle& style, bool is_disabled);
 void pop_btn_disabled();
 
+void show_status(const char* fmt, ...);
+void show_status(const std::string& status_text);
+
 // if action = 0, do nothing
 // if action = 1, edit selected module
 // if aciton = 2, delete selected module

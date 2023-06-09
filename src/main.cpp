@@ -1,5 +1,6 @@
 #include <bits/types/clock_t.h>
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -162,8 +163,6 @@ int main()
     {
         std::string last_file_path;
         std::string last_file_name;
-        std::string status_message;
-        double status_time = -9999.0;
 
         bool prompt_unsaved_work = false;
         std::function<void()> unsaved_work_callback;
@@ -233,12 +232,10 @@ int main()
                 song->serialize(file);
                 file.close();
 
-                status_message = "Successfully saved " + last_file_path;
-                status_time = glfwGetTime();
+                show_status("Successfully saved %s", last_file_path.c_str());
                 return true;
             } else {
-                status_message = "Could not save to " + last_file_path;
-                status_time = glfwGetTime();
+                show_status("Could not save to %s", last_file_path.c_str());
                 return false;
             }
         };
@@ -293,14 +290,12 @@ int main()
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
                     } else {
-                        status_message = "Error reading file: " + error_msg;
-                        status_time = glfwGetTime();
+                        show_status("Error reading file: %s", error_msg.c_str());
                     }
 
                     file_mutex.unlock();
                 } else {
-                    status_message = "Could not open " + std::string(out_path);
-                    status_time = glfwGetTime();
+                    show_status("Could not open %s", out_path);
                 }
             } else if (result != NFD_CANCEL) {
                 std::cerr << "Error: " << NFD_GetError() << "\n";
@@ -313,14 +308,13 @@ int main()
             // only 256 tunings can be loaded
             if (song->tunings.size() >= 256)
             {
-                status_message = "Cannot add more tunings";
-                status_time = glfwGetTime();
+                show_status("Cannot add more tunings");
                 return;
             }
 
             nfdchar_t* out_path;
             nfdresult_t result = NFD_OpenDialog(
-                "tun",
+                "tun,scl",
                 last_tuning_location.empty() ? nullptr : last_tuning_location.c_str(),
                 &out_path
             );
@@ -328,47 +322,69 @@ int main()
             if (result == NFD_OKAY) {
                 song->mutex.lock();
 
+                const std::string path_str = std::string(out_path);
                 std::string error_msg = "unknown error";
-                std::fstream file;
-                file.open(out_path);
 
-                if (!file.is_open())
+                // get file name extension
+                std::string file_ext = path_str.substr(path_str.find_last_of(".") + 1);
+
+                // read scl file
+                if (file_ext == "scl")
                 {
-                    status_message = "Could not open " + std::string(out_path);
-                    status_time = glfwGetTime();
+                    std::cout << "read scl file\n";
                 }
-                else
+
+                // read tun file
+                else if (file_ext == "tun")
                 {
-                    Tuning* tun;
-                    std::string err;
-                    if ((tun = song->load_scale_tun(file, &err)))
+                    std::cout << "read tun file\n";
+
+                    std::fstream file;
+                    file.open(out_path);
+
+                    if (!file.is_open())
                     {
-                        std::string path_str = std::string(out_path);
-
-                        // store location
-                        last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
-
-                        // get file name without extension
-                        std::string file_path = path_str.substr(path_str.find_last_of("/\\") + 1);
-                        
-                        int dot_index;
-                        file_path = (dot_index = file_path.find_last_of(".")) > 0 ?
-                            file_path.substr(0, dot_index) :
-                            file_path.substr(dot_index + 1); // if dot is at the beginning of file, just remove it
-
-                        // write it as name of the tuning
-                        tun->name = file_path; 
+                        show_status("Could not open %s", out_path);
                     }
                     else
                     {
-                        // error reading file
-                        status_message = std::string("Error: ") + err;
-                        status_time = glfwGetTime(); 
+                        Tuning* tun;
+                        std::string err;
+                        if ((tun = song->load_scale_tun(file, &err)))
+                        {
+                            // store location
+                            last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
+
+                            // if tuning name was not found, write file name as name of the tuning
+                            // TODO: use TUN import from file name
+                            if (tun->name.empty())
+                            {
+                                // get file name without extension
+                                std::string file_path = path_str.substr(path_str.find_last_of("/\\") + 1);
+                                
+                                int dot_index;
+                                file_path = (dot_index = file_path.find_last_of(".")) > 0 ?
+                                    file_path.substr(0, dot_index) :
+                                    file_path.substr(dot_index + 1); // if dot is at the beginning of file, just remove it
+
+                                tun->name = file_path;
+                            } 
+                        }
+                        else
+                        {
+                            // error reading file
+                            show_status("Error: %s", err.c_str());
+                        }
+                        
+                        file.close();
                     }
-                    
-                    file.close();
                 }
-                
+
+                // unknown file extension
+                else {
+
+                }
+
                 song->mutex.unlock();
             } else if (result != NFD_CANCEL) {
                 std::cerr << "Error: " << NFD_GetError() << "\n";
@@ -474,8 +490,7 @@ int main()
             export_data.song = Song::from_file(song_serialized, *export_data.destination, nullptr);
 
             if (export_data.song == nullptr) {
-                status_message = "Error while exporting the song";
-                status_time = glfwGetTime();
+                show_status("Error while exporting the song");
 
                 delete export_data.destination;
                 return;
@@ -486,9 +501,8 @@ int main()
 
             // if could not open file?
             if (!export_data.out_file.is_open()) {
-                status_message = "Could not save to " + std::string(export_config.file_name);
-                status_time = glfwGetTime();
-
+                show_status("Could not save to %s", export_config.file_name);
+                
                 delete export_data.song;
                 delete export_data.destination;
                 return;
@@ -639,38 +653,6 @@ int main()
 
             compute_imgui(io, *song, user_actions);
 
-            // show status info as an overlay
-            if (now_time < status_time + 2.0) {
-                const static float PAD = 10.0f;
-
-                ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoMove |
-                    ImGuiWindowFlags_NoDecoration |
-                    ImGuiWindowFlags_NoDocking |
-                    ImGuiWindowFlags_AlwaysAutoResize |
-                    ImGuiWindowFlags_NoSavedSettings |
-                    ImGuiWindowFlags_NoFocusOnAppearing |
-                    ImGuiWindowFlags_NoMouseInputs |
-                    ImGuiWindowFlags_NoNav;
-
-                const ImGuiViewport* viewport = ImGui::GetMainViewport();
-                ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-                ImVec2 work_size = viewport->WorkSize;
-                ImVec2 window_pos, window_pos_pivot;
-                window_pos.x = work_pos.x + PAD;
-                window_pos.y = work_pos.y + work_size.y - PAD;
-                window_pos_pivot.x = 0.0f;
-                window_pos_pivot.y = 1.0f;
-                ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-                ImGui::SetNextWindowViewport(viewport->ID);
-                window_flags |= ImGuiWindowFlags_NoMove;
-                
-                ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
-                if (ImGui::Begin("status", nullptr, window_flags)) {
-                    ImGui::Text("%s", status_message.c_str());
-                    ImGui::End();
-                }
-            }
-
             // show new prompt
             if (prompt_unsaved_work) {
                 ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
@@ -779,8 +761,7 @@ int main()
                             delete export_data.writer;
                             export_config.p_open = false;
 
-                            status_message = "Successfully exported to " + std::string(export_config.file_name);
-                            status_time = now_time;
+                            show_status("Successfully exported to %s", export_config.file_name);
 
                             export_data.is_exporting = false;
                         }

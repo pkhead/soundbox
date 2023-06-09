@@ -16,6 +16,7 @@
 #include <string>
 
 #include <TUN_Scale.h>
+#include "SCL_Import.h"
 #include "TUN_StringTools.h"
 #include "audio.h"
 #include "imgui.h"
@@ -601,38 +602,6 @@ void Song::toggle_module_interface(audiomod::ModuleBase* mod) {
     }
 }
 
-static std::string& string_trim(std::string& str)
-{
-    // trim the start
-    bool all_whitespace = true;
-
-    for (auto it = str.begin(); it != str.end(); it++) {
-        if (!std::isspace(*it)) {
-            all_whitespace = false;
-            str.erase(str.begin(), it);
-            break;
-        }
-    }
-
-    // no non-whitespace character was found, so the entire string is whitespace
-    // so the entire string must be cleared
-    if (all_whitespace)
-    {
-        str.clear();
-        return str;
-    }
-
-    // trim the end
-    for (auto it = str.rbegin(); it != str.rend(); it++) {
-        if (!std::isspace(*it)) {
-            str.erase(it.base(), str.end());
-            break;
-        }
-    }
-
-    return str;
-}
-
 Tuning* Song::load_scale_tun(std::istream& input, std::string* err)
 {
     TUN::CStringParser strparser;
@@ -658,6 +627,40 @@ Tuning* Song::load_scale_tun(std::istream& input, std::string* err)
     {   // if there was an error
         if (err) *err = scale.Err().GetLastError();
         delete tuning;
+        return nullptr;
+    }
+}
+
+Tuning* Song::load_scale_scl(const char* file_path, std::string* err)
+{
+    TUN::CSCL_Import* scl_import = new TUN::CSCL_Import;
+    Tuning* tuning = new Tuning();
+    tuning->scl_import = scl_import;
+
+    TUN::CSingleScale scale;
+ 
+    if (scl_import->ReadSCL(file_path))
+    {
+        // if read was successful
+        tuning->name = scl_import->GetTuningName();
+        scl_import->SetSingleScale(scale);
+
+        for (int midi_key : scale.GetMapping())
+        {
+            float freq = scale.GetMIDINoteFreqHz(midi_key);
+            tuning->key_freqs.push_back(freq);
+        }
+
+        tuning->analyze();
+        tunings.push_back(tuning);
+        return tuning;
+    }
+    else
+    {
+        // if there was an error
+        if (err) *err = scl_import->Err().GetLastError();
+        delete tuning;
+        delete scl_import;
         return nullptr;
     }
 }

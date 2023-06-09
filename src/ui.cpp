@@ -158,6 +158,26 @@ void pop_btn_disabled()
 
 bool show_demo_window = false;
 bool show_about_window = false;
+std::string status_message;
+double status_time = -9999.0;
+
+void show_status(const char* fmt, ...)
+{
+    static char buf[256];
+
+    va_list argptr;
+    va_start(argptr, fmt);
+    vsnprintf(buf, 256, fmt, argptr);
+    
+    status_message = buf;
+    status_time = ImGui::GetTime();
+}
+
+void show_status(const std::string& text)
+{
+    status_message = text;
+    status_time = ImGui::GetTime();
+}
 
 void ui_init(Song& song, UserActionList& user_actions) {
     show_about_window = false;
@@ -914,13 +934,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         if (ImGui::Begin("Tunings", &song.show_tuning_window, ImGuiWindowFlags_NoDocking))
         {
             if (ImGui::Button("Load"))
-            {
-                if (song.tunings.size() >= 256) {
-                    // TODO: show error message
-                } else {
-                    user_actions.fire("load_tuning");
-                }
-            }
+                user_actions.fire("load_tuning");
 
             if (ImGui::BeginChild("list", ImVec2(ImGui::GetContentRegionAvail().x * 0.4f, -1.0f)))
             {
@@ -1023,6 +1037,38 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::Bullet();
         ImGui::TextWrapped("stb_image: https://github.com/nothings/stb");
         ImGui::End();
+    }
+
+    // show status info as an overlay
+    if (ImGui::GetTime() < status_time + 2.0) {
+        const static float PAD = 10.0f;
+
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoDecoration |
+            ImGuiWindowFlags_NoDocking |
+            ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoMouseInputs |
+            ImGuiWindowFlags_NoNav;
+
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+        ImVec2 work_size = viewport->WorkSize;
+        ImVec2 window_pos, window_pos_pivot;
+        window_pos.x = work_pos.x + PAD;
+        window_pos.y = work_pos.y + work_size.y - PAD;
+        window_pos_pivot.x = 0.0f;
+        window_pos_pivot.y = 1.0f;
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        ImGui::SetNextWindowViewport(viewport->ID);
+        window_flags |= ImGuiWindowFlags_NoMove;
+        
+        ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+        if (ImGui::Begin("status", nullptr, window_flags)) {
+            ImGui::Text("%s", status_message.c_str());
+            ImGui::End();
+        }
     }
 
     // run all scheduled actions

@@ -6,6 +6,7 @@
 #include <mutex>
 
 #include <TUN_Scale.h>
+#include "SCL_Import.h"
 #include "audio.h"
 #include "imgui.h"
 #include "modules/modules.h"
@@ -73,6 +74,9 @@ struct Tuning
     };
 
     std::vector<KeyInfoStruct> key_info;
+
+    // SCL import data, used for providing .kbm files in the future
+    TUN::CSCL_Import* scl_import = nullptr;
 
     // perform analysis for pattern editor display
     void analyze();
@@ -159,10 +163,28 @@ public:
 
     /**
     * Load scale data in the AnaMark tuning file format
+    * @param input the input stream
     * @param error the pointer to the string which may hold the error message
     * @returns the newly created tuning, or nullptr if there was an error 
     **/
     Tuning* load_scale_tun(std::istream& input, std::string* error);
+
+    /**
+    * Load scale data in the Scala file format
+    * @param input path to the input file
+    * @param error the pointer to the string which may hold the error message
+    * @returns the newly created tuning, or nullptr if there was an error
+    */
+    Tuning* load_scale_scl(const char* file_path, std::string* error);
+
+    /**
+    * Load keyboard mappings for a Scala import
+    * @param input path to the input file
+    * @param tuning a reference to the tuning to modify
+    * @param error pointer to the string which may hold the error message
+    * @returns true if successful, false if there was an error
+    */
+    bool load_kbm(const char* file_path, Tuning& tuning, std::string* error);
 
     void serialize(std::ostream& out) const;
     static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string *error_msg);
