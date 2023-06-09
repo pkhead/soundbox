@@ -895,23 +895,35 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     // tunings window
     if (song.show_tuning_window) {
-        if (ImGui::Begin("Tunings", &song.show_tuning_window))
+        if (ImGui::Begin("Tunings", &song.show_tuning_window, ImGuiWindowFlags_NoDocking))
         {
-            // TODO: remove tunings
             if (ImGui::Button("Load"))
-                user_actions.fire("load_tuning");
-            
+            {
+                if (song.tunings.size() >= 256) {
+                    // TODO: show error message
+                } else {
+                    user_actions.fire("load_tuning");
+                }
+            }
+
             if (ImGui::BeginChild("list", ImVec2(ImGui::GetContentRegionAvail().x * 0.4f, -1.0f)))
             {
                 int i = 0;
+                int index_to_delete = -1;
 
                 for (Tuning* tuning : song.tunings)
                 {
                     ImGui::PushID(i);
 
                     if (ImGui::Selectable(tuning->name.c_str(), i == song.selected_tuning))
-                    {
                         song.selected_tuning = i;
+
+                    // right-click to remove (except 12edo, that can't be deleted)
+                    if (i > 0 && ImGui::BeginPopupContextItem())
+                    {
+                        if (ImGui::Selectable("Remove"))
+                            index_to_delete = i;
+                        ImGui::EndPopup();
                     }
 
                     if (song.selected_tuning == i) ImGui::SetItemDefaultFocus();
@@ -919,7 +931,17 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
                     ImGui::PopID();
                     i++;
                 }
+
+                // if a deletion was requested
+                if (index_to_delete >= 0) {
+                    if (song.selected_tuning == index_to_delete) {
+                        song.selected_tuning--;
+                    }
+
+                    song.tunings.erase(song.tunings.begin() + index_to_delete);
+                }
             }
+
             ImGui::EndChild();
 
             ImGui::SameLine();
