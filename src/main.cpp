@@ -314,7 +314,7 @@ int main()
 
             nfdchar_t* out_path;
             nfdresult_t result = NFD_OpenDialog(
-                "tun,scl",
+                "tun,scl,kbm",
                 last_tuning_location.empty() ? nullptr : last_tuning_location.c_str(),
                 &out_path
             );
@@ -332,6 +332,41 @@ int main()
                 if (file_ext == "scl")
                 {
                     std::cout << "read scl file\n";
+
+                    Tuning* tun;
+
+                    if ((tun = song->load_scale_scl(out_path, &error_msg)))
+                    {
+                        // store location
+                        last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
+                    }
+                    else // error reading file
+                    {
+                        show_status("Error: %s", error_msg.c_str());
+                    }
+                }
+
+                // read kbm file
+                else if (file_ext == "kbm")
+                {
+                    std::cout << "read kbm file\n";
+                    Tuning* tun = song->tunings[song->selected_tuning];
+
+                    if (tun->scl_import != nullptr)
+                    {
+                        if (song->load_kbm(out_path, *tun, &error_msg))
+                        {
+                            show_status("Successfully applied mapping");
+                        }
+                        else // if there was an error
+                        {
+                            show_status("Error: %s", error_msg.c_str());
+                        }
+                    }
+                    else // kbm import only works if you have selected a scl import
+                    {
+                        show_status("Please select an SCL import in order to apply the keyboard mapping to it.");
+                    }
                 }
 
                 // read tun file
@@ -349,8 +384,7 @@ int main()
                     else
                     {
                         Tuning* tun;
-                        std::string err;
-                        if ((tun = song->load_scale_tun(file, &err)))
+                        if ((tun = song->load_scale_tun(file, &error_msg)))
                         {
                             // store location
                             last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
@@ -373,7 +407,7 @@ int main()
                         else
                         {
                             // error reading file
-                            show_status("Error: %s", err.c_str());
+                            show_status("Error: %s", error_msg.c_str());
                         }
                         
                         file.close();

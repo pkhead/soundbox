@@ -664,3 +664,28 @@ Tuning* Song::load_scale_scl(const char* file_path, std::string* err)
         return nullptr;
     }
 }
+
+bool Song::load_kbm(const char* file_path, Tuning& tuning, std::string* err)
+{
+    if (tuning.scl_import->ReadKBM(file_path))
+    {
+        TUN::CSingleScale scale;
+
+        // read was successful
+        tuning.scl_import->SetSingleScale(scale);
+        
+        tuning.key_freqs.clear();
+        for (int midi_key : scale.GetMapping())
+        {
+            float freq = scale.GetMIDINoteFreqHz(midi_key);
+            tuning.key_freqs.push_back(freq);
+        }
+
+        tuning.analyze();
+        return true;
+    }
+    else { // error
+        if (err) *err = tuning.scl_import->Err().GetLastError();
+        return false;
+    }
+}

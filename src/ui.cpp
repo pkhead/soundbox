@@ -170,13 +170,13 @@ void show_status(const char* fmt, ...)
     vsnprintf(buf, 256, fmt, argptr);
     
     status_message = buf;
-    status_time = ImGui::GetTime();
+    status_time = -30.0;
 }
 
 void show_status(const std::string& text)
 {
     status_message = text;
-    status_time = ImGui::GetTime();
+    status_time = -30.0;
 }
 
 void ui_init(Song& song, UserActionList& user_actions) {
@@ -928,7 +928,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
     if (bus_to_delete)
         song.delete_fx_bus(bus_to_delete);
-
+    
     // tunings window
     if (song.show_tuning_window) {
         if (ImGui::Begin("Tunings", &song.show_tuning_window, ImGuiWindowFlags_NoDocking))
@@ -1040,7 +1040,9 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     }
 
     // show status info as an overlay
-    if (ImGui::GetTime() < status_time + 2.0) {
+    if (status_time == -30.0) status_time = ImGui::GetTime();
+
+    if (ImGui::GetTime() < status_time + 5.0) {
         const static float PAD = 10.0f;
 
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoMove |
