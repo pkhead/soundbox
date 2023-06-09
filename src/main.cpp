@@ -14,7 +14,6 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
 #include <math.h>
-#include <soundio.h>
 #include <nfd.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -103,21 +102,8 @@ int main()
 
     ImGui::StyleColorsClassic();
 
-    // setup soundio
-    int err;
-
-    SoundIo* soundio = soundio_create();
-    if (!soundio) {
-        std::cerr << "out of memory!\n";
-        return 1;
-    }
-
-    if ((err = soundio_connect(soundio))) {
-        std::cerr << "error connecting: " << soundio_strerror(err) << "\n";
-        return 1;
-    }
-
-    soundio_flush_events(soundio);
+    // setup audio backend
+    AudioDevice::backend_start();
 
     show_demo_window = false;
 
@@ -168,7 +154,7 @@ int main()
 
         const size_t BUFFER_SIZE = 128;
 
-        AudioDevice device(soundio, -1);
+        AudioDevice device(-1);
         device.set_buffer_size(BUFFER_SIZE);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
@@ -831,7 +817,6 @@ int main()
         delete song;
     }
 
-    soundio_destroy(soundio);
-
+    AudioDevice::backend_stop();
     return 0;
 }

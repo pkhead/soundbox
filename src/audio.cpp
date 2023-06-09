@@ -7,10 +7,11 @@
 #include <iostream>
 #include "audio.h"
 #include "modules/modules.h"
-#include "soundio.h"
+#include "portaudio.h"
 #include "sys.h"
 #include <imgui.h>
 
+/*
 void AudioDevice::soundio_write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
     AudioDevice* self = (AudioDevice*)outstream->userdata;
 
@@ -98,49 +99,84 @@ void AudioDevice::soundio_write_callback(SoundIoOutStream* outstream, int frame_
             frames_left -= frame_count;
         }
     }
+}*/
+
+static int pa_stream_callback(
+    const void* input_buffer,
+    void* output_buffer,
+    unsigned long frame_count,
+    const PaStreamCallbackTimeInfo* time_info,
+    PaStreamCallbackFlags status_flags,
+    void* user_data
+)
+{
+    static float left_phase = 0.0f;
+    static float right_phase = 0.0f;
+
+    float* out = (float*) output_buffer;
+    unsigned int i;
+    (void)input_buffer; // prevent unused variable warning
+
+    for (i = 0; i < frame_count; i++)
+    {
+        *out++ = left_phase;
+        *out++ = right_phase;
+        left_phase += 0.01f;
+        if (left_phase >= 1.0f) left_phase -= 2.0f;
+        right_phase += 0.03f;
+        if (right_phase >= 1.0f) right_phase -= 2.0f;
+    }
+
+    return 0;
 }
 
-AudioDevice::AudioDevice(SoundIo* soundio, int output_device) {
+static void _pa_panic(PaError err)
+{
+    printf("PortAudio Error: %s\n", Pa_GetErrorText(err));
+    AudioDevice::backend_stop();
+    exit(1);
+}
+
+bool AudioDevice::backend_start()
+{
+    PaError err = Pa_Initialize();
+    if (err != paNoError)
+    {
+        printf("Could not start PortAudio: %s\n", Pa_GetErrorText(err));
+        return true;
+    }
+
+    return false;
+}
+
+void AudioDevice::backend_stop()
+{
+    PaError err = Pa_Terminate();
+    if (err != paNoError)
+        printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+}
+
+AudioDevice::AudioDevice(int output_device) {
+    // NOTE: PaTime Pa_GetStreamTime(PaStream* stream)
+    
     // if output_device == -1, use default output device
-    if (output_device < 0) {
-        output_device = soundio_default_output_device_index(soundio);
+    PaError err;
 
-        if (output_device < 0) {
-            fprintf(stderr, "no output device found");
-            exit(1);
-        }
-    }
+    // TODO: ability to use devices other than default
+    err = Pa_OpenDefaultStream(
+        &pa_stream,
+        0, // num input channels
+        2, // num output channels (stereo)
+        paFloat32, // 32-bit float output
+        SAMPLE_RATE, // sample rate
+        paFramesPerBufferUnspecified, // num frames per buffer (am using own buffer so this is not needed)
+        pa_stream_callback, // callback function
+        (void*)this // user data
+    );
+    if (err != paNoError) _pa_panic(err);
 
-    // create output device
-    device = soundio_get_output_device(soundio, output_device);
-    if (!device) {
-        fprintf(stderr, "out of memory!");
-        exit(1);
-    }
-
-    // create output stream
-    outstream = soundio_outstream_create(device);
-    outstream->software_latency = 0.05;
-    outstream->sample_rate = 48000;
-    outstream->format = SoundIoFormatFloat32NE;
-    outstream->userdata = this;
-    outstream->write_callback = soundio_write_callback;
-
-    // initialize output stream
-    int err;
-
-    if ((err = soundio_outstream_open(outstream))) {
-        fprintf(stderr, "unable to open device: %s\n", soundio_strerror(err));
-        exit(1);
-    }
-
-    if (outstream->layout_error)
-        fprintf(stderr, "unable to set channel layout: %s\n", soundio_strerror(outstream->layout_error));
-
-    if ((err = soundio_outstream_start(outstream))) {
-        fprintf(stderr, "unable to start device: %s\n", soundio_strerror(err));
-        exit(1);
-    }
+    err = Pa_StartStream(pa_stream);
+    if (err != paNoError) _pa_panic(err);
 }
 
 AudioDevice::~AudioDevice()
@@ -149,10 +185,11 @@ AudioDevice::~AudioDevice()
 }
 
 void AudioDevice::stop() {
-    if (outstream) soundio_outstream_destroy(outstream);
-    if (device) soundio_device_unref(device);
-    outstream = nullptr;
-    device = nullptr;
+    if (pa_stream == nullptr) return;
+
+    PaError err;
+    err = Pa_StopStream(pa_stream);
+    pa_stream = nullptr;
 
     if (audio_buffer != nullptr) {
         delete[] audio_buffer;
@@ -161,11 +198,11 @@ void AudioDevice::stop() {
 }
 
 int AudioDevice::sample_rate() const {
-    return outstream->sample_rate;
+    return SAMPLE_RATE;
 }
 
 int AudioDevice::num_channels() const {
-    return outstream->layout.channel_count;
+    return 2;
 }
 
 void AudioDevice::set_buffer_size(size_t new_size)

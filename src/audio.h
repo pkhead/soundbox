@@ -4,12 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <vector>
-#include <soundio.h>
+#include "portaudio.h"
 
 class AudioDevice {
 private:
-    SoundIoDevice* device;
-    SoundIoOutStream* outstream;
+    PaStream* pa_stream;
 
     size_t buffer_size = 0;
     size_t buf_pos = 0;
@@ -18,16 +17,19 @@ private:
     // set_buffer_size merely changes these values
     // the audio thread reallocates the buffer when
     // it detects that the user changed the buffer size
+    // TODO: no
     struct {
         bool change = false;
         size_t new_size = 0;
     } buffer_size_change;
 
-    static void soundio_write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max);
-
+    static constexpr float SAMPLE_RATE = 48000;
 public:
+    static bool backend_start();
+    static void backend_stop();
+
     AudioDevice(const AudioDevice&) = delete;
-    AudioDevice(SoundIo* soundio, int output_device);
+    AudioDevice(int output_device);
     ~AudioDevice();
 
     int sample_rate() const;
