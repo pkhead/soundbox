@@ -3,22 +3,14 @@ project(soundbox)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# send these options to libsoundio
-set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build libsoundio static libraries" FORCE)
-set(BUILD_EXAMPLE_PROGRAMS OFF CACHE BOOL "Build libsoundio example programs" FORCE)
-set(BUILD_TESTS OFF CACHE BOOL "Build libsoundio test programs" FORCE)
-
 # send these options to glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-add_subdirectory(deps/libsoundio)
+add_subdirectory(deps/portaudio-19.7.0 EXCLUDE_FROM_ALL)
 add_subdirectory(deps/glfw)
 
-mark_as_advanced(BUILD_STATIC_LIBS)
-mark_as_advanced(BUILD_EXAMPLE_PROGRAMS)
-mark_as_advanced(BUILD_TESTS)
 mark_as_advanced(GLFW_BUILD_DOCS)
 mark_as_advanced(GLFW_BUILD_TESTS)
 mark_as_advanced(GLFW_BUILD_EXAMPLES)
@@ -69,7 +61,7 @@ include_directories(
     deps/AnaMark-Tuning-Library
     deps/glfw/include
     deps/imgui
-    deps/libsoundio/soundio
+    deps/portaudio-19.7.0/include
     deps/nativefiledialog/src/include
     deps/tuning-library/include
 )
@@ -95,14 +87,7 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    target_link_libraries(soundbox glfw comctl32.lib libsoundio_shared ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
-
-    # copy soundio.dll to the binary directory
-    add_custom_command(TARGET soundbox POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_BINARY_DIR}/deps/libsoundio/soundio.dll"
-            $<TARGET_FILE_DIR:soundbox>
-    )
+    target_link_libraries(soundbox glfw comctl32.lib portaudio_static ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
 
 # Linux
 else()
