@@ -1,6 +1,8 @@
+#include "Tunings.h"
 #include "audio.h"
 #include "sys.h"
 #include "song.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -113,7 +115,7 @@ void Song::serialize(std::ostream& out) const {
     // just use a singular uint32
     push_bytes(out, (uint8_t)0);
     push_bytes(out, (uint8_t)0);
-    push_bytes(out, (uint8_t)5);
+    push_bytes(out, (uint8_t)6);
 
     // song name
     push_bytes(out, (uint8_t) strlen(name));
@@ -151,6 +153,25 @@ void Song::serialize(std::ostream& out) const {
             for (float freq : tuning->key_freqs)
             {
                 push_bytes(out, (float) freq);
+            }
+
+            // v6: write scala data
+            if (tuning->scl_import == nullptr)
+            {
+                push_bytes(out, (uint32_t) 0);
+                push_bytes(out, (uint32_t) 0);
+            }
+            else
+            {
+                TuningSclImport& scl_import = *tuning->scl_import;
+                
+                // write scl data
+                push_bytes(out, (uint32_t) scl_import.scl.rawText.size());
+                out << scl_import.scl.rawText;
+
+                // write kbm data
+                push_bytes(out, (uint32_t) scl_import.kbm.rawText.size());
+                out << scl_import.kbm.rawText;
             }
         }
     }
@@ -307,6 +328,50 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             {
                 pull_bytes(input, freq);
                 tuning->key_freqs.push_back(freq);
+            }
+
+            // read scala data
+            if (version[2] >= 6)
+            {
+                uint32_t scl_size, kbm_size;
+                pull_bytes(input, scl_size);
+
+                if (scl_size > 0)
+                {
+                    std::string scl_data, kbm_data;
+
+                    // read scl
+                    scl_data.resize(scl_size);
+                    input.read(&scl_data.front(), scl_size);
+
+                    // read kbm
+                    pull_bytes(input, kbm_size);
+                    kbm_data.resize(kbm_size);
+                    input.read(&kbm_data.front(), kbm_size);
+
+                    TuningSclImport* scl_import = new TuningSclImport;
+                    tuning->scl_import = scl_import;
+
+                    try {
+                        scl_import->scl = Tunings::parseSCLData(scl_data);
+                        scl_import->kbm = Tunings::parseKBMData(kbm_data); 
+                    } catch(Tunings::TuningError& err) {
+                        if (error_msg) *error_msg = err.what();
+
+                        delete tuning;
+                        delete scl_import;
+                        delete song;
+                    }
+                }
+                else // no scala data
+                {
+                    pull_bytes(input, kbm_size);
+                    if (kbm_size != 0) {
+                        delete tuning;
+                        delete song;
+                        return nullptr;
+                    }
+                }
             }
 
             tuning->analyze();

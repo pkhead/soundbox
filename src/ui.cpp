@@ -1037,7 +1037,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
         
         // app version / file format version
-        const char* version = "version 0.1.0-dev / 0.0.5";
+        const char* version = "version 0.1.0-dev / 0.0.6";
         ImGui::SetCursorPosX((window_width - ImGui::CalcTextSize(version).x) / 2.0f);
         ImGui::Text("%s", version);
 
