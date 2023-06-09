@@ -161,6 +161,41 @@ namespace audiomod {
     private:
         float* _audio_buffer;
         size_t _prev_buffer_size;
+
+        /**
+        * Ensure thread safety by having a copy of the audio graph.
+        * This copy will be used by the audio thread. When the audio
+        * graph is changed, construct a representation of the graph
+        * using ModuleNodes and send it to the audio thread. The
+        * audio thread will then use this representation for processing,
+        * then send the old pointer back to the main thread so that
+        * it can be freed.
+        * 
+        * The main thread wouldn't actually be the main thread, because
+        * that may have Vsync -- rather, an auxillary thread that also
+        * does the sending of NoteEvents. And also, they wouldn't
+        * actually "send messages"; it would just be the changing
+        * of flags. I just say that to enforce the concept of ownership.
+        */
+        struct ModuleNode
+        {
+            ModuleBase* module;
+            std::vector<ModuleBase*> inputs;
+            std::vector<float*> input_arrays;
+        };
+
+        ModuleNode* audio_graph = nullptr; // the graph the audio thread is using
+        ModuleNode* new_graph = nullptr; // the new graph the audio thread will use
+        ModuleNode* old_graph = nullptr; // the graph the main thread can free
+
+        // clear if need audio_graph = new_graph (done on audio thread)
+        std::atomic_flag do_copy_graph;
+
+        // clear if old_graph needs to be freed
+        std::atomic_flag graph_needs_free;
+
+        // if graph needs to be constructed on the main thread
+        bool is_dirty = false;
     public:
         DestinationModule(const DestinationModule&) = delete;
         DestinationModule(int sample_rate, int num_channels, size_t buffer_size);
@@ -174,6 +209,7 @@ namespace audiomod {
 
         size_t process(float** output);
         void prepare();
+        inline void make_dirty() { is_dirty = true; };
     };
 
     /**

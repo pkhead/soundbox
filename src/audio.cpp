@@ -184,11 +184,15 @@ void ModuleBase::connect(ModuleOutputTarget* dest) {
     disconnect();
     dest->add_input(this);
     _output = dest;
+
+    if (_dest) _dest->make_dirty();
 }
 
 void ModuleBase::disconnect() {
     if (_output != nullptr) _output->remove_input(this);
     _output = nullptr;
+
+    if (_dest) _dest->make_dirty();
 }
 
 void ModuleBase::remove_all_connections() {
@@ -202,6 +206,9 @@ void ModuleBase::remove_all_connections() {
 // allocate buffers, not called by audio thread
 void ModuleBase::prepare_audio(DestinationModule* dest)
 {
+    if (_dest != dest)
+        dest->make_dirty();
+
     _dest = dest;
 
     // audio buffer array to correct size
