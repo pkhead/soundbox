@@ -104,6 +104,7 @@ namespace audiomod {
         // returns true if the removal was not successful (i.e., the specified module isn't an input)
         bool remove_input(ModuleBase* module);
         void add_input(ModuleBase* module);
+        inline const std::vector<ModuleBase*>& get_inputs() const { return _inputs; }
     };
 
     class ModuleBase : public ModuleOutputTarget {
@@ -179,9 +180,12 @@ namespace audiomod {
         */
         struct ModuleNode
         {
-            ModuleBase* module;
-            std::vector<ModuleBase*> inputs;
-            std::vector<float*> input_arrays;
+            ModuleBase* module = nullptr;
+            float* output;
+
+            ModuleNode** inputs;
+            float** input_arrays;
+            size_t num_inputs;
         };
 
         ModuleNode* audio_graph = nullptr; // the graph the audio thread is using
@@ -196,6 +200,10 @@ namespace audiomod {
 
         // if graph needs to be constructed on the main thread
         bool is_dirty = false;
+
+        // construct a graph of ModuleNodes
+        void construct_graph(ModuleBase* module, ModuleNode* node);
+        void free_graph(ModuleNode* node);
     public:
         DestinationModule(const DestinationModule&) = delete;
         DestinationModule(int sample_rate, int num_channels, size_t buffer_size);
@@ -205,7 +213,7 @@ namespace audiomod {
         int channel_count;
 
         double time;
-        size_t buffer_size;
+        size_t buffer_size; // frames per buffer
 
         size_t process(float** output);
         void prepare();

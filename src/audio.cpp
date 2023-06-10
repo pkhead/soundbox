@@ -304,6 +304,28 @@ void DestinationModule::prepare()
     }
 }
 
+void DestinationModule::construct_graph(ModuleBase* module, ModuleNode* node)
+{
+    node->module = module;
+    node->output = new float[buffer_size * channel_count];
+    
+    // get inputs
+    node->num_inputs = module->get_inputs().size();
+    node->inputs = new ModuleNode*[node->num_inputs];
+    size_t i = 0;
+    for (ModuleBase* input_mod : module->get_inputs())
+    {
+        ModuleNode* input_node = new ModuleNode;
+        construct_graph(input_mod, input_node);
+        node->inputs[i++] = input_node;
+    }
+
+    // accumulate input arrays
+    node->input_arrays = new float* [node->num_inputs];
+    for (i = 0; i < node->num_inputs; i++)
+        node->input_arrays[i] = node->inputs[i]->output;
+}
+
 size_t DestinationModule::process(float** output) {
     // accumulate inputs
     size_t num_inputs = _inputs.size();
