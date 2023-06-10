@@ -21,9 +21,9 @@
 namespace sys {
     struct high_res_timer;
 
-    high_res_timer* timer_create(int ms);
+    high_res_timer* timer_create(long us);
     void timer_free(high_res_timer* timer);
-    void timer_sleep(high_res_timer* timer, int ms);
+    void timer_sleep(high_res_timer* timer, long us);
 }
 
 extern bool IS_BIG_ENDIAN;

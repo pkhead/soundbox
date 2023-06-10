@@ -151,6 +151,10 @@ namespace audiomod {
         float* _audio_buffer;
         size_t _prev_buffer_size;
 
+        // buffer filled with zeroes if audio is not yet ready
+        static constexpr size_t DUMMY_BUFFER_SAMPLE_COUNT = 256;
+        float dummy_buffer[DUMMY_BUFFER_SAMPLE_COUNT];
+        
         /**
         * Ensure thread safety by having a copy of the audio graph.
         * This copy will be used by the audio thread. When the audio

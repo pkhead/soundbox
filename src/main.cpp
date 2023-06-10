@@ -595,15 +595,23 @@ int main()
         // audio auxillary thread
         bool last_playing = song->is_playing;
         double audio_last_time = device.time();
+        std::atomic<long> thread_processing_time = 0;
 
         std::thread audioaux_thread([&]()
         {
-            sys::high_res_timer* timer = sys::timer_create(2);
+            sys::high_res_timer* timer = sys::timer_create(1000);
+
+            std::chrono::high_resolution_clock::time_point prev;
 
             while (run_app)
             {
+                
                 file_mutex.lock();
-                song->mutex.lock();
+
+                if (!song->mutex.try_lock()) {
+                    std::cout << "is locked...\n";
+                    song->mutex.lock();
+                }
 
                 destination.prepare();
 
@@ -614,20 +622,20 @@ int main()
                     else song->stop();
                 }
 
-                double new_time = device.time();
-                if (new_time != audio_last_time) song->update(new_time - audio_last_time);
-                audio_last_time = new_time;
+                auto now = std::chrono::high_resolution_clock::now();
+                long dt_us = thread_processing_time = std::chrono::duration_cast<std::chrono::microseconds> (now - prev).count();
+                prev = now;
+
+                song->update((double)dt_us / 1000000.0);
 
                 file_mutex.unlock();
                 song->mutex.unlock();
 
-                std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
-                // sleep for 2 ms
-                sys::timer_sleep(timer, 2);
-
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-                std::cout << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << "\n";
+                thread_processing_time = dt_us;
+
+                sys::timer_sleep(timer, 500);
+
             }
 
             sys::timer_free(timer);
@@ -646,6 +654,8 @@ int main()
                     run_app = false;
                 };
             }
+
+            //std::cout << thread_processing_time << " [us]\n";
 
             double now_time = glfwGetTime();
 

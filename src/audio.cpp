@@ -40,6 +40,22 @@ bool AudioDevice::_pa_start()
         return true;
     }
 
+    std::cout << "PortAudio available backends:\n";
+
+    int selected_backend = Pa_GetDefaultHostApi();
+
+    for (int i = 0; i < Pa_GetHostApiCount(); i++)
+    {
+        const PaHostApiInfo* info = Pa_GetHostApiInfo(i);
+
+        if (selected_backend == i)
+            std::cout << "  [x] - ";
+        else
+            std::cout << "  [ ] - ";
+        
+        std::cout << info->name << "\n";
+    }
+
     return false;
 }
 
@@ -65,7 +81,7 @@ AudioDevice::AudioDevice(int output_device) {
     out_params.device = output_device;
     out_params.hostApiSpecificStreamInfo = nullptr;
     out_params.sampleFormat = paFloat32;
-    out_params.suggestedLatency = 0.1;
+    out_params.suggestedLatency = 0.05;
     err = Pa_OpenStream(
         &pa_stream,
         nullptr,
@@ -308,6 +324,12 @@ bool ModuleBase::render_interface() {
 DestinationModule::DestinationModule(int sample_rate, int num_channels, size_t buffer_size) : time(0.0), sample_rate(sample_rate), channel_count(num_channels), buffer_size(buffer_size) {
     _audio_buffer = nullptr;
     _prev_buffer_size = 0;
+
+    // fill dummy buffer with zeroes
+    for (size_t i = 0; i < DUMMY_BUFFER_SAMPLE_COUNT; i++)
+    {
+        dummy_buffer[i] = 0.0f;
+    }
 }
 
 DestinationModule::~DestinationModule() {
@@ -422,10 +444,18 @@ size_t DestinationModule::process(float** output) {
         new_graph = nullptr;
     }
 
-    process_node(_thread_audio_graph);
+    if (_thread_audio_graph != nullptr)
+    {
+        process_node(_thread_audio_graph);
 
-    *output = _thread_audio_graph->output;
-    return _thread_audio_graph->buf_size;
+        *output = _thread_audio_graph->output;
+        return _thread_audio_graph->buf_size;
+    }
+    else
+    {
+        *output = dummy_buffer;
+        return DUMMY_BUFFER_SAMPLE_COUNT;
+    }
 }
 
 void DestinationModule::process_node(ModuleNode* node)

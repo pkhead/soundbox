@@ -109,7 +109,7 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    target_link_libraries(soundbox glfw ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} libsoundio_shared)
+    target_link_libraries(soundbox glfw portaudio_static ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
 endif()
 
 file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

@@ -52,4 +52,24 @@ void sys::timer_sleep(high_res_timer* timer, int ms)
 
 	WaitForSingleObject(impl->handle, INFINITE);
 }
+#else
+#include <time.h>
+
+high_res_timer* sys::timer_create(long us)
+{
+	return nullptr;
+}
+
+void sys::timer_free(high_res_timer* timer)
+{
+	return;
+}
+
+void sys::timer_sleep(high_res_timer* timer, long us)
+{
+	timespec time;
+	time.tv_sec = 0;
+	time.tv_nsec = us * 1000;
+	nanosleep(&time, nullptr);
+}
 #endif
