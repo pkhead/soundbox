@@ -604,7 +604,8 @@ int main()
                 audio_last_time = new_time;
 
                 float* audio_buf;
-                assert(destination.process(&audio_buf) == destination.buffer_size * destination.channel_count);
+                size_t ret_size = destination.process(&audio_buf);
+                assert(ret_size == destination.buffer_size * destination.channel_count);
 
                 file_mutex.unlock();
                 song->mutex.unlock();
