@@ -85,16 +85,14 @@ void AudioDevice::stop() {
     err = Pa_StopStream(pa_stream);
     pa_stream = nullptr;
 
-    if (audio_buffer != nullptr) {
-        delete[] audio_buffer;
-        audio_buffer = nullptr;
-    }
-}
+    if (_thread_audio_buffer != nullptr)
+        delete[] _thread_audio_buffer;
 
-void AudioDevice::set_buffer_size(size_t new_size)
-{
-    buffer_size_change.new_size = new_size;
-    buffer_size_change.change = true;
+    if (_new_audio_buffer != nullptr)
+        delete[] _new_audio_buffer;
+
+    if (_old_audio_buffer != nullptr)
+        delete[] _old_audio_buffer;
 }
 
 int AudioDevice::_pa_stream_callback(
@@ -105,6 +103,20 @@ int AudioDevice::_pa_stream_callback(
     PaStreamCallbackFlags status_flags
 )
 {
+    // fetch new buffer if it exists
+    // ...buffer size changes happen so infrequently
+    // may as well use spinlocks?
+    {
+        float* new_buf = _new_audio_buffer;
+        if (new_buf != nullptr)
+        {
+            _thread_buffer_size = buffer_size;
+            _new_audio_buffer = nullptr;
+            _old_audio_buffer = _thread_audio_buffer;
+            _thread_audio_buffer = new_buf;
+        }
+    }
+
     constexpr double M_PI = 3.14159265358979323846;
     static double phase = 0.0f;
 
@@ -126,6 +138,24 @@ int AudioDevice::_pa_stream_callback(
     _time = _time + dt;
 
     return 0;
+}
+
+void AudioDevice::update()
+{
+    // delete old audio thread buffer if needed
+    float* old_buf = _old_audio_buffer;
+    if (old_buf != nullptr)
+    {
+        _old_audio_buffer = nullptr;
+        delete[] old_buf;
+    }
+
+    // set new audio thread buffer if resized
+    if (_old_buffer_size != buffer_size)
+    {
+        _old_buffer_size = buffer_size;
+        _new_audio_buffer = new float[buffer_size * num_channels()];
+    }
 }
 
 
@@ -163,6 +193,10 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //////////////////////
 //   MODULE BASE    //
 //////////////////////
+
+// TODO: remove audio buffers in ModuleBase, as
+// destination module is the one that now
+// creates and owns the audio buffers
 
 ModuleBase::ModuleBase(bool has_interface) :
     _output(nullptr),
@@ -385,14 +419,14 @@ size_t DestinationModule::process(float** output) {
     // obtain the updated graph if needed
     ModuleNode* _new_graph = new_graph;
     if (_new_graph != nullptr) {
-        old_graph = audio_graph;
-        audio_graph = _new_graph;
+        old_graph = _thread_audio_graph;
+        _thread_audio_graph = _new_graph;
         new_graph = nullptr;
     }
 
-    process_node(audio_graph);
+    process_node(_thread_audio_graph);
 
-    *output = audio_graph->output;
+    *output = _thread_audio_graph->output;
     return buffer_size * channel_count;
 }
 

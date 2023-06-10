@@ -475,6 +475,8 @@ int main()
 
             int step = 0;
 
+            export_data.destination->prepare();
+
             while (export_data.song->is_playing) {
                 if (!export_data.is_exporting) break;
 

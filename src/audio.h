@@ -12,19 +12,16 @@ private:
     PaStream* pa_stream;
 
     size_t buffer_size = 0;
-    size_t buf_pos = 0;
-    float* audio_buffer = nullptr;
+    size_t _old_buffer_size = 0;
+
+    size_t _thread_buffer_size = 0;
+    size_t _thread_buf_pos = 0;
+    float* _thread_audio_buffer = nullptr;
+
+    std::atomic<float*> _new_audio_buffer;
+    std::atomic<float*> _old_audio_buffer;
 
     std::atomic<double> _time = 0.0;
-
-    // set_buffer_size merely changes these values
-    // the audio thread reallocates the buffer when
-    // it detects that the user changed the buffer size
-    // TODO: no
-    struct {
-        bool change = false;
-        size_t new_size = 0;
-    } buffer_size_change;
 
     static constexpr float SAMPLE_RATE = 48000;
 
@@ -58,9 +55,10 @@ public:
     inline double time() const { return _time; };
     void stop();
 
-    void set_buffer_size(size_t new_size);
-    inline size_t get_buffer_size() const { return buffer_size_change.new_size; };
+    inline void set_buffer_size(size_t new_size) { buffer_size = new_size; };
+    inline size_t get_buffer_size() const { return buffer_size; };
     
+    void update();
     std::function<size_t (AudioDevice* self, float** buffer)> write_callback;
 };
 
@@ -189,7 +187,7 @@ namespace audiomod {
             size_t num_inputs;
         };
 
-        ModuleNode* audio_graph = nullptr; // the graph the audio thread is using
+        ModuleNode* _thread_audio_graph = nullptr; // the graph the audio thread is using
 
         // this is set to the new graph if audio_graph is outdated
         std::atomic<ModuleNode*> new_graph = nullptr;
