@@ -7,7 +7,7 @@
 #include <iostream>
 #include "audio.h"
 #include "modules/modules.h"
-#include "portaudio.h"
+#include <portaudio.h>
 #include "sys.h"
 #include <imgui.h>
 
@@ -291,6 +291,15 @@ void DestinationModule::prepare()
         _audio_buffer = new float[_prev_buffer_size];
     }
 
+    // free old graph set from audio thread
+    ModuleNode* _old_graph = old_graph;
+    if (_old_graph != nullptr)
+    {
+        std::cout << "free\n";
+        free_graph(_old_graph);
+        old_graph = nullptr;
+    }
+
     // update buffers of modules connected to this destination
     for (ModuleBase* input : _inputs)
         input->prepare_audio(this);
@@ -300,14 +309,18 @@ void DestinationModule::prepare()
     if (is_dirty)
     {
         std::cout << "dirty\n";
+        new_graph = construct_graph();
         is_dirty = false;
     }
 }
 
-void DestinationModule::construct_graph(ModuleBase* module, ModuleNode* node)
+DestinationModule::ModuleNode* DestinationModule::_create_node(ModuleBase* module)
 {
+    ModuleNode* node = new ModuleNode;
+
     node->module = module;
     node->output = new float[buffer_size * channel_count];
+    node->buf_size = buffer_size;
     
     // get inputs
     node->num_inputs = module->get_inputs().size();
@@ -315,36 +328,97 @@ void DestinationModule::construct_graph(ModuleBase* module, ModuleNode* node)
     size_t i = 0;
     for (ModuleBase* input_mod : module->get_inputs())
     {
-        ModuleNode* input_node = new ModuleNode;
-        construct_graph(input_mod, input_node);
-        node->inputs[i++] = input_node;
+        node->inputs[i++] = _create_node(input_mod);
     }
 
     // accumulate input arrays
     node->input_arrays = new float* [node->num_inputs];
     for (i = 0; i < node->num_inputs; i++)
         node->input_arrays[i] = node->inputs[i]->output;
+
+    return node;
+}
+
+// same as _create_node, but module is assigned to nullptr and
+// it reads from DestinationModule (a ModuleOutputTarget)
+DestinationModule::ModuleNode* DestinationModule::construct_graph()
+{
+    ModuleNode* node = new ModuleNode;
+
+    node->module = nullptr;
+    node->output = new float[buffer_size * channel_count];
+    node->buf_size = buffer_size;
+
+    // get inputs
+    node->num_inputs = get_inputs().size();
+    node->inputs = new ModuleNode * [node->num_inputs];
+    size_t i = 0;
+    for (ModuleBase* input_mod : get_inputs())
+    {
+        node->inputs[i++] = _create_node(input_mod);
+    }
+
+    // accumulate input arrays
+    node->input_arrays = new float* [node->num_inputs];
+    for (i = 0; i < node->num_inputs; i++)
+        node->input_arrays[i] = node->inputs[i]->output;
+
+    return node;
+}
+
+void DestinationModule::free_graph(ModuleNode* node)
+{
+    for (size_t i = 0; i < node->num_inputs; i++)
+    {
+        node->input_arrays[i] = nullptr;
+        free_graph(node->inputs[i]);
+        node->inputs[i] = nullptr;
+    }
+
+    delete[] node->input_arrays;
+    delete[] node->inputs;
+    delete[] node->output;
+    delete node;
 }
 
 size_t DestinationModule::process(float** output) {
-    // accumulate inputs
-    size_t num_inputs = _inputs.size();
-
-    for (size_t i = 0; i < num_inputs; i++) {
-        _input_arrays[i] = _inputs[i]->get_audio();
+    // obtain the updated graph if needed
+    ModuleNode* _new_graph = new_graph;
+    if (_new_graph != nullptr) {
+        old_graph = audio_graph;
+        audio_graph = _new_graph;
+        new_graph = nullptr;
     }
 
-    // combine all inputs into one buffer
-    for (size_t i = 0; i < buffer_size * channel_count; i++) {
-        _audio_buffer[i] = 0.0f;
-        
-        for (size_t j = 0; j < num_inputs; j++) {
-            _audio_buffer[i] += _input_arrays[j][i];
+    process_node(audio_graph);
+
+    *output = audio_graph->output;
+    return buffer_size * channel_count;
+}
+
+void DestinationModule::process_node(ModuleNode* node)
+{
+    // get data in inputs
+    for (size_t i = 0; i < node->num_inputs; i++)
+    {
+        process_node(node->inputs[i]);
+    }
+
+    if (node->module)
+        node->module->process(node->input_arrays, node->output, node->num_inputs, node->buf_size, sample_rate, channel_count);
+    
+    else // if this is the root module, then combine all inputs into one buffer
+    {
+        for (size_t i = 0; i < node->buf_size * channel_count; i += 2) {
+            node->output[i] = 0.0f;
+            node->output[i + 1] = 0.0f;
+
+            for (size_t j = 0; j < node->num_inputs; j++) {
+                node->output[i] += node->input_arrays[j][i];
+                node->output[i + 1] += node->input_arrays[j][i + 1];
+            }
         }
     }
-
-    *output = _audio_buffer;
-    return buffer_size * channel_count;
 }
 
 

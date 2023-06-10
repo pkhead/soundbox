@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <vector>
-#include "portaudio.h"
+#include <portaudio.h>
 
 class AudioDevice {
 private:
@@ -116,7 +116,6 @@ namespace audiomod {
         float* _audio_buffer;
         size_t _audio_buffer_size;
 
-        virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;
         virtual void _interface_proc() {};
     public:
         bool show_interface;
@@ -155,6 +154,7 @@ namespace audiomod {
         virtual bool load_state(void* state, size_t size) { return true; };
 
         float* get_audio();
+        virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;
         void prepare_audio(DestinationModule* destination);
     };
 
@@ -180,8 +180,9 @@ namespace audiomod {
         */
         struct ModuleNode
         {
-            ModuleBase* module = nullptr;
+            ModuleBase* module = nullptr; // module is nullptr if root
             float* output;
+            size_t buf_size;
 
             ModuleNode** inputs;
             float** input_arrays;
@@ -189,20 +190,20 @@ namespace audiomod {
         };
 
         ModuleNode* audio_graph = nullptr; // the graph the audio thread is using
-        ModuleNode* new_graph = nullptr; // the new graph the audio thread will use
-        ModuleNode* old_graph = nullptr; // the graph the main thread can free
 
-        // clear if need audio_graph = new_graph (done on audio thread)
-        std::atomic_flag do_copy_graph;
+        // this is set to the new graph if audio_graph is outdated
+        std::atomic<ModuleNode*> new_graph = nullptr;
 
-        // clear if old_graph needs to be freed
-        std::atomic_flag graph_needs_free;
+        // if !nullptr, this is set to the old audio_graph which needs to be freed
+        std::atomic<ModuleNode*> old_graph = nullptr;
 
         // if graph needs to be constructed on the main thread
         bool is_dirty = false;
 
         // construct a graph of ModuleNodes
-        void construct_graph(ModuleBase* module, ModuleNode* node);
+        ModuleNode* _create_node(ModuleBase* module);
+        void process_node(ModuleNode* node);
+        ModuleNode* construct_graph();
         void free_graph(ModuleNode* node);
     public:
         DestinationModule(const DestinationModule&) = delete;

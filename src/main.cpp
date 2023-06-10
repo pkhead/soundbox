@@ -613,7 +613,7 @@ int main()
                 std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
                 // sleep for 1 ms
-                li.QuadPart = -50000; // 1 ms
+                li.QuadPart = -20000; // 2 ms
                 if (!SetWaitableTimer(timer, &li, 0, NULL, NULL, FALSE)) {
                     std::cout << "error: could not set timer\n";
                     return;
@@ -621,7 +621,7 @@ int main()
                 WaitForSingleObject(timer, INFINITE);
 
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-                std::cout << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << "\n";
+                //std::cout << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << "\n";
             }
 
             CloseHandle(timer);
