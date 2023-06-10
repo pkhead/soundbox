@@ -1,9 +1,10 @@
 - Custom tuning
     - rework synth tuning to work like CLAP
         currently, note frequency is sent alongside the NoteEvent
-        however, CLAP plugins ask the host for the frequency of a key and if it is playable 
+        however, CLAP plugins ask the host for the frequency of a key and if it is playable
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - mp3 exports
+- Undo/redo
 - Plugin support (VST, LADPSA, LV2, CLAP)
 - Automation
 - Sample instrument (including a slicer)

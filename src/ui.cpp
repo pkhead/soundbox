@@ -1050,12 +1050,12 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::Text("%s", version);
 
         ImGui::NewLine();
-        ImGui::TextWrapped("Thanks to John Nesky's BeepBox");
+        ImGui::TextWrapped("The interface of this application is heavily influenced by John Nesky's BeepBox.");
         ImGui::NewLine();
         ImGui::TextWrapped("Open-source libraries:");
 
         ImGui::Bullet();
-        ImGui::TextWrapped("libsoundio: https://libsound.io/");
+        ImGui::TextWrapped("PortAudio: http://www.portaudio.com/");
         ImGui::Bullet();
         ImGui::TextWrapped("Dear ImGui: https://www.dearimgui.com/");
         ImGui::Bullet();

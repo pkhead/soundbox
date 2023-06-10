@@ -80,6 +80,6 @@ soundbox.exe
 
 
 ## Thanks to
-- [libsoundio](https://libsound.io) for the audio library
+- [PortAudio](http://www.portaudio.com/) for the audio library
 - [GLFW](https://www.glfw.org/) for the graphics backend
 - [John Nesky](http://www.johnnesky.com/)'s [BeepBox](https://www.beepbox.co)
