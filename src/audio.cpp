@@ -76,6 +76,9 @@ AudioDevice::AudioDevice(int output_device) {
         output_device = 0;
     }
 
+    audio_buffer_capacity = SAMPLE_RATE / 2;
+    audio_buffer = new float[audio_buffer_capacity];
+
     PaStreamParameters out_params;
     out_params.channelCount = 2;
     out_params.device = output_device;
@@ -101,6 +104,7 @@ AudioDevice::AudioDevice(int output_device) {
 AudioDevice::~AudioDevice()
 {
     stop();
+    delete[] audio_buffer;
 }
 
 void AudioDevice::stop() {
@@ -109,6 +113,47 @@ void AudioDevice::stop() {
     PaError err;
     err = Pa_StopStream(pa_stream);
     pa_stream = nullptr;
+}
+
+void AudioDevice::queue(float* buf, size_t buf_size)
+{
+    size_t write_ptr = buffer_write_ptr;
+
+    // TODO: use memcpy to copy one or two chunks of the buffer
+    // wrapping around the ring buffer
+    for (size_t i = 0; i < buf_size; i++)
+    {
+        audio_buffer[write_ptr] = buf[i];
+        write_ptr = (write_ptr + 1) % audio_buffer_capacity;
+    }
+
+        /*
+    if (write_ptr + buf_size >= audio_buffer_capacity)
+    {
+    }
+    else
+    {
+        // no bounds in sight
+        memcpy(audio_buffer + write_ptr, buf, buf_size * sizeof(float));
+        write_ptr += buf_size;
+    }*/
+
+    buffer_write_ptr = write_ptr;
+}
+
+size_t AudioDevice::samples_queued() const
+{
+    size_t write_ptr = buffer_write_ptr;
+    size_t read_ptr = buffer_read_ptr;
+
+    if (write_ptr >= read_ptr)
+    {
+        return write_ptr - read_ptr;
+    }
+    else
+    {
+        return audio_buffer_capacity - read_ptr - 1 + write_ptr;
+    }
 }
 
 static inline float clampf(float value, float min, float max)
@@ -124,49 +169,31 @@ int AudioDevice::_pa_stream_callback(
     unsigned long frame_count,
     const PaStreamCallbackTimeInfo* time_info,
     PaStreamCallbackFlags status_flags
-)
-{
-    // fetch new buffer if it exists
-    // ...buffer size changes happen so infrequently
-    // may as well use spinlocks?
-    size_t& buf_pos = _thread_buf_pos;
-    size_t& buffer_size = _thread_buffer_size;
-    float*& audio_buffer = _thread_audio_buffer;
+) {
+    size_t write_ptr = buffer_write_ptr;
+    size_t read_ptr = buffer_read_ptr;
 
     float* out = (float*) output_buffer;
 
-    // if a write callback was provided
-    if (write_callback)
+    for (unsigned int i = 0; i < frame_count; i++)
     {
-        for (unsigned int i = 0; i < frame_count; i++)
+        // if there is no data in buffer, write zeroes
+        if (read_ptr == write_ptr - 1)
         {
-            // if ran out of data in buffer, get new data
-            if (buf_pos >= buffer_size)
-            {
-                buffer_size = write_callback(this, &audio_buffer);
-                buf_pos = 0;
-            }
-
-            // write this frame
-            *out++ = clampf(audio_buffer[buf_pos], -1.0f, 1.0f);
-            *out++ = clampf(audio_buffer[buf_pos + 1], -1.0f, 1.0f);
-
-            buf_pos += 2;
-            _frames_written++;
+            *out++ = 0.0f;
+            *out++ = 0.0f;
         }
-    }
-    else
-    {
-        // no write callback, fill with zeroes
-        std::cout << "no write callback!\n";
-
-        for (unsigned int i = 0; i < frame_count; i += 2)
+        else
         {
-            out[i] = 0.0f;
-            out[i + 1] = 0.0f;
+            *out++ = audio_buffer[read_ptr++];
+            *out++ = audio_buffer[read_ptr++];
+            read_ptr %= audio_buffer_capacity;
         }
+
+        _frames_written++;
     }
 
+    buffer_read_ptr = read_ptr;
     return 0;
 }
 

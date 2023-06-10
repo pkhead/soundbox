@@ -11,6 +11,13 @@ class AudioDevice {
 private:
     PaStream* pa_stream;
 
+    // a ring buffer that should hold up to 0.5 seconds of audio
+    // size in bytes: sample_rate() / 2 * sizeof(float)
+    size_t audio_buffer_capacity = 0;
+    float* audio_buffer = nullptr;
+    std::atomic<size_t> buffer_write_ptr = 0;
+    std::atomic<size_t> buffer_read_ptr = 0;
+
     size_t _thread_buffer_size = 0;
     size_t _thread_buf_pos = 0;
     float* _thread_audio_buffer = nullptr; // this is not owned by the AudioDevice
@@ -50,8 +57,9 @@ public:
     inline double time() const { return Pa_GetStreamTime(pa_stream); };
     inline uint64_t frames_written() const { return _frames_written; }
     void stop();
-    
-    std::function<size_t (AudioDevice* self, float** buffer)> write_callback;
+
+    void queue(float* buf, size_t size);
+    size_t samples_queued() const;
 };
 
 namespace audiomod {

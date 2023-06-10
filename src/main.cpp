@@ -589,18 +589,14 @@ int main()
             }
         });
 
-        // audio processing
-        device.write_callback = [&](AudioDevice* self, float** buffer) {
-            return destination.process(buffer);
-        };
-
         // audio auxillary thread
         bool last_playing = song->is_playing;
         uint64_t audio_last_timestamp = device.frames_written();
         std::atomic<long> thread_processing_time = 0;
 
-        sys::interval_t* audioaux_interval = sys::set_interval(1, 1, [&]() {
+        sys::interval_t* audioaux_interval = sys::set_interval(5, 5, [&]() {
             static auto end = std::chrono::high_resolution_clock::now();
+
             file_mutex.lock();
             song->mutex.lock();
 
@@ -613,22 +609,16 @@ int main()
                 else song->stop();
             }
 
-            // TODO: still not precise enough... why!?!?
-            uint64_t audio_timestamp = device.frames_written();
-            //prev = now;
-            //
-
-            double dt = (double)(audio_timestamp - audio_last_timestamp) / device.sample_rate();
-            song->update(dt);
-            audio_last_timestamp = audio_timestamp;
+            while (device.samples_queued() < device.sample_rate() * 0.05)
+            {
+                float* buf;
+                song->update((double)destination.buffer_size / device.sample_rate());
+                size_t buf_size = destination.process(&buf);
+                device.queue(buf, buf_size);
+            }
 
             file_mutex.unlock();
             song->mutex.unlock();
-
-            auto begin = std::chrono::high_resolution_clock::now();
-            long dt_us = std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count();
-            thread_processing_time = dt_us;
-            end = std::chrono::high_resolution_clock::now();
         });
 
         // TODO: run all application logic in another thread (renderer)
@@ -644,8 +634,6 @@ int main()
                     run_app = false;
                 };
             }
-
-            std::cout << thread_processing_time << " [us]\n";
 
             double now_time = glfwGetTime();
 
