@@ -259,6 +259,7 @@ int main()
                 last_file_name.clear();
                 
                 file_mutex.lock();
+                destination.reset();
                 delete song;
                 song = new Song(4, 8, 8, destination);
                 ui_init(*song, user_actions);
@@ -293,6 +294,7 @@ int main()
                     file.close();
 
                     if (new_song != nullptr) {
+                        destination.reset();
                         delete song;
                         song = new_song;
                         ui_init(*song, user_actions);
@@ -594,47 +596,39 @@ int main()
 
         // audio auxillary thread
         bool last_playing = song->is_playing;
-        double audio_last_time = device.time();
+        uint64_t audio_last_timestamp = device.frames_written();
         std::atomic<long> thread_processing_time = 0;
 
-        std::thread audioaux_thread([&]()
-        {
-            sys::high_res_timer* timer = sys::timer_create(1000);
+        sys::interval_t* audioaux_interval = sys::set_interval(1, 1, [&]() {
+            static auto end = std::chrono::high_resolution_clock::now();
+            file_mutex.lock();
+            song->mutex.lock();
 
-            std::chrono::high_resolution_clock::time_point prev;
+            destination.prepare();
 
-            while (run_app)
-            {
-                
-                file_mutex.lock();
-                song->mutex.lock();
+            if (song->is_playing != last_playing) {
+                last_playing = song->is_playing;
 
-                destination.prepare();
-
-                if (song->is_playing != last_playing) {
-                    last_playing = song->is_playing;
-
-                    if (song->is_playing) song->play();
-                    else song->stop();
-                }
-
-                // TODO: still not precise enough... why!?!?
-                auto now = std::chrono::high_resolution_clock::now();
-                long dt_us = std::chrono::duration_cast<std::chrono::microseconds> (now - prev).count();
-                prev = now;
-
-                song->update((double)dt_us / 1000000.0);
-
-                file_mutex.unlock();
-                song->mutex.unlock();
-
-                std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-
-                sys::timer_sleep(timer, 500);
-
+                if (song->is_playing) song->play();
+                else song->stop();
             }
 
-            sys::timer_free(timer);
+            // TODO: still not precise enough... why!?!?
+            uint64_t audio_timestamp = device.frames_written();
+            //prev = now;
+            //
+
+            double dt = (double)(audio_timestamp - audio_last_timestamp) / device.sample_rate();
+            song->update(dt);
+            audio_last_timestamp = audio_timestamp;
+
+            file_mutex.unlock();
+            song->mutex.unlock();
+
+            auto begin = std::chrono::high_resolution_clock::now();
+            long dt_us = std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count();
+            thread_processing_time = dt_us;
+            end = std::chrono::high_resolution_clock::now();
         });
 
         // TODO: run all application logic in another thread (renderer)
@@ -651,7 +645,7 @@ int main()
                 };
             }
 
-            //std::cout << thread_processing_time << " [us]\n";
+            std::cout << thread_processing_time << " [us]\n";
 
             double now_time = glfwGetTime();
 
@@ -866,7 +860,7 @@ int main()
             }
         }
 
-        audioaux_thread.join();
+        sys::clear_interval(audioaux_interval);
         device.stop();
         delete song;
     }

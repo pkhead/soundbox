@@ -152,6 +152,7 @@ int AudioDevice::_pa_stream_callback(
             *out++ = clampf(audio_buffer[buf_pos + 1], -1.0f, 1.0f);
 
             buf_pos += 2;
+            _frames_written++;
         }
     }
     else
@@ -165,9 +166,6 @@ int AudioDevice::_pa_stream_callback(
             out[i + 1] = 0.0f;
         }
     }
-
-    double dt = (double)frame_count / sample_rate();
-    _time = _time + dt;
 
     return 0;
 }
@@ -364,8 +362,15 @@ void DestinationModule::prepare()
     {
         std::cout << "dirty\n";
         new_graph = construct_graph();
+        send_new_graph = true;
         is_dirty = false;
     }
+}
+
+void DestinationModule::reset()
+{
+    new_graph = nullptr;
+    send_new_graph = true;
 }
 
 DestinationModule::ModuleNode* DestinationModule::_create_node(ModuleBase* module)
@@ -438,10 +443,12 @@ void DestinationModule::free_graph(ModuleNode* node)
 size_t DestinationModule::process(float** output) {
     // obtain the updated graph if needed
     ModuleNode* _new_graph = new_graph;
-    if (_new_graph != nullptr) {
+    if (send_new_graph) {
+        std::cout << "thread receive\n";
         old_graph = _thread_audio_graph;
         _thread_audio_graph = _new_graph;
         new_graph = nullptr;
+        send_new_graph = false;
     }
 
     if (_thread_audio_graph != nullptr)

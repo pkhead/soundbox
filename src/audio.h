@@ -15,7 +15,8 @@ private:
     size_t _thread_buf_pos = 0;
     float* _thread_audio_buffer = nullptr; // this is not owned by the AudioDevice
 
-    std::atomic<double> _time = 0.0;
+    //std::atomic<double> _time = 0.0;
+    std::atomic<uint64_t> _frames_written = 0;
 
     static constexpr float SAMPLE_RATE = 48000;
 
@@ -46,7 +47,8 @@ public:
 
     inline int sample_rate() const { return SAMPLE_RATE; };
     inline int num_channels() const { return 2; };
-    inline double time() const { return _time; };
+    inline double time() const { return Pa_GetStreamTime(pa_stream); };
+    inline uint64_t frames_written() const { return _frames_written; }
     void stop();
     
     std::function<size_t (AudioDevice* self, float** buffer)> write_callback;
@@ -185,6 +187,7 @@ namespace audiomod {
 
         // this is set to the new graph if audio_graph is outdated
         std::atomic<ModuleNode*> new_graph = nullptr;
+        std::atomic<bool> send_new_graph = false;
 
         // if !nullptr, this is set to the old audio_graph which needs to be freed
         std::atomic<ModuleNode*> old_graph = nullptr;
@@ -210,6 +213,7 @@ namespace audiomod {
 
         size_t process(float** output);
         void prepare();
+        void reset();
         inline void make_dirty() { is_dirty = true; };
     };
 
