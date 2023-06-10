@@ -573,18 +573,9 @@ int main()
         bool last_playing = song->is_playing;
         double audio_last_time = device.time();
 
-        assert(timeBeginPeriod(5) == TIMERR_NOERROR); // TODO: windows-specific call
-
         std::thread audioaux_thread([&]()
         {
-            // TODO: timer is windows-specific
-            HANDLE timer;
-            LARGE_INTEGER li;
-
-            if (!(timer = CreateWaitableTimer(NULL, true, NULL))) {
-                std::cout << "error: could not create timer\n";
-                return;
-            }
+            sys::high_res_timer* timer = sys::timer_create(2);
 
             while (run_app)
             {
@@ -609,19 +600,14 @@ int main()
 
                 std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-                // sleep for 1 ms
-                li.QuadPart = -20000; // 2 ms
-                if (!SetWaitableTimer(timer, &li, 0, NULL, NULL, FALSE)) {
-                    std::cout << "error: could not set timer\n";
-                    return;
-                }
-                WaitForSingleObject(timer, INFINITE);
+                // sleep for 2 ms
+                sys::timer_sleep(timer, 2);
 
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-                //std::cout << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << "\n";
+                std::cout << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << "\n";
             }
 
-            CloseHandle(timer);
+            sys::timer_free(timer);
         });
 
         glfwShowWindow(window);
@@ -849,7 +835,6 @@ int main()
         }
 
         audioaux_thread.join();
-        assert(timeEndPeriod(5) == TIMERR_NOERROR); // TODO windows-specific call
         device.stop();
         delete song;
     }

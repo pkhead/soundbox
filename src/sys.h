@@ -18,13 +18,17 @@
 
 #endif
 
-#include <ctime>
 #include <stdint.h>
 #include <ostream>
 #include <istream>
 
-inline const clock_t elapsed_start() { return clock(); };
-const double elapsed(const clock_t& since);
+namespace sys {
+    struct high_res_timer;
+
+    high_res_timer* timer_create(int ms);
+    void timer_free(high_res_timer* timer);
+    void timer_sleep(high_res_timer* timer, int ms);
+}
 
 extern bool IS_BIG_ENDIAN;
 
