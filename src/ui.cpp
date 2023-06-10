@@ -211,22 +211,30 @@ void ui_init(Song& song, UserActionList& user_actions) {
 
     // song next bar
     user_actions.set_callback("song_next_bar", [&song]() {
+        song.mutex.lock();
+
         song.bar_position++;
         song.position += song.beats_per_bar;
 
         // wrap around
         if (song.bar_position >= song.length()) song.bar_position -= song.length();
         if (song.position >= song.length() * song.beats_per_bar) song.position -= song.length() * song.beats_per_bar;
+
+        song.mutex.unlock();
     });
 
     // song previous bar
     user_actions.set_callback("song_prev_bar", [&song]() {
+        song.mutex.lock();
+
         song.bar_position--;
         song.position -= song.beats_per_bar;
 
         // wrap around
         if (song.bar_position < 0) song.bar_position += song.length();
         if (song.position < 0) song.position += song.length() * song.beats_per_bar;
+
+        song.mutex.unlock();
     });
 
     // mute selected channel

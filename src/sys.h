@@ -2,14 +2,10 @@
 
 #ifdef _WIN32
 // Windows
+#define NOMINMAX
 #include <windows.h>
 
 #define sleep(time) Sleep((time) * 1000)
-
-// prevent collision with user-defined max and min function
-#undef max
-#undef min
-
 #else
 // Linux/Unix
 #include <unistd.h>
@@ -18,13 +14,17 @@
 
 #endif
 
-#include <ctime>
 #include <stdint.h>
 #include <ostream>
 #include <istream>
+#include <functional>
 
-inline const clock_t elapsed_start() { return clock(); };
-const double elapsed(const clock_t& since);
+namespace sys {
+    struct interval_t;
+    
+    interval_t* set_interval(int ms, std::function<void()> callback_proc);
+    void clear_interval(interval_t* interval);
+}
 
 extern bool IS_BIG_ENDIAN;
 

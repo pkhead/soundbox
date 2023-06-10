@@ -7,175 +7,195 @@
 #include <iostream>
 #include "audio.h"
 #include "modules/modules.h"
-#include "soundio.h"
+#include <portaudio.h>
 #include "sys.h"
 #include <imgui.h>
 
-void AudioDevice::soundio_write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max) {
-    AudioDevice* self = (AudioDevice*)outstream->userdata;
-
-    // reallocate buffer if change was detected
-    if (self->buffer_size_change.change)
-    {
-        self->buffer_size_change.change = false;
-        self->buffer_size = self->buffer_size_change.new_size * self->num_channels();
-
-        if (self->audio_buffer != nullptr) delete[] self->audio_buffer;
-        self->audio_buffer = new float[self->buffer_size];
-        self->buf_pos = self->buffer_size;
-    }
-
-    SoundIoChannelArea* areas;
-    int frame_count, err;
-    int frames_left = frame_count_max;
-    float* buffer; // data from write_callback
-    
-    // if a write callback was provided
-    if (self->write_callback)
-    {
-        while (frames_left > 0)
-        {
-            frame_count = frames_left;
-            if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count)))
-            {
-                fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
-                return;
-            }
-            if (frame_count <= 0) break;
-
-            for (int frame = 0; frame < frame_count; frame++)
-            {
-                for (int ch = 0; ch < outstream->layout.channel_count; ch++)
-                {
-                    // if ran out of data in buffer, compute new data
-                    if (self->buf_pos >= self->buffer_size)
-                    {
-                        size_t b_size = self->write_callback(self, &buffer);
-                        assert(b_size == self->buffer_size);
-                        memcpy(self->audio_buffer, buffer, self->buffer_size * sizeof(float));
-                        self->buf_pos = 0;
-                    }
-
-                    // write this sample
-                    memcpy(areas[ch].ptr, &self->audio_buffer[self->buf_pos], outstream->bytes_per_sample);
-                    areas[ch].ptr += areas[ch].step;
-                    self->buf_pos++;
-                }
-            }
-
-            if ((err = soundio_outstream_end_write(outstream))) {
-                fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
-                return;
-            }
-
-            frames_left -= frame_count;
-        }
-    }
-    else
-    {
-        // there is no write callback, fill with zeroes
-        printf("no write callback!\n");
-
-        while (frames_left > 0) {
-            frame_count = frames_left;
-            if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count))) {
-                fprintf(stderr, "begin write error: %s\n", soundio_strerror(err));
-                return;
-            }
-            if (frame_count <= 0) break;
-
-            for (int frame = 0; frame < frame_count; frame++) {
-                for (int ch = 0; ch < outstream->layout.channel_count; ch++) {
-                    memset(areas[ch].ptr, 0, outstream->bytes_per_sample);
-                    areas[ch].ptr += areas[ch].step;
-                }
-            }
-
-            if ((err = soundio_outstream_end_write(outstream))) {
-                fprintf(stderr, "end write error: %s\n", soundio_strerror(err));
-                return;
-            }
-
-            frames_left -= frame_count;
-        }
-    }
+int AudioDevice::_pa_stream_callback_raw(
+    const void* input_buffer,
+    void* output_buffer,
+    unsigned long frame_count,
+    const PaStreamCallbackTimeInfo* time_info,
+    PaStreamCallbackFlags status_flags,
+    void* userdata
+)
+{
+    AudioDevice* device = (AudioDevice*)userdata;
+    return device->_pa_stream_callback(input_buffer, output_buffer, frame_count, time_info, status_flags);
 }
 
-AudioDevice::AudioDevice(SoundIo* soundio, int output_device) {
+static void _pa_panic(PaError err)
+{
+    printf("PortAudio Error: %s\n", Pa_GetErrorText(err));
+    AudioDevice::_pa_stop();
+    exit(1);
+}
+
+bool AudioDevice::_pa_start()
+{
+    PaError err = Pa_Initialize();
+    if (err != paNoError)
+    {
+        printf("Could not start PortAudio: %s\n", Pa_GetErrorText(err));
+        return true;
+    }
+
+    std::cout << "PortAudio available backends:\n";
+
+    int selected_backend = Pa_GetDefaultHostApi();
+
+    for (int i = 0; i < Pa_GetHostApiCount(); i++)
+    {
+        const PaHostApiInfo* info = Pa_GetHostApiInfo(i);
+
+        if (selected_backend == i)
+            std::cout << "  [x] - ";
+        else
+            std::cout << "  [ ] - ";
+        
+        std::cout << info->name << "\n";
+    }
+
+    return false;
+}
+
+void AudioDevice::_pa_stop()
+{
+    PaError err = Pa_Terminate();
+    if (err != paNoError)
+        printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+}
+
+AudioDevice::AudioDevice(int output_device) {
+    PaError err;
+
     // if output_device == -1, use default output device
-    if (output_device < 0) {
-        output_device = soundio_default_output_device_index(soundio);
-
-        if (output_device < 0) {
-            fprintf(stderr, "no output device found");
-            exit(1);
-        }
+    if (output_device == -1 && (output_device = Pa_GetDefaultOutputDevice()) == paNoDevice)
+    {
+        printf("no default output device found\n");
+        output_device = 0;
     }
 
-    // create output device
-    device = soundio_get_output_device(soundio, output_device);
-    if (!device) {
-        fprintf(stderr, "out of memory!");
-        exit(1);
-    }
+    audio_buffer_capacity = SAMPLE_RATE / 2;
+    audio_buffer = new float[audio_buffer_capacity];
 
-    // create output stream
-    outstream = soundio_outstream_create(device);
-    outstream->software_latency = 0.05;
-    outstream->sample_rate = 48000;
-    outstream->format = SoundIoFormatFloat32NE;
-    outstream->userdata = this;
-    outstream->write_callback = soundio_write_callback;
+    PaStreamParameters out_params;
+    out_params.channelCount = 2;
+    out_params.device = output_device;
+    out_params.hostApiSpecificStreamInfo = nullptr;
+    out_params.sampleFormat = paFloat32;
+    out_params.suggestedLatency = 0.05;
+    err = Pa_OpenStream(
+        &pa_stream,
+        nullptr,
+        &out_params, // num output channels (stereo)
+        SAMPLE_RATE, // sample rate
+        paFramesPerBufferUnspecified, // num frames per buffer (am using own buffer so this is not needed)
+        0, // stream flags
+        _pa_stream_callback_raw, // callback function
+        (void*)this // user data
+    );
+    if (err != paNoError) _pa_panic(err);
 
-    // initialize output stream
-    int err;
-
-    if ((err = soundio_outstream_open(outstream))) {
-        fprintf(stderr, "unable to open device: %s\n", soundio_strerror(err));
-        exit(1);
-    }
-
-    if (outstream->layout_error)
-        fprintf(stderr, "unable to set channel layout: %s\n", soundio_strerror(outstream->layout_error));
-
-    if ((err = soundio_outstream_start(outstream))) {
-        fprintf(stderr, "unable to start device: %s\n", soundio_strerror(err));
-        exit(1);
-    }
+    err = Pa_StartStream(pa_stream);
+    if (err != paNoError) _pa_panic(err);
 }
 
 AudioDevice::~AudioDevice()
 {
     stop();
+    delete[] audio_buffer;
 }
 
 void AudioDevice::stop() {
-    if (outstream) soundio_outstream_destroy(outstream);
-    if (device) soundio_device_unref(device);
-    outstream = nullptr;
-    device = nullptr;
+    if (pa_stream == nullptr) return;
 
-    if (audio_buffer != nullptr) {
-        delete[] audio_buffer;
-        audio_buffer = nullptr;
+    PaError err;
+    err = Pa_StopStream(pa_stream);
+    pa_stream = nullptr;
+}
+
+void AudioDevice::queue(float* buf, size_t buf_size)
+{
+    size_t write_ptr = buffer_write_ptr;
+
+    // TODO: use memcpy to copy one or two chunks of the buffer
+    // wrapping around the ring buffer
+    for (size_t i = 0; i < buf_size; i++)
+    {
+        audio_buffer[write_ptr] = buf[i];
+        write_ptr = (write_ptr + 1) % audio_buffer_capacity;
+    }
+
+        /*
+    if (write_ptr + buf_size >= audio_buffer_capacity)
+    {
+    }
+    else
+    {
+        // no bounds in sight
+        memcpy(audio_buffer + write_ptr, buf, buf_size * sizeof(float));
+        write_ptr += buf_size;
+    }*/
+
+    buffer_write_ptr = write_ptr;
+}
+
+size_t AudioDevice::samples_queued() const
+{
+    size_t write_ptr = buffer_write_ptr;
+    size_t read_ptr = buffer_read_ptr;
+
+    if (write_ptr >= read_ptr)
+    {
+        return write_ptr - read_ptr;
+    }
+    else
+    {
+        return audio_buffer_capacity - read_ptr - 1 + write_ptr;
     }
 }
 
-int AudioDevice::sample_rate() const {
-    return outstream->sample_rate;
-}
-
-int AudioDevice::num_channels() const {
-    return outstream->layout.channel_count;
-}
-
-void AudioDevice::set_buffer_size(size_t new_size)
+static inline float clampf(float value, float min, float max)
 {
-    buffer_size_change.new_size = new_size;
-    buffer_size_change.change = true;
+    if (value > max) return max;
+    if (value < min) return min;
+    return value;
 }
 
+int AudioDevice::_pa_stream_callback(
+    const void* input_buffer,
+    void* output_buffer,
+    unsigned long frame_count,
+    const PaStreamCallbackTimeInfo* time_info,
+    PaStreamCallbackFlags status_flags
+) {
+    size_t write_ptr = buffer_write_ptr;
+    size_t read_ptr = buffer_read_ptr;
 
+    float* out = (float*) output_buffer;
+
+    for (unsigned int i = 0; i < frame_count; i++)
+    {
+        // if there is no data in buffer, write zeroes
+        if (read_ptr == write_ptr - 1)
+        {
+            *out++ = 0.0f;
+            *out++ = 0.0f;
+        }
+        else
+        {
+            *out++ = audio_buffer[read_ptr++];
+            *out++ = audio_buffer[read_ptr++];
+            read_ptr %= audio_buffer_capacity;
+        }
+
+        _frames_written++;
+    }
+
+    buffer_read_ptr = read_ptr;
+    return 0;
+}
 
 
 
@@ -213,6 +233,10 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //   MODULE BASE    //
 //////////////////////
 
+// TODO: remove audio buffers in ModuleBase, as
+// destination module is the one that now
+// creates and owns the audio buffers
+
 ModuleBase::ModuleBase(bool has_interface) :
     _output(nullptr),
     _audio_buffer(nullptr),
@@ -233,11 +257,15 @@ void ModuleBase::connect(ModuleOutputTarget* dest) {
     disconnect();
     dest->add_input(this);
     _output = dest;
+
+    if (_dest) _dest->make_dirty();
 }
 
 void ModuleBase::disconnect() {
     if (_output != nullptr) _output->remove_input(this);
     _output = nullptr;
+
+    if (_dest) _dest->make_dirty();
 }
 
 void ModuleBase::remove_all_connections() {
@@ -248,22 +276,42 @@ void ModuleBase::remove_all_connections() {
     }
 }
 
-float* ModuleBase::get_audio(size_t buffer_size, int sample_rate, int channel_count) {
+// allocate buffers, not called by audio thread
+void ModuleBase::prepare_audio(DestinationModule* dest)
+{
+    if (_dest != dest)
+        dest->make_dirty();
+
+    _dest = dest;
+
     // audio buffer array to correct size
-    if (_audio_buffer == nullptr || _audio_buffer_size != buffer_size * channel_count) {
+    size_t desired_size = dest->buffer_size * dest->channel_count;
+    if (_audio_buffer == nullptr || _audio_buffer_size != desired_size) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
-        _audio_buffer_size = buffer_size * channel_count;
+        _audio_buffer_size = desired_size;
         _audio_buffer = new float[_audio_buffer_size];
     }
-    
+
+    for (ModuleBase* input : _inputs)
+        input->prepare_audio(dest);
+}
+
+float* ModuleBase::get_audio() {
     // accumulate inputs
     for (size_t i = 0; i < _inputs.size(); i++) {
-        _input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
+        _input_arrays[i] = _inputs[i]->get_audio();
     }
 
     // processing
     size_t num_inputs = _inputs.size();
-    process(num_inputs > 0 ? &_input_arrays.front() : nullptr, _audio_buffer, num_inputs, buffer_size * channel_count, sample_rate, channel_count);
+    process(
+        num_inputs > 0 ? &_input_arrays.front() : nullptr, // float input[][]
+        _audio_buffer, // float output[]
+        num_inputs, // num inputs
+        _dest->buffer_size * _dest->channel_count, // number of samples
+        _dest->sample_rate, // sample rate
+        _dest->channel_count // channel count
+    );
 
     return _audio_buffer;
 }
@@ -301,40 +349,172 @@ bool ModuleBase::render_interface() {
 DestinationModule::DestinationModule(int sample_rate, int num_channels, size_t buffer_size) : time(0.0), sample_rate(sample_rate), channel_count(num_channels), buffer_size(buffer_size) {
     _audio_buffer = nullptr;
     _prev_buffer_size = 0;
+
+    // fill dummy buffer with zeroes
+    for (size_t i = 0; i < DUMMY_BUFFER_SAMPLE_COUNT; i++)
+    {
+        dummy_buffer[i] = 0.0f;
+    }
 }
 
 DestinationModule::~DestinationModule() {
     if (_audio_buffer != nullptr) delete[] _audio_buffer;
 }
 
-size_t DestinationModule::process(float** output) {
+// allocate buffers, not called by audio thread
+void DestinationModule::prepare()
+{
     if (_audio_buffer == nullptr || _prev_buffer_size != buffer_size * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
         _prev_buffer_size = buffer_size * channel_count;
         _audio_buffer = new float[_prev_buffer_size];
     }
 
-    // accumulate inputs
-    size_t num_inputs = _inputs.size();
-    float** input_arrays = new float*[num_inputs];
-
-    for (size_t i = 0; i < num_inputs; i++) {
-        input_arrays[i] = _inputs[i]->get_audio(buffer_size, sample_rate, channel_count);
+    // free old graph set from audio thread
+    ModuleNode* _old_graph = old_graph;
+    if (_old_graph != nullptr)
+    {
+        std::cout << "free\n";
+        free_graph(_old_graph);
+        old_graph = nullptr;
     }
 
-    // combine all inputs into one buffer
-    for (size_t i = 0; i < buffer_size * channel_count; i++) {
-        _audio_buffer[i] = 0.0f;
-        
-        for (size_t j = 0; j < num_inputs; j++) {
-            _audio_buffer[i] += input_arrays[j][i];
+    // update buffers of modules connected to this destination
+    for (ModuleBase* input : _inputs)
+        input->prepare_audio(this);
+
+    // if dirty, that means audio graph has changed and needs
+    // reconstruction for the audio thread
+    if (is_dirty)
+    {
+        std::cout << "dirty\n";
+        new_graph = construct_graph();
+        send_new_graph = true;
+        is_dirty = false;
+    }
+}
+
+void DestinationModule::reset()
+{
+    new_graph = nullptr;
+    send_new_graph = true;
+}
+
+DestinationModule::ModuleNode* DestinationModule::_create_node(ModuleBase* module)
+{
+    ModuleNode* node = new ModuleNode;
+
+    node->module = module;
+    node->output = new float[buffer_size * channel_count];
+    node->buf_size = buffer_size * channel_count;
+    
+    // get inputs
+    node->num_inputs = module->get_inputs().size();
+    node->inputs = new ModuleNode*[node->num_inputs];
+    size_t i = 0;
+    for (ModuleBase* input_mod : module->get_inputs())
+    {
+        node->inputs[i++] = _create_node(input_mod);
+    }
+
+    // accumulate input arrays
+    node->input_arrays = new float* [node->num_inputs];
+    for (i = 0; i < node->num_inputs; i++)
+        node->input_arrays[i] = node->inputs[i]->output;
+
+    return node;
+}
+
+// same as _create_node, but module is assigned to nullptr and
+// it reads from DestinationModule (a ModuleOutputTarget)
+DestinationModule::ModuleNode* DestinationModule::construct_graph()
+{
+    ModuleNode* node = new ModuleNode;
+
+    node->module = nullptr;
+    node->output = new float[buffer_size * channel_count];
+    node->buf_size = buffer_size * channel_count;
+
+    // get inputs
+    node->num_inputs = get_inputs().size();
+    node->inputs = new ModuleNode * [node->num_inputs];
+
+    for (size_t i = 0; i < node->num_inputs; i++)
+    {
+        node->inputs[i] = _create_node(get_inputs()[i]);
+    }
+
+    // accumulate input arrays
+    node->input_arrays = new float* [node->num_inputs];
+    for (size_t i = 0; i < node->num_inputs; i++)
+        node->input_arrays[i] = node->inputs[i]->output;
+
+    return node;
+}
+
+void DestinationModule::free_graph(ModuleNode* node)
+{
+    for (size_t i = 0; i < node->num_inputs; i++)
+    {
+        node->input_arrays[i] = nullptr;
+        free_graph(node->inputs[i]);
+        node->inputs[i] = nullptr;
+    }
+
+    delete[] node->input_arrays;
+    delete[] node->inputs;
+    delete[] node->output;
+    delete node;
+}
+
+size_t DestinationModule::process(float** output) {
+    // obtain the updated graph if needed
+    ModuleNode* _new_graph = new_graph;
+    if (send_new_graph) {
+        std::cout << "thread receive\n";
+        old_graph = _thread_audio_graph;
+        _thread_audio_graph = _new_graph;
+        new_graph = nullptr;
+        send_new_graph = false;
+    }
+
+    if (_thread_audio_graph != nullptr)
+    {
+        process_node(_thread_audio_graph);
+
+        *output = _thread_audio_graph->output;
+        return _thread_audio_graph->buf_size;
+    }
+    else
+    {
+        *output = dummy_buffer;
+        return DUMMY_BUFFER_SAMPLE_COUNT;
+    }
+}
+
+void DestinationModule::process_node(ModuleNode* node)
+{
+    // get data in inputs
+    for (size_t i = 0; i < node->num_inputs; i++)
+    {
+        process_node(node->inputs[i]);
+    }
+
+    if (node->module)
+        node->module->process(node->input_arrays, node->output, node->num_inputs, node->buf_size, sample_rate, channel_count);
+    
+    else // if this is the root module, then combine all inputs into one buffer
+    {
+        for (size_t i = 0; i < node->buf_size; i += 2) {
+            node->output[i] = 0.0f;
+            node->output[i + 1] = 0.0f;
+
+            for (size_t j = 0; j < node->num_inputs; j++) {
+                node->output[i] += node->input_arrays[j][i];
+                node->output[i + 1] += node->input_arrays[j][i + 1];
+            }
         }
     }
-
-    delete[] input_arrays;
-
-    *output = _audio_buffer;
-    return buffer_size * channel_count;
 }
 
 

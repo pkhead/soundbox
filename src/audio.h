@@ -1,43 +1,65 @@
 #pragma once
 #include <functional>
 #include <string>
+#include <atomic>
 #include <stddef.h>
 #include <stdint.h>
 #include <vector>
-#include <soundio.h>
+#include <portaudio.h>
 
 class AudioDevice {
 private:
-    SoundIoDevice* device;
-    SoundIoOutStream* outstream;
+    PaStream* pa_stream;
 
-    size_t buffer_size = 0;
-    size_t buf_pos = 0;
+    // a ring buffer that should hold up to 0.5 seconds of audio
+    // size in bytes: sample_rate() / 2 * sizeof(float)
+    size_t audio_buffer_capacity = 0;
     float* audio_buffer = nullptr;
+    std::atomic<size_t> buffer_write_ptr = 0;
+    std::atomic<size_t> buffer_read_ptr = 0;
 
-    // set_buffer_size merely changes these values
-    // the audio thread reallocates the buffer when
-    // it detects that the user changed the buffer size
-    struct {
-        bool change = false;
-        size_t new_size = 0;
-    } buffer_size_change;
+    size_t _thread_buffer_size = 0;
+    size_t _thread_buf_pos = 0;
+    float* _thread_audio_buffer = nullptr; // this is not owned by the AudioDevice
 
-    static void soundio_write_callback(SoundIoOutStream* outstream, int frame_count_min, int frame_count_max);
+    //std::atomic<double> _time = 0.0;
+    std::atomic<uint64_t> _frames_written = 0;
 
+    static constexpr float SAMPLE_RATE = 48000;
+
+    // this function will convert userdata to an AudioDevice* and call _pa_stream_callback
+    static int _pa_stream_callback_raw(
+        const void* input_buffer,
+        void* output_buffer,
+        unsigned long frame_count,
+        const PaStreamCallbackTimeInfo* time_info,
+        PaStreamCallbackFlags status_flags,
+        void* userdata
+    );
+
+    int _pa_stream_callback(
+        const void* input_buffer,
+        void* output_buffer,
+        unsigned long frame_count,
+        const PaStreamCallbackTimeInfo* time_info,
+        PaStreamCallbackFlags status_flags
+    );
 public:
+    static bool _pa_start();
+    static void _pa_stop();
+
     AudioDevice(const AudioDevice&) = delete;
-    AudioDevice(SoundIo* soundio, int output_device);
+    AudioDevice(int output_device);
     ~AudioDevice();
 
-    int sample_rate() const;
-    int num_channels() const;
+    inline int sample_rate() const { return SAMPLE_RATE; };
+    inline int num_channels() const { return 2; };
+    inline double time() const { return Pa_GetStreamTime(pa_stream); };
+    inline uint64_t frames_written() const { return _frames_written; }
     void stop();
 
-    void set_buffer_size(size_t new_size);
-    inline size_t get_buffer_size() const { return buffer_size_change.new_size; };
-    
-    std::function<size_t (AudioDevice* self, float** buffer)> write_callback;
+    void queue(float* buf, size_t size);
+    size_t samples_queued() const;
 };
 
 namespace audiomod {
@@ -65,6 +87,7 @@ namespace audiomod {
     };
 
     class ModuleBase;
+    class DestinationModule;
 
     class ModuleOutputTarget {
     protected:
@@ -79,17 +102,18 @@ namespace audiomod {
         // returns true if the removal was not successful (i.e., the specified module isn't an input)
         bool remove_input(ModuleBase* module);
         void add_input(ModuleBase* module);
+        inline const std::vector<ModuleBase*>& get_inputs() const { return _inputs; }
     };
 
     class ModuleBase : public ModuleOutputTarget {
     protected:
         ModuleOutputTarget* _output;
+        DestinationModule* _dest = nullptr;
         bool _has_interface;
         
         float* _audio_buffer;
         size_t _audio_buffer_size;
 
-        virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;
         virtual void _interface_proc() {};
     public:
         bool show_interface;
@@ -127,13 +151,63 @@ namespace audiomod {
         // load a serialized state. return true if successful, otherwise return false
         virtual bool load_state(void* state, size_t size) { return true; };
 
-        float* get_audio(size_t buffer_size, int sample_rate, int channel_count);
+        float* get_audio();
+        virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;
+        void prepare_audio(DestinationModule* destination);
     };
 
     class DestinationModule : public ModuleOutputTarget {
     private:
         float* _audio_buffer;
         size_t _prev_buffer_size;
+
+        // buffer filled with zeroes if audio is not yet ready
+        static constexpr size_t DUMMY_BUFFER_SAMPLE_COUNT = 256;
+        float dummy_buffer[DUMMY_BUFFER_SAMPLE_COUNT];
+        
+        /**
+        * Ensure thread safety by having a copy of the audio graph.
+        * This copy will be used by the audio thread. When the audio
+        * graph is changed, construct a representation of the graph
+        * using ModuleNodes and send it to the audio thread. The
+        * audio thread will then use this representation for processing,
+        * then send the old pointer back to the main thread so that
+        * it can be freed.
+        * 
+        * The main thread wouldn't actually be the main thread, because
+        * that may have Vsync -- rather, an auxillary thread that also
+        * does the sending of NoteEvents. And also, they wouldn't
+        * actually "send messages"; it would just be the changing
+        * of flags. I just say that to enforce the concept of ownership.
+        */
+        struct ModuleNode
+        {
+            ModuleBase* module = nullptr; // module is nullptr if root
+            float* output;
+            size_t buf_size;
+
+            ModuleNode** inputs;
+            float** input_arrays;
+            size_t num_inputs;
+        };
+
+        ModuleNode* _thread_audio_graph = nullptr; // the graph the audio thread is using
+
+        // this is set to the new graph if audio_graph is outdated
+        std::atomic<ModuleNode*> new_graph = nullptr;
+        std::atomic<bool> send_new_graph = false;
+
+        // if !nullptr, this is set to the old audio_graph which needs to be freed
+        std::atomic<ModuleNode*> old_graph = nullptr;
+
+        // if graph needs to be constructed on the main thread
+        bool is_dirty = false;
+
+        // construct a graph of ModuleNodes
+        ModuleNode* _create_node(ModuleBase* module);
+        void process_node(ModuleNode* node);
+        ModuleNode* construct_graph();
+        void free_graph(ModuleNode* node);
     public:
         DestinationModule(const DestinationModule&) = delete;
         DestinationModule(int sample_rate, int num_channels, size_t buffer_size);
@@ -143,9 +217,12 @@ namespace audiomod {
         int channel_count;
 
         double time;
-        size_t buffer_size;
+        size_t buffer_size; // frames per buffer
 
         size_t process(float** output);
+        void prepare();
+        void reset();
+        inline void make_dirty() { is_dirty = true; };
     };
 
     /**

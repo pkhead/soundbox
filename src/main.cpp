@@ -8,14 +8,30 @@
 #include <mutex>
 #include <sstream>
 
+// TODO: remove
+#include <chrono>
+
 #include <imgui.h>
 #include "glad/gl.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
 #include <math.h>
-#include <soundio.h>
 #include <nfd.h>
+
+#ifdef _WIN32
+#define NOMINMAX
+
+// i want the title bar to match light/dark theme in windows
+#pragma comment (lib, "Dwmapi")
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <dwmapi.h>
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -32,6 +48,9 @@ static void glfw_error_callback(int error, const char *description)
     std::cerr << "GLFW error " << error << ": " << description << "\n";
 }
 
+GLuint logo_texture;
+int logo_width, logo_height;
+
 #ifdef USE_WIN32_MAIN
 int main();
 
@@ -39,9 +58,6 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nC
     return main();
 }
 #endif
-
-GLuint logo_texture;
-int logo_width, logo_height;
 
 int main()
 {
@@ -76,6 +92,15 @@ int main()
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // enable vsync
 
+#ifdef _WIN32
+    // match titlebar with user's theme
+    {
+        HWND win = glfwGetWin32Window(window);
+        BOOL value = true;
+        DwmSetWindowAttribute(win, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+    }
+#endif
+
     // load glad
     gladLoadGL(glfwGetProcAddress);
 
@@ -103,21 +128,8 @@ int main()
 
     ImGui::StyleColorsClassic();
 
-    // setup soundio
-    int err;
-
-    SoundIo* soundio = soundio_create();
-    if (!soundio) {
-        std::cerr << "out of memory!\n";
-        return 1;
-    }
-
-    if ((err = soundio_connect(soundio))) {
-        std::cerr << "error connecting: " << soundio_strerror(err) << "\n";
-        return 1;
-    }
-
-    soundio_flush_events(soundio);
+    // setup audio backend
+    AudioDevice::_pa_start();
 
     show_demo_window = false;
 
@@ -168,8 +180,7 @@ int main()
 
         const size_t BUFFER_SIZE = 128;
 
-        AudioDevice device(soundio, -1);
-        device.set_buffer_size(BUFFER_SIZE);
+        AudioDevice device(-1);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
         // initialize song
@@ -248,6 +259,7 @@ int main()
                 last_file_name.clear();
                 
                 file_mutex.lock();
+                destination.reset();
                 delete song;
                 song = new Song(4, 8, 8, destination);
                 ui_init(*song, user_actions);
@@ -282,6 +294,7 @@ int main()
                     file.close();
 
                     if (new_song != nullptr) {
+                        destination.reset();
                         delete song;
                         song = new_song;
                         ui_init(*song, user_actions);
@@ -486,6 +499,8 @@ int main()
 
             int step = 0;
 
+            export_data.destination->prepare();
+
             while (export_data.song->is_playing) {
                 if (!export_data.is_exporting) break;
 
@@ -574,19 +589,18 @@ int main()
             }
         });
 
-        // audio processing
+        // audio auxillary thread
         bool last_playing = song->is_playing;
-        device.write_callback = [&](AudioDevice* self, float** buffer)
-        {
-            // locking this mutex is not a bad idea as this is only ever locked
-            // by the main thread when a song file is being loaded 
-            file_mutex.lock();
+        uint64_t audio_last_timestamp = device.frames_written();
+        std::atomic<long> thread_processing_time = 0;
 
-            // but this mutex lock may be a bad idea
-            // this mutex is locked when a channel/pattern is being modified
-            // or when a tuning is being added/removed
-            // basically operations that may require array reallocations
+        sys::interval_t* audioaux_interval = sys::set_interval(5, [&]() {
+            static auto end = std::chrono::high_resolution_clock::now();
+
+            file_mutex.lock();
             song->mutex.lock();
+
+            destination.prepare();
 
             if (song->is_playing != last_playing) {
                 last_playing = song->is_playing;
@@ -595,14 +609,21 @@ int main()
                 else song->stop();
             }
 
-            song->update(1.0 / destination.sample_rate * destination.buffer_size);
-            size_t buf_size = destination.process(buffer);
+            while (device.samples_queued() < device.sample_rate() * 0.05)
+            {
+                float* buf;
+                song->update((double)destination.buffer_size / device.sample_rate());
+                size_t buf_size = destination.process(&buf);
+                device.queue(buf, buf_size);
+            }
 
             file_mutex.unlock();
             song->mutex.unlock();
-            return buf_size;
-        };
+        });
 
+        // TODO: run all application logic in another thread (renderer)
+        // so that window doesn't freeze when it is being dragged.
+        // use glfwWaitEvents(false) on main thread and poll on renderer thread
         glfwShowWindow(window);
         while (run_app)
         {
@@ -827,11 +848,11 @@ int main()
             }
         }
 
+        sys::clear_interval(audioaux_interval);
         device.stop();
         delete song;
     }
 
-    soundio_destroy(soundio);
-
+    AudioDevice::_pa_stop();
     return 0;
 }
