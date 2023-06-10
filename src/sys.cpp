@@ -6,66 +6,17 @@ using namespace sys;
 #ifdef _WIN32
 #include <Windows.h>
 
-struct timer_impl
-{
-	int resolution;
-	HANDLE handle;
-};
-
-high_res_timer* sys::timer_create(long us)
-{
-	timer_impl* impl = new timer_impl;
-	impl->resolution = us * 1000;
-
-	if (timeBeginPeriod(impl->resolution) != TIMERR_NOERROR)
-		goto error;
-
-	if (!(impl->handle = CreateWaitableTimer(NULL, true, NULL)))
-		goto error;
-
-	return (high_res_timer*) impl;
-
-error:
-	std::cerr << "error: could not create timer\n";
-	delete impl;
-	return nullptr;
-}
-
-void sys::timer_free(high_res_timer* timer)
-{
-	timer_impl* impl = (timer_impl*) timer;
-
-	timeEndPeriod(impl->resolution);
-
-	CloseHandle(impl->handle);
-	delete impl;
-}
-
-void sys::timer_sleep(high_res_timer* timer, long us)
-{
-	timer_impl* impl = (timer_impl*) timer;
-
-	LARGE_INTEGER li;
-	li.QuadPart = -10 * (LONGLONG)us;
-	if (!SetWaitableTimer(impl->handle, &li, 0, NULL, NULL, FALSE)) {
-		std::cerr << "error: could not set timer\n";
-		return;
-	}
-
-	WaitForSingleObject(impl->handle, INFINITE);
-}
-
 static void lp_time_proc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2)
 {
 	std::function<void()>* callback = static_cast<std::function<void()>*>((void*)dwUser);
 	(*callback)();
 }
 
-interval_t* sys::set_interval(int resolution_ms, int ms, std::function<void()> callback_proc)
+interval_t* sys::set_interval(int ms, std::function<void()> callback_proc)
 {
 	return (interval_t*)timeSetEvent(
 		ms,
-		resolution_ms,
+		ms,
 		lp_time_proc,
 		(DWORD_PTR)(new std::function(callback_proc)),
 		TIME_PERIODIC
@@ -74,28 +25,47 @@ interval_t* sys::set_interval(int resolution_ms, int ms, std::function<void()> c
 
 void sys::clear_interval(interval_t* interval)
 {
+	// TODO: memory leak, did not delete std::function userdata
+	// not worth fixing for now because only one interval is ever created
 	UINT id = (UINT)interval;
 	timeKillEvent(id);
 }
 
 #else
+#include <thread>
 #include <time.h>
 
-high_res_timer* sys::timer_create(long us)
+struct interval_impl
 {
-	return nullptr;
+	interval_impl(std::function<void(interval_impl* self)> callback) : thread(callback) { };
+
+	std::thread thread;
+	std::atomic<bool> terminate = false;
+};
+
+interval_t* sys::set_interval(int ms, std::function<void()> callback_proc)
+{
+	interval_impl* output = new interval_impl([&](interval_impl* self)
+	{
+		while (!self->terminate)
+		{
+			callback_proc();
+
+			timespec time;
+			time.tv_sec = 0;
+			time.tv_nsec = ms * 1000000;
+			nanosleep(&time, nullptr);
+		}
+	});
+
+	return (interval_t*) output;
 }
 
-void sys::timer_free(high_res_timer* timer)
+void sys::clear_interval(interval_t* interval)
 {
-	return;
-}
-
-void sys::timer_sleep(high_res_timer* timer, long us)
-{
-	timespec time;
-	time.tv_sec = 0;
-	time.tv_nsec = us * 1000;
-	nanosleep(&time, nullptr);
+	interval_impl* impl = (interval_impl*)interval;
+	impl->terminate = true;
+	impl->thread.join();
+	delete impl;
 }
 #endif

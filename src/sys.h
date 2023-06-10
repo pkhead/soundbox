@@ -20,15 +20,9 @@
 #include <functional>
 
 namespace sys {
-    struct high_res_timer;
-
-    high_res_timer* timer_create(long us);
-    void timer_free(high_res_timer* timer);
-    void timer_sleep(high_res_timer* timer, long us);
-
     struct interval_t;
     
-    interval_t* set_interval(int resolution_ms, int ms, std::function<void()> callback_proc);
+    interval_t* set_interval(int ms, std::function<void()> callback_proc);
     void clear_interval(interval_t* interval);
 }
 
