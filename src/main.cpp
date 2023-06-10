@@ -8,6 +8,9 @@
 #include <mutex>
 #include <sstream>
 
+// TODO: remove
+#include <chrono>
+
 #include <imgui.h>
 #include "glad/gl.h"
 #include <backends/imgui_impl_glfw.h>
@@ -561,33 +564,67 @@ int main()
         });
 
         // audio processing
+        device.write_callback = [&](AudioDevice* self, float** buffer) {
+            return destination.process(buffer);
+        };
+
+        // audio auxillary thread
         bool last_playing = song->is_playing;
-        device.write_callback = [&](AudioDevice* self, float** buffer)
+        double audio_last_time = device.time();
+
+        assert(timeBeginPeriod(5) == TIMERR_NOERROR); // TODO: windows-specific call
+
+        std::thread audioaux_thread([&]()
         {
-            // locking this mutex is not a bad idea as this is only ever locked
-            // by the main thread when a song file is being loaded 
-            file_mutex.lock();
+            // TODO: timer is windows-specific
+            HANDLE timer;
+            LARGE_INTEGER li;
 
-            // but this mutex lock may be a bad idea
-            // this mutex is locked when a channel/pattern is being modified
-            // or when a tuning is being added/removed
-            // basically operations that may require array reallocations
-            song->mutex.lock();
-
-            if (song->is_playing != last_playing) {
-                last_playing = song->is_playing;
-
-                if (song->is_playing) song->play();
-                else song->stop();
+            if (!(timer = CreateWaitableTimer(NULL, true, NULL))) {
+                std::cout << "error: could not create timer\n";
+                return;
             }
 
-            song->update(1.0 / destination.sample_rate * destination.buffer_size);
-            size_t buf_size = destination.process(buffer);
+            while (run_app)
+            {
+                file_mutex.lock();
+                song->mutex.lock();
 
-            file_mutex.unlock();
-            song->mutex.unlock();
-            return buf_size;
-        };
+                destination.prepare();
+
+                if (song->is_playing != last_playing) {
+                    last_playing = song->is_playing;
+
+                    if (song->is_playing) song->play();
+                    else song->stop();
+                }
+
+                double new_time = device.time();
+                if (new_time != audio_last_time) song->update(new_time - audio_last_time);
+                audio_last_time = new_time;
+
+                float* audio_buf;
+                assert(destination.process(&audio_buf) == destination.buffer_size * destination.channel_count);
+
+                file_mutex.unlock();
+                song->mutex.unlock();
+
+                std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+                // sleep for 1 ms
+                li.QuadPart = -50000; // 1 ms
+                if (!SetWaitableTimer(timer, &li, 0, NULL, NULL, FALSE)) {
+                    std::cout << "error: could not set timer\n";
+                    return;
+                }
+                WaitForSingleObject(timer, INFINITE);
+
+                std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+                std::cout << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << "\n";
+            }
+
+            CloseHandle(timer);
+        });
 
         glfwShowWindow(window);
         while (run_app)
@@ -813,6 +850,8 @@ int main()
             }
         }
 
+        audioaux_thread.join();
+        assert(timeEndPeriod(5) == TIMERR_NOERROR); // TODO windows-specific call
         device.stop();
         delete song;
     }

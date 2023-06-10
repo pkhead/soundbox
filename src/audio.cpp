@@ -291,8 +291,17 @@ void DestinationModule::prepare()
         _audio_buffer = new float[_prev_buffer_size];
     }
 
+    // update buffers of modules connected to this destination
     for (ModuleBase* input : _inputs)
         input->prepare_audio(this);
+
+    // if dirty, that means audio graph has changed and needs
+    // reconstruction for the audio thread
+    if (is_dirty)
+    {
+        std::cout << "dirty\n";
+        is_dirty = false;
+    }
 }
 
 size_t DestinationModule::process(float** output) {
