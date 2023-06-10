@@ -516,6 +516,26 @@ void Song::update(double elapsed) {
             channel_i++;
         }
 
+        // if there are notes in prev_notes that are not in cur_notes
+        // they are notes that just ended
+        for (NoteData& old_note : prev_notes) {
+            bool is_old = true;
+
+            for (NoteData& new_note : cur_notes) {
+                if (new_note.note == old_note.note) {
+                    is_old = false;
+                    break;
+                }
+            }
+
+            if (is_old) {
+                channels[old_note.channel_i]->synth_mod->event({
+                    audiomod::NoteEventKind::NoteOff,
+                    old_note.note.key
+                });
+            }
+        }
+
         // if there are notes in cur_notes that are not in prev_notes
         // they are new notes
         for (NoteData& new_note : cur_notes) {
@@ -536,26 +556,6 @@ void Song::update(double elapsed) {
                         get_key_frequency(new_note.note.key),
                         0.8f
                     }
-                });
-            }
-        }
-
-        // if there are notes in prev_notes that are not in cur_notes
-        // they are notes that just ended
-        for (NoteData& old_note : prev_notes) {
-            bool is_old = true;
-
-            for (NoteData& new_note : cur_notes) {
-                if (new_note.note == old_note.note) {
-                    is_old = false;
-                    break;
-                }
-            }
-
-            if (is_old) {
-                channels[old_note.channel_i]->synth_mod->event({
-                    audiomod::NoteEventKind::NoteOff,
-                    old_note.note.key
                 });
             }
         }

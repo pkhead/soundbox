@@ -607,11 +607,7 @@ int main()
             {
                 
                 file_mutex.lock();
-
-                if (!song->mutex.try_lock()) {
-                    std::cout << "is locked...\n";
-                    song->mutex.lock();
-                }
+                song->mutex.lock();
 
                 destination.prepare();
 
@@ -622,8 +618,9 @@ int main()
                     else song->stop();
                 }
 
+                // TODO: still not precise enough... why!?!?
                 auto now = std::chrono::high_resolution_clock::now();
-                long dt_us = thread_processing_time = std::chrono::duration_cast<std::chrono::microseconds> (now - prev).count();
+                long dt_us = std::chrono::duration_cast<std::chrono::microseconds> (now - prev).count();
                 prev = now;
 
                 song->update((double)dt_us / 1000000.0);
@@ -632,7 +629,6 @@ int main()
                 song->mutex.unlock();
 
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-                thread_processing_time = dt_us;
 
                 sys::timer_sleep(timer, 500);
 
