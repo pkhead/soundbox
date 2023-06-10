@@ -19,6 +19,20 @@
 #include <math.h>
 #include <nfd.h>
 
+#ifdef _WIN32
+#define NOMINMAX
+
+// i want the title bar to match light/dark theme in windows
+#pragma comment (lib, "Dwmapi")
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <dwmapi.h>
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#endif
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "audiofile.h"
@@ -34,6 +48,9 @@ static void glfw_error_callback(int error, const char *description)
     std::cerr << "GLFW error " << error << ": " << description << "\n";
 }
 
+GLuint logo_texture;
+int logo_width, logo_height;
+
 #ifdef USE_WIN32_MAIN
 int main();
 
@@ -41,9 +58,6 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nC
     return main();
 }
 #endif
-
-GLuint logo_texture;
-int logo_width, logo_height;
 
 int main()
 {
@@ -77,6 +91,15 @@ int main()
         return 1;
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // enable vsync
+
+#ifdef _WIN32
+    // match titlebar with user's theme
+    {
+        HWND win = glfwGetWin32Window(window);
+        BOOL value = true;
+        DwmSetWindowAttribute(win, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+    }
+#endif
 
     // load glad
     gladLoadGL(glfwGetProcAddress);
@@ -610,6 +633,9 @@ int main()
             sys::timer_free(timer);
         });
 
+        // TODO: run all application logic in another thread (renderer)
+        // so that window doesn't freeze when it is being dragged.
+        // use glfwWaitEvents(false) on main thread and poll on renderer thread
         glfwShowWindow(window);
         while (run_app)
         {

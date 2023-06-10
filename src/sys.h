@@ -2,14 +2,10 @@
 
 #ifdef _WIN32
 // Windows
+#define NOMINMAX
 #include <windows.h>
 
 #define sleep(time) Sleep((time) * 1000)
-
-// prevent collision with user-defined max and min function
-#undef max
-#undef min
-
 #else
 // Linux/Unix
 #include <unistd.h>
