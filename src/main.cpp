@@ -158,7 +158,6 @@ int main()
         const size_t BUFFER_SIZE = 128;
 
         AudioDevice device(-1);
-        device.set_buffer_size(BUFFER_SIZE);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
         // initialize song
@@ -604,10 +603,6 @@ int main()
                 double new_time = device.time();
                 if (new_time != audio_last_time) song->update(new_time - audio_last_time);
                 audio_last_time = new_time;
-
-                float* audio_buf;
-                size_t ret_size = destination.process(&audio_buf);
-                assert(ret_size == destination.buffer_size * destination.channel_count);
 
                 file_mutex.unlock();
                 song->mutex.unlock();

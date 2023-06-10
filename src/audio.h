@@ -11,15 +11,9 @@ class AudioDevice {
 private:
     PaStream* pa_stream;
 
-    size_t buffer_size = 0;
-    size_t _old_buffer_size = 0;
-
     size_t _thread_buffer_size = 0;
     size_t _thread_buf_pos = 0;
-    float* _thread_audio_buffer = nullptr;
-
-    std::atomic<float*> _new_audio_buffer;
-    std::atomic<float*> _old_audio_buffer;
+    float* _thread_audio_buffer = nullptr; // this is not owned by the AudioDevice
 
     std::atomic<double> _time = 0.0;
 
@@ -54,11 +48,7 @@ public:
     inline int num_channels() const { return 2; };
     inline double time() const { return _time; };
     void stop();
-
-    inline void set_buffer_size(size_t new_size) { buffer_size = new_size; };
-    inline size_t get_buffer_size() const { return buffer_size; };
     
-    void update();
     std::function<size_t (AudioDevice* self, float** buffer)> write_callback;
 };
 

@@ -51,19 +51,28 @@ void AudioDevice::_pa_stop()
 }
 
 AudioDevice::AudioDevice(int output_device) {
-    // NOTE: PaTime Pa_GetStreamTime(PaStream* stream)
-    
-    // if output_device == -1, use default output device
     PaError err;
 
-    // TODO: ability to use devices other than default
-    err = Pa_OpenDefaultStream(
+    // if output_device == -1, use default output device
+    if (output_device == -1 && (output_device = Pa_GetDefaultOutputDevice()) == paNoDevice)
+    {
+        printf("no default output device found\n");
+        output_device = 0;
+    }
+
+    PaStreamParameters out_params;
+    out_params.channelCount = 2;
+    out_params.device = output_device;
+    out_params.hostApiSpecificStreamInfo = nullptr;
+    out_params.sampleFormat = paFloat32;
+    out_params.suggestedLatency = 0.1;
+    err = Pa_OpenStream(
         &pa_stream,
-        0, // num input channels
-        2, // num output channels (stereo)
-        paFloat32, // 32-bit float output
+        nullptr,
+        &out_params, // num output channels (stereo)
         SAMPLE_RATE, // sample rate
         paFramesPerBufferUnspecified, // num frames per buffer (am using own buffer so this is not needed)
+        0, // stream flags
         _pa_stream_callback_raw, // callback function
         (void*)this // user data
     );
@@ -84,15 +93,13 @@ void AudioDevice::stop() {
     PaError err;
     err = Pa_StopStream(pa_stream);
     pa_stream = nullptr;
+}
 
-    if (_thread_audio_buffer != nullptr)
-        delete[] _thread_audio_buffer;
-
-    if (_new_audio_buffer != nullptr)
-        delete[] _new_audio_buffer;
-
-    if (_old_audio_buffer != nullptr)
-        delete[] _old_audio_buffer;
+static inline float clampf(float value, float min, float max)
+{
+    if (value > max) return max;
+    if (value < min) return min;
+    return value;
 }
 
 int AudioDevice::_pa_stream_callback(
@@ -106,56 +113,47 @@ int AudioDevice::_pa_stream_callback(
     // fetch new buffer if it exists
     // ...buffer size changes happen so infrequently
     // may as well use spinlocks?
+    size_t& buf_pos = _thread_buf_pos;
+    size_t& buffer_size = _thread_buffer_size;
+    float*& audio_buffer = _thread_audio_buffer;
+
+    float* out = (float*) output_buffer;
+
+    // if a write callback was provided
+    if (write_callback)
     {
-        float* new_buf = _new_audio_buffer;
-        if (new_buf != nullptr)
+        for (unsigned int i = 0; i < frame_count; i++)
         {
-            _thread_buffer_size = buffer_size;
-            _new_audio_buffer = nullptr;
-            _old_audio_buffer = _thread_audio_buffer;
-            _thread_audio_buffer = new_buf;
+            // if ran out of data in buffer, get new data
+            if (buf_pos >= buffer_size)
+            {
+                buffer_size = write_callback(this, &audio_buffer);
+                buf_pos = 0;
+            }
+
+            // write this frame
+            *out++ = clampf(audio_buffer[buf_pos], -1.0f, 1.0f);
+            *out++ = clampf(audio_buffer[buf_pos + 1], -1.0f, 1.0f);
+
+            buf_pos += 2;
         }
     }
-
-    constexpr double M_PI = 3.14159265358979323846;
-    static double phase = 0.0f;
-
-    float* out = (float*)output_buffer;
-    unsigned int i;
-    (void)input_buffer; // prevent unused variable warning
-
-    for (i = 0; i < frame_count; i++)
+    else
     {
-        float val = sin(phase) * 0.1f;
-        *out++ = val;
-        *out++ = val;
+        // no write callback, fill with zeroes
+        std::cout << "no write callback!\n";
 
-        phase += 440.0 * (2.0 * M_PI) / sample_rate();
-        if (phase > 2.0 * M_PI) phase -= 2.0 * M_PI;
+        for (unsigned int i = 0; i < frame_count; i += 2)
+        {
+            out[i] = 0.0f;
+            out[i + 1] = 0.0f;
+        }
     }
 
     double dt = (double)frame_count / sample_rate();
     _time = _time + dt;
 
     return 0;
-}
-
-void AudioDevice::update()
-{
-    // delete old audio thread buffer if needed
-    float* old_buf = _old_audio_buffer;
-    if (old_buf != nullptr)
-    {
-        _old_audio_buffer = nullptr;
-        delete[] old_buf;
-    }
-
-    // set new audio thread buffer if resized
-    if (_old_buffer_size != buffer_size)
-    {
-        _old_buffer_size = buffer_size;
-        _new_audio_buffer = new float[buffer_size * num_channels()];
-    }
 }
 
 
@@ -354,7 +352,7 @@ DestinationModule::ModuleNode* DestinationModule::_create_node(ModuleBase* modul
 
     node->module = module;
     node->output = new float[buffer_size * channel_count];
-    node->buf_size = buffer_size;
+    node->buf_size = buffer_size * channel_count;
     
     // get inputs
     node->num_inputs = module->get_inputs().size();
@@ -381,20 +379,20 @@ DestinationModule::ModuleNode* DestinationModule::construct_graph()
 
     node->module = nullptr;
     node->output = new float[buffer_size * channel_count];
-    node->buf_size = buffer_size;
+    node->buf_size = buffer_size * channel_count;
 
     // get inputs
     node->num_inputs = get_inputs().size();
     node->inputs = new ModuleNode * [node->num_inputs];
-    size_t i = 0;
-    for (ModuleBase* input_mod : get_inputs())
+
+    for (size_t i = 0; i < node->num_inputs; i++)
     {
-        node->inputs[i++] = _create_node(input_mod);
+        node->inputs[i] = _create_node(get_inputs()[i]);
     }
 
     // accumulate input arrays
     node->input_arrays = new float* [node->num_inputs];
-    for (i = 0; i < node->num_inputs; i++)
+    for (size_t i = 0; i < node->num_inputs; i++)
         node->input_arrays[i] = node->inputs[i]->output;
 
     return node;
@@ -427,7 +425,7 @@ size_t DestinationModule::process(float** output) {
     process_node(_thread_audio_graph);
 
     *output = _thread_audio_graph->output;
-    return buffer_size * channel_count;
+    return _thread_audio_graph->buf_size;
 }
 
 void DestinationModule::process_node(ModuleNode* node)
@@ -443,7 +441,7 @@ void DestinationModule::process_node(ModuleNode* node)
     
     else // if this is the root module, then combine all inputs into one buffer
     {
-        for (size_t i = 0; i < node->buf_size * channel_count; i += 2) {
+        for (size_t i = 0; i < node->buf_size; i += 2) {
             node->output[i] = 0.0f;
             node->output[i + 1] = 0.0f;
 
