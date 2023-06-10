@@ -50,7 +50,8 @@ void AudioDevice::soundio_write_callback(SoundIoOutStream* outstream, int frame_
                     // if ran out of data in buffer, compute new data
                     if (self->buf_pos >= self->buffer_size)
                     {
-                        assert(self->write_callback(self, &buffer) == self->buffer_size);
+                        size_t b_size = self->write_callback(self, &buffer);
+                        assert(b_size == self->buffer_size);
                         memcpy(self->audio_buffer, buffer, self->buffer_size * sizeof(float));
                         self->buf_pos = 0;
                     }
