@@ -595,8 +595,6 @@ int main()
         std::atomic<long> thread_processing_time = 0;
 
         sys::interval_t* audioaux_interval = sys::set_interval(5, [&]() {
-            static auto end = std::chrono::high_resolution_clock::now();
-
             file_mutex.lock();
             song->mutex.lock();
 

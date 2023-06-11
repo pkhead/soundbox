@@ -22,7 +22,7 @@
 namespace sys {
     struct interval_t;
     
-    interval_t* set_interval(int ms, std::function<void()> callback_proc);
+    interval_t* set_interval(int ms, const std::function<void()>&& callback_proc);
     void clear_interval(interval_t* interval);
 }
 

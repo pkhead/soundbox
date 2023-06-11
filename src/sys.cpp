@@ -1,4 +1,7 @@
+#include <algorithm>
+#include <chrono>
 #include <iostream>
+#include <atomic>
 #include "sys.h"
 
 using namespace sys;
@@ -37,24 +40,20 @@ void sys::clear_interval(interval_t* interval)
 
 struct interval_impl
 {
-	interval_impl(std::function<void(interval_impl* self)> callback) : thread(callback) { };
+	interval_impl(std::function<void(interval_impl* self)>&& callback) : thread(callback, this) { };
 
 	std::thread thread;
 	std::atomic<bool> terminate = false;
 };
 
-interval_t* sys::set_interval(int ms, std::function<void()> callback_proc)
+interval_t* sys::set_interval(int ms, const std::function<void()>&& callback_proc)
 {
-	interval_impl* output = new interval_impl([&](interval_impl* self)
+	interval_impl* output = new interval_impl([ms, callback_proc](interval_impl* self)
 	{
 		while (!self->terminate)
 		{
 			callback_proc();
-
-			timespec time;
-			time.tv_sec = 0;
-			time.tv_nsec = ms * 1000000;
-			nanosleep(&time, nullptr);
+			usleep(ms * 1000);
 		}
 	});
 
