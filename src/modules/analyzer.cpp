@@ -9,7 +9,7 @@
 
 using namespace audiomod;
 
-AnalyzerModule::AnalyzerModule() : ModuleBase(true)
+AnalyzerModule::AnalyzerModule(Song* song) : ModuleBase(song, true)
 {
 	id = "effects.analyzer";
 	name = "Analyzer";

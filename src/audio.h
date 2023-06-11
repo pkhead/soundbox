@@ -62,6 +62,8 @@ public:
     size_t samples_queued() const;
 };
 
+struct Song;
+
 namespace audiomod {
     enum NoteEventKind {
         NoteOn,
@@ -110,6 +112,7 @@ namespace audiomod {
         ModuleOutputTarget* _output;
         DestinationModule* _dest = nullptr;
         bool _has_interface;
+        Song* song;
         
         float* _audio_buffer;
         size_t _audio_buffer_size;
@@ -122,7 +125,7 @@ namespace audiomod {
         const char* parent_name = nullptr; // i keep forgetting to explicity set values to nullptr!
 
         ModuleBase(const ModuleBase&) = delete;
-        ModuleBase(bool has_interface);
+        ModuleBase(Song* song, bool has_interface);
         virtual ~ModuleBase();
 
         // send a note event to the module
@@ -324,5 +327,5 @@ namespace audiomod {
         ModuleOutputTarget* disconnect_output();
     };
 
-    ModuleBase* create_module(const std::string& mod_id);
+    ModuleBase* create_module(const std::string& mod_id, Song* song);
 }

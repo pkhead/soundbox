@@ -74,7 +74,7 @@ static void save_module(std::ostream& out, audiomod::ModuleBase* mod)
     }
 }
 
-static audiomod::ModuleBase* load_module(std::istream& input, std::string* error_msg)
+static audiomod::ModuleBase* load_module(std::istream& input, Song* song, std::string* error_msg)
 {
     // read mod type
     uint8_t id_size;
@@ -84,7 +84,7 @@ static audiomod::ModuleBase* load_module(std::istream& input, std::string* error
     inst_id[id_size] = 0;
 
     // load module based off id
-    audiomod::ModuleBase* mod = audiomod::create_module(inst_id);
+    audiomod::ModuleBase* mod = audiomod::create_module(inst_id, song);
     if (mod == nullptr) {
         if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
         delete[] inst_id;
@@ -443,7 +443,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             for (uint8_t j = 0; j < mod_count; j++)
             {
                 // read mod type
-                audiomod::ModuleBase* mod = load_module(input, error_msg);
+                audiomod::ModuleBase* mod = load_module(input, song, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;
@@ -500,7 +500,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
         // instrument data
         if (version[2] >= 1) {
-            audiomod::ModuleBase* mod = load_module(input, error_msg);
+            audiomod::ModuleBase* mod = load_module(input, song, error_msg);
             if (mod == nullptr) {
                 delete song;
                 return nullptr;
@@ -518,7 +518,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
             for (uint8_t modi = 0; modi < num_mods; modi++)
             {
-                audiomod::ModuleBase* mod = load_module(input, error_msg);
+                audiomod::ModuleBase* mod = load_module(input, song, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;

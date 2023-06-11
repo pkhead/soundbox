@@ -30,13 +30,15 @@ struct Pattern {
     inline bool is_empty() const; 
 };
 
+struct Song;
+
 class Channel {
 private:
     std::vector<audiomod::FXBus*>& fx_mixer;
 
 public:
     Channel(const Channel&) = delete; // prevent copy
-    Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*>& fx_mixer);
+    Channel(int song_length, int max_patterns, Song* song);
     ~Channel();
 
     audiomod::VolumeModule vol_mod;

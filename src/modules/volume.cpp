@@ -16,7 +16,7 @@ inline bool is_zero_crossing(float prev, float next) {
     return (prev == 0.0f && next == 0.0f) || (sign(prev) != sign(next));
 }
 
-VolumeModule::VolumeModule() : ModuleBase(false) {
+VolumeModule::VolumeModule(Song* song) : ModuleBase(song, false) {
     id = "effect.volume";
     cur_volume[0] = volume;
     cur_volume[1] = volume;

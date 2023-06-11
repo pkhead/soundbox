@@ -2,9 +2,9 @@
 #include "modules.h"
 using namespace audiomod;
 
-#define MAP(id, class) if (mod_id == id) return new class()
+#define MAP(id, class) if (mod_id == id) return new class(song)
 
-ModuleBase* audiomod::create_module(const std::string& mod_id) {
+ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song) {
     // synthesizers
     MAP("synth.waveform", WaveformSynth); // TODO: add fourth oscillator and allow FM modulation
     // TODO: harmonics synth

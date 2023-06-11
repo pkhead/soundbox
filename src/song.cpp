@@ -38,7 +38,7 @@ inline bool Pattern::is_empty() const {
 /*************************
 *        CHANNEL         *
 *************************/
-Channel::Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*>& fx_mixer) : fx_mixer(fx_mixer) {
+Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song->fx_mixer), vol_mod(song) {
     strcpy(name, "Channel");
     
     for (int i = 0; i < song_length; i++) {
@@ -49,7 +49,7 @@ Channel::Channel(int song_length, int max_patterns, std::vector<audiomod::FXBus*
         patterns.push_back(new Pattern());
     }
 
-    synth_mod = new audiomod::WaveformSynth();
+    synth_mod = new audiomod::WaveformSynth(song);
     synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
     effects_rack.connect_output(&vol_mod);
@@ -235,7 +235,7 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     fx_mixer.push_back(master_bus);
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
-        Channel* ch = new Channel(_length, _max_patterns, fx_mixer);
+        Channel* ch = new Channel(_length, _max_patterns, this);
         snprintf(ch->name, 16, "Channel %i", ch_i + 1);
         channels.push_back(ch);
     }
@@ -338,7 +338,7 @@ Channel* Song::insert_channel(int channel_id)
 {
     mutex.lock();
 
-    Channel* new_channel = new Channel(_length, _max_patterns, fx_mixer);
+    Channel* new_channel = new Channel(_length, _max_patterns, this);
     snprintf(new_channel->name, 16, "Channel %i", (int) channels.size() + 1);
     channels.insert(channels.begin() + channel_id, new_channel);
 

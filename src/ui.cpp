@@ -300,8 +300,9 @@ void ui_init(Song& song, UserActionList& user_actions) {
 
 
 
-EffectsInterfaceAction effect_rack_ui(std::mutex &mutex, audiomod::EffectsRack* effects_rack, const char* parent_name, int* selected_index)
+EffectsInterfaceAction effect_rack_ui(Song* song, audiomod::EffectsRack* effects_rack, const char* parent_name, int* selected_index)
 {
+    std::mutex& mutex = song->mutex;
     EffectsInterfaceAction action = EffectsInterfaceAction::Nothing;
 
     // effects
@@ -315,7 +316,7 @@ EffectsInterfaceAction effect_rack_ui(std::mutex &mutex, audiomod::EffectsRack* 
     if (ImGui::BeginPopup("add_effect")) {
         if (ImGui::Selectable("Gain")) {
             mutex.lock();
-            audiomod::ModuleBase* mod = audiomod::create_module("effects.gain");
+            audiomod::ModuleBase* mod = audiomod::create_module("effects.gain", song);
             mod->parent_name = parent_name;
             effects_rack->insert(mod);
             mutex.unlock();
@@ -323,7 +324,7 @@ EffectsInterfaceAction effect_rack_ui(std::mutex &mutex, audiomod::EffectsRack* 
 
         if (ImGui::Selectable("Analyzer")) {
             mutex.lock();
-            audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer");
+            audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer", song);
             mod->parent_name = parent_name;
             effects_rack->insert(mod);
             mutex.unlock();
@@ -660,7 +661,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
 
         int target_index;
-        switch (effect_rack_ui(song.mutex, &cur_channel->effects_rack, cur_channel->name, &target_index))
+        switch (effect_rack_ui(&song, &cur_channel->effects_rack, cur_channel->name, &target_index))
         {
             case EffectsInterfaceAction::Edit:
                 song.toggle_module_interface(cur_channel->effects_rack.modules[target_index]);
@@ -905,7 +906,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             }
 
             int target_index;
-            switch (effect_rack_ui(song.mutex, &fx_bus->rack, fx_bus->name, &target_index))
+            switch (effect_rack_ui(&song, &fx_bus->rack, fx_bus->name, &target_index))
             {
                 case EffectsInterfaceAction::Edit:
                     song.toggle_module_interface(fx_bus->rack.modules[target_index]);

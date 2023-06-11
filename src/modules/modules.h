@@ -21,7 +21,7 @@ namespace audiomod {
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
     public:
-        WaveformSynth();
+        WaveformSynth(Song* song);
 
         enum WaveformType: uint8_t {
             Sine = (uint8_t)0,
@@ -61,7 +61,7 @@ namespace audiomod {
         // used for soloing
         bool mute_override = false;
 
-        VolumeModule();
+        VolumeModule(Song* song);
         size_t save_state(void** output) const override;
         bool load_state(void* state, size_t size) override;
     };
@@ -77,7 +77,7 @@ namespace audiomod {
         size_t save_state(void** output) const override;
         bool load_state(void* state, size_t size) override;
 
-        GainModule();
+        GainModule(Song* song);
     };
 
     class AnalyzerModule : public ModuleBase {
@@ -99,7 +99,7 @@ namespace audiomod {
         float* right_channel[2] = { nullptr, nullptr };
 
     public:
-        AnalyzerModule();
+        AnalyzerModule(Song* song);
         ~AnalyzerModule();
     };
 }

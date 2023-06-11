@@ -17,7 +17,7 @@ static double _mod(double a, double b) {
 static constexpr double PI = 3.14159265359;
 static constexpr double PI2 = 2.0f * PI;
 
-WaveformSynth::WaveformSynth() : ModuleBase(true) {
+WaveformSynth::WaveformSynth(Song* song) : ModuleBase(song, true) {
     id = "synth.waveform";
     name = "Waveform Synth";
 
