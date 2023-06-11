@@ -54,6 +54,7 @@ set(SOURCES
     src/modules/gain.cpp
     src/modules/volume.cpp
     src/modules/waveform.cpp
+    src/modules/delay.cpp
 )
 
 include_directories(

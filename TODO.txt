@@ -16,7 +16,6 @@
     - distortion
     - bitcrusher/downsampler
     - chrous
-    - delay/echo
     - flanger
     - phaser
     - compressor

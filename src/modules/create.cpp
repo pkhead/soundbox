@@ -2,6 +2,7 @@
 // because i don't want to create two files for every module
 // instead i write the implementation in the header file, and
 // compile the implementations in a singular modules.cpp file
+#include "modules/delay.h"
 #define MODULE_IMPL
 
 #include "../audio.h"
@@ -24,11 +25,11 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song) {
     MAP("effects.analyzer", AnalyzerModule);
     MAP("effects.volume", VolumeModule);
     MAP("effects.gain", GainModule);
+    MAP("effects.delay", DelayModule);
     // TODO: equalizer
     // TODO: distortion effect
     // TODO: bitcrusher/downsampler effect
     // TODO: chrous effect
-    // TODO: delay effect
     // TODO: flanger effect
     // TODO: phaser effect
     // TODO: compressor effect

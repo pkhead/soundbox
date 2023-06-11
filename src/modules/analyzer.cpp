@@ -21,6 +21,7 @@ AnalyzerModule::~AnalyzerModule() {
 }
 
 void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
+    // TODO instead of reallocating buffers here, make a buffer_realloc event/signal
     if (buffer_size != this->buf_size) {
         // tell renderer process not to render
         ready = false;

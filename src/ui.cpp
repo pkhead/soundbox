@@ -314,6 +314,7 @@ EffectsInterfaceAction effect_rack_ui(Song* song, audiomod::EffectsRack* effects
     }
 
     if (ImGui::BeginPopup("add_effect")) {
+        // TODO no hardcoding, read from effects list
         if (ImGui::Selectable("Gain")) {
             mutex.lock();
             audiomod::ModuleBase* mod = audiomod::create_module("effects.gain", song);
@@ -325,6 +326,14 @@ EffectsInterfaceAction effect_rack_ui(Song* song, audiomod::EffectsRack* effects
         if (ImGui::Selectable("Analyzer")) {
             mutex.lock();
             audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer", song);
+            mod->parent_name = parent_name;
+            effects_rack->insert(mod);
+            mutex.unlock();
+        }
+
+        if (ImGui::Selectable("Delay")) {
+            mutex.lock();
+            audiomod::ModuleBase* mod = audiomod::create_module("effects.delay", song);
             mod->parent_name = parent_name;
             effects_rack->insert(mod);
             mutex.unlock();
