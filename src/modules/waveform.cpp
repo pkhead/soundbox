@@ -1,4 +1,5 @@
 #include "waveform.h"
+#include <cstdlib>
 #include <imgui.h>
 #include "../sys.h"
 #include <math.h>
@@ -13,9 +14,24 @@ static double _mod(double a, double b) {
 static constexpr double PI = 3.14159265359;
 static constexpr double PI2 = 2.0f * PI;
 
+static const size_t NOISE_DATA_SIZE = 1 << 16;
+static float NOISE_DATA[1 << 16];
+static bool PREPROCESSED_DATA_READY = false;
+
 WaveformSynth::WaveformSynth(Song* song) : ModuleBase(song, true) {
     id = "synth.waveform";
     name = "Waveform Synth";
+
+    // generate data
+    if (!PREPROCESSED_DATA_READY)
+    {
+        PREPROCESSED_DATA_READY = true;
+
+        for (size_t i = 0; i < NOISE_DATA_SIZE; i++)
+        {
+            NOISE_DATA[i] = (double)rand() / RAND_MAX;
+        }
+    }
 
     waveform_types[0] = Triangle;
     volume[0] = 0.5f;
@@ -101,6 +117,10 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
 
                     case Sawtooth:
                         sample = 2.0 * _mod(phase / PI2 + 0.5, 1.0) - 1.0;
+                        break;
+
+                    case Noise:
+                        sample = NOISE_DATA[(int)(phase * 4.0f) % NOISE_DATA_SIZE];
                         break;
 
                     // a pulse wave: value[w] = (2.0f * _modf(phase / M_2PI + 0.5f, 1.3f) - 1.0f) > 0.0f ? 1.0f : -1.0f;
@@ -198,7 +218,8 @@ void WaveformSynth::_interface_proc() {
         "Sine",
         "Square",
         "Sawtooth",
-        "Triangle"
+        "Triangle",
+        "Noise",
     };
     
     const float slider_width = ImGui::GetTextLineHeight() * 6.0f;
@@ -217,7 +238,7 @@ void WaveformSynth::_interface_proc() {
         ImGui::SetNextItemWidth(-1.0f);
         if (ImGui::BeginCombo("##channel_bus", WAVEFORM_NAMES[waveform_types[osc]]))
         {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 5; i++) {
                 if (ImGui::Selectable(WAVEFORM_NAMES[i], i == waveform_types[osc])) waveform_types[osc] = static_cast<WaveformType>(i);
 
                 if (i == waveform_types[osc]) {

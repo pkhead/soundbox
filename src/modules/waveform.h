@@ -27,7 +27,8 @@ namespace audiomod {
             Sine = (uint8_t)0,
             Square = (uint8_t)1,
             Sawtooth = (uint8_t)2,
-            Triangle = (uint8_t)3
+            Triangle = (uint8_t)3,
+            Noise = (uint8_t)4,
         };
         
         WaveformType waveform_types[3];
