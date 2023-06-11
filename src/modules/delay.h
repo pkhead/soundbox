@@ -18,9 +18,10 @@ namespace audiomod
         std::atomic<bool> panic;
         
     public:
-
         // delay in seconds
         std::atomic<float> delay_time;
+        std::atomic<int> tempo_division;
+        std::atomic<bool> delay_mode;
         std::atomic<float> stereo_offset;
 
         // feedback percentage

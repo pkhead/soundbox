@@ -1,7 +1,12 @@
+#include <cmath>
+#include <cstdio>
 #include <imgui.h>
+#include <math.h>
 #include "../sys.h"
 #include "audio.h"
 #include "delay.h"
+#include "../song.h"
+
 using namespace audiomod;
 
 DelayModule::DelayModule(Song* song) : ModuleBase(song, true)
@@ -9,8 +14,10 @@ DelayModule::DelayModule(Song* song) : ModuleBase(song, true)
     id = "effects.delay";
     name = "Delay/Echo";
 
-    delay_time = 0.25f;
+    delay_time = 0.25;
+    tempo_division = 0;
     stereo_offset = 0.0f;
+    delay_mode = false;
     feedback = 0.6f;
     mix = -0.0f;
 
@@ -33,6 +40,25 @@ DelayModule::~DelayModule()
     delete[] delay_line[1];
 }
 
+static double division_to_secs(float tempo, int division_enum)
+{
+    int exponent = division_enum / 3 - 6;
+    int div_type = division_enum % 3;
+    float len;
+
+    if (div_type == 0) // normal beats
+        len = powf(2.0f, exponent);
+    else if (div_type == 1) // dotted beats
+    {
+        len = powf(2.0f, exponent);
+        len += len / 2.0f;
+    }
+    else if (div_type == 2) // triplets
+        len = powf(3.0f / 2.0f, exponent);
+
+    return len * (60.0f / tempo);
+}
+
 void DelayModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
 {
     if (this->panic)
@@ -45,15 +71,18 @@ void DelayModule::process(float** inputs, float* output, size_t num_inputs, size
             delay_line[1][i] = 0.0f;
         }
     }
-    
+
     // cache atomic variables
     float mix = this->mix;
     float feedback = this->feedback;
-    float delay_time = this->delay_time;
+    double delay_time = this->delay_time;
     float stereo_offset = this->stereo_offset;
 
-    float delay_time_left = delay_time;
-    float delay_time_right = delay_time;
+    if (delay_mode)
+        delay_time = division_to_secs(song->tempo, tempo_division);
+
+    double delay_time_left = delay_time;
+    double delay_time_right = delay_time;
 
     if (stereo_offset > 0.0f)
         delay_time_right += stereo_offset;
@@ -101,12 +130,46 @@ void DelayModule::process(float** inputs, float* output, size_t num_inputs, size
     }
 }
 
+static const char* DIVISION_NAMES[] = {
+    "1/64", // beats
+    "1/64 dotted", // dotted
+    "1/48", // triplet
+    "1/32", // beats
+    "1/32 dotted", // dotted
+    "1/24", // triplet
+    "1/16", // beats
+    "1/16 dotted", // dotted
+    "1/12", // triplet
+    "1/8", // beats
+    "1/8 dotted", // dotted
+    "1/6", // triplet
+    "1/4", // beats
+    "1/4 dotted", // dotted
+    "1/3", // triplet
+    "1/2", // beats
+    "1/2 dotted", // dotted
+    "2/3", // triplet
+    "1/1", // beats
+    "1/1 dotted", // dotted
+    "3/3", // triplet
+    "2/1", // beats
+    "2/1 dotted", // dotted
+    "6/3", // triplet
+    "4/1", // beats
+    "4/1 dotted", // dotted
+    "12/3", // triplet
+    "8/1",  // beats
+    "8/1 dotted", // dotted
+    "24/3", // triplet
+};
+
 void DelayModule::_interface_proc()
 {
     float mix = this->mix;
     float feedback = this->feedback;
-    float delay_time = this->delay_time;
+    double delay_time = this->delay_time;
     float stereo_offset = this->stereo_offset;
+    bool delay_mode = this->delay_mode;
 
     // labels
     ImGui::BeginGroup();
@@ -135,10 +198,22 @@ void DelayModule::_interface_proc()
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
         feedback = 0.5f;
 
-    // delay time
-    ImGui::SliderFloat("###delay_l", &delay_time, 0.0f, 4.0f);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
-        delay_time = 0.2f;
+    if (delay_mode)
+    {
+        // delay time in beats
+        int tempo_division = this->tempo_division;
+        ImGui::SliderInt("###tempo_division", &tempo_division, 0, (10 * 3) - 1, DIVISION_NAMES[tempo_division]);  
+        this->tempo_division = tempo_division;
+    }
+    else
+    {
+        // delay time in seconds
+        float delay_time_float = delay_time;
+        ImGui::SliderFloat("###delay", &delay_time_float, 0.0f, 4.0f);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+            delay_time_float = 0.2f;
+        delay_time = delay_time_float;
+    }
 
     // stereo offset
     ImGui::SliderFloat("###delay_r", &stereo_offset, -1.0f, 1.0f);
@@ -148,10 +223,23 @@ void DelayModule::_interface_proc()
     ImGui::PopItemWidth();
     ImGui::EndGroup();
 
-    ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::Button("Stop"))
         panic = true;
+    ImGui::SameLine();
+    ImGui::Text("Use Tempo");
+    ImGui::SameLine();
+    if (ImGui::Checkbox("###mode", &delay_mode))
+    {
+        // TODO: set tempo_division to nearest delay_mode
+        if (delay_mode)
+        {
 
+        }
+        else
+            delay_time = division_to_secs(song->tempo, tempo_division);
+    }
+
+    this->delay_mode = delay_mode;
     this->mix = mix;
     this->feedback = feedback;
     this->delay_time = delay_time;
@@ -160,7 +248,7 @@ void DelayModule::_interface_proc()
 
 struct DelayModuleState
 {
-    float delay_time;
+    double delay_time;
     float stereo_offset;
     float feedback;
     float mix;
