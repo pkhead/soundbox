@@ -408,13 +408,14 @@ void Song::delete_fx_bus(audiomod::FXBus* bus_to_delete)
 
 }
 
-float Song::get_key_frequency(int key) const {
+bool Song::get_key_frequency(int key, float* freq) const {
     Tuning* tuning = tunings[selected_tuning];
 
-    if (key < 0) return 0.00001f;
-    if (key >= tuning->key_freqs.size()) return 0.00001f;
+    if (key < 0) return false;
+    if (key >= tuning->key_freqs.size()) return false;
 
-    return tuning->key_freqs[key];
+    *freq = tuning->key_freqs[key];
+    return true;
 }
 
 void Song::play() {
@@ -553,7 +554,6 @@ void Song::update(double elapsed) {
                     audiomod::NoteEventKind::NoteOn,
                     {
                         new_note.note.key,
-                        get_key_frequency(new_note.note.key),
                         0.8f
                     }
                 });

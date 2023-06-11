@@ -4,8 +4,9 @@
 #include <imgui.h>
 #include <string.h>
 #include "../audio.h"
-#include "modules.h"
 #include "../sys.h"
+#include "../song.h"
+#include "modules.h"
 
 using namespace audiomod;
 
@@ -142,16 +143,20 @@ void WaveformSynth::event(const NoteEvent& event) {
             }
         }
 
-        *voice = {
-            true,
-            event_data.key,
-            event_data.freq,
-            event_data.volume,
-            { 0.0, 0.0, 0.0 },
-            0.0,
-            -1.0f,
-            // undefined: release_env
-        };
+        float key_freq;
+        if (song->get_key_frequency(event_data.key, &key_freq))
+        {
+            *voice = {
+                true,
+                event_data.key,
+                key_freq,
+                event_data.volume,
+                { 0.0, 0.0, 0.0 },
+                0.0,
+                -1.0f,
+                // undefined: release_env
+            };
+        }
     
     } else if (event.kind == NoteEventKind::NoteOff) {
         NoteOffEvent event_data = event.note_off;

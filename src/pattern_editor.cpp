@@ -301,7 +301,6 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                     audiomod::NoteEventKind::NoteOn,
                     {
                         key,
-                        song.get_key_frequency(key),
                         0.8f
                     }
                 });
@@ -332,7 +331,6 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                         audiomod::NoteEventKind::NoteOn,
                         {
                             played_key,
-                            song.get_key_frequency(scroll - mouse_cy),
                             0.8f
                         }
                     });

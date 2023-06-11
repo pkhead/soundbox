@@ -72,7 +72,6 @@ namespace audiomod {
 
     struct NoteOnEvent {
         int key;
-        float freq;
         float volume;
     };
 
