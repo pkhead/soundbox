@@ -10,8 +10,17 @@
 
 using namespace audiomod;
 
-#define MAP(id, class) if (mod_id == id) return new class(song)
+std::array<audiomod::ModuleListing, NUM_EFFECTS> audiomod::effects_list({
+    "effects.analyzer", "Analyzer",
+    "effects.gain", "Gain",
+    "effects.delay", "Echo/Delay",
+});
 
+std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list({
+    "synth.waveform", "Waveform"
+});
+
+#define MAP(id, class) if (mod_id == id) return new class(song)
 ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song) {
     // synthesizers
     MAP("synth.waveform", WaveformSynth); // TODO: add fourth oscillator and allow FM modulation

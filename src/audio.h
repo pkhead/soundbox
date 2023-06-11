@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <functional>
 #include <string>
 #include <atomic>
@@ -326,5 +327,17 @@ namespace audiomod {
         ModuleOutputTarget* disconnect_output();
     };
 
+    constexpr size_t NUM_EFFECTS = 3;
+    constexpr size_t NUM_INSTRUMENTS = 1;
+
     ModuleBase* create_module(const std::string& mod_id, Song* song);
+
+    struct ModuleListing
+    {
+        const char* id;
+        const char* name;
+    };
+
+    extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
+    extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 }

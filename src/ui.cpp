@@ -314,29 +314,16 @@ EffectsInterfaceAction effect_rack_ui(Song* song, audiomod::EffectsRack* effects
     }
 
     if (ImGui::BeginPopup("add_effect")) {
-        // TODO no hardcoding, read from effects list
-        if (ImGui::Selectable("Gain")) {
-            mutex.lock();
-            audiomod::ModuleBase* mod = audiomod::create_module("effects.gain", song);
-            mod->parent_name = parent_name;
-            effects_rack->insert(mod);
-            mutex.unlock();
-        }
-
-        if (ImGui::Selectable("Analyzer")) {
-            mutex.lock();
-            audiomod::ModuleBase* mod = audiomod::create_module("effects.analyzer", song);
-            mod->parent_name = parent_name;
-            effects_rack->insert(mod);
-            mutex.unlock();
-        }
-
-        if (ImGui::Selectable("Delay")) {
-            mutex.lock();
-            audiomod::ModuleBase* mod = audiomod::create_module("effects.delay", song);
-            mod->parent_name = parent_name;
-            effects_rack->insert(mod);
-            mutex.unlock();
+        for (auto listing : audiomod::effects_list)
+        {
+            if (ImGui::Selectable(listing.name))
+            {
+                mutex.lock();
+                audiomod::ModuleBase* mod = audiomod::create_module(listing.id, song);
+                mod->parent_name = parent_name;
+                effects_rack->insert(mod);
+                mutex.unlock();
+            }
         }
 
         ImGui::EndPopup();
@@ -656,14 +643,27 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::PopItemWidth();
         ImGui::NewLine();
 
-        // loaded instrument
+        // load instrument
         ImGui::Text("Instrument: %s", cur_channel->synth_mod->name.c_str());
         if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
         {
-            ImGui::OpenPopup("inst_load");
+            ImGui::OpenPopup("load_instrument");
         }
         ImGui::SameLine();
 
+        if (ImGui::BeginPopup("load_instrument")) {
+            for (auto listing : audiomod::instruments_list)
+            {
+                if (ImGui::Selectable(listing.name))
+                {
+                    
+                }
+            }
+
+            ImGui::EndPopup();
+        }
+
+        // edit loaded instrument
         if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
         {
             song.toggle_module_interface(cur_channel->synth_mod);
