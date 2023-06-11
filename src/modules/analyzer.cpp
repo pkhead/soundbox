@@ -41,7 +41,11 @@ void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, s
 		right_channel[1] = new float[buf_size];
 	}
 
-	int buf_idx = 1 - front_buf;
+	int buf_idx;
+	// if in use, do not swap buffers
+	if (in_use)		buf_idx = front_buf;
+	else			buf_idx = 1 - front_buf;
+	
 	float* buf_left = left_channel[buf_idx];
 	float* buf_right = right_channel[buf_idx];
 
@@ -71,6 +75,7 @@ void AnalyzerModule::_interface_proc() {
 	// use placeholder if audio process isn't ready to show analysis
 	float placeholder[2] = { 0.0f, 0.0f };
 	bool ready = this->ready;
+	in_use = true;
 
 	ImGui::PlotLines(
 		"###left_samples", 
@@ -100,4 +105,6 @@ void AnalyzerModule::_interface_proc() {
 	if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
 		ImGui::SetTooltip("%.3f", range);
 	}
+
+	in_use = false;
 }

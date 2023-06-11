@@ -95,6 +95,7 @@ namespace audiomod {
         // use double buffering because of concurrency
         std::atomic<int> front_buf = 0;
         std::atomic<bool> ready = false;
+        std::atomic<bool> in_use = false; // if front buf is in use
         float* left_channel[2] = { nullptr, nullptr };
         float* right_channel[2] = { nullptr, nullptr };
 
