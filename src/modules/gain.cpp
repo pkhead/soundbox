@@ -1,12 +1,7 @@
-#include <iostream>
-#include <stdint.h>
-#include <math.h>
-#include <string.h>
 #include <imgui.h>
-#include "../audio.h"
-#include "modules.h"
+#include <math.h>
 #include "../sys.h"
-
+#include "gain.h"
 using namespace audiomod;
 
 GainModule::GainModule(Song* song) : ModuleBase(song, true) {

@@ -23,6 +23,7 @@
 #include "imgui.h"
 #include "song.h"
 #include "sys.h"
+#include "modules/modules.h"
 
 Pattern::Pattern() { };
 

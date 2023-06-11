@@ -50,10 +50,10 @@ set(SOURCES
 
     # audio modules
     src/modules/create.cpp
-    src/modules/waveform.cpp
-    src/modules/volume.cpp
-    src/modules/gain.cpp
     src/modules/analyzer.cpp
+    src/modules/gain.cpp
+    src/modules/volume.cpp
+    src/modules/waveform.cpp
 )
 
 include_directories(

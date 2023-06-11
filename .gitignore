@@ -2,8 +2,9 @@
 /.vscode
 /.vs
 
-# clangd cache
+# clangd (linter) files
 /.cache
+/.clangd
 
 # build directories
 /build

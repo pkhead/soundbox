@@ -1,12 +1,8 @@
-#include <iostream>
-#include <stdint.h>
-#include <math.h>
+#include "waveform.h"
 #include <imgui.h>
-#include <string.h>
-#include "../audio.h"
 #include "../sys.h"
+#include <math.h>
 #include "../song.h"
-#include "modules.h"
 
 using namespace audiomod;
 
@@ -14,7 +10,6 @@ static double _mod(double a, double b) {
     return fmod(fmod(a, b) + b, b);
 }
 
-#include <math.h>
 static constexpr double PI = 3.14159265359;
 static constexpr double PI2 = 2.0f * PI;
 

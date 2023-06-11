@@ -1,11 +1,6 @@
-#include <cstdint>
-#include <iostream>
-#include <stdint.h>
-#include <math.h>
-#include <string.h>
-#include "../audio.h"
-#include "modules.h"
-#include "../sys.h"
+#include "volume.h"
+#include "sys.h"
+
 using namespace audiomod;
 
 inline int sign(float v) {
