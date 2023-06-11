@@ -248,7 +248,13 @@ void DelayModule::_interface_proc()
 
 struct DelayModuleState
 {
-    double delay_time;
+    uint8_t delay_mode;
+
+    union {
+        float delay_time;
+        uint32_t tempo_division;
+    };
+
     float stereo_offset;
     float feedback;
     float mix;
@@ -257,10 +263,18 @@ struct DelayModuleState
 size_t DelayModule::save_state(void** output) const
 {
     DelayModuleState* state = new DelayModuleState;
-    state->delay_time = swap_little_endian((float) delay_time);
+
+    state->delay_mode = delay_mode;
+    
+    if (state->delay_mode)
+        state->tempo_division = swap_little_endian((int) tempo_division);
+    else
+        state->delay_time = swap_little_endian((float) delay_time);
+        
     state->stereo_offset = swap_little_endian((float) stereo_offset);
     state->feedback = swap_little_endian((float) feedback);
     state->mix = swap_little_endian((float) mix);
+
     *output = state;
     return sizeof(*state);
 }
@@ -268,11 +282,19 @@ size_t DelayModule::save_state(void** output) const
 bool DelayModule::load_state(void* state_ptr, size_t size)
 {
     if (size != sizeof(DelayModuleState)) return false;
-    DelayModuleState* state = static_cast<DelayModuleState*>(state_ptr);
 
-    delay_time = swap_little_endian(state->delay_time);
+    DelayModuleState* state = static_cast<DelayModuleState*>(state_ptr);
+    
+    delay_mode = state->delay_mode;
+    
+    if (state->delay_mode)
+        tempo_division = swap_little_endian(state->tempo_division);
+    else
+        delay_time = swap_little_endian(state->delay_time);
+
     stereo_offset = swap_little_endian(state->stereo_offset);
     feedback = swap_little_endian(state->feedback);
     mix = swap_little_endian(state->mix);
+
     return true;
 }
