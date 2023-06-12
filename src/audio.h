@@ -64,7 +64,7 @@ public:
     size_t samples_queued() const;
 };
 
-struct Song;
+class Song;
 
 namespace audiomod {
     enum NoteEventKind {

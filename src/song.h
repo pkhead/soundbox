@@ -30,7 +30,7 @@ struct Pattern {
     inline bool is_empty() const; 
 };
 
-struct Song;
+class Song;
 
 class Channel {
 private:
