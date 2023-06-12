@@ -11,7 +11,7 @@
 #include "ui.h"
 
 constexpr char APP_VERSION[] = "0.1.0";
-constexpr char FILE_VERSION[] = "0.0.6";
+constexpr char FILE_VERSION[] = "0001";
 char VERSION_STR[64];
 
 namespace Colors {
@@ -189,7 +189,7 @@ void ui_init(Song& song, UserActionList& user_actions)
 {
     // write version string
 #ifdef DEBUG
-    snprintf(VERSION_STR, 64, "version %s-dev / %s", APP_VERSION, FILE_VERSION);
+    snprintf(VERSION_STR, 64, "version %s-dev / SnBx%s", APP_VERSION, FILE_VERSION);
 #else
     snprintf(VERSION_STR, 64, "version %s / %s", APP_VERSION, FILE_VERSION);
 #endif

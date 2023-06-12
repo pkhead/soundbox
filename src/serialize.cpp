@@ -106,13 +106,9 @@ void Song::serialize(std::ostream& out) const {
     // magic number
     out << "SnBx";
 
-    // version number (major, minor, revision)
-    // TODO: ditch (major, minor, revision) for file versions
-    // just use a singular uint32
-    push_bytes(out, (uint8_t)0);
-    push_bytes(out, (uint8_t)0);
-    push_bytes(out, (uint8_t)6);
-
+    // file version number
+    push_bytes<uint32_t>(out, 1);
+    
     // song name
     push_bytes(out, (uint8_t) strlen(name));
     out << name;
@@ -250,10 +246,12 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
     input.read(magic_number, 4);
     if (memcmp("SnBx", magic_number, 4) != 0) return nullptr;
 
-    uint8_t version[3];
-    pull_bytes(input, version[0]);
-    pull_bytes(input, version[1]);
-    pull_bytes(input, version[2]);
+    uint32_t version = pull_bytesr<uint32_t>(input);
+    if (version != 1)
+    {
+        if (error_msg) *error_msg = "invalid version";
+        return nullptr;
+    }
     
     // get song name
     uint8_t song_name_size;
@@ -263,10 +261,9 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
     input.read(song_name, song_name_size);
     song_name[song_name_size] = 0;
 
-    // v5: read song notes
+    // read song notes
     std::string project_notes = "";
 
-    if (version[2] >= 5)
     {
         uint32_t project_notes_len;
 
@@ -299,8 +296,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
     delete[] song_name;
 
-    // v3: tuning data
-    if (version[2] >= 3)
+    // tuning data
     {
         uint8_t num_tunings;
         pull_bytes(input, num_tunings);
@@ -341,7 +337,6 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             }
 
             // read scala data
-            if (version[2] >= 6)
             {
                 uint32_t scl_size, kbm_size;
                 pull_bytes(input, scl_size);
@@ -394,8 +389,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
         song->selected_tuning = selected_tuning_uint8;
     }
 
-    // v4: fx mixer
-    if (version[2] >= 4)
+    // fx mixer
     {
         uint16_t num_buses;
         pull_bytes(input, num_buses);
@@ -478,8 +472,8 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
         channel->vol_mod.volume = volume;
         channel->vol_mod.panning = panning;
 
-        // v2: mute/solo flags
-        if (version[2] >= 2) {
+        // mute/solo flags
+        {
             uint8_t channel_flags;
             pull_bytes(input, channel_flags);
 
@@ -487,15 +481,15 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             channel->solo =         (channel_flags & 2) == 2;
         }
 
-        // v4: output fx bus
-        if (version[2] >= 4) {
+        // output fx bus
+        {
             uint16_t output_bus;
             pull_bytes(input, output_bus);
             channel->fx_target_idx = output_bus;
         }
 
         // instrument data
-        if (version[2] >= 1) {
+        {
             audiomod::ModuleBase* mod = load_module(input, song, error_msg);
             if (mod == nullptr) {
                 delete song;
@@ -506,8 +500,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             channel->set_instrument(mod);
         }
 
-        // v4: instrument effects
-        if (version[2] >= 4)
+        // instrument effects
         {
             uint8_t num_mods;
             pull_bytes(input, num_mods);
