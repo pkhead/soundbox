@@ -15,7 +15,7 @@ static void lp_time_proc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR d
 	(*callback)();
 }
 
-interval_t* sys::set_interval(int ms, std::function<void()> callback_proc)
+interval_t* sys::set_interval(int ms, const std::function<void()>&& callback_proc)
 {
 	return (interval_t*)timeSetEvent(
 		ms,
