@@ -113,6 +113,9 @@ else()
     target_link_libraries(soundbox glfw portaudio_static ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
 endif()
 
+# add debug macro
+target_compile_definitions(soundbox PUBLIC "$<$<CONFIG:DEBUG>:DEBUG>")
+
 file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/imgui.ini DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/logo.png DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

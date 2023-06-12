@@ -10,6 +10,10 @@
 #include "song.h"
 #include "ui.h"
 
+constexpr char APP_VERSION[] = "0.1.0";
+constexpr char FILE_VERSION[] = "0.0.6";
+char VERSION_STR[64];
+
 namespace Colors {
     ImU32 channel[channel_num][2] = {
         // { dim, bright }
@@ -158,6 +162,8 @@ void pop_btn_disabled()
 
 bool show_demo_window = false;
 bool show_about_window = false;
+bool show_shortcuts_window = false;
+
 std::string status_message;
 double status_time = -9999.0;
 
@@ -179,7 +185,15 @@ void show_status(const std::string& text)
     status_time = -30.0;
 }
 
-void ui_init(Song& song, UserActionList& user_actions) {
+void ui_init(Song& song, UserActionList& user_actions)
+{
+    // write version string
+#ifdef DEBUG
+    snprintf(VERSION_STR, 64, "version %s-dev / %s", APP_VERSION, FILE_VERSION);
+#else
+    snprintf(VERSION_STR, 64, "version %s / %s", APP_VERSION, FILE_VERSION);
+#endif
+
     show_about_window = false;
 
     // copy+paste
@@ -492,10 +506,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         {
             if (ImGui::MenuItem("About..."))
                 show_about_window = !show_about_window;
+
+            if (ImGui::MenuItem("Controls..."))
+                show_shortcuts_window = !show_shortcuts_window;
             
             ImGui::EndMenu();
         }
 
+#ifdef DEBUG
         if (ImGui::BeginMenu("Dev"))
         {
             if (ImGui::MenuItem("Toggle Dear ImGUI Demo", "F1")) {
@@ -504,6 +522,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
             ImGui::EndMenu();
         }
+#endif
 
         ImGui::EndMainMenuBar();
     }
@@ -1045,7 +1064,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize))
     {
         float window_width = ImGui::GetWindowWidth();
-        ImGui::PushTextWrapPos(500.0f);
+        ImGui::PushTextWrapPos(ImGui::GetTextLineHeight() * 38.0f);
         
         // draw logo
         if (logo_texture)
@@ -1055,9 +1074,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         }
         
         // app version / file format version
-        const char* version = "version 0.1.0-dev / 0.0.6";
-        ImGui::SetCursorPosX((window_width - ImGui::CalcTextSize(version).x) / 2.0f);
-        ImGui::Text("%s", version);
+        ImGui::SetCursorPosX((window_width - ImGui::CalcTextSize(VERSION_STR).x) / 2.0f);
+        ImGui::Text("%s", VERSION_STR);
 
         ImGui::NewLine();
         ImGui::TextWrapped("The interface of this application is heavily influenced by John Nesky's BeepBox.");
@@ -1078,6 +1096,38 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::TextWrapped("nativefiledialog: https://github.com/mlabbe/nativefiledialog");
         ImGui::Bullet();
         ImGui::TextWrapped("stb_image: https://github.com/nothings/stb");
+        ImGui::End();
+    }
+
+    // shortcuts window
+    if (show_shortcuts_window && ImGui::Begin(
+        "Keyboard Controls",
+        &show_shortcuts_window,
+        ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize
+    ))
+    {
+        ImGui::PushTextWrapPos(ImGui::GetTextLineHeight() * 24.0f);
+
+        ImGui::TextWrapped(
+            "Most keyboard controls are shown in the File and Edit menus, but not all."
+            " The following is a list of keyboard controls not documented elsewhere:"
+            );
+
+        ImGui::Bullet();
+        ImGui::TextWrapped("Numbers 0-9: Type in index of selected pattern");
+        ImGui::Bullet();
+        ImGui::TextWrapped("Arrow keys: Move cursor in track editor");
+        ImGui::Bullet();
+        ImGui::TextWrapped("Ctrl+M: Mute selected channel");
+        ImGui::Bullet();
+        ImGui::TextWrapped("Shift+M: Solo selected channel");
+        ImGui::Bullet();
+        ImGui::TextWrapped("Space: Play/Pause song");
+        ImGui::Bullet();
+        ImGui::TextWrapped("] (Right Bracket): Move playhead right");
+        ImGui::Bullet();
+        ImGui::TextWrapped("[ (Left Bracket): Move playhead left");
+
         ImGui::End();
     }
 
