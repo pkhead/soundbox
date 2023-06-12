@@ -83,3 +83,27 @@ static void pull_bytes(std::istream& in, T& output) {
 
     output = *((T*)bytes);
 }
+
+// same as pull_bytes but uses return value
+template <typename T>
+static T pull_bytesr(std::istream& in) {
+    char next_char;
+    uint8_t bytes[sizeof(T)];
+
+    if (IS_BIG_ENDIAN) {
+        for (size_t i = sizeof(T) - 1; i > 0; i--) {
+            in.get(next_char);
+            bytes[i] = next_char;
+        }
+
+        in.get(next_char);
+        bytes[0] = next_char;
+    } else {
+        for (size_t i = 0; i < sizeof(T); i++) {
+            in.get(next_char);
+            bytes[i] = next_char;
+        }
+    }
+
+    return *((T*)bytes);
+}

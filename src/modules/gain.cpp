@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <imgui.h>
 #include <math.h>
 #include "../sys.h"
@@ -9,19 +10,18 @@ GainModule::GainModule(Song* song) : ModuleBase(song, true) {
     name = "Gain";
 }
 
-size_t GainModule::save_state(void** output) const
+void GainModule::save_state(std::ostream& ostream) const
 {
-    float* out = new float;
-    *out = swap_little_endian(gain);
-    *output = out;
-    return sizeof(float);
+    push_bytes<uint8_t>(ostream, 0); // version
+    push_bytes<float>(ostream, gain);
 }
 
-bool GainModule::load_state(void* state, size_t size)
+bool GainModule::load_state(std::istream& istream, size_t size)
 {
-    if (size != sizeof(float)) return false;
+    uint8_t version = pull_bytesr<uint8_t>(istream);
+    if (version != 0) return false;
 
-    gain = swap_little_endian(*((float*)state));
+    gain = pull_bytesr<float>(istream);
     return true;
 }
 

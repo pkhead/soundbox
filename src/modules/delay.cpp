@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <imgui.h>
 #include <math.h>
+#include <sys/types.h>
 #include "../sys.h"
 #include "audio.h"
 #include "delay.h"
@@ -248,6 +249,7 @@ void DelayModule::_interface_proc()
 
 struct DelayModuleState
 {
+    uint8_t version;
     uint8_t delay_mode;
 
     union {
@@ -260,41 +262,39 @@ struct DelayModuleState
     float mix;
 };
 
-size_t DelayModule::save_state(void** output) const
+void DelayModule::save_state(std::ostream& ostream) const
 {
-    DelayModuleState* state = new DelayModuleState;
+    push_bytes<uint8_t>(ostream, 0); // write version
 
-    state->delay_mode = delay_mode;
+    bool delay_mode = this->delay_mode;
+    push_bytes<uint8_t>(ostream, delay_mode);
     
-    if (state->delay_mode)
-        state->tempo_division = swap_little_endian((int) tempo_division);
+    if (delay_mode)
+        push_bytes<uint32_t>(ostream, tempo_division);
     else
-        state->delay_time = swap_little_endian((float) delay_time);
-        
-    state->stereo_offset = swap_little_endian((float) stereo_offset);
-    state->feedback = swap_little_endian((float) feedback);
-    state->mix = swap_little_endian((float) mix);
-
-    *output = state;
-    return sizeof(*state);
+        push_bytes<float>(ostream, delay_time);
+    
+    push_bytes<float>(ostream, stereo_offset);
+    push_bytes<float>(ostream, feedback);
+    push_bytes<float>(ostream, mix);
 }
 
-bool DelayModule::load_state(void* state_ptr, size_t size)
+bool DelayModule::load_state(std::istream& istream, size_t size)
 {
-    if (size != sizeof(DelayModuleState)) return false;
-
-    DelayModuleState* state = static_cast<DelayModuleState*>(state_ptr);
+    uint8_t version = pull_bytesr<uint8_t>(istream);
+    if (version != 0) return false;
     
-    delay_mode = state->delay_mode;
+    bool delay_mode = pull_bytesr<uint8_t>(istream);
+    this->delay_mode = delay_mode;
     
-    if (state->delay_mode)
-        tempo_division = swap_little_endian(state->tempo_division);
+    if (delay_mode)
+        tempo_division = pull_bytesr<uint32_t>(istream);
     else
-        delay_time = swap_little_endian(state->delay_time);
+        delay_time = pull_bytesr<float>(istream);
 
-    stereo_offset = swap_little_endian(state->stereo_offset);
-    feedback = swap_little_endian(state->feedback);
-    mix = swap_little_endian(state->mix);
+    stereo_offset = pull_bytesr<float>(istream);
+    feedback = pull_bytesr<float>(istream);
+    mix = pull_bytesr<float>(istream);
 
     return true;
 }

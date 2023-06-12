@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../audio.h"
+#include <ostream>
 
 namespace audiomod {
     class WaveformSynth : public ModuleBase {
@@ -43,7 +44,7 @@ namespace audiomod {
         float release = 0.0f;
 
         void event(const NoteEvent& event) override;
-        size_t save_state(void** output) const override;
-        bool load_state(void* state, size_t size) override;
+        void save_state(std::ostream& output) const override;
+        bool load_state(std::istream& input, size_t size) override;
     };
 }

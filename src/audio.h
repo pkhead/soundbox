@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <functional>
+#include <ostream>
 #include <string>
 #include <atomic>
 #include <stddef.h>
@@ -148,11 +149,11 @@ namespace audiomod {
         // render the ImGui interface
         bool render_interface();
 
-        // report a newly allocated block of memory which holds the serialized state of the module
-        virtual size_t save_state(void** output) const { return 0; };
+        // write the serialized state of the module to a stream
+        virtual void save_state(std::ostream& ostream) const { return; };
 
         // load a serialized state. return true if successful, otherwise return false
-        virtual bool load_state(void* state, size_t size) { return true; };
+        virtual bool load_state(std::istream& istream, size_t size) { return true; };
 
         float* get_audio();
         virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) = 0;

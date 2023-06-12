@@ -1,4 +1,5 @@
 #include "waveform.h"
+#include <cstdint>
 #include <cstdlib>
 #include <imgui.h>
 #include "../sys.h"
@@ -228,7 +229,7 @@ void WaveformSynth::_interface_proc() {
     for (int osc = 0; osc < 3; osc++) {
         ImGui::PushID(osc);
 
-        snprintf(sep_text, 13, "Oscillator %i", osc);
+        snprintf(sep_text, 13, "Oscillator %i", osc + 1);
         ImGui::SeparatorText(sep_text);
 
         // waveform dropdown
@@ -318,6 +319,7 @@ struct WaveformSynthState_v1 {
     float fine[3];
 };
 
+// TODO: remove this too
 struct WaveformSynthState_v2 {
     uint8_t waveform_types[3];
     float volume[3];
@@ -328,61 +330,60 @@ struct WaveformSynthState_v2 {
     float atk, dky, sus, rls;
 };
 
-size_t WaveformSynth::save_state(void** output) const {
-    WaveformSynthState_v2* state = new WaveformSynthState_v2;
+struct WaveformSynthState_v3
+{
+    uint8_t version;
+    uint8_t waveform_types[3];
+    float volume[3];
+    float panning[3];
+    int32_t coarse[3];
+    float fine[3];
 
-    for (size_t osc = 0; osc < 3; osc++) {
-        state->waveform_types[osc] = static_cast<uint8_t>(waveform_types[osc]);
-        state->volume[osc] = swap_little_endian(volume[osc]);
-        state->panning[osc] = swap_little_endian(panning[osc]);
-        state->coarse[osc] = swap_little_endian(coarse[osc]);
-        state->fine[osc] = swap_little_endian(fine[osc]);
+    float atk, dky, sus, rls;
+};
+
+void WaveformSynth::save_state(std::ostream& ostream) const {
+    // write version
+    push_bytes<uint8_t>(ostream, 0);
+
+    // write oscillator config
+    for (size_t osc = 0; osc < 3; osc++)
+    {
+        push_bytes<uint8_t>(ostream, waveform_types[osc]);
+        push_bytes<float>(ostream, volume[osc]);
+        push_bytes<float>(ostream, panning[osc]);
+        push_bytes<int32_t>(ostream, coarse[osc]);
+        push_bytes<float>(ostream, fine[osc]);
     }
 
-    state->atk = attack;
-    state->dky = decay;
-    state->sus = sustain;
-    state->rls = release;
-
-    *output = state;
-    return sizeof(WaveformSynthState_v2);
+    // write envelope config
+    push_bytes<float>(ostream, attack);
+    push_bytes<float>(ostream, decay);
+    push_bytes<float>(ostream, sustain);
+    push_bytes<float>(ostream, release);
 }
 
-bool WaveformSynth::load_state(void* state_ptr, size_t size) {
-    switch(size) {
-        case sizeof(WaveformSynthState_v1): {
-            WaveformSynthState_v1* state = (WaveformSynthState_v1*)state_ptr;
+bool WaveformSynth::load_state(std::istream& istream, size_t size)
+{
+    // get version
+    uint8_t version = pull_bytesr<uint8_t>(istream);
+    if (version != 0) return false; // invalid version
 
-            for (size_t osc = 0; osc < 3; osc++) {
-                waveform_types[osc] = static_cast<WaveformType>(state->waveform_types[osc]);
-                volume[osc] = swap_little_endian(state->volume[osc]);
-                panning[osc] = swap_little_endian(state->panning[osc]);
-                coarse[osc] = swap_little_endian(state->coarse[osc]);
-                fine[osc] = swap_little_endian(state->fine[osc]);
-            }
-
-            return true;
-        }
-
-        case sizeof(WaveformSynthState_v2): {
-            WaveformSynthState_v2* state = (WaveformSynthState_v2*)state_ptr;
-
-            for (size_t osc = 0; osc < 3; osc++) {
-                waveform_types[osc] = static_cast<WaveformType>(state->waveform_types[osc]);
-                volume[osc] = swap_little_endian(state->volume[osc]);
-                panning[osc] = swap_little_endian(state->panning[osc]);
-                coarse[osc] = swap_little_endian(state->coarse[osc]);
-                fine[osc] = swap_little_endian(state->fine[osc]);
-            }
-
-            attack = state->atk;
-            decay = state->dky;
-            sustain = state->sus;
-            release = state->rls;
-
-            return true;
-        }
+    // read oscillator config
+    for (size_t osc = 0; osc < 3; osc++)
+    {
+        waveform_types[osc] = static_cast<WaveformType>(pull_bytesr<uint8_t>(istream));
+        volume[osc] = pull_bytesr<float>(istream);
+        panning[osc] = pull_bytesr<float>(istream);
+        coarse[osc] = pull_bytesr<float>(istream);
+        fine[osc] = pull_bytesr<float>(istream);
     }
 
-    return false;
+    // read envelope config
+    attack = pull_bytesr<float>(istream);
+    decay = pull_bytesr<float>(istream);
+    sustain = pull_bytesr<float>(istream);
+    release = pull_bytesr<float>(istream);
+
+    return true;
 }

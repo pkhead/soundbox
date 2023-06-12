@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <sstream>
 
 /*
 Song data structure:
@@ -60,18 +61,17 @@ struct file {
 
 static void save_module(std::ostream& out, audiomod::ModuleBase* mod)
 {
+    std::stringstream stream;
+
     // store module type
     push_bytes(out, (uint8_t) strlen(mod->id));
     out << mod->id;
 
     // store module state
-    uint8_t* mod_state = nullptr;
-    uint64_t mod_state_size = mod->save_state((void**)&mod_state);
-    push_bytes(out, mod_state_size);
-    if (mod_state != nullptr) {
-        out.write((char*)mod_state, mod_state_size);
-        delete mod_state;
-    }
+    mod->save_state(stream);
+    size_t state_size = stream.tellp();
+    push_bytes<uint64_t>(out, state_size);
+    if (state_size > 0) out << stream.rdbuf();
 }
 
 static audiomod::ModuleBase* load_module(std::istream& input, Song* song, std::string* error_msg)
@@ -95,12 +95,8 @@ static audiomod::ModuleBase* load_module(std::istream& input, Song* song, std::s
     uint64_t mod_state_size;
     pull_bytes(input, mod_state_size);
 
-    if (mod_state_size > 0) {
-        uint8_t* mod_state = new uint8_t[mod_state_size];
-        input.read((char*)mod_state, mod_state_size);
-        mod->load_state(mod_state, mod_state_size);
-        delete[] mod_state;
-    }
+    if (mod_state_size > 0)
+        mod->load_state(input, mod_state_size);
 
     delete[] inst_id;
     return mod;

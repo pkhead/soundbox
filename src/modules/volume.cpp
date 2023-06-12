@@ -49,26 +49,22 @@ struct VolumeModuleState {
     uint8_t mute;
 };
 
-size_t VolumeModule::save_state(void** output) const {
-    VolumeModuleState* state = new VolumeModuleState;
+void VolumeModule::save_state(std::ostream& ostream) const {
+    push_bytes<uint8_t>(ostream, 0); // write version
 
-    state->volume = swap_little_endian(volume);
-    state->panning = swap_little_endian(panning);
-    state->mute = mute;
-
-    *output = state;
-    return sizeof(VolumeModuleState);
+    push_bytes<float>(ostream, volume);
+    push_bytes<float>(ostream, panning);
+    push_bytes<uint8_t>(ostream, mute);
 }
 
-bool VolumeModule::load_state(void* state_ptr, size_t size)
+bool VolumeModule::load_state(std::istream& istream, size_t size)
 {
-    if (size != sizeof(VolumeModuleState)) return false;
+    uint8_t version = pull_bytesr<uint8_t>(istream);
+    if (version != 0) return false;
     
-    VolumeModuleState* state = (VolumeModuleState*)state_ptr;
-    
-    volume = swap_little_endian(state->volume);
-    panning = swap_little_endian(state->panning);
-    mute = state->mute;
+    volume = pull_bytesr<float>(istream);
+    panning = pull_bytesr<float>(istream);
+    mute = pull_bytesr<uint8_t>(istream);
     
     return true;
 }

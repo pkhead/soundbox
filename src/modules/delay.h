@@ -29,8 +29,8 @@ namespace audiomod
         // wet/dry mix
         std::atomic<float> mix;
 
-        size_t save_state(void** output) const override;
-        bool load_state(void* state, size_t size) override;
+        void save_state(std::ostream& ostream) const override;
+        bool load_state(std::istream&, size_t size) override;
 
         DelayModule(Song* song);
         ~DelayModule();

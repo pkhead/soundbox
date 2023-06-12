@@ -19,7 +19,7 @@ namespace audiomod
         bool mute_override = false;
 
         VolumeModule(Song* song);
-        size_t save_state(void** output) const override;
-        bool load_state(void* state, size_t size) override;
+        void save_state(std::ostream& ostream) const override;
+        bool load_state(std::istream&, size_t size) override;
     };
 }

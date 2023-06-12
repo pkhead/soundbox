@@ -11,8 +11,8 @@ namespace audiomod
     public:
         float gain = 0.0f;
 
-        size_t save_state(void** output) const override;
-        bool load_state(void* state, size_t size) override;
+        void save_state(std::ostream& ostream) const override;
+        bool load_state(std::istream& state, size_t size) override;
 
         GainModule(Song* song);
     };
