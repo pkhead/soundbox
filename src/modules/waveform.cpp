@@ -22,14 +22,14 @@ WaveformSynth::WaveformSynth(Song* song) : ModuleBase(song, true) {
     id = "synth.waveform";
     name = "Waveform Synth";
 
-    // generate data
+    // generate static data
     if (!PREPROCESSED_DATA_READY)
     {
         PREPROCESSED_DATA_READY = true;
 
         for (size_t i = 0; i < NOISE_DATA_SIZE; i++)
         {
-            NOISE_DATA[i] = (double)rand() / RAND_MAX;
+            NOISE_DATA[i] = (double)rand() / RAND_MAX * 2.0 - 1.0;
         }
     }
 
