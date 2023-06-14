@@ -104,13 +104,14 @@ private:
     std::vector<Change> changes;
 public:
     ~ChangeQueue();
-    
+
     bool active = false;
     void* data = nullptr;
     ImGuiID id;
 
     void push(ImGuiID id, void* data, size_t size);
     bool pop();
+    void finalize_pop();
     void clear();
 };
 

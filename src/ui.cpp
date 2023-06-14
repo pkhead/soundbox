@@ -120,6 +120,19 @@ void ui_init(Song& song, UserActionList& user_actions)
         }
     });
 
+    // undo/redo
+    user_actions.set_callback("undo", [&]()
+    {
+        if (!song.undo.pop())
+            show_status("Nothing to undo");
+    });
+
+    user_actions.set_callback("redo", [&]()
+    {
+        if (!song.redo.pop())
+            show_status("Nothing to redo");
+    });
+
     // song play/pause
     user_actions.set_callback("song_play_pause", [&song]() {
         song.is_playing = !song.is_playing;
@@ -490,9 +503,12 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-1.0f);
         ImGui::InputInt("###song_patterns", &max_patterns);
-        if (max_patterns != song.max_patterns() && max_patterns >= 1)
-            song.set_max_patterns(max_patterns);
-        change_detection(&song, &max_patterns);
+        if (max_patterns >= 1)
+        {
+            change_detection(&song, &max_patterns, ImGui::GetID("###song_patterns"));
+            if (max_patterns != song.max_patterns())
+                song.set_max_patterns(max_patterns);
+        }
 
         // project notes
         ImGui::Text("Project Notes");
@@ -519,7 +535,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::AlignTextToFramePadding();
             ImGui::Text("Volume");
             ImGui::SameLine();
-            ImGui::SliderFloat("##channel_volume", &volume, 0, 100, "%.0f");
+            ImGui::SliderFloat("##channel_volume", &volume, 0.0f, 100.0f, "%.0f");
             change_detection(&song, &volume);
             cur_channel->vol_mod.volume = volume / 100.0f;
         }

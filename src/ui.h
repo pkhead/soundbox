@@ -132,14 +132,13 @@ void show_status(const std::string& status_text);
 // custom input behavior for undo/redo
 // TODO: does not work for char*
 template <typename T>
-void change_detection(Song* song, T* value)
+void change_detection(Song* song, T* value, ImGuiID id = ImGui::GetItemID())
 {
-    ImGuiID id = ImGui::GetItemID();
     static T previous_value;
 
     if (ImGui::IsItemActivated())
     {
-        std::cout << "activated\n";
+        std::cout << id << " activated\n";
         previous_value = *value;
     }
 
@@ -148,27 +147,27 @@ void change_detection(Song* song, T* value)
         if (previous_value != *value) {
             std::cout << previous_value << " -> " << *value << "\n";
             song->undo.push(id, &previous_value, sizeof(T));
+            song->redo.clear();
         }
         else {
             std::cout << id << ": no change\n";
         }
     }
 
-    /*
     if (song->undo.active && song->undo.id == id)
     {
-        song->redo.push(value, sizeof(T));
-        T* new_value = (T*) song->undo.value;
+        song->redo.push(id, value, sizeof(T));
+        T* new_value = (T*) song->undo.data;
+        std::cout << *new_value << "\n";
         *value = *new_value;
     }
 
     if (song->redo.active && song->redo.id == id)
     {
-        song->undo.push(value, sizeof(T));
-        T* new_value = (T*) song->redo.value;
+        song->undo.push(id, value, sizeof(T));
+        T* new_value = (T*) song->redo.data;
         *value = *new_value;
     }
-    */
 }
 
 

@@ -215,8 +215,7 @@ void Tuning::analyze()
 
 ChangeQueue::~ChangeQueue()
 {
-    for (Change& change : changes)
-        free(change.data);
+    clear();
 }
 
 void ChangeQueue::push(ImGuiID id, void* data, size_t size)
@@ -244,7 +243,7 @@ bool ChangeQueue::pop()
     return true;
 }
 
-void ChangeQueue::clear()
+void ChangeQueue::finalize_pop()
 {
     if (active)
     {
@@ -253,6 +252,14 @@ void ChangeQueue::clear()
         active = false;
         changes.pop_back();
     }
+}
+
+void ChangeQueue::clear()
+{
+    for (Change& change : changes)
+        free(change.data);
+
+    changes.clear();
 }
 
 /*************************
