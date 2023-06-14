@@ -42,6 +42,7 @@ set(SOURCES
     src/serialize.cpp
     src/audio.cpp
     src/ui.cpp
+    src/ui_interact.cpp
     src/sys.cpp
     src/audiofile.cpp
     src/pattern_editor.cpp

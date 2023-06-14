@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <math.h>
 #include "audio.h"
 #include "song.h"
@@ -127,6 +128,49 @@ void pop_btn_disabled();
 
 void show_status(const char* fmt, ...);
 void show_status(const std::string& status_text);
+
+// custom input behavior for undo/redo
+// TODO: does not work for char*
+template <typename T>
+void change_detection(Song* song, T* value)
+{
+    ImGuiID id = ImGui::GetItemID();
+    static T previous_value;
+
+    if (ImGui::IsItemActivated())
+    {
+        std::cout << "activated\n";
+        previous_value = *value;
+    }
+
+    if (ImGui::IsItemDeactivatedAfterEdit())
+    {
+        if (previous_value != *value) {
+            std::cout << previous_value << " -> " << *value << "\n";
+            // song->push_undo(&previous_value, sizeof(T));
+        }
+        else {
+            std::cout << id << ": no change\n";
+        }
+    }
+
+    /*
+    if (song->current_undo.active && song->current_undo.id == id)
+    {
+        song->push_redo(value, sizeof(T));
+        T* new_value = (T*) song->current_undo.value;
+        *value = *new_value;
+    }
+
+    if (song->current_redo.active && song->current_redo.id == id)
+    {
+        song->push_undo(value, sizeof(T));
+        T* new_value = (T*) song->current_redo.value;
+        *value = *new_value;
+    }
+    */
+}
+
 
 // if action = 0, do nothing
 // if action = 1, edit selected module
