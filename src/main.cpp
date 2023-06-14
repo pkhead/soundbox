@@ -832,6 +832,9 @@ int main()
             
             ImGui::Render();
 
+            song->undo.clear();
+            song->undo.clear();
+
             glfwSwapBuffers(window);
 
             glViewport(0, 0, display_w, display_h);

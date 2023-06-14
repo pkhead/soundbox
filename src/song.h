@@ -91,6 +91,29 @@ struct Tuning
     void analyze();
 };
 
+class ChangeQueue
+{
+private:
+    struct Change
+    {
+        ImGuiID id;
+        void* data;
+        size_t size;
+    };
+
+    std::vector<Change> changes;
+public:
+    ~ChangeQueue();
+    
+    bool active = false;
+    void* data = nullptr;
+    ImGuiID id;
+
+    void push(ImGuiID id, void* data, size_t size);
+    bool pop();
+    void clear();
+};
+
 class Song {
 private:
     int _length;
@@ -143,6 +166,10 @@ public:
 
     std::vector<audiomod::ModuleBase*> mod_interfaces;
     std::vector<audiomod::FXBus*> fx_interfaces;
+
+    // change history
+    ChangeQueue undo;
+    ChangeQueue redo;
 
     // An effect index of -1 means the instrument module
     void toggle_module_interface(audiomod::ModuleBase* mod);

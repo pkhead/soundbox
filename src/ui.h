@@ -147,7 +147,7 @@ void change_detection(Song* song, T* value)
     {
         if (previous_value != *value) {
             std::cout << previous_value << " -> " << *value << "\n";
-            // song->push_undo(&previous_value, sizeof(T));
+            song->undo.push(id, &previous_value, sizeof(T));
         }
         else {
             std::cout << id << ": no change\n";
@@ -155,17 +155,17 @@ void change_detection(Song* song, T* value)
     }
 
     /*
-    if (song->current_undo.active && song->current_undo.id == id)
+    if (song->undo.active && song->undo.id == id)
     {
-        song->push_redo(value, sizeof(T));
-        T* new_value = (T*) song->current_undo.value;
+        song->redo.push(value, sizeof(T));
+        T* new_value = (T*) song->undo.value;
         *value = *new_value;
     }
 
-    if (song->current_redo.active && song->current_redo.id == id)
+    if (song->redo.active && song->redo.id == id)
     {
-        song->push_undo(value, sizeof(T));
-        T* new_value = (T*) song->current_redo.value;
+        song->undo.push(value, sizeof(T));
+        T* new_value = (T*) song->redo.value;
         *value = *new_value;
     }
     */

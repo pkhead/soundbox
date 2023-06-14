@@ -210,6 +210,52 @@ void Tuning::analyze()
 }
 
 /*************************
+*      CHANGE QUEUE      *
+*************************/
+
+ChangeQueue::~ChangeQueue()
+{
+    for (Change& change : changes)
+        free(change.data);
+}
+
+void ChangeQueue::push(ImGuiID id, void* data, size_t size)
+{
+    // allocate copy of data
+    void* copy = malloc(size);
+    memcpy(copy, data, size);
+
+    Change change;
+    change.id = id;
+    change.data = copy;
+    change.size = size;
+    changes.push_back(change);
+}
+
+bool ChangeQueue::pop()
+{
+    if (changes.empty()) return false;
+    Change& cur_change = changes.back();
+
+    id = cur_change.id;
+    data = cur_change.data;
+    active = true;
+
+    return true;
+}
+
+void ChangeQueue::clear()
+{
+    if (active)
+    {
+        free(changes.back().data);
+        
+        active = false;
+        changes.pop_back();
+    }
+}
+
+/*************************
 *         SONG           *
 *************************/
 
