@@ -210,59 +210,6 @@ void Tuning::analyze()
 }
 
 /*************************
-*      CHANGE QUEUE      *
-*************************/
-
-ChangeQueue::~ChangeQueue()
-{
-    clear();
-}
-
-void ChangeQueue::push(ImGuiID id, void* data, size_t size)
-{
-    // allocate copy of data
-    void* copy = malloc(size);
-    memcpy(copy, data, size);
-
-    Change change;
-    change.id = id;
-    change.data = copy;
-    change.size = size;
-    changes.push_back(change);
-}
-
-bool ChangeQueue::pop()
-{
-    if (changes.empty()) return false;
-    Change& cur_change = changes.back();
-
-    id = cur_change.id;
-    data = cur_change.data;
-    active = true;
-
-    return true;
-}
-
-void ChangeQueue::finalize_pop()
-{
-    if (active)
-    {
-        free(changes.back().data);
-        
-        active = false;
-        changes.pop_back();
-    }
-}
-
-void ChangeQueue::clear()
-{
-    for (Change& change : changes)
-        free(change.data);
-
-    changes.clear();
-}
-
-/*************************
 *         SONG           *
 *************************/
 
@@ -303,6 +250,11 @@ Song::~Song() {
     for (audiomod::FXBus* bus : fx_mixer)
     {
         delete bus;
+    }
+
+    for (auto it : ui_values)
+    {
+        free(it.second);
     }
 }
 

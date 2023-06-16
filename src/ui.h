@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <math.h>
@@ -130,36 +131,54 @@ void show_status(const char* fmt, ...);
 void show_status(const std::string& status_text);
 
 // custom input behavior for undo/redo
-// TODO: does not work for char*
+// TODO: does not work for properly for char*
 template <typename T>
 void change_detection(Song* song, T* value, ImGuiID id = ImGui::GetItemID())
 {
-    static T previous_value;
+    // if previous value for this id is not found
+    // write initial value
+    void* val_alloc;
 
-    if (ImGui::IsItemActivated())
+    if (song->ui_values.find(value) == song->ui_values.end())
     {
-        std::cout << id << " activated\n";
-        previous_value = *value;
+        val_alloc = malloc(sizeof(T));
+        memcpy(val_alloc, value, sizeof(T));
+        song->ui_values[value] = val_alloc;
     }
+    else
+        val_alloc = song->ui_values[value];
 
     if (ImGui::IsItemDeactivatedAfterEdit())
     {
-        if (previous_value != *value) {
-            std::cout << previous_value << " -> " << *value << "\n";
-            song->undo.push(id, &previous_value, sizeof(T));
+        T* previous_value = static_cast<T*>(val_alloc);
+
+        if (*previous_value != *value) {
+            std::cout << *previous_value << " -> " << *value << "\n";
+            song->undo.push(new ValueChangeAction(value, val_alloc, sizeof(T)));
             song->redo.clear();
+
+            // write new previous value
+            memcpy(previous_value, value, sizeof(T));
         }
         else {
-            std::cout << id << ": no change\n";
+            std::cout << "no change\n";
         }
     }
 
+    /*
     if (song->undo.active && song->undo.id == id)
     {
+
         song->redo.push(id, value, sizeof(T));
         T* new_value = (T*) song->undo.data;
         std::cout << *new_value << "\n";
         *value = *new_value;
+
+        // write new previous value
+        T* previous_value = static_cast<T*>(song->ui_values[id]);
+        memcpy(previous_value, value, sizeof(T));
+
+        std::cout << "previous value: " << *previous_value << "\n";
     }
 
     if (song->redo.active && song->redo.id == id)
@@ -167,7 +186,12 @@ void change_detection(Song* song, T* value, ImGuiID id = ImGui::GetItemID())
         song->undo.push(id, value, sizeof(T));
         T* new_value = (T*) song->redo.data;
         *value = *new_value;
+
+        // write new previous value
+        T* previous_value = static_cast<T*>(song->ui_values[id]);
+        memcpy(previous_value, value, sizeof(T));
     }
+    */
 }
 
 

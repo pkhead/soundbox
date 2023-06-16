@@ -1,4 +1,5 @@
 #pragma once
+#include <unordered_map>
 #include <vector>
 #include <ostream>
 #include <istream>
@@ -9,6 +10,7 @@
 #include <Tunings.h>
 #include "audio.h"
 #include "imgui.h"
+#include "change_history.h"
 #include "modules/volume.h"
 
 struct Note {
@@ -91,30 +93,6 @@ struct Tuning
     void analyze();
 };
 
-class ChangeQueue
-{
-private:
-    struct Change
-    {
-        ImGuiID id;
-        void* data;
-        size_t size;
-    };
-
-    std::vector<Change> changes;
-public:
-    ~ChangeQueue();
-
-    bool active = false;
-    void* data = nullptr;
-    ImGuiID id;
-
-    void push(ImGuiID id, void* data, size_t size);
-    bool pop();
-    void finalize_pop();
-    void clear();
-};
-
 class Song {
 private:
     int _length;
@@ -168,6 +146,9 @@ public:
     std::vector<audiomod::ModuleBase*> mod_interfaces;
     std::vector<audiomod::FXBus*> fx_interfaces;
 
+    // the previous values of monitored UI inputs
+    std::unordered_map<void*, void*> ui_values;
+    
     // change history
     ChangeQueue undo;
     ChangeQueue redo;

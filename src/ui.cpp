@@ -123,7 +123,17 @@ void ui_init(Song& song, UserActionList& user_actions)
     // undo/redo
     user_actions.set_callback("undo", [&]()
     {
-        if (!song.undo.pop())
+        ChangeAction* action;
+
+        if ((action = song.undo.pop()) != nullptr) {
+            // i feel like using inheritance for this was a bad idea
+            if (action->change_type == ChangeActionType::Value) {
+                ValueChangeAction* subclass = (ValueChangeAction*) action;
+                memcpy(song.ui_values[subclass->address], subclass->data, subclass->size); 
+            }
+
+            free(action);
+        } else
             show_status("Nothing to undo");
     });
 
@@ -502,10 +512,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         // max patterns input
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-1.0f);
+        int old_max_patterns = max_patterns;
         ImGui::InputInt("###song_patterns", &max_patterns);
         if (max_patterns >= 1)
         {
-            change_detection(&song, &max_patterns, ImGui::GetID("###song_patterns"));
             if (max_patterns != song.max_patterns())
                 song.set_max_patterns(max_patterns);
         }
@@ -536,8 +546,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::Text("Volume");
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_volume", &volume, 0.0f, 100.0f, "%.0f");
-            change_detection(&song, &volume);
             cur_channel->vol_mod.volume = volume / 100.0f;
+            change_detection(&song, &cur_channel->vol_mod.volume);
         }
 
         // panning slider
