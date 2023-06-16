@@ -832,9 +832,6 @@ int main()
             
             ImGui::Render();
 
-            song->undo.finalize_pop();
-            song->redo.finalize_pop();
-
             glfwSwapBuffers(window);
 
             glViewport(0, 0, display_w, display_h);

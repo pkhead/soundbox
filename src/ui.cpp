@@ -124,22 +124,32 @@ void ui_init(Song& song, UserActionList& user_actions)
     user_actions.set_callback("undo", [&]()
     {
         ChangeAction* action;
-
-        if ((action = song.undo.pop()) != nullptr) {
+        
+        if ((action = song.undo.undo()) != nullptr) {
             // i feel like using inheritance for this was a bad idea
             if (action->change_type == ChangeActionType::Value) {
                 ValueChangeAction* subclass = (ValueChangeAction*) action;
-                memcpy(song.ui_values[subclass->address], subclass->data, subclass->size); 
+                memcpy(song.ui_values[subclass->address], subclass->old_data, subclass->size); 
             }
-
-            free(action);
+            
+            song.redo.push(action);
         } else
             show_status("Nothing to undo");
     });
 
     user_actions.set_callback("redo", [&]()
     {
-        if (!song.redo.pop())
+        ChangeAction* action;
+        
+        if ((action = song.redo.redo()) != nullptr) {
+            // i feel like using inheritance for this was a bad idea
+            if (action->change_type == ChangeActionType::Value) {
+                ValueChangeAction* subclass = (ValueChangeAction*) action;
+                memcpy(song.ui_values[subclass->address], subclass->new_data, subclass->size); 
+            }
+            
+            song.undo.push(action);
+        } else
             show_status("Nothing to redo");
     });
 

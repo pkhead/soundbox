@@ -14,21 +14,24 @@ public:
     virtual ~ChangeAction() {};
     ChangeActionType change_type = ChangeActionType::Unknown;
 
-    virtual void set() = 0;
+    virtual void undo() = 0;
+    virtual void redo() = 0;
     virtual bool can_merge(ChangeAction* other) = 0;
 };
 
 class ValueChangeAction : public ChangeAction
 {
 public:
-    ValueChangeAction(void* address, void* data, size_t size);
+    ValueChangeAction(void* address, void* old_data, void* new_data, size_t size);
     ~ValueChangeAction();
 
     void* address;
-    void* data;
+    void* old_data;
+    void* new_data;
     size_t size;
 
-    void set() override;
+    void undo() override;
+    void redo() override;
     bool can_merge(ChangeAction* other) override;
 };
 
@@ -42,7 +45,7 @@ public:
     ChangeAction* cur_change = nullptr;
 
     void push(ChangeAction* action);
-    ChangeAction* pop();
-    void finalize_pop();
+    ChangeAction* undo();
+    ChangeAction* redo();
     void clear();
 };

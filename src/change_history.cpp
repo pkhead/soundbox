@@ -2,21 +2,31 @@
 #include <cstdlib>
 #include <cstring>
 
-ValueChangeAction::ValueChangeAction(void* address, void* data, size_t size) : address(address), size(size)
+ValueChangeAction::ValueChangeAction(void* address, void* old_data, void* new_data, size_t size) : address(address), size(size)
 {
-    this->data = malloc(size);
-    memcpy(this->data, data, size);
+    this->old_data = malloc(size);
+    this->new_data = malloc(size);
+
+    memcpy(this->old_data, old_data, size);
+    memcpy(this->new_data, new_data, size);
+
     change_type = ChangeActionType::Value;
 }
 
 ValueChangeAction::~ValueChangeAction()
 {
-    free(data);
+    free(old_data);
+    free(new_data);
 }
 
-void ValueChangeAction::set()
+void ValueChangeAction::undo()
 {
-    memcpy(address, data, size);
+    memcpy(address, old_data, size);
+}
+
+void ValueChangeAction::redo()
+{
+    memcpy(address, new_data, size);
 }
 
 bool ValueChangeAction::can_merge(ChangeAction* other)
@@ -46,25 +56,26 @@ void ChangeQueue::push(ChangeAction* change_action)
     }
 }
 
-ChangeAction* ChangeQueue::pop()
+ChangeAction* ChangeQueue::undo()
 {
     if (changes.empty()) return nullptr;
     
     ChangeAction* change = changes.back();
-    change->set();
+    change->undo();
     changes.pop_back();
 
     return change;
 }
 
-void ChangeQueue::finalize_pop()
+ChangeAction* ChangeQueue::redo()
 {
-    if (cur_change != nullptr)
-    {
-        delete cur_change;
-        cur_change = nullptr;
-        changes.pop_back();
-    }
+    if (changes.empty()) return nullptr;
+
+    ChangeAction* change = changes.back();
+    change->redo();
+    changes.pop_back();
+
+    return change;
 }
 
 void ChangeQueue::clear()

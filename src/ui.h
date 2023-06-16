@@ -154,7 +154,7 @@ void change_detection(Song* song, T* value, ImGuiID id = ImGui::GetItemID())
 
         if (*previous_value != *value) {
             std::cout << *previous_value << " -> " << *value << "\n";
-            song->undo.push(new ValueChangeAction(value, val_alloc, sizeof(T)));
+            song->undo.push(new ValueChangeAction(value, val_alloc, value, sizeof(T)));
             song->redo.clear();
 
             // write new previous value
