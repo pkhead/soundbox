@@ -474,8 +474,14 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
         ImGui::SetNextItemWidth(-1.0f);
         ImGui::DragFloat("###song_tempo", &song.tempo, 1.0f, 0.0f, 5000.0f, "%.3f");
         if (song.tempo < 0) song.tempo = 0;
-        //change_detection(&song, &song.tempo);
 
+        {
+            float prev;
+            if (change_detection(editor, song.tempo, &prev)) {
+                editor.undo_queue.push(new change::ChangeSongTempo(prev, song.tempo));
+            }
+        }
+        
         // TODO: controller/mod channels
         if (ImGui::BeginPopupContextItem()) {
             ImGui::Selectable("Add to selected modulator", false);

@@ -143,66 +143,42 @@ enum class ValueType : uint8_t
 
 // custom input behavior for undo/redo
 // TODO: does not work for properly for char*
-/*
 template <typename T>
-void change_detection(Song* song, T* value, ChangeActionType change_type, ValueType value_type)
+bool change_detection(SongEditor& editor, T value, T* previous_value_out, ImGuiID id = ImGui::GetItemID())
 {
     // if previous value for this id is not found
     // write initial value
     void* val_alloc;
 
-    if (song->ui_values.find(value) == song->ui_values.end())
+    if (editor.ui_values.find(id) == editor.ui_values.end())
     {
         val_alloc = malloc(sizeof(T));
-        memcpy(val_alloc, value, sizeof(T));
-        song->ui_values[value] = val_alloc;
+        memcpy(val_alloc, &value, sizeof(T));
+        editor.ui_values[id] = val_alloc;
     }
     else
-        val_alloc = song->ui_values[value];
+        val_alloc = editor.ui_values[id];
 
     if (ImGui::IsItemDeactivatedAfterEdit())
     {
         T* previous_value = static_cast<T*>(val_alloc);
 
-        if (*previous_value != *value) {
-            std::cout << *previous_value << " -> " << *value << "\n";
-            
-            ChangeAction action;
-            action.type = change_type;
-            
-            // write value (w/ type conversions if needed)
-            switch (value_type)
-            {
-                case ValueType::Null: {
-                    std::cerr << "error: ValueType was NULL";
-                    exit(1);
-                    break;
-                }
-
-                case ValueType::Float: {
-                    action.type_float.old_value = *previous_value;
-                    action.type_float.new_value = *value;
-                    break;
-                }
-
-                case ValueType::Int: {
-                    action.type_int.old_value = *previous_value;
-                    action.type_int.new_value = *value;
-                    break;
-                }
-            }
-
-            song->push_change(action);
+        if (*previous_value != value) {
+            std::cout << *previous_value << " -> " << value << "\n";
+            *previous_value_out = *previous_value;
 
             // write new previous value
-            memcpy(previous_value, value, sizeof(T));
+            memcpy(previous_value, &value, sizeof(T));
+
+            return true;
         }
         else {
             std::cout << "no change\n";
         }
     }
+
+    return false;
 }
-*/
 
 // if action = 0, do nothing
 // if action = 1, edit selected module

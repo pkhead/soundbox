@@ -1,6 +1,76 @@
 #include "editor.h"
 #include "audio.h"
 
+////////////////////
+// CHANGE ACTIONS //
+////////////////////
+
+// Song Tempo //
+
+change::ChangeSongTempo::ChangeSongTempo(float old_tempo, float new_tempo)
+    : old_tempo(old_tempo), new_tempo(new_tempo)
+    {}
+
+void change::ChangeSongTempo::undo(SongEditor& editor) {
+    editor.song.tempo = old_tempo;
+}
+
+void change::ChangeSongTempo::redo(SongEditor& editor) {
+    editor.song.tempo = new_tempo;
+}
+
+bool change::ChangeSongTempo::merge(change::Action* other)
+{
+    if (get_type() != other->get_type()) return false;
+    ChangeSongTempo* sub = static_cast<ChangeSongTempo*>(other);
+    new_tempo = sub->new_tempo;
+    return true;
+}
+
+//////////////////
+// CHANGE QUEUE //
+//////////////////
+
+change::Queue::~Queue()
+{
+    clear();
+}
+
+void change::Queue::push(change::Action* change_action)
+{
+    // merge change if possible
+    if (!changes.empty() && changes.back()->merge(change_action))
+    {
+        delete change_action;
+        return;
+    }
+    else
+    {
+        changes.push_back(change_action);
+    }
+}
+
+change::Action* change::Queue::pop()
+{
+    Action* action = changes.back();
+    changes.pop_back();
+    return action;
+}
+
+void change::Queue::clear()
+{
+    for (Action* action : changes)
+    {
+        delete action;
+    }
+
+    changes.clear();
+}
+
+/////////////////
+// SONG EDITOR //
+/////////////////
+
 SongEditor::SongEditor(Song& song) :
     song(song)
 {
