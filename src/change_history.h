@@ -1,51 +1,49 @@
+#pragma once
+
 #include <cstdint>
 #include <imgui.h>
 #include <vector>
+#include "song.h"
 
 enum class ChangeActionType : uint8_t
 {
     Unknown = 0,
-    Value
+    SongTempo,
+    SongMaxPatterns,
+    ChannelVolume,
+    ChannelPanning,
 };
 
 class ChangeAction
 {
 public:
     virtual ~ChangeAction() {};
-    ChangeActionType change_type = ChangeActionType::Unknown;
 
-    virtual void undo() = 0;
-    virtual void redo() = 0;
-    virtual bool can_merge(ChangeAction* other) = 0;
+    virtual bool get_type() const;
+    virtual void undo();
+    virtual void redo();
+    virtual bool can_merge(const ChangeAction& other) const;
 };
 
-class ValueChangeAction : public ChangeAction
+class ChangeSongTempo : ChangeAction
 {
 public:
-    ValueChangeAction(void* address, void* old_data, void* new_data, size_t size);
-    ~ValueChangeAction();
+    ChangeSongTempo(float old_tempo, float new_tempo);
 
-    void* address;
-    void* old_data;
-    void* new_data;
-    size_t size;
-
+    bool get_type() const override;
     void undo() override;
     void redo() override;
-    bool can_merge(ChangeAction* other) override;
+    bool can_merge(const ChangeAction& other) const override;
 };
 
 class ChangeQueue
 {
 private:
-    std::vector<ChangeAction*> changes;
+    std::vector<ChangeAction> changes;
 public:
     ~ChangeQueue();
-    
-    ChangeAction* cur_change = nullptr;
 
-    void push(ChangeAction* action);
-    ChangeAction* undo();
-    ChangeAction* redo();
+    void push(const ChangeAction&& action);
+    ChangeAction pop();
     void clear();
 };

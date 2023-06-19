@@ -8,6 +8,7 @@
 #include "modules/modules.h"
 #include "imgui.h"
 #include "song.h"
+#include "editor.h"
 #include "ui.h"
 
 constexpr char APP_VERSION[] = "0.1.0";
@@ -87,7 +88,7 @@ void show_status(const std::string& text)
     status_time = -30.0;
 }
 
-void ui_init(Song& song, UserActionList& user_actions)
+void ui_init(SongEditor& editor, UserActionList& user_actions)
 {
     // write version string
 #ifdef DEBUG
@@ -96,62 +97,43 @@ void ui_init(Song& song, UserActionList& user_actions)
     snprintf(VERSION_STR, 64, "version %s / %s", APP_VERSION, FILE_VERSION);
 #endif
 
+    Song& song = editor.song;
     show_about_window = false;
 
     // copy+paste
     // TODO use system clipboard
     user_actions.set_callback("copy", [&]() {
-        Channel* channel = song.channels[song.selected_channel];
-        int pattern_id = channel->sequence[song.selected_bar];
+        Channel* channel = song.channels[editor.selected_channel];
+        int pattern_id = channel->sequence[editor.selected_bar];
         if (pattern_id > 0) {
             Pattern* pattern = channel->patterns[pattern_id - 1];
-            song.note_clipboard = pattern->notes;
+            editor.note_clipboard = pattern->notes;
         }
     });
 
     user_actions.set_callback("paste", [&]() {
-        if (!song.note_clipboard.empty()) {
-            Channel* channel = song.channels[song.selected_channel];
-            int pattern_id = channel->sequence[song.selected_bar];
+        if (!editor.note_clipboard.empty()) {
+            Channel* channel = song.channels[editor.selected_channel];
+            int pattern_id = channel->sequence[editor.selected_bar];
             if (pattern_id > 0) {
                 Pattern* pattern = channel->patterns[pattern_id - 1];
-                pattern->notes = song.note_clipboard;
+                pattern->notes = editor.note_clipboard;
             }
         }
     });
 
     // undo/redo
-    user_actions.set_callback("undo", [&]()
+    /*user_actions.set_callback("undo", [&]()
     {
-        ChangeAction* action;
-        
-        if ((action = song.undo.undo()) != nullptr) {
-            // i feel like using inheritance for this was a bad idea
-            if (action->change_type == ChangeActionType::Value) {
-                ValueChangeAction* subclass = (ValueChangeAction*) action;
-                memcpy(song.ui_values[subclass->address], subclass->old_data, subclass->size); 
-            }
-            
-            song.redo.push(action);
-        } else
+        if (!song.undo())
             show_status("Nothing to undo");
     });
 
     user_actions.set_callback("redo", [&]()
     {
-        ChangeAction* action;
-        
-        if ((action = song.redo.redo()) != nullptr) {
-            // i feel like using inheritance for this was a bad idea
-            if (action->change_type == ChangeActionType::Value) {
-                ValueChangeAction* subclass = (ValueChangeAction*) action;
-                memcpy(song.ui_values[subclass->address], subclass->new_data, subclass->size); 
-            }
-            
-            song.undo.push(action);
-        } else
+        if (!song.redo())
             show_status("Nothing to redo");
-    });
+    });*/
 
     // song play/pause
     user_actions.set_callback("song_play_pause", [&song]() {
@@ -187,56 +169,56 @@ void ui_init(Song& song, UserActionList& user_actions)
     });
 
     // mute selected channel
-    user_actions.set_callback("mute_channel", [&song]() {
-        Channel* ch = song.channels[song.selected_channel];
+    user_actions.set_callback("mute_channel", [&]() {
+        Channel* ch = editor.song.channels[editor.selected_channel];
         ch->vol_mod.mute = !ch->vol_mod.mute;
     });
 
     // solo selected channel
-    user_actions.set_callback("solo_channel", [&song]() {
-        Channel* ch = song.channels[song.selected_channel];
+    user_actions.set_callback("solo_channel", [&]() {
+        Channel* ch = song.channels[editor.selected_channel];
         ch->solo = !ch->solo;
     });
 
     // create new channel
-    user_actions.set_callback("new_channel", [&song]() {
-        song.selected_channel++;
-        song.insert_channel(song.selected_channel);
+    user_actions.set_callback("new_channel", [&]() {
+        editor.selected_channel++;
+        song.insert_channel(editor.selected_channel);
     });
 
     // delete selected channel
-    user_actions.set_callback("remove_channel", [&song]() {
+    user_actions.set_callback("remove_channel", [&]() {
         if (song.channels.size() > 1)
         {
-            song.remove_channel(song.selected_channel);
-            if (song.selected_channel > 0) song.selected_channel--;
+            song.remove_channel(editor.selected_channel);
+            if (editor.selected_channel > 0) editor.selected_channel--;
         }
     });
 
     // insert bar
-    user_actions.set_callback("insert_bar", [&song]() {
-        song.selected_bar++;
-        song.insert_bar(song.selected_bar);
+    user_actions.set_callback("insert_bar", [&]() {
+        editor.selected_bar++;
+        song.insert_bar(editor.selected_bar);
     });
 
     // insert bar before
-    user_actions.set_callback("insert_bar_before", [&song]() {
-        song.insert_bar(song.selected_bar);
+    user_actions.set_callback("insert_bar_before", [&]() {
+        song.insert_bar(editor.selected_bar);
     });
 
     // delete bar
-    user_actions.set_callback("remove_bar", [&song]() {
+    user_actions.set_callback("remove_bar", [&]() {
         if (song.length() > 1)
         {
-            song.remove_bar(song.selected_bar);
-            if (song.selected_bar > 0) song.selected_bar--;
+            song.remove_bar(editor.selected_bar);
+            if (editor.selected_bar > 0) editor.selected_bar--;
         }
     });
 
     // insert new pattern
-    user_actions.set_callback("new_pattern", [&song]() {
-        int pattern_id = song.new_pattern(song.selected_channel);
-        song.channels[song.selected_channel]->sequence[song.selected_bar] = pattern_id + 1;
+    user_actions.set_callback("new_pattern", [&]() {
+        int pattern_id = song.new_pattern(editor.selected_channel);
+        song.channels[editor.selected_channel]->sequence[editor.selected_bar] = pattern_id + 1;
     });
 }
 
@@ -249,8 +231,10 @@ void ui_init(Song& song, UserActionList& user_actions)
 
 
 
-EffectsInterfaceAction effect_rack_ui(Song* song, audiomod::EffectsRack* effects_rack, const char* parent_name, int* selected_index)
+EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* effects_rack, const char* parent_name, int* selected_index)
 {
+    Song* song = &editor->song;
+
     std::mutex& mutex = song->mutex;
     EffectsInterfaceAction action = EffectsInterfaceAction::Nothing;
 
@@ -349,8 +333,9 @@ EffectsInterfaceAction effect_rack_ui(Song* song, audiomod::EffectsRack* effects
     if (ImGui::MenuItem(label, user_actions.combo_str(action_name))) \
         deferred_actions.push_back(action_name)
 
-void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
+void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
+    Song& song = editor.song;
     static char char_buf[64];
 
     ImGui::NewFrame();
@@ -416,7 +401,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::Separator();
 
             if (ImGui::MenuItem("Tuning..."))
-                song.show_tuning_window = !song.show_tuning_window;
+                editor.show_tuning_window = !editor.show_tuning_window;
             
             ImGui::EndMenu();
         }
@@ -489,7 +474,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         ImGui::SetNextItemWidth(-1.0f);
         ImGui::DragFloat("###song_tempo", &song.tempo, 1.0f, 0.0f, 5000.0f, "%.3f");
         if (song.tempo < 0) song.tempo = 0;
-        change_detection(&song, &song.tempo);
+        //change_detection(&song, &song.tempo);
 
         // TODO: controller/mod channels
         if (ImGui::BeginPopupContextItem()) {
@@ -527,7 +512,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         if (max_patterns >= 1)
         {
             if (max_patterns != song.max_patterns())
+            {
                 song.set_max_patterns(max_patterns);
+                //song.undo.push(new MaxPatternsChangeAction(&song, old_max_patterns, song.max_patterns()));
+            }
         }
 
         // project notes
@@ -539,7 +527,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     // CHANNEL SETTINGS //
     //////////////////////
 
-    Channel* cur_channel = song.channels[song.selected_channel];
+    Channel* cur_channel = song.channels[editor.selected_channel];
 
     if (ImGui::Begin("Channel Settings")) {
         // channel name
@@ -557,7 +545,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_volume", &volume, 0.0f, 100.0f, "%.0f");
             cur_channel->vol_mod.volume = volume / 100.0f;
-            change_detection(&song, &cur_channel->vol_mod.volume);
+            //change_detection(&song, &cur_channel->vol_mod.volume);
         }
 
         // panning slider
@@ -566,7 +554,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             ImGui::Text("Panning");
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_panning", &cur_channel->vol_mod.panning, -1, 1, "%.2f");
-            change_detection(&song, &cur_channel->vol_mod.panning);
+            //change_detection(&song, &cur_channel->vol_mod.panning);
         }
 
         
@@ -627,14 +615,14 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         // edit loaded instrument
         if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
         {
-            song.toggle_module_interface(cur_channel->synth_mod);
+            editor.toggle_module_interface(cur_channel->synth_mod);
         }
 
         int target_index;
-        switch (effect_rack_ui(&song, &cur_channel->effects_rack, cur_channel->name, &target_index))
+        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, cur_channel->name, &target_index))
         {
             case EffectsInterfaceAction::Edit:
-                song.toggle_module_interface(cur_channel->effects_rack.modules[target_index]);
+                editor.toggle_module_interface(cur_channel->effects_rack.modules[target_index]);
                 break;
 
             case EffectsInterfaceAction::Delete: {
@@ -643,7 +631,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                 audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(target_index);
                 if (mod != nullptr) {
-                    song.hide_module_interface(mod);
+                    editor.hide_module_interface(mod);
                     delete mod;
                 }
 
@@ -665,13 +653,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     //////////////////
     // TRACK EDITOR //
     //////////////////
-    render_track_editor(io, song);
+    render_track_editor(editor);
 
 
     ////////////////////
     // PATTERN EDITOR //
     ////////////////////
-    render_pattern_editor(io, song);
+    render_pattern_editor(editor);
 
     ////////////////////
     //    FX MIXER    //
@@ -763,13 +751,13 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     
 
     // render module interfaces
-    for (size_t i = 0; i < song.mod_interfaces.size();)
+    for (size_t i = 0; i < editor.mod_interfaces.size();)
     {
-        auto mod = song.mod_interfaces[i];
+        auto mod = editor.mod_interfaces[i];
         
         if (mod->render_interface()) i++;
         else {
-            song.mod_interfaces.erase(song.mod_interfaces.begin() + i);
+            editor.mod_interfaces.erase(editor.mod_interfaces.begin() + i);
         }
     }
 
@@ -876,10 +864,10 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
             }
 
             int target_index;
-            switch (effect_rack_ui(&song, &fx_bus->rack, fx_bus->name, &target_index))
+            switch (effect_rack_ui(&editor, &fx_bus->rack, fx_bus->name, &target_index))
             {
                 case EffectsInterfaceAction::Edit:
-                    song.toggle_module_interface(fx_bus->rack.modules[target_index]);
+                    editor.toggle_module_interface(fx_bus->rack.modules[target_index]);
                     break;
 
                 case EffectsInterfaceAction::Delete: {
@@ -888,7 +876,7 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
 
                     audiomod::ModuleBase* mod = fx_bus->rack.remove(target_index);
                     if (mod != nullptr) {
-                        song.hide_module_interface(mod);
+                        editor.hide_module_interface(mod);
                         delete mod;
                     }
 
@@ -909,8 +897,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
         song.delete_fx_bus(bus_to_delete);
     
     // tunings window
-    if (song.show_tuning_window) {
-        if (ImGui::Begin("Tunings", &song.show_tuning_window, ImGuiWindowFlags_NoDocking))
+    if (editor.show_tuning_window) {
+        if (ImGui::Begin("Tunings", &editor.show_tuning_window, ImGuiWindowFlags_NoDocking))
         {
             if (ImGui::Button("Load"))
                 user_actions.fire("load_tuning");
@@ -993,6 +981,8 @@ void compute_imgui(ImGuiIO& io, Song& song, UserActionList& user_actions) {
     }
 
     // Info panel //
+    ImGuiIO& io = ImGui::GetIO();
+
     if (show_demo_window) {
         ImGui::Begin("Info");
         ImGui::Text("framerate: %.2f", io.Framerate);

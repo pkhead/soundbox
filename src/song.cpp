@@ -251,11 +251,6 @@ Song::~Song() {
     {
         delete bus;
     }
-
-    for (auto it : ui_values)
-    {
-        free(it.second);
-    }
 }
 
 // length field
@@ -371,14 +366,6 @@ void Song::delete_fx_bus(audiomod::FXBus* bus_to_delete)
         std::cerr << "attempt to delete the master bus\n";
         abort();
     }
-
-    // remove interface
-    bus_to_delete->interface_open = false;
-    for (auto it = fx_interfaces.begin(); it != fx_interfaces.end(); it++)
-        if (*it == bus_to_delete) {
-            fx_interfaces.erase(it);
-            break;
-        }
 
     size_t bus_idx = 0;
 
@@ -584,28 +571,6 @@ void Song::update(double elapsed) {
         }
 
         bar_position = position / beats_per_bar;
-    }
-}
-
-void Song::hide_module_interface(audiomod::ModuleBase* mod) {
-    for (auto it = mod_interfaces.begin(); it != mod_interfaces.end(); it++) {
-        if (*it == mod) {
-            mod_interfaces.erase(it);
-            break;
-        }
-    }
-}
-
-void Song::toggle_module_interface(audiomod::ModuleBase* mod) {
-    mod->show_interface = !mod->show_interface;
-    
-    // if want to show interface, add module to interfaces list
-    if (mod->show_interface) {
-        mod_interfaces.push_back(mod);
-
-    // if want to hide interface, remove module from interfaces list
-    } else {
-        hide_module_interface(mod);
     }
 }
 

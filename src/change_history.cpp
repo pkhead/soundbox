@@ -1,40 +1,113 @@
 #include "change_history.h"
+#include "song.h"
 #include <cstdlib>
 #include <cstring>
 
-ValueChangeAction::ValueChangeAction(void* address, void* old_data, void* new_data, size_t size) : address(address), size(size)
-{
-    this->old_data = malloc(size);
-    this->new_data = malloc(size);
+//////////////////
+// change queue //
+//////////////////
 
-    memcpy(this->old_data, old_data, size);
-    memcpy(this->new_data, new_data, size);
+ChangeAction::ChangeAction(ChangeActionType type) : type(type) {
+    switch (type)
+    {
+        case ChangeActionType::Unknown:
+        case ChangeActionType::ChannelVolume:
+        case ChangeActionType::ChannelPanning:
 
-    change_type = ChangeActionType::Value;
+            data_type = ChangeActionData::Float;
+            break;
+
+        case CHan
+    }
 }
 
-ValueChangeAction::~ValueChangeAction()
+// copy constructor
+enum class ChangeActionTarget : uint8_t
 {
-    free(old_data);
-    free(new_data);
+    Unknown = 0,
+    SongTempo,
+    SongMaxPatterns,
+    ChannelVolume,
+    ChannelPanning,
+};
+
+ChangeAction::ChangeAction(const ChangeAction& src)
+{
+    std::cout << "copy constructor";
+
+    target = src.target;
+
+    switch (src.target)
+    {
+        case ChangeActionTarget::SongTempo;
+        
+        case ChangeActionData::Float:
+            type_float = src.type_float;
+            break;
+
+        case ChangeActionData::Int:
+            type_int = src.type_int;
+            break;
+
+        case ChangeActionData::Note:
+            type_note = src.type_note;
+            break;
+
+        case ChangeActionData::Bar:
+            type_bar = src.type_bar;
+            break;
+
+        case ChangeActionData::Channel:
+            type_channel = src.type_channel;
+            break;
+    }
 }
 
-void ValueChangeAction::undo()
+// move constructor
+ChangeAction::ChangeAction(ChangeAction&& src) noexcept
 {
-    memcpy(address, old_data, size);
+    std::cout << "move constructor";
+
+    type = src.type;
+    data_type = src.data_type;
+
+    switch (src.data_type)
+    {
+        case ChangeActionData::Float:
+            type_float = std::move(src.type_float);
+            break;
+
+        case ChangeActionData::Int:
+            type_int = std::move(src.type_int);
+            break;
+
+        case ChangeActionData::Note:
+            type_note = std::move(src.type_note);
+            break;
+
+        case ChangeActionData::Bar:
+            type_bar = std::move(src.type_bar);
+            break;
+
+        case ChangeActionData::Channel:
+            type_channel = std::move(src.type_channel);
+            break;
+    }
 }
 
-void ValueChangeAction::redo()
+bool ChangeAction::can_merge(const ChangeAction& other) const
 {
-    memcpy(address, new_data, size);
-}
+    switch (type)
+    {
+        // these types are not mergeable
+        case ChangeActionType::Unknown: return false;
+        // case ChangeActionType::NoteAdd: return false;
+        // case ChangeActionType::NoteRemove: return false;
+        // case ChangeActionType::ChannelAdd: return false;
+        // case ChangeActionType::ChannelRemove: return false;
 
-bool ValueChangeAction::can_merge(ChangeAction* other)
-{
-    if (other->change_type != change_type) return false;
-    ValueChangeAction* other_subclass = (ValueChangeAction*) other;
-
-    return address == other_subclass->address;
+        default: return type == other.type;
+    }
 }
 
 ChangeQueue::~ChangeQueue()
@@ -42,12 +115,11 @@ ChangeQueue::~ChangeQueue()
     clear();
 }
 
-void ChangeQueue::push(ChangeAction* change_action)
+void ChangeQueue::push(const ChangeAction&& change_action)
 {
     // don't register change if mergeable
-    if (!changes.empty() && change_action->can_merge(changes.back()))
+    if (!changes.empty() && change_action.can_merge(changes.back()))
     {
-        delete change_action;
         return;
     }
     else
@@ -56,32 +128,14 @@ void ChangeQueue::push(ChangeAction* change_action)
     }
 }
 
-ChangeAction* ChangeQueue::undo()
+ChangeAction ChangeQueue::pop()
 {
-    if (changes.empty()) return nullptr;
-    
-    ChangeAction* change = changes.back();
-    change->undo();
+    ChangeAction action = changes.back();
     changes.pop_back();
-
-    return change;
-}
-
-ChangeAction* ChangeQueue::redo()
-{
-    if (changes.empty()) return nullptr;
-
-    ChangeAction* change = changes.back();
-    change->redo();
-    changes.pop_back();
-
-    return change;
+    return action;
 }
 
 void ChangeQueue::clear()
 {
-    for (ChangeAction* change : changes)
-        delete change;
-
     changes.clear();
 }

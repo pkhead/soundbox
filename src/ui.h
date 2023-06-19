@@ -2,12 +2,15 @@
 
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <functional>
 #include <iostream>
 #include <math.h>
 #include "audio.h"
 #include "song.h"
+#include "editor.h"
 #include <imgui.h>
+#include <sstream>
 
 #include "glad/gl.h"
 
@@ -116,11 +119,11 @@ inline ImU32 vec4_color(const ImVec4 &vec4) {
     return IM_COL32(int(vec4.x * 255), int(vec4.y * 255), int(vec4.z * 255), int(vec4.w * 255));
 }
 
-void ui_init(Song& song, UserActionList& actions);
-void compute_imgui(ImGuiIO& io, Song& song, UserActionList& actions);
+void ui_init(SongEditor& song, UserActionList& actions);
+void compute_imgui(SongEditor& song, UserActionList& actions);
 
-void render_track_editor(ImGuiIO& io, Song& song);
-void render_pattern_editor(ImGuiIO& io, Song& song);
+void render_track_editor(SongEditor& song);
+void render_pattern_editor(SongEditor& song);
 
 // these functions make it so the following items
 // are slightly transparent if disabled
@@ -130,10 +133,19 @@ void pop_btn_disabled();
 void show_status(const char* fmt, ...);
 void show_status(const std::string& status_text);
 
+// enum used for the type of the value in ChangeActionType
+enum class ValueType : uint8_t
+{
+    Null = (uint8_t) 0,
+    Float,
+    Int
+};
+
 // custom input behavior for undo/redo
 // TODO: does not work for properly for char*
+/*
 template <typename T>
-void change_detection(Song* song, T* value, ImGuiID id = ImGui::GetItemID())
+void change_detection(Song* song, T* value, ChangeActionType change_type, ValueType value_type)
 {
     // if previous value for this id is not found
     // write initial value
@@ -154,8 +166,33 @@ void change_detection(Song* song, T* value, ImGuiID id = ImGui::GetItemID())
 
         if (*previous_value != *value) {
             std::cout << *previous_value << " -> " << *value << "\n";
-            song->undo.push(new ValueChangeAction(value, val_alloc, value, sizeof(T)));
-            song->redo.clear();
+            
+            ChangeAction action;
+            action.type = change_type;
+            
+            // write value (w/ type conversions if needed)
+            switch (value_type)
+            {
+                case ValueType::Null: {
+                    std::cerr << "error: ValueType was NULL";
+                    exit(1);
+                    break;
+                }
+
+                case ValueType::Float: {
+                    action.type_float.old_value = *previous_value;
+                    action.type_float.new_value = *value;
+                    break;
+                }
+
+                case ValueType::Int: {
+                    action.type_int.old_value = *previous_value;
+                    action.type_int.new_value = *value;
+                    break;
+                }
+            }
+
+            song->push_change(action);
 
             // write new previous value
             memcpy(previous_value, value, sizeof(T));
@@ -164,36 +201,8 @@ void change_detection(Song* song, T* value, ImGuiID id = ImGui::GetItemID())
             std::cout << "no change\n";
         }
     }
-
-    /*
-    if (song->undo.active && song->undo.id == id)
-    {
-
-        song->redo.push(id, value, sizeof(T));
-        T* new_value = (T*) song->undo.data;
-        std::cout << *new_value << "\n";
-        *value = *new_value;
-
-        // write new previous value
-        T* previous_value = static_cast<T*>(song->ui_values[id]);
-        memcpy(previous_value, value, sizeof(T));
-
-        std::cout << "previous value: " << *previous_value << "\n";
-    }
-
-    if (song->redo.active && song->redo.id == id)
-    {
-        song->undo.push(id, value, sizeof(T));
-        T* new_value = (T*) song->redo.data;
-        *value = *new_value;
-
-        // write new previous value
-        T* previous_value = static_cast<T*>(song->ui_values[id]);
-        memcpy(previous_value, value, sizeof(T));
-    }
-    */
 }
-
+*/
 
 // if action = 0, do nothing
 // if action = 1, edit selected module
@@ -203,4 +212,4 @@ enum class EffectsInterfaceAction
     Nothing, Edit, Delete
 };
 
-EffectsInterfaceAction effect_rack_ui(audiomod::EffectsRack* rack, const char* parent_name, int** target_index);
+EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* rack, const char* parent_name, int** target_index);

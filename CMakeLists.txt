@@ -48,7 +48,7 @@ set(SOURCES
     src/pattern_editor.cpp
     src/track_editor.cpp
     src/imgui_stdlib.cpp
-    src/change_history.cpp
+    src/editor.cpp
 
     # audio modules
     src/modules/create.cpp

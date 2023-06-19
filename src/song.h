@@ -1,4 +1,8 @@
 #pragma once
+
+#include <algorithm>
+#include <cstdint>
+#include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 #include <ostream>
@@ -9,8 +13,7 @@
 #include <TUN_Scale.h>
 #include <Tunings.h>
 #include "audio.h"
-#include "imgui.h"
-#include "change_history.h"
+#include <imgui.h>
 #include "modules/volume.h"
 
 struct Note {
@@ -120,42 +123,20 @@ public:
     std::string project_notes;
 
     std::vector<Channel*> channels;
-    int selected_channel = 0;
-    int selected_bar = 0;
 
     std::vector<audiomod::FXBus*> fx_mixer;
-
-    // TODO: use system clipboard
-    std::vector<Note> note_clipboard;
 
     int beats_per_bar = 8;
     int bar_position = 0;
     double position = 0.0;
     bool is_playing = false;
     bool do_loop = true;
-
-    float editor_quantization = 0.25f;
     float tempo = 120;
 
     // there can be multiple tunings
     // and song may be able to switch between them while playing
     std::vector<Tuning*> tunings;
     int selected_tuning = 0;
-    bool show_tuning_window = false;
-
-    std::vector<audiomod::ModuleBase*> mod_interfaces;
-    std::vector<audiomod::FXBus*> fx_interfaces;
-
-    // the previous values of monitored UI inputs
-    std::unordered_map<void*, void*> ui_values;
-    
-    // change history
-    ChangeQueue undo;
-    ChangeQueue redo;
-
-    // An effect index of -1 means the instrument module
-    void toggle_module_interface(audiomod::ModuleBase* mod);
-    void hide_module_interface(audiomod::ModuleBase* mod);
     
     int length() const;
     void set_length(int len);

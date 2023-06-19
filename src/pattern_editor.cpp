@@ -4,8 +4,10 @@
 #include "song.h"
 #include "ui.h"
 
-void render_pattern_editor(ImGuiIO& io, Song &song)
+void render_pattern_editor(SongEditor &editor)
 {
+    ImGuiIO& io = ImGui::GetIO();
+    Song& song = editor.song;
     ImGuiStyle& style = ImGui::GetStyle();
 
     Tuning* tuning = song.tunings[song.selected_tuning];
@@ -51,7 +53,7 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
             for (int i = 0; i < 5; i++) {
                 if (ImGui::Selectable(step_names[i], i == selected_step)) {
                     selected_step = i;
-                    song.editor_quantization = step_values[i];
+                    editor.quantization = step_values[i];
                 }
 
                 if (i == selected_step) {
@@ -92,7 +94,7 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
 
         ImGui::NewLine();
 
-        float min_step = song.editor_quantization;
+        float min_step = editor.quantization;
 
         static int scroll = 96;
         static const char* KEY_NAMES[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
@@ -157,12 +159,12 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
         static Channel* prev_channel = nullptr;
         
         // get data for the currently selected channel
-        Channel* selected_channel = song.channels[song.selected_channel];
-        int pattern_id = selected_channel->sequence[song.selected_bar] - 1;
+        Channel* selected_channel = song.channels[editor.selected_channel];
+        int pattern_id = selected_channel->sequence[editor.selected_bar] - 1;
         Pattern* selected_pattern = nullptr;
 
         if (pattern_id >= 0) {
-            selected_pattern = selected_channel->patterns[selected_channel->sequence[song.selected_bar] - 1];
+            selected_pattern = selected_channel->patterns[selected_channel->sequence[editor.selected_bar] - 1];
         }
 
         Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
@@ -244,8 +246,8 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                     // or reuse an empty one
                     if (selected_pattern == nullptr)
                     {
-                        int pattern = song.new_pattern(song.selected_channel);
-                        selected_channel->sequence[song.selected_bar] = pattern + 1;
+                        int pattern = song.new_pattern(editor.selected_channel);
+                        selected_channel->sequence[editor.selected_bar] = pattern + 1;
                         selected_pattern = selected_channel->patterns[pattern];
                     }
                     
@@ -545,7 +547,7 @@ void render_pattern_editor(ImGuiIO& io, Song &song)
                 draw_list->AddRectFilled(
                     rect_pos, 
                     rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, 0) * 2.0f,
-                    Colors::channel[song.selected_channel % Colors::channel_num][1]
+                    Colors::channel[editor.selected_channel % Colors::channel_num][1]
                 );
             }
         }

@@ -38,6 +38,7 @@
 #include "audiofile.h"
 #include "ui.h"
 #include "song.h"
+#include "editor.h"
 #include "audio.h"
 #include "sys.h"
 
@@ -183,8 +184,9 @@ int main()
         AudioDevice device(-1);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
-        // initialize song
+        // initialize song editor
         Song* song = new Song(4, 8, 8, destination);
+        SongEditor* song_editor = new SongEditor(*song);
 
         // this mutex is locked by the audio thread while audio is being processed
         // and is locked by the main thread when a new song is being loaded
@@ -261,8 +263,10 @@ int main()
                 file_mutex.lock();
                 destination.reset();
                 delete song;
+                delete song_editor;
                 song = new Song(4, 8, 8, destination);
-                ui_init(*song, user_actions);
+                song_editor = new SongEditor(*song);
+                ui_init(*song_editor, user_actions);
                 file_mutex.unlock();
             };
         });
@@ -296,8 +300,10 @@ int main()
                     if (new_song != nullptr) {
                         destination.reset();
                         delete song;
+                        delete song_editor;
                         song = new_song;
-                        ui_init(*song, user_actions);
+                        song_editor = new SongEditor(*song);
+                        ui_init(*song_editor, user_actions);
 
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
@@ -448,13 +454,13 @@ int main()
         });
 
         // actions that don't require window management/io are defined in ui.cpp
-        ui_init(*song, user_actions);
+        ui_init(*song_editor, user_actions);
 
         int pattern_input = 0;
         
         // if one of these variables changes, then clear pattern_input
-        int last_selected_bar = song->selected_bar;
-        int last_selected_ch = song->selected_channel;
+        int last_selected_bar = song_editor->selected_bar;
+        int last_selected_ch = song_editor->selected_channel;
 
         static const double FRAME_LENGTH = 1.0 / 240.0;
 
@@ -640,9 +646,9 @@ int main()
             glfwPollEvents();
 
             // if selected pattern changed
-            if (last_selected_bar != song->selected_bar || last_selected_ch != song->selected_channel) {
-                last_selected_bar = song->selected_bar;
-                last_selected_ch = song->selected_channel;
+            if (last_selected_bar != song_editor->selected_bar || last_selected_ch != song_editor->selected_channel) {
+                last_selected_bar = song_editor->selected_bar;
+                last_selected_ch = song_editor->selected_channel;
                 pattern_input = 0;
             }
 
@@ -671,23 +677,23 @@ int main()
 
                 // track editor controls: arrow keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-                    song->selected_bar++;
-                    song->selected_bar %= song->length();
+                    song_editor->selected_bar++;
+                    song_editor->selected_bar %= song->length();
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-                    song->selected_bar--;
-                    if (song->selected_bar < 0) song->selected_bar = song->length() - 1;
+                    song_editor->selected_bar--;
+                    if (song_editor->selected_bar < 0) song_editor->selected_bar = song->length() - 1;
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-                    song->selected_channel++;
-                    song->selected_channel %= song->channels.size();
+                    song_editor->selected_channel++;
+                    song_editor->selected_channel %= song->channels.size();
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-                    song->selected_channel--;
-                    if (song->selected_channel < 0) song->selected_channel = song->channels.size() - 1;
+                    song_editor->selected_channel--;
+                    if (song_editor->selected_channel < 0) song_editor->selected_channel = song->channels.size() - 1;
                 }
 
                 // track editor pattern entering: number keys
@@ -697,7 +703,7 @@ int main()
                         if (pattern_input > song->max_patterns()) pattern_input = k;
 
                         if (pattern_input <= song->max_patterns())
-                            song->channels[song->selected_channel]->sequence[song->selected_bar] = pattern_input;
+                            song->channels[song_editor->selected_channel]->sequence[song_editor->selected_bar] = pattern_input;
                     }
                 }
             }
@@ -708,7 +714,7 @@ int main()
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
 
-            compute_imgui(io, *song, user_actions);
+            compute_imgui(*song_editor, user_actions);
 
             // show new prompt
             if (prompt_unsaved_work) {

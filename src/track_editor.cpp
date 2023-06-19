@@ -12,8 +12,10 @@ static inline T min(T a, T b) {
     return a < b ? a : b;
 }
 
-void render_track_editor(ImGuiIO &io, Song &song)
+void render_track_editor(SongEditor& editor)
 {
+    Song& song = editor.song;
+    ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
 
     // width allocated for the mute and solo controls
@@ -28,8 +30,8 @@ void render_track_editor(ImGuiIO &io, Song &song)
     // so we test the width of 16 M's (the widest character in most fonts)
     const float CHANNEL_COLUMN_WIDTH = ImGui::CalcTextSize("MMMMMMMMMMMMMMMM").x + controls_width + 5.0f;
 
-    static int last_cursor_x = song.selected_bar;
-    static int last_cursor_y = song.selected_channel;
+    static int last_cursor_x = editor.selected_bar;
+    static int last_cursor_y = editor.selected_channel;
     static int last_width = song.length();
     static int last_height = song.channels.size();
 
@@ -53,9 +55,9 @@ void render_track_editor(ImGuiIO &io, Song &song)
             last_height = song.channels.size();
         }
 
-        if (last_cursor_x != song.selected_bar || last_cursor_y != song.selected_channel) {
-            int& cursor_x = song.selected_bar;
-            int& cursor_y = song.selected_channel;
+        if (last_cursor_x != editor.selected_bar || last_cursor_y != editor.selected_channel) {
+            int& cursor_x = editor.selected_bar;
+            int& cursor_y = editor.selected_channel;
 
             Vec2 cursor_pos = Vec2(cursor_x * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, cursor_y * CELL_SIZE.y);
             Vec2 window_scroll = last_viewport_scroll;
@@ -97,8 +99,8 @@ void render_track_editor(ImGuiIO &io, Song &song)
             mouse_col = (int)mouse_pos.x / CELL_SIZE.x;
 
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                song.selected_bar = mouse_col;
-                song.selected_channel = mouse_row;
+                editor.selected_bar = mouse_col;
+                editor.selected_channel = mouse_row;
             }
         }
 
@@ -127,7 +129,7 @@ void render_track_editor(ImGuiIO &io, Song &song)
             for (int bar = col_start; bar < min(col_end + 2, num_bars); bar++) {
                 Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x + CELL_MARGIN + CHANNEL_COLUMN_WIDTH, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
                 int pattern_num = song.channels[ch]->sequence[bar];
-                bool is_selected = song.selected_bar == bar && song.selected_channel == ch;
+                bool is_selected = editor.selected_bar == bar && editor.selected_channel == ch;
 
                 // draw cell background
                 if (pattern_num > 0 || is_selected)
