@@ -672,7 +672,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 // register change
                 editor.push_change(new change::ChangeAddEffect(
                     editor.selected_channel,
-                    change::ChangeAddEffect::TargetChannel,
+                    change::FXRackTargetType::TargetChannel,
                     module_id
                 ));
 
@@ -690,6 +690,14 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
 
                 audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(target_index);
                 if (mod != nullptr) {
+                    // register change
+                    editor.push_change(new change::ChangeRemoveEffect(
+                        editor.selected_channel,
+                        change::FXRackTargetType::TargetChannel,
+                        target_index,
+                        mod
+                    ));
+
                     editor.hide_module_interface(mod);
                     delete mod;
                 }
@@ -936,7 +944,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                     // register change
                     editor.push_change(new change::ChangeAddEffect(
                         i,
-                        change::ChangeAddEffect::TargetFXBus,
+                        change::FXRackTargetType::TargetFXBus,
                         module_id
                     ));
 
@@ -954,6 +962,14 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
 
                     audiomod::ModuleBase* mod = fx_bus->rack.remove(target_index);
                     if (mod != nullptr) {
+                        // register change
+                        editor.push_change(new change::ChangeRemoveEffect(
+                            i,
+                            change::FXRackTargetType::TargetFXBus,
+                            target_index,
+                            mod
+                        ));
+
                         editor.hide_module_interface(mod);
                         delete mod;
                     }

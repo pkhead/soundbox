@@ -3,6 +3,7 @@
 #include "editor.h"
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 
 // Song Tempo //
 
@@ -114,18 +115,18 @@ bool change::ChangeChannelOutput::merge(Action* other) {
 
 // Add Effect //
 
-change::ChangeAddEffect::ChangeAddEffect(int target_index, TargetType target_type, std::string mod_type)
+change::ChangeAddEffect::ChangeAddEffect(int target_index, FXRackTargetType target_type, std::string mod_type)
     : target_index(target_index), target_type(target_type), mod_type(mod_type)
     {}
 
 void change::ChangeAddEffect::undo(SongEditor& editor) {
     audiomod::EffectsRack* rack;
 
-    if (target_type == TargetType::TargetChannel)
+    if (target_type == FXRackTargetType::TargetChannel)
     {
         rack = &editor.song.channels[target_index]->effects_rack;
     }
-    else if (target_type == TargetType::TargetFXBus)
+    else if (target_type == FXRackTargetType::TargetFXBus)
     {
         rack = &editor.song.fx_mixer[target_index]->rack;
     }
@@ -150,12 +151,12 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
     audiomod::EffectsRack* rack;
     const char* parent_name;
 
-    if (target_type == TargetType::TargetChannel)
+    if (target_type == FXRackTargetType::TargetChannel)
     {
         rack = &editor.song.channels[target_index]->effects_rack;
         parent_name = editor.song.channels[target_index]->name;
     }
-    else if (target_type == TargetType::TargetFXBus)
+    else if (target_type == FXRackTargetType::TargetFXBus)
     {
         rack = &editor.song.fx_mixer[target_index]->rack;
         parent_name = editor.song.channels[target_index]->name;
@@ -175,6 +176,92 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
 }
 
 bool change::ChangeAddEffect::merge(Action* other) {
+    return false;
+}
+
+// Remove Effect //
+
+change::ChangeRemoveEffect::ChangeRemoveEffect(int target_index, FXRackTargetType target_type, int index, audiomod::ModuleBase* mod)
+    : target_index(target_index), target_type(target_type), index(index)
+{
+    mod_type = mod->id;
+    
+    // save module state
+    std::stringstream stream;
+    mod->save_state(stream);
+
+    mod_state = stream.str();
+}
+
+void change::ChangeRemoveEffect::redo(SongEditor& editor) {
+    audiomod::EffectsRack* rack;
+
+    if (target_type == FXRackTargetType::TargetChannel)
+    {
+        rack = &editor.song.channels[target_index]->effects_rack;
+    }
+    else if (target_type == FXRackTargetType::TargetFXBus)
+    {
+        rack = &editor.song.fx_mixer[target_index]->rack;
+    }
+    else {
+        std::cerr << "invalid target type\n";
+        abort();
+    }
+
+    // delete the module at the back
+    editor.song.mutex.lock();
+
+    audiomod::ModuleBase* mod = rack->remove(index);
+    if (mod != nullptr) {
+        mod_type = mod->id;
+    
+        // save module state
+        std::stringstream stream;
+        mod->save_state(stream);
+
+        mod_state = stream.str();
+
+        editor.hide_module_interface(mod);
+        delete mod;
+    }
+    
+    editor.song.mutex.unlock();
+}
+
+void change::ChangeRemoveEffect::undo(SongEditor& editor) {
+    audiomod::EffectsRack* rack;
+    const char* parent_name;
+
+    if (target_type == FXRackTargetType::TargetChannel)
+    {
+        rack = &editor.song.channels[target_index]->effects_rack;
+        parent_name = editor.song.channels[target_index]->name;
+    }
+    else if (target_type == FXRackTargetType::TargetFXBus)
+    {
+        rack = &editor.song.fx_mixer[target_index]->rack;
+        parent_name = editor.song.channels[target_index]->name;
+    }
+    else {
+        std::cerr << "invalid target type\n";
+        abort();
+    }
+
+    editor.song.mutex.lock();
+
+    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, &editor.song);
+    mod->parent_name = parent_name;
+    rack->insert(mod, index);
+
+    // load module state
+    std::stringstream stream(mod_state);
+    mod->load_state(stream, mod_state.size());
+    
+    editor.song.mutex.unlock();
+}
+
+bool change::ChangeRemoveEffect::merge(Action* other) {
     return false;
 }
 

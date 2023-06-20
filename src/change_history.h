@@ -1,4 +1,5 @@
 #pragma once
+#include "audio.h"
 #include <cstdint>
 #include <imgui.h>
 #include <vector>
@@ -100,22 +101,36 @@ namespace change
         bool merge(Action* other) override;
     };
 
+    enum class FXRackTargetType {
+        TargetChannel,
+        TargetFXBus
+    };
+
     class ChangeAddEffect : public Action
     {
     public:
-        enum TargetType {
-            TargetChannel,
-            TargetFXBus
-        };
-
-        // a target_type of 0 means a channel
-        // a target_type of 1 means an fx bus
-        ChangeAddEffect(int target_index, TargetType target_type, std::string mod_type);
+        ChangeAddEffect(int target_index, FXRackTargetType target_type, std::string mod_type);
         int target_index;
-        TargetType target_type;
+        FXRackTargetType target_type;
         std::string mod_type;
 
         ActionType get_type() const override { return ActionType::AddEffect; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeRemoveEffect : public Action
+    {
+    public:
+        ChangeRemoveEffect(int target_index, FXRackTargetType target_type, int index, audiomod::ModuleBase* mod);
+        int target_index;
+        FXRackTargetType target_type;
+        int index;
+        std::string mod_type;
+        std::string mod_state;
+
+        ActionType get_type() const override { return ActionType::RemoveEffect; };
         void undo(SongEditor& editor) override;
         void redo(SongEditor& editor) override;
         bool merge(Action* other) override;

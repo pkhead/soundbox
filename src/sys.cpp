@@ -40,10 +40,10 @@ void sys::clear_interval(interval_t* interval)
 
 struct interval_impl
 {
-	interval_impl(std::function<void(interval_impl* self)>&& callback) : thread(callback, this) { };
+	interval_impl(std::function<void(interval_impl* self)>&& callback) : terminate(false), thread(callback, this) { };
 
 	std::thread thread;
-	std::atomic<bool> terminate = false;
+	std::atomic<bool> terminate;
 };
 
 interval_t* sys::set_interval(int ms, const std::function<void()>&& callback_proc)

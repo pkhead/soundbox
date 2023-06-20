@@ -569,7 +569,7 @@ void EffectsRack::insert(ModuleBase* module, size_t position) {
             input->connect(module);
         }
         
-        module->connect(modules[1]);
+        module->connect(modules[0]);
 
     // insertion at end
     } else if (position == modules.size()) {

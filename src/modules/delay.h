@@ -15,7 +15,7 @@ namespace audiomod
         float* delay_line[2];
 
         // if the buffer was requested to be cleared
-        std::atomic<bool> panic;
+        std::atomic<bool> panic = false;
         
     public:
         // delay in seconds
