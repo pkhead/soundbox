@@ -276,6 +276,155 @@ bool change::ChangeSwapEffect::merge(Action* other)
     return false;
 }
 
+// Add Note //
+change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Note note)
+    : channel_index(channel_index), bar(bar), note(note)
+{}
+
+void change::ChangeAddNote::undo(SongEditor& editor)
+{
+    editor.song.mutex.lock();
+
+    editor.selected_channel = channel_index;
+    editor.selected_bar = bar;
+
+    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+
+    for (auto it = pattern->notes.begin(); it != pattern->notes.end(); it++)
+    {
+        Note& note_v = *it;
+        if (note_v == note)
+        {
+            pattern->notes.erase(it);
+            break;
+        }
+    }
+
+    editor.song.mutex.unlock();
+}
+
+void change::ChangeAddNote::redo(SongEditor& editor)
+{
+    editor.song.mutex.lock();
+    
+    editor.selected_channel = channel_index;
+    editor.selected_bar = bar;
+    
+    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+
+    pattern->notes.push_back(note);
+
+    editor.song.mutex.unlock();
+}
+
+bool change::ChangeAddNote::merge(Action* other)
+{
+    return false;
+}
+
+// Remove Note //
+change::ChangeRemoveNote::ChangeRemoveNote(int channel_index, int bar, Note note)
+    : channel_index(channel_index), bar(bar), note(note)
+{}
+
+void change::ChangeRemoveNote::redo(SongEditor& editor)
+{
+    editor.song.mutex.lock();
+    
+    editor.selected_channel = channel_index;
+    editor.selected_bar = bar;
+    
+    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+
+    for (auto it = pattern->notes.begin(); it != pattern->notes.end(); it++)
+    {
+        Note& note_v = *it;
+        if (note_v == note)
+        {
+            pattern->notes.erase(it);
+            break;
+        }
+    }
+
+    editor.song.mutex.unlock();
+}
+
+void change::ChangeRemoveNote::undo(SongEditor& editor)
+{
+    editor.song.mutex.lock();
+    
+    editor.selected_channel = channel_index;
+    editor.selected_bar = bar;
+    
+    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    pattern->notes.push_back(note);
+
+    editor.song.mutex.unlock();
+}
+
+bool change::ChangeRemoveNote::merge(Action* other)
+{
+    return false;
+}
+
+// Change Note //
+change::ChangeNote::ChangeNote(int channel_index, int bar, Note old_note, Note new_note)
+    : channel_index(channel_index), bar(bar), old_note(old_note), new_note(new_note)
+{}
+
+void change::ChangeNote::undo(SongEditor& editor)
+{
+    editor.song.mutex.lock();
+    
+    editor.selected_channel = channel_index;
+    editor.selected_bar = bar;
+    
+    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+
+    for (Note& note_v : pattern->notes)
+    {
+        if (note_v == new_note)
+        {
+            note_v = old_note;
+            break;
+        }
+    }
+
+    editor.song.mutex.unlock();
+}
+
+void change::ChangeNote::redo(SongEditor& editor)
+{
+    editor.song.mutex.lock();
+    
+    editor.selected_channel = channel_index;
+    editor.selected_bar = bar;
+    
+    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+
+    for (Note& note_v : pattern->notes)
+    {
+        if (note_v == old_note)
+        {
+            note_v = new_note;
+            break;
+        }
+    }
+
+    editor.song.mutex.unlock();
+}
+
+bool change::ChangeNote::merge(Action* other)
+{
+    return false;
+}
+
 //////////////////
 // CHANGE QUEUE //
 //////////////////

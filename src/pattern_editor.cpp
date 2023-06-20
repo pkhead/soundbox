@@ -1,6 +1,7 @@
 #include <math.h>
 
 #include <imgui.h>
+#include "change_history.h"
 #include "song.h"
 #include "ui.h"
 
@@ -109,6 +110,7 @@ void render_pattern_editor(SongEditor &editor)
         static Pattern* note_pattern = nullptr; // the pattern of selected_note
         static float note_anchor; // selected_note's time position when the drag started
         static float note_start_length; // selected_note's length when the drag started
+        static Note old_note_data; // data of selected note before change
         
         // this variable are used to determine whether the user simply clicked on a note
         // to delete it
@@ -256,6 +258,7 @@ void render_pattern_editor(SongEditor &editor)
                     if (note_hovered) {
                         is_adding_note = false;
                         selected_note = note_hovered;
+                        old_note_data = *selected_note;
 
                         if (mouse_px > selected_note->time + selected_note->length / 2.0f) {
                             note_drag_mode = DragMode::FromRight;
@@ -312,7 +315,7 @@ void render_pattern_editor(SongEditor &editor)
         if (ImGui::IsItemActive()) {
             // detect if mouse had moved while down
             if (!did_mouse_move) {
-                if ((mouse_pos - mouse_screen_start).magn_sq() > 5*5) {
+                if ((mouse_pos - mouse_screen_start).magn_sq() > 2*2) {
                     did_mouse_move = true;
                 }
             
@@ -427,12 +430,38 @@ void render_pattern_editor(SongEditor &editor)
                 // or if note len == 0, remove the note
                 if (selected_note->length == 0 || (!is_adding_note && !did_mouse_move)) {
                     for (auto it = note_pattern->notes.begin(); it != note_pattern->notes.end(); it++) {
-                        if (&*it == selected_note) {
+                        if (it.base() == selected_note) {
+                            // register change
+                            editor.push_change(new change::ChangeRemoveNote(
+                                editor.selected_channel,
+                                pattern_id,
+                                *it
+                            ));
+
                             note_pattern->notes.erase(it);
                             break;
                         }
                     }
                 } else {
+                    // register change
+                    if (is_adding_note)
+                    {
+                        editor.push_change(new change::ChangeAddNote(
+                            editor.selected_channel,
+                            pattern_id,
+                            *selected_note
+                        ));
+                    }
+                    else if (old_note_data != *selected_note)
+                    {
+                        editor.push_change(new change::ChangeNote(
+                            editor.selected_channel,
+                            pattern_id,
+                            old_note_data,
+                            *selected_note
+                        ));
+                    }
+
                     desired_cursor_len = selected_note->length;
                 }
 
@@ -452,6 +481,8 @@ void render_pattern_editor(SongEditor &editor)
 
                 play_key = false;
             }
+
+            is_adding_note = false;
         }
 
         // draw cells

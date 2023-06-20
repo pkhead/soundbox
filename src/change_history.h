@@ -1,5 +1,6 @@
 #pragma once
 #include "audio.h"
+#include "song.h"
 #include <cstdint>
 #include <imgui.h>
 #include <vector>
@@ -15,14 +16,27 @@ namespace change
         SongTempo,
         SongMaxPatterns,
         
+        NewChannel, // TODO
+        RemoveChannel, // TODO
         ChannelVolume,
         ChannelPanning,
         ChannelOutput,
 
         AddEffect,
         RemoveEffect,
-        ModifyEffect,
+        ModifyEffect, // TODO
         SwapEffect,
+        AddBus, // TODO
+        RemoveBus, // TODO
+
+        NoteAdd,
+        NoteRemove,
+        NoteChange,
+
+        NewPattern, // TODO
+        ChangePattern, // TODO
+        InsertBar, // TODO
+        RemoveBar, // TODO
     };
 
     class Action
@@ -145,6 +159,45 @@ namespace change
         int old_index, new_index;
 
         ActionType get_type() const override { return ActionType::SwapEffect; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeAddNote : public Action
+    {
+    public:
+        ChangeAddNote(int channel_index, int bar, Note note);
+        int channel_index, bar;
+        Note note;
+
+        ActionType get_type() const override { return ActionType::NoteAdd; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeRemoveNote : public Action
+    {
+    public:
+        ChangeRemoveNote(int channel_index, int bar, Note note);
+        int channel_index, bar;
+        Note note;
+
+        ActionType get_type() const override { return ActionType::NoteRemove; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeNote : public Action
+    {
+    public:
+        ChangeNote(int channel_index, int bar, Note old_note, Note new_note);
+        int channel_index, bar;
+        Note old_note, new_note;
+
+        ActionType get_type() const override { return ActionType::NoteChange; };
         void undo(SongEditor& editor) override;
         void redo(SongEditor& editor) override;
         bool merge(Action* other) override;

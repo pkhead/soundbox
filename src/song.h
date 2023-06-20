@@ -21,8 +21,12 @@ struct Note {
     int key;
     float length;
 
-    bool operator==(const Note& other) {
+    inline bool operator==(const Note& other) {
         return time == other.time && key == other.key && length == other.length;
+    }
+
+    inline bool operator!=(const Note& other) {
+        return !(*this == other);
     }
 };
 

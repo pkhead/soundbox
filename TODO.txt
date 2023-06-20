@@ -1,7 +1,10 @@
+- Undo/redo
+    - Undo/redo on text fields (imgui has its own undo/redo for that so conflict?)
+      names also don't affect song output so undo/redo for that is possibly undesirable
+    - Undo/redo for module modification (research how lv2 and clap does it)
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - mp3 exports
-- Undo/redo
-- Plugin support (VST, LADPSA, LV2, CLAP)
+- Plugin support (VST, LADSPA, LV2, CLAP)
 - Automation
 - Channel for playing audio clips
 - Song change markers (time signature or tuning)
