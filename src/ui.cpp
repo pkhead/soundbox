@@ -453,6 +453,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
 
     if (ImGui::Begin("Song Settings")) {
         // song name input
+        // TODO: change detection
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Name");
         ImGui::SameLine();
@@ -475,7 +476,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
         ImGui::DragFloat("###song_tempo", &song.tempo, 1.0f, 0.0f, 5000.0f, "%.3f");
         if (song.tempo < 0) song.tempo = 0;
 
-        {
+        { // change detection
             float prev;
             if (change_detection(editor, song.tempo, &prev)) {
                 editor.push_change(new change::ChangeSongTempo(ImGui::GetItemID(), prev, song.tempo));
@@ -513,18 +514,19 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
         // max patterns input
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-1.0f);
-        int old_max_patterns = max_patterns;
         ImGui::InputInt("###song_patterns", &max_patterns);
         if (max_patterns >= 1)
         {
-            if (max_patterns != song.max_patterns())
+            int old_max_patterns = song.max_patterns();
+            if (max_patterns != old_max_patterns)
             {
                 song.set_max_patterns(max_patterns);
-                //song.undo.push(new MaxPatternsChangeAction(&song, old_max_patterns, song.max_patterns()));
+                editor.push_change(new change::ChangeSongMaxPatterns(old_max_patterns, max_patterns));
             }
         }
 
         // project notes
+        // TODO: change detection?
         ImGui::Text("Project Notes");
         ImGui::InputTextMultiline_str("###project_notes", &song.project_notes, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 16.0f));
     } ImGui::End();
@@ -551,7 +553,18 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_volume", &volume, 0.0f, 100.0f, "%.0f");
             cur_channel->vol_mod.volume = volume / 100.0f;
-            //change_detection(&song, &cur_channel->vol_mod.volume);
+
+            // change detection
+            {
+                // make id
+                snprintf(char_buf, 64, "chvol%i", editor.selected_channel);
+
+                float prev, cur;
+                cur = cur_channel->vol_mod.volume;
+                if (change_detection(editor, cur, &prev, ImGui::GetID(char_buf))) {
+                    editor.push_change(new change::ChangeChannelVolume(editor.selected_channel, prev, cur));
+                }
+            }
         }
 
         // panning slider
@@ -560,10 +573,20 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             ImGui::Text("Panning");
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_panning", &cur_channel->vol_mod.panning, -1, 1, "%.2f");
-            //change_detection(&song, &cur_channel->vol_mod.panning);
+            
+            // change detection
+            {
+                // make id
+                snprintf(char_buf, 64, "chpan%i", editor.selected_channel);
+
+                float prev, cur;
+                cur = cur_channel->vol_mod.panning;
+                if (change_detection(editor, cur, &prev, ImGui::GetID(char_buf))) {
+                    editor.push_change(new change::ChangeChannelPanning(editor.selected_channel, prev, cur));
+                }
+            }
         }
 
-        
         {
             // fx mixer bus combobox
             ImGui::AlignTextToFramePadding();
@@ -589,9 +612,22 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                         cur_channel->set_fx_target(target_i);
 
                     if (is_selected) ImGui::SetItemDefaultFocus();
+                    
+                    // change detection
+                    {
+                        // make id
+                        snprintf(char_buf, 64, "chout%i", editor.selected_channel);
+
+                        int prev, cur;
+                        cur = cur_channel->fx_target_idx;
+                        if (change_detection(editor, cur, &prev, ImGui::GetID(char_buf))) {
+                            editor.push_change(new change::ChangeChannelOutput(editor.selected_channel, prev, cur));
+                        }
+                    }
                 }
-                
+
                 ImGui::EndCombo();
+
             }
         }
 

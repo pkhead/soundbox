@@ -29,6 +29,90 @@ bool change::ChangeSongTempo::merge(change::Action* other)
     return true;
 }
 
+// Song Max Patterns //
+
+change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count)
+    : old_count(old_count), new_count(new_count)
+    {}
+
+void change::ChangeSongMaxPatterns::undo(SongEditor& editor) {
+    editor.song.set_max_patterns(old_count);
+}
+
+void change::ChangeSongMaxPatterns::redo(SongEditor& editor) {
+    editor.song.set_max_patterns(new_count);
+}
+
+bool change::ChangeSongMaxPatterns::merge(change::Action* other)
+{
+    if (get_type() != other->get_type()) return false;
+    ChangeSongMaxPatterns* sub = static_cast<ChangeSongMaxPatterns*>(other);
+    new_count = sub->new_count;
+    return true;
+}
+
+// Channel Volume //
+
+change::ChangeChannelVolume::ChangeChannelVolume(int channel_index, float old_val, float new_val)
+    : channel_index(channel_index), old_vol(old_val), new_vol(new_val)
+    {}
+
+void change::ChangeChannelVolume::undo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.volume = old_vol;
+}
+
+void change::ChangeChannelVolume::redo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.volume = new_vol;
+}
+
+bool change::ChangeChannelVolume::merge(Action* other) {
+    if (get_type() != other->get_type()) return false;
+    ChangeChannelVolume* sub = static_cast<ChangeChannelVolume*>(other);
+    if (sub->channel_index != channel_index) return false;
+    new_vol = sub->new_vol;
+    return true;
+}
+
+// Channel Panning //
+
+change::ChangeChannelPanning::ChangeChannelPanning(int channel_index, float old_val, float new_val)
+    : channel_index(channel_index), old_val(old_val), new_val(new_val)
+    {}
+
+void change::ChangeChannelPanning::undo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.panning = old_val;
+}
+
+void change::ChangeChannelPanning::redo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.panning = new_val;
+}
+
+bool change::ChangeChannelPanning::merge(Action* other) {
+    if (get_type() != other->get_type()) return false;
+    ChangeChannelPanning* sub = static_cast<ChangeChannelPanning*>(other);
+    if (sub->channel_index != channel_index) return false;
+    new_val = sub->new_val;
+    return true;
+}
+
+// Channel Output //
+
+change::ChangeChannelOutput::ChangeChannelOutput(int channel_index, int old_val, int new_val)
+    : channel_index(channel_index), old_val(old_val), new_val(new_val)
+    {}
+
+void change::ChangeChannelOutput::undo(SongEditor& editor) {
+    editor.song.channels[channel_index]->set_fx_target(old_val);
+}
+
+void change::ChangeChannelOutput::redo(SongEditor& editor) {
+    editor.song.channels[channel_index]->set_fx_target(new_val);
+}
+
+bool change::ChangeChannelOutput::merge(Action* other) {
+    return false;
+}
+
 //////////////////
 // CHANGE QUEUE //
 //////////////////

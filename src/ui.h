@@ -144,7 +144,7 @@ enum class ValueType : uint8_t
 // custom input behavior for undo/redo
 // TODO: does not work for properly for char*
 template <typename T>
-bool change_detection(SongEditor& editor, T value, T* previous_value_out, ImGuiID id = ImGui::GetItemID())
+bool change_detection(SongEditor& editor, T value, T* previous_value_out, ImGuiID id = ImGui::GetItemID(), bool always_check = false)
 {
     // if previous value for this id is not found
     // write initial value
@@ -159,7 +159,7 @@ bool change_detection(SongEditor& editor, T value, T* previous_value_out, ImGuiI
     else
         val_alloc = editor.ui_values[id];
 
-    if (ImGui::IsItemDeactivatedAfterEdit())
+    if (always_check || ImGui::IsItemDeactivatedAfterEdit())
     {
         T* previous_value = static_cast<T*>(val_alloc);
 
@@ -173,7 +173,7 @@ bool change_detection(SongEditor& editor, T value, T* previous_value_out, ImGuiI
             return true;
         }
         else {
-            std::cout << "no change\n";
+            if (!always_check) std::cout << "no change\n";
         }
     }
 

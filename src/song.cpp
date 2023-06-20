@@ -82,6 +82,7 @@ void Channel::set_fx_target(int fx_index)
     // disconnect old target
     fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
 
+    // connect to new target
     fx_target_idx = fx_index;
     fx_mixer[fx_index]->connect_input(&vol_mod);
 }

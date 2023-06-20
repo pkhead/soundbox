@@ -14,6 +14,7 @@ namespace change
         SongMaxPatterns,
         ChannelVolume,
         ChannelPanning,
+        ChannelOutput
     };
 
     class Action
@@ -35,7 +36,58 @@ namespace change
         ImGuiID id;
         float old_tempo, new_tempo;
 
-        ActionType get_type() const override { return SongTempo; };
+        ActionType get_type() const override { return ActionType::SongTempo; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeSongMaxPatterns : public Action
+    {
+    public:
+        ChangeSongMaxPatterns(int old_count, int new_count);
+        int old_count, new_count;
+
+        ActionType get_type() const override { return ActionType::SongMaxPatterns; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeChannelVolume : public Action
+    {
+    public:
+        ChangeChannelVolume(int channel_index, float old_vol, float new_vol);
+        int channel_index;
+        float old_vol, new_vol;
+
+        ActionType get_type() const override { return ActionType::ChannelVolume; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeChannelPanning : public Action
+    {
+    public:
+        ChangeChannelPanning(int channel_index, float old_val, float new_val);
+        int channel_index;
+        float old_val, new_val;
+
+        ActionType get_type() const override { return ActionType::ChannelPanning; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeChannelOutput : public Action
+    {
+    public:
+        ChangeChannelOutput(int channel_index, int old_val, int new_val);
+        int channel_index;
+        int old_val, new_val;
+
+        ActionType get_type() const override { return ActionType::ChannelOutput; };
         void undo(SongEditor& editor) override;
         void redo(SongEditor& editor) override;
         bool merge(Action* other) override;
