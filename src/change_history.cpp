@@ -58,10 +58,12 @@ change::ChangeChannelVolume::ChangeChannelVolume(int channel_index, float old_va
     {}
 
 void change::ChangeChannelVolume::undo(SongEditor& editor) {
+    editor.selected_channel = channel_index;
     editor.song.channels[channel_index]->vol_mod.volume = old_vol;
 }
 
 void change::ChangeChannelVolume::redo(SongEditor& editor) {
+    editor.selected_channel = channel_index;
     editor.song.channels[channel_index]->vol_mod.volume = new_vol;
 }
 
@@ -80,10 +82,12 @@ change::ChangeChannelPanning::ChangeChannelPanning(int channel_index, float old_
     {}
 
 void change::ChangeChannelPanning::undo(SongEditor& editor) {
+    editor.selected_channel = channel_index;
     editor.song.channels[channel_index]->vol_mod.panning = old_val;
 }
 
 void change::ChangeChannelPanning::redo(SongEditor& editor) {
+    editor.selected_channel = channel_index;
     editor.song.channels[channel_index]->vol_mod.panning = new_val;
 }
 
@@ -102,10 +106,12 @@ change::ChangeChannelOutput::ChangeChannelOutput(int channel_index, int old_val,
     {}
 
 void change::ChangeChannelOutput::undo(SongEditor& editor) {
+    editor.selected_channel = channel_index;
     editor.song.channels[channel_index]->set_fx_target(old_val);
 }
 
 void change::ChangeChannelOutput::redo(SongEditor& editor) {
+    editor.selected_channel = channel_index;
     editor.song.channels[channel_index]->set_fx_target(new_val);
 }
 
@@ -126,6 +132,7 @@ static void get_rack_info(
     {
         *rack = &editor.song.channels[target_index]->effects_rack;
         *parent_name = editor.song.channels[target_index]->name;
+        editor.selected_channel = target_index;
     }
     else if (target_type == change::FXRackTargetType::TargetFXBus)
     {
