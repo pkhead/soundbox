@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include "audio.h"
+#include "change_history.h"
 #include "imgui_stdlib.h"
 #include "modules/modules.h"
 #include "imgui.h"
@@ -231,7 +232,7 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
 
 
 
-EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* effects_rack, const char* parent_name, int* selected_index)
+EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* effects_rack, const char** module_id, int* selected_index)
 {
     Song* song = &editor->song;
 
@@ -251,11 +252,8 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
         {
             if (ImGui::Selectable(listing.name))
             {
-                mutex.lock();
-                audiomod::ModuleBase* mod = audiomod::create_module(listing.id, song);
-                mod->parent_name = parent_name;
-                effects_rack->insert(mod);
-                mutex.unlock();
+                *module_id = listing.id;
+                action = EffectsInterfaceAction::Add;
             }
         }
 
@@ -612,7 +610,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                         cur_channel->set_fx_target(target_i);
 
                     if (is_selected) ImGui::SetItemDefaultFocus();
-                    
+
                     // change detection
                     {
                         // make id
@@ -661,8 +659,27 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
         }
 
         int target_index;
-        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, cur_channel->name, &target_index))
+        const char* module_id;
+        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, &module_id, &target_index))
         {
+            case EffectsInterfaceAction::Add: {
+                song.mutex.lock();
+
+                audiomod::ModuleBase* mod = audiomod::create_module(module_id, &song);
+                mod->parent_name = cur_channel->name;
+                cur_channel->effects_rack.insert(mod);
+
+                // register change
+                editor.push_change(new change::ChangeAddEffect(
+                    editor.selected_channel,
+                    change::ChangeAddEffect::TargetChannel,
+                    module_id
+                ));
+
+                song.mutex.unlock();
+                break;
+            }
+
             case EffectsInterfaceAction::Edit:
                 editor.toggle_module_interface(cur_channel->effects_rack.modules[target_index]);
                 break;
@@ -906,8 +923,27 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             }
 
             int target_index;
-            switch (effect_rack_ui(&editor, &fx_bus->rack, fx_bus->name, &target_index))
+            const char* module_id;
+            switch (effect_rack_ui(&editor, &fx_bus->rack, &module_id, &target_index))
             {
+                case EffectsInterfaceAction::Add: {
+                    song.mutex.lock();
+                    
+                    audiomod::ModuleBase* mod = audiomod::create_module(module_id, &song);
+                    mod->parent_name = fx_bus->name;
+                    fx_bus->insert(mod);
+
+                    // register change
+                    editor.push_change(new change::ChangeAddEffect(
+                        i,
+                        change::ChangeAddEffect::TargetFXBus,
+                        module_id
+                    ));
+
+                    song.mutex.unlock();
+                    break;
+                }
+
                 case EffectsInterfaceAction::Edit:
                     editor.toggle_module_interface(fx_bus->rack.modules[target_index]);
                     break;

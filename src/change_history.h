@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <imgui.h>
 #include <vector>
+#include <string>
 
 class SongEditor;
 
@@ -12,9 +13,15 @@ namespace change
         Unknown = 0,
         SongTempo,
         SongMaxPatterns,
+        
         ChannelVolume,
         ChannelPanning,
-        ChannelOutput
+        ChannelOutput,
+
+        AddEffect,
+        RemoveEffect,
+        ModifyEffect,
+        SwapEffect,
     };
 
     class Action
@@ -88,6 +95,27 @@ namespace change
         int old_val, new_val;
 
         ActionType get_type() const override { return ActionType::ChannelOutput; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeAddEffect : public Action
+    {
+    public:
+        enum TargetType {
+            TargetChannel,
+            TargetFXBus
+        };
+
+        // a target_type of 0 means a channel
+        // a target_type of 1 means an fx bus
+        ChangeAddEffect(int target_index, TargetType target_type, std::string mod_type);
+        int target_index;
+        TargetType target_type;
+        std::string mod_type;
+
+        ActionType get_type() const override { return ActionType::AddEffect; };
         void undo(SongEditor& editor) override;
         void redo(SongEditor& editor) override;
         bool merge(Action* other) override;
