@@ -1,125 +1,129 @@
 #include "change_history.h"
-#include "song.h"
-#include <cstdlib>
-#include <cstring>
+#include "editor.h"
+
+// Song Tempo //
+
+change::ChangeSongTempo::ChangeSongTempo(ImGuiID id, float old_tempo, float new_tempo)
+    : old_tempo(old_tempo), new_tempo(new_tempo), id(id)
+    {}
+
+void change::ChangeSongTempo::undo(SongEditor& editor) {
+    editor.song.tempo = old_tempo;
+    memcpy(editor.ui_values[id], &old_tempo, sizeof(old_tempo));
+}
+
+void change::ChangeSongTempo::redo(SongEditor& editor) {
+    editor.song.tempo = new_tempo;
+    memcpy(editor.ui_values[id], &old_tempo, sizeof(old_tempo));
+}
+
+bool change::ChangeSongTempo::merge(change::Action* other)
+{
+    if (get_type() != other->get_type()) return false;
+    ChangeSongTempo* sub = static_cast<ChangeSongTempo*>(other);
+    new_tempo = sub->new_tempo;
+    return true;
+}
+
+// Song Max Patterns //
+
+change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count)
+    : old_count(old_count), new_count(new_count)
+    {}
+
+void change::ChangeSongMaxPatterns::undo(SongEditor& editor) {
+    editor.song.set_max_patterns(old_count);
+}
+
+void change::ChangeSongMaxPatterns::redo(SongEditor& editor) {
+    editor.song.set_max_patterns(new_count);
+}
+
+bool change::ChangeSongMaxPatterns::merge(change::Action* other)
+{
+    if (get_type() != other->get_type()) return false;
+    ChangeSongMaxPatterns* sub = static_cast<ChangeSongMaxPatterns*>(other);
+    new_count = sub->new_count;
+    return true;
+}
+
+// Channel Volume //
+
+change::ChangeChannelVolume::ChangeChannelVolume(int channel_index, float old_val, float new_val)
+    : channel_index(channel_index), old_vol(old_val), new_vol(new_val)
+    {}
+
+void change::ChangeChannelVolume::undo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.volume = old_vol;
+}
+
+void change::ChangeChannelVolume::redo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.volume = new_vol;
+}
+
+bool change::ChangeChannelVolume::merge(Action* other) {
+    if (get_type() != other->get_type()) return false;
+    ChangeChannelVolume* sub = static_cast<ChangeChannelVolume*>(other);
+    if (sub->channel_index != channel_index) return false;
+    new_vol = sub->new_vol;
+    return true;
+}
+
+// Channel Panning //
+
+change::ChangeChannelPanning::ChangeChannelPanning(int channel_index, float old_val, float new_val)
+    : channel_index(channel_index), old_val(old_val), new_val(new_val)
+    {}
+
+void change::ChangeChannelPanning::undo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.panning = old_val;
+}
+
+void change::ChangeChannelPanning::redo(SongEditor& editor) {
+    editor.song.channels[channel_index]->vol_mod.panning = new_val;
+}
+
+bool change::ChangeChannelPanning::merge(Action* other) {
+    if (get_type() != other->get_type()) return false;
+    ChangeChannelPanning* sub = static_cast<ChangeChannelPanning*>(other);
+    if (sub->channel_index != channel_index) return false;
+    new_val = sub->new_val;
+    return true;
+}
+
+// Channel Output //
+
+change::ChangeChannelOutput::ChangeChannelOutput(int channel_index, int old_val, int new_val)
+    : channel_index(channel_index), old_val(old_val), new_val(new_val)
+    {}
+
+void change::ChangeChannelOutput::undo(SongEditor& editor) {
+    editor.song.channels[channel_index]->set_fx_target(old_val);
+}
+
+void change::ChangeChannelOutput::redo(SongEditor& editor) {
+    editor.song.channels[channel_index]->set_fx_target(new_val);
+}
+
+bool change::ChangeChannelOutput::merge(Action* other) {
+    return false;
+}
 
 //////////////////
-// change queue //
+// CHANGE QUEUE //
 //////////////////
 
-ChangeAction::ChangeAction(ChangeActionType type) : type(type) {
-    switch (type)
-    {
-        case ChangeActionType::Unknown:
-        case ChangeActionType::ChannelVolume:
-        case ChangeActionType::ChannelPanning:
-
-            data_type = ChangeActionData::Float;
-            break;
-
-        case CHan
-    }
-}
-
-// copy constructor
-enum class ChangeActionTarget : uint8_t
-{
-    Unknown = 0,
-    SongTempo,
-    SongMaxPatterns,
-    ChannelVolume,
-    ChannelPanning,
-};
-
-ChangeAction::ChangeAction(const ChangeAction& src)
-{
-    std::cout << "copy constructor";
-
-    target = src.target;
-
-    switch (src.target)
-    {
-        case ChangeActionTarget::SongTempo;
-        
-        case ChangeActionData::Float:
-            type_float = src.type_float;
-            break;
-
-        case ChangeActionData::Int:
-            type_int = src.type_int;
-            break;
-
-        case ChangeActionData::Note:
-            type_note = src.type_note;
-            break;
-
-        case ChangeActionData::Bar:
-            type_bar = src.type_bar;
-            break;
-
-        case ChangeActionData::Channel:
-            type_channel = src.type_channel;
-            break;
-    }
-}
-
-// move constructor
-ChangeAction::ChangeAction(ChangeAction&& src) noexcept
-{
-    std::cout << "move constructor";
-
-    type = src.type;
-    data_type = src.data_type;
-
-    switch (src.data_type)
-    {
-        case ChangeActionData::Float:
-            type_float = std::move(src.type_float);
-            break;
-
-        case ChangeActionData::Int:
-            type_int = std::move(src.type_int);
-            break;
-
-        case ChangeActionData::Note:
-            type_note = std::move(src.type_note);
-            break;
-
-        case ChangeActionData::Bar:
-            type_bar = std::move(src.type_bar);
-            break;
-
-        case ChangeActionData::Channel:
-            type_channel = std::move(src.type_channel);
-            break;
-    }
-}
-
-bool ChangeAction::can_merge(const ChangeAction& other) const
-{
-    switch (type)
-    {
-        // these types are not mergeable
-        case ChangeActionType::Unknown: return false;
-        // case ChangeActionType::NoteAdd: return false;
-        // case ChangeActionType::NoteRemove: return false;
-        // case ChangeActionType::ChannelAdd: return false;
-        // case ChangeActionType::ChannelRemove: return false;
-
-        default: return type == other.type;
-    }
-}
-
-ChangeQueue::~ChangeQueue()
+change::Stack::~Stack()
 {
     clear();
 }
 
-void ChangeQueue::push(const ChangeAction&& change_action)
+void change::Stack::push(change::Action* change_action)
 {
-    // don't register change if mergeable
-    if (!changes.empty() && change_action.can_merge(changes.back()))
+    // merge change if possible
+    if (!changes.empty() && changes.back()->merge(change_action))
     {
+        delete change_action;
         return;
     }
     else
@@ -128,14 +132,19 @@ void ChangeQueue::push(const ChangeAction&& change_action)
     }
 }
 
-ChangeAction ChangeQueue::pop()
+change::Action* change::Stack::pop()
 {
-    ChangeAction action = changes.back();
+    Action* action = changes.back();
     changes.pop_back();
     return action;
 }
 
-void ChangeQueue::clear()
+void change::Stack::clear()
 {
+    for (Action* action : changes)
+    {
+        delete action;
+    }
+
     changes.clear();
 }

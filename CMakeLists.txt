@@ -43,6 +43,7 @@ set(SOURCES
     src/audio.cpp
     src/ui.cpp
     src/ui_interact.cpp
+    src/change_history.cpp
     src/sys.cpp
     src/audiofile.cpp
     src/pattern_editor.cpp
