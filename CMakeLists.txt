@@ -34,7 +34,7 @@ set(SOURCES
     deps/AnaMark-Tuning-Library/SCL_Import.cpp
 
     # glad
-    src/glad/gl.c
+    deps/gl/glad/gl.c
 
     # app sources
     src/main.cpp
@@ -62,6 +62,7 @@ set(SOURCES
 
 include_directories(
     src
+    deps/gl
     deps/AnaMark-Tuning-Library
     deps/glfw/include
     deps/imgui
