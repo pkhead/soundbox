@@ -10,7 +10,7 @@ Anything BeepBox has, plus:
 - Automation
 - Song change markers (time signature or tuning)
 - Variable-length patterns
-- Plugin support (VST, LADPSA, LV2, CLAP)
+- Plugin support (VST, LADSPA, LV2, CLAP)
 - FX Mixer
 - Sample instrument (including a slicer)
 - Channel for playing audio clips 
