@@ -123,17 +123,17 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
     });
 
     // undo/redo
-    /*user_actions.set_callback("undo", [&]()
+    user_actions.set_callback("undo", [&]()
     {
-        if (!song.undo())
+        if (!editor.undo())
             show_status("Nothing to undo");
     });
 
     user_actions.set_callback("redo", [&]()
     {
-        if (!song.redo())
+        if (!editor.redo())
             show_status("Nothing to redo");
-    });*/
+    });
 
     // song play/pause
     user_actions.set_callback("song_play_pause", [&song]() {
@@ -478,7 +478,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
         {
             float prev;
             if (change_detection(editor, song.tempo, &prev)) {
-                editor.undo_queue.push(new change::ChangeSongTempo(prev, song.tempo));
+                editor.push_change(new change::ChangeSongTempo(ImGui::GetItemID(), prev, song.tempo));
             }
         }
         

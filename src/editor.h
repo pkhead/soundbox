@@ -30,8 +30,9 @@ namespace change
     class ChangeSongTempo : public Action
     {
     public:
-        ChangeSongTempo(float old_tempo, float new_tempo);
+        ChangeSongTempo(ImGuiID id, float old_tempo, float new_tempo);
 
+        ImGuiID id;
         float old_tempo, new_tempo;
 
         ActionType get_type() const override { return SongTempo; };
@@ -40,13 +41,14 @@ namespace change
         bool merge(Action* other) override;
     };
 
-    class Queue
+    class Stack
     {
     private:
         std::vector<Action*> changes;
     public:
-        ~Queue();
+        ~Stack();
 
+        inline bool is_empty() const { return changes.empty(); }
         void push(Action* action);
         Action* pop();
         void clear();
@@ -81,8 +83,14 @@ public:
     // returns true if there was something to redo
     bool redo();
 
-    change::Queue undo_queue;
-    change::Queue redo_queue;
+    // push a change to the undo stack
+    inline void push_change(change::Action* action) {
+        undo_stack.push(action);
+        redo_stack.clear();    
+    };
+
+    change::Stack undo_stack;
+    change::Stack redo_stack;
 
     void delete_fx_bus(audiomod::FXBus* bus_to_delete);
     void toggle_module_interface(audiomod::ModuleBase* mod);

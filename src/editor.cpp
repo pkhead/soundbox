@@ -7,16 +7,18 @@
 
 // Song Tempo //
 
-change::ChangeSongTempo::ChangeSongTempo(float old_tempo, float new_tempo)
-    : old_tempo(old_tempo), new_tempo(new_tempo)
+change::ChangeSongTempo::ChangeSongTempo(ImGuiID id, float old_tempo, float new_tempo)
+    : old_tempo(old_tempo), new_tempo(new_tempo), id(id)
     {}
 
 void change::ChangeSongTempo::undo(SongEditor& editor) {
     editor.song.tempo = old_tempo;
+    memcpy(editor.ui_values[id], &old_tempo, sizeof(old_tempo));
 }
 
 void change::ChangeSongTempo::redo(SongEditor& editor) {
     editor.song.tempo = new_tempo;
+    memcpy(editor.ui_values[id], &old_tempo, sizeof(old_tempo));
 }
 
 bool change::ChangeSongTempo::merge(change::Action* other)
@@ -31,12 +33,12 @@ bool change::ChangeSongTempo::merge(change::Action* other)
 // CHANGE QUEUE //
 //////////////////
 
-change::Queue::~Queue()
+change::Stack::~Stack()
 {
     clear();
 }
 
-void change::Queue::push(change::Action* change_action)
+void change::Stack::push(change::Action* change_action)
 {
     // merge change if possible
     if (!changes.empty() && changes.back()->merge(change_action))
@@ -50,14 +52,14 @@ void change::Queue::push(change::Action* change_action)
     }
 }
 
-change::Action* change::Queue::pop()
+change::Action* change::Stack::pop()
 {
     Action* action = changes.back();
     changes.pop_back();
     return action;
 }
 
-void change::Queue::clear()
+void change::Stack::clear()
 {
     for (Action* action : changes)
     {
@@ -79,10 +81,28 @@ SongEditor::SongEditor(Song& song) :
 
 SongEditor::~SongEditor()
 {
-    /*for (auto it : ui_values)
-    {
+    for (auto it : ui_values)
         free(it.second);
-    }*/
+}
+
+bool SongEditor::undo()
+{
+    if (undo_stack.is_empty()) return false;
+
+    change::Action* action = undo_stack.pop();
+    action->undo(*this);
+    redo_stack.push(action);
+    return true;
+}
+
+bool SongEditor::redo()
+{
+    if (redo_stack.is_empty()) return false;
+
+    change::Action* action = redo_stack.pop();
+    action->redo(*this);
+    undo_stack.push(action);
+    return true;
 }
 
 void SongEditor::hide_module_interface(audiomod::ModuleBase* mod) {
