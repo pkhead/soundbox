@@ -232,7 +232,7 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
 
 
 
-EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* effects_rack, const char** module_id, int* selected_index)
+EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* effects_rack, EffectsInterfaceResult* result)
 {
     Song* song = &editor->song;
 
@@ -252,7 +252,7 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
         {
             if (ImGui::Selectable(listing.name))
             {
-                *module_id = listing.id;
+                result->module_id = listing.id;
                 action = EffectsInterfaceAction::Add;
             }
         }
@@ -279,12 +279,27 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
         static int delete_index;
         delete_index = -1;
 
+        static int swap_start = 0;
+
         for (audiomod::ModuleBase* module : effects_rack->modules) {
             ImGui::PushID(module);
-
-            //bool is_selected = cur_channel->selected_effect == i;
-            bool is_selected = false;
+            
             ImGui::Selectable(module->name.c_str(), module->show_interface);
+
+            // record swaps
+            if (ImGui::IsItemActivated())
+                swap_start = i;
+
+            if (ImGui::IsItemDeactivated())
+            {
+                if (swap_start != i)
+                {
+                    std::cout << "swapped\n";
+                    action = EffectsInterfaceAction::Swapped;
+                    result->swap_start = swap_start;
+                    result->swap_end = i;
+                }
+            }
 
             // drag to reorder
             if (ImGui::IsItemActive() && !ImGui::IsItemHovered()) {
@@ -304,7 +319,7 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
 
             // double click to edit
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                *selected_index = i;
+                result->target_index = i;
                 action = EffectsInterfaceAction::Edit;
             }
 
@@ -312,7 +327,7 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
             if (ImGui::BeginPopupContextItem()) {
                 if (ImGui::Selectable("Remove", false)) {
                     // defer deletion until after the loop has finished
-                    *selected_index = i;
+                    result->target_index = i;
                     action = EffectsInterfaceAction::Delete;
                 }
                 ImGui::EndPopup();
@@ -658,14 +673,13 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             editor.toggle_module_interface(cur_channel->synth_mod);
         }
 
-        int target_index;
-        const char* module_id;
-        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, &module_id, &target_index))
+        EffectsInterfaceResult result;
+        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, &result))
         {
             case EffectsInterfaceAction::Add: {
                 song.mutex.lock();
 
-                audiomod::ModuleBase* mod = audiomod::create_module(module_id, &song);
+                audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song);
                 mod->parent_name = cur_channel->name;
                 cur_channel->effects_rack.insert(mod);
 
@@ -673,7 +687,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 editor.push_change(new change::ChangeAddEffect(
                     editor.selected_channel,
                     change::FXRackTargetType::TargetChannel,
-                    module_id
+                    result.module_id
                 ));
 
                 song.mutex.unlock();
@@ -681,20 +695,20 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             }
 
             case EffectsInterfaceAction::Edit:
-                editor.toggle_module_interface(cur_channel->effects_rack.modules[target_index]);
+                editor.toggle_module_interface(cur_channel->effects_rack.modules[result.target_index]);
                 break;
 
             case EffectsInterfaceAction::Delete: {
                 // delete the selected module
                 song.mutex.lock();
 
-                audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(target_index);
+                audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(result.target_index);
                 if (mod != nullptr) {
                     // register change
                     editor.push_change(new change::ChangeRemoveEffect(
                         editor.selected_channel,
                         change::FXRackTargetType::TargetChannel,
-                        target_index,
+                        result.target_index,
                         mod
                     ));
 
@@ -705,6 +719,16 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 song.mutex.unlock();
                 break;
             }
+
+            case EffectsInterfaceAction::Swapped:
+                editor.push_change(new change::ChangeSwapEffect(
+                    editor.selected_channel,
+                    change::FXRackTargetType::TargetChannel,
+                    result.swap_start,
+                    result.swap_end
+                ));
+
+                break;
 
             case EffectsInterfaceAction::Nothing: break;
         }
@@ -930,14 +954,13 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 }
             }
 
-            int target_index;
-            const char* module_id;
-            switch (effect_rack_ui(&editor, &fx_bus->rack, &module_id, &target_index))
+            EffectsInterfaceResult result;
+            switch (effect_rack_ui(&editor, &fx_bus->rack, &result))
             {
                 case EffectsInterfaceAction::Add: {
                     song.mutex.lock();
                     
-                    audiomod::ModuleBase* mod = audiomod::create_module(module_id, &song);
+                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song);
                     mod->parent_name = fx_bus->name;
                     fx_bus->insert(mod);
 
@@ -945,7 +968,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                     editor.push_change(new change::ChangeAddEffect(
                         i,
                         change::FXRackTargetType::TargetFXBus,
-                        module_id
+                        result.module_id
                     ));
 
                     song.mutex.unlock();
@@ -953,20 +976,20 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 }
 
                 case EffectsInterfaceAction::Edit:
-                    editor.toggle_module_interface(fx_bus->rack.modules[target_index]);
+                    editor.toggle_module_interface(fx_bus->rack.modules[result.target_index]);
                     break;
 
                 case EffectsInterfaceAction::Delete: {
                     // delete the selected module
                     song.mutex.lock();
 
-                    audiomod::ModuleBase* mod = fx_bus->rack.remove(target_index);
+                    audiomod::ModuleBase* mod = fx_bus->rack.remove(result.target_index);
                     if (mod != nullptr) {
                         // register change
                         editor.push_change(new change::ChangeRemoveEffect(
                             i,
                             change::FXRackTargetType::TargetFXBus,
-                            target_index,
+                            result.target_index,
                             mod
                         ));
 
@@ -977,6 +1000,16 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                     song.mutex.unlock();
                     break;
                 }
+
+                case EffectsInterfaceAction::Swapped:
+                    editor.push_change(new change::ChangeSwapEffect(
+                        i,
+                        change::FXRackTargetType::TargetFXBus,
+                        result.swap_start,
+                        result.swap_end
+                    ));
+                    
+                    break;
 
                 case EffectsInterfaceAction::Nothing: break;
             }

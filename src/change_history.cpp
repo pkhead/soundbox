@@ -113,6 +113,31 @@ bool change::ChangeChannelOutput::merge(Action* other) {
     return false;
 }
 
+
+static void get_rack_info(
+    change::FXRackTargetType target_type,
+    SongEditor& editor,
+    int target_index,
+    audiomod::EffectsRack** rack,
+    const char** parent_name
+)
+{
+    if (target_type == change::FXRackTargetType::TargetChannel)
+    {
+        *rack = &editor.song.channels[target_index]->effects_rack;
+        *parent_name = editor.song.channels[target_index]->name;
+    }
+    else if (target_type == change::FXRackTargetType::TargetFXBus)
+    {
+        *rack = &editor.song.fx_mixer[target_index]->rack;
+        *parent_name = editor.song.channels[target_index]->name;
+    }
+    else {
+        std::cerr << "invalid target type\n";
+        abort();
+    }
+}
+
 // Add Effect //
 
 change::ChangeAddEffect::ChangeAddEffect(int target_index, FXRackTargetType target_type, std::string mod_type)
@@ -121,19 +146,8 @@ change::ChangeAddEffect::ChangeAddEffect(int target_index, FXRackTargetType targ
 
 void change::ChangeAddEffect::undo(SongEditor& editor) {
     audiomod::EffectsRack* rack;
-
-    if (target_type == FXRackTargetType::TargetChannel)
-    {
-        rack = &editor.song.channels[target_index]->effects_rack;
-    }
-    else if (target_type == FXRackTargetType::TargetFXBus)
-    {
-        rack = &editor.song.fx_mixer[target_index]->rack;
-    }
-    else {
-        std::cerr << "invalid target type\n";
-        abort();
-    }
+    const char* parent_name;
+    get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     // delete the module at the back
     editor.song.mutex.lock();
@@ -150,21 +164,7 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
 void change::ChangeAddEffect::redo(SongEditor& editor) {
     audiomod::EffectsRack* rack;
     const char* parent_name;
-
-    if (target_type == FXRackTargetType::TargetChannel)
-    {
-        rack = &editor.song.channels[target_index]->effects_rack;
-        parent_name = editor.song.channels[target_index]->name;
-    }
-    else if (target_type == FXRackTargetType::TargetFXBus)
-    {
-        rack = &editor.song.fx_mixer[target_index]->rack;
-        parent_name = editor.song.channels[target_index]->name;
-    }
-    else {
-        std::cerr << "invalid target type\n";
-        abort();
-    }
+    get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     editor.song.mutex.lock();
 
@@ -195,19 +195,8 @@ change::ChangeRemoveEffect::ChangeRemoveEffect(int target_index, FXRackTargetTyp
 
 void change::ChangeRemoveEffect::redo(SongEditor& editor) {
     audiomod::EffectsRack* rack;
-
-    if (target_type == FXRackTargetType::TargetChannel)
-    {
-        rack = &editor.song.channels[target_index]->effects_rack;
-    }
-    else if (target_type == FXRackTargetType::TargetFXBus)
-    {
-        rack = &editor.song.fx_mixer[target_index]->rack;
-    }
-    else {
-        std::cerr << "invalid target type\n";
-        abort();
-    }
+    const char* parent_name;
+    get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     // delete the module at the back
     editor.song.mutex.lock();
@@ -232,21 +221,7 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
 void change::ChangeRemoveEffect::undo(SongEditor& editor) {
     audiomod::EffectsRack* rack;
     const char* parent_name;
-
-    if (target_type == FXRackTargetType::TargetChannel)
-    {
-        rack = &editor.song.channels[target_index]->effects_rack;
-        parent_name = editor.song.channels[target_index]->name;
-    }
-    else if (target_type == FXRackTargetType::TargetFXBus)
-    {
-        rack = &editor.song.fx_mixer[target_index]->rack;
-        parent_name = editor.song.channels[target_index]->name;
-    }
-    else {
-        std::cerr << "invalid target type\n";
-        abort();
-    }
+    get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     editor.song.mutex.lock();
 
@@ -257,11 +232,47 @@ void change::ChangeRemoveEffect::undo(SongEditor& editor) {
     // load module state
     std::stringstream stream(mod_state);
     mod->load_state(stream, mod_state.size());
-    
+
     editor.song.mutex.unlock();
 }
 
 bool change::ChangeRemoveEffect::merge(Action* other) {
+    return false;
+}
+
+// Swap Effect //
+
+change::ChangeSwapEffect::ChangeSwapEffect(int target_index, FXRackTargetType target_type, int old_index, int new_index)
+    : target_index(target_index), target_type(target_type), old_index(old_index), new_index(new_index)
+{}
+
+void change::ChangeSwapEffect::undo(SongEditor& editor)
+{
+    audiomod::EffectsRack* rack;
+    const char* parent_name;
+    get_rack_info(target_type, editor, target_index, &rack, &parent_name);
+
+    editor.song.mutex.lock();
+
+    int min = new_index > old_index ? old_index : new_index;
+    int max = new_index > old_index ? new_index : old_index;
+
+    audiomod::ModuleBase* mod0 = rack->remove(min);
+    rack->insert(mod0, max);
+    audiomod::ModuleBase* mod1 = rack->remove(max - 1);
+    rack->insert(mod1, min);
+
+    editor.song.mutex.unlock();
+}
+
+// same as undo
+void change::ChangeSwapEffect::redo(SongEditor& editor)
+{
+    return undo(editor);
+}
+
+bool change::ChangeSwapEffect::merge(Action* other)
+{
     return false;
 }
 

@@ -180,17 +180,21 @@ bool change_detection(SongEditor& editor, T value, T* previous_value_out, ImGuiI
     return false;
 }
 
-// if action = 0, do nothing
-// if action = 1, edit selected module
-// if aciton = 2, delete selected module
 enum class EffectsInterfaceAction
 {
-    Nothing, Edit, Delete, Add
+    Nothing, Edit, Delete, Add, Swapped
+};
+
+struct EffectsInterfaceResult
+{
+    const char* module_id;
+    int target_index;
+    int swap_start;
+    int swap_end;    
 };
 
 EffectsInterfaceAction effect_rack_ui(
     SongEditor* editor,
     audiomod::EffectsRack* rack,
-    const char** module_id,
-    int** target_index
+    EffectsInterfaceResult* result
 );

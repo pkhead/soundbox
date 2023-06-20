@@ -136,6 +136,20 @@ namespace change
         bool merge(Action* other) override;
     };
 
+    class ChangeSwapEffect : public Action
+    {
+    public:
+        ChangeSwapEffect(int target_index, FXRackTargetType target_type, int old_index, int new_index);
+        int target_index;
+        FXRackTargetType target_type;
+        int old_index, new_index;
+
+        ActionType get_type() const override { return ActionType::SwapEffect; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
     class Stack
     {
     private:
