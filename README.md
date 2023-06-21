@@ -1,33 +1,37 @@
 # soundbox
 ![logo](logo.svg)
 
-A cross-platform, free, and open-source digital audio workstation.
+A free and cross-platform application used for creating tunes.
+
+## Goals
+Soundbox is mainly targeted towards music-creating hobbyists who wish to have a simple and lightweight
+tool for creating music. It should be relatively easy to figure out how to use this application.
+Even though it is mainly for instrumental music, it is also possible to add vocals into a song.
 
 ## Features
-Anything BeepBox has, plus:
-
+- Pattern-based grid sequencer
+- Variable-length patterns
+- Support for VST, LADSPA, LV2, and CLAP plugins
+- FX Mixer
 - Custom tuning
 - Automation
 - Song change markers (time signature or tuning)
-- Variable-length patterns
-- Plugin support (VST, LADSPA, LV2, CLAP)
-- FX Mixer
 - Sample instrument (including a slicer)
-- Channel for playing audio clips 
-- Many other effects
+- Channel for playing audio clips
+- Many built-in effects
 
 To see which features are not currently implemented, consult [TODO.txt](TODO.txt).
 Most features aren't implemented as this is still fairly early into development.
 
-## Installation
+## Building
+
+### Linux
 Prerequisites:
 - CMake
-- Visual Studio (Windows)
-- Make (Linux)
+- A build system such as Make (Linux)
 
-### GNU/Linux
 ```bash
-# initialize repository
+# clone repository
 git clone https://github.com/pkhead/soundbox
 cd soundbox
 git submodule init
@@ -42,42 +46,30 @@ make
 ./soundbox
 ```
 
-### Windows (Visual Studio GUI)
+### Windows (Visual Studio)
 Make sure the C++ and CMake Tools components have been installed through the Visual Studio installer.
-It will automatically configure CMake once the folder is opened through Visual Studio.
+It will automatically configure CMake once the folder is opened through Visual Studio. Once open, select `soundbox.exe` as the startup item.
 
-Select `soundbox.exe` as the startup item.
-
-### Windows (VS Native Build Tools Command Prompt)
-Using the Ninja build system (check if it's installed):
+If you wish to use the VS Native Build Tools Command Prompt, it is recommended to use Ninja as the CMake generator as
+that appears to be the default build system for the GUI version. To configure
+CMake and build the project using Ninja, type in the following commands:
 ```batch
-Rem initialize repository
-git clone https://github.com/pkhead/soundbox
-cd soundbox
-git submodule init
-git submodule update
-
-Rem build the project using Ninja
-mkdir build && cd build
 cmake -GNinja ..
 ninja
-
-Rem run the program
-soundbox.exe
 ```
-Using NMake:
+If you wish to use NMake, type in these commands instead:
 ```batch
-Rem initialize repository, see above...
-
-Rem build the project using NMake
-mkdir build && cd build
 cmake -G "NMake Makefiles" ..
 nmake
-
-Rem run the program
-soundbox.exe
 ```
+Every other command should be the same as the process on Linux.
 
+### Mac
+No build instructions are provided since I don't have a Mac. But I think that, with the use of Homebrew, you
+should be able to follow the instructions for Linux.
+
+If anyone reading this is on a Mac, I would appreciate it if you helped out by providing a way
+to build this program.
 
 ## Thanks to
 - [PortAudio](http://www.portaudio.com/) for the audio library
