@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <unistd.h>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -13,6 +14,7 @@
 
 #include <imgui.h>
 #include "glad/gl.h"
+#include "theme.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
@@ -184,9 +186,14 @@ int main()
         AudioDevice device(-1);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
+        // initialize theme
+        Theme* theme = new Theme("styles/Soundbox Dark.toml");
+        theme->set_imgui_colors();
+
         // initialize song editor
         Song* song = new Song(4, 8, 8, destination);
         SongEditor* song_editor = new SongEditor(*song);
+        song_editor->theme = theme;
 
         // this mutex is locked by the audio thread while audio is being processed
         // and is locked by the main thread when a new song is being loaded
@@ -820,12 +827,6 @@ int main()
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             prev_time = glfwGetTime();
-
-            double cur_time = glfwGetTime();
-
-            if (next_time <= cur_time) {
-                next_time = cur_time;
-            }
         }
 
         sys::clear_interval(audioaux_interval);

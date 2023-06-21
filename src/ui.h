@@ -6,20 +6,16 @@
 #include <functional>
 #include <iostream>
 #include <math.h>
+#include <imgui.h>
+#include <sstream>
+#include <unordered_map>
+
 #include "audio.h"
 #include "song.h"
 #include "editor.h"
-#include <imgui.h>
-#include <sstream>
-
 #include "glad/gl.h"
 
 #define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
-
-namespace Colors {
-    constexpr size_t channel_num = 4;
-    extern ImU32 channel[channel_num][2];
-}
 
 constexpr uint8_t USERMOD_SHIFT = 1;
 constexpr uint8_t USERMOD_CTRL = 2;

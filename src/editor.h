@@ -2,6 +2,7 @@
 #include "audio.h"
 #include "imgui.h"
 #include "song.h"
+#include "theme.h"
 #include "change_history.h"
 
 class SongEditor {
@@ -11,6 +12,7 @@ public:
     SongEditor(Song& song);
     ~SongEditor();
     Song& song;
+    Theme* theme = nullptr;
 
     int selected_channel = 0;
     int selected_bar = 0;

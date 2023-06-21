@@ -4,7 +4,7 @@
 #include <math.h>
 #include <sys/types.h>
 #include "../sys.h"
-#include "audio.h"
+#include "../audio.h"
 #include "delay.h"
 #include "../song.h"
 

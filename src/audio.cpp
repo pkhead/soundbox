@@ -10,7 +10,7 @@
 #include <portaudio.h>
 #include "sys.h"
 #include <imgui.h>
-#include <song.h>
+#include "song.h"
 
 int AudioDevice::_pa_stream_callback_raw(
     const void* input_buffer,

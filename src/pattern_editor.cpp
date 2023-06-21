@@ -578,7 +578,7 @@ void render_pattern_editor(SongEditor &editor)
                 draw_list->AddRectFilled(
                     rect_pos, 
                     rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, 0) * 2.0f,
-                    Colors::channel[editor.selected_channel % Colors::channel_num][1]
+                    editor.theme->get_channel_color(editor.selected_channel, true)
                 );
             }
         }

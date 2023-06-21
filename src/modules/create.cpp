@@ -1,10 +1,3 @@
-// implementations in modules are written in header files
-// because i don't want to create two files for every module
-// instead i write the implementation in the header file, and
-// compile the implementations in a singular modules.cpp file
-#include "modules/delay.h"
-#define MODULE_IMPL
-
 #include "../audio.h"
 #include "modules.h"
 

@@ -50,6 +50,7 @@ set(SOURCES
     src/track_editor.cpp
     src/imgui_stdlib.cpp
     src/editor.cpp
+    src/theme.cpp
 
     # audio modules
     src/modules/create.cpp
@@ -61,7 +62,7 @@ set(SOURCES
 )
 
 include_directories(
-    src
+    deps
     deps/gl
     deps/AnaMark-Tuning-Library
     deps/glfw/include

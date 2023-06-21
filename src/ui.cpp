@@ -16,14 +16,11 @@ constexpr char APP_VERSION[] = "0.1.0";
 constexpr char FILE_VERSION[] = "0001";
 char VERSION_STR[64];
 
-namespace Colors {
-    ImU32 channel[channel_num][2] = {
-        // { dim, bright }
-        { IM_RGB32(187, 17, 17), IM_RGB32(255, 87, 87) },
-        { IM_RGB32(187, 128, 17), IM_RGB32(255, 197, 89) },
-        { IM_RGB32(136, 187, 17), IM_RGB32(205, 255, 89) },
-        { IM_RGB32(25, 187, 17), IM_RGB32(97, 255, 89) },
-    };
+ImU32 hex_color(const char* str)
+{
+    int r, g, b;
+    sscanf(str, "%02x%02x%02x", &r, &g, &b);
+    return IM_RGB32(r, g, b);    
 }
 
 void push_btn_disabled(ImGuiStyle& style, bool is_disabled)
