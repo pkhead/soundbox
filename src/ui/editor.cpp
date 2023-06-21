@@ -1,5 +1,5 @@
 #include "editor.h"
-#include "audio.h"
+#include "../audio.h"
 
 SongEditor::SongEditor(Song& song) :
     song(song)

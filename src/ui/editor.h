@@ -1,7 +1,7 @@
 #pragma once
-#include "audio.h"
-#include "imgui.h"
-#include "song.h"
+#include "../audio.h"
+#include <imgui.h>
+#include "../song.h"
 #include "theme.h"
 #include "change_history.h"
 

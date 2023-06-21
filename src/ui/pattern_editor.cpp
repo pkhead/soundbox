@@ -2,7 +2,7 @@
 
 #include <imgui.h>
 #include "change_history.h"
-#include "song.h"
+#include "../song.h"
 #include "theme.h"
 #include "ui.h"
 

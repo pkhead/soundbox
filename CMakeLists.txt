@@ -41,16 +41,18 @@ set(SOURCES
     src/song.cpp
     src/serialize.cpp
     src/audio.cpp
-    src/ui.cpp
-    src/ui_interact.cpp
-    src/change_history.cpp
     src/sys.cpp
     src/audiofile.cpp
-    src/pattern_editor.cpp
-    src/track_editor.cpp
     src/imgui_stdlib.cpp
-    src/editor.cpp
-    src/theme.cpp
+    
+    # sources for app ui
+    src/ui/ui.cpp
+    src/ui/ui_interact.cpp
+    src/ui/change_history.cpp
+    src/ui/pattern_editor.cpp
+    src/ui/track_editor.cpp
+    src/ui/editor.cpp
+    src/ui/theme.cpp
 
     # audio modules
     src/modules/create.cpp

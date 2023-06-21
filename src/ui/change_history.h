@@ -1,6 +1,6 @@
 #pragma once
-#include "audio.h"
-#include "song.h"
+#include "../audio.h"
+#include "../song.h"
 #include <cstdint>
 #include <imgui.h>
 #include <vector>

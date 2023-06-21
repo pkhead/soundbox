@@ -9,11 +9,11 @@
 #include <imgui.h>
 #include <sstream>
 #include <unordered_map>
+#include <glad/gl.h>
 
-#include "audio.h"
-#include "song.h"
+#include "../audio.h"
+#include "../song.h"
 #include "editor.h"
-#include "glad/gl.h"
 
 #define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
 

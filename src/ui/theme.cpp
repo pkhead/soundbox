@@ -4,10 +4,8 @@
 #include <toml11/toml.hpp>
 #include <unordered_map>
 #include <vector>
-#include "imgui.h"
-#include "song.h"
-#include "toml11/toml/get.hpp"
-#include "toml11/toml/value.hpp"
+#include <imgui.h>
+#include "../song.h"
 #include "theme.h"
 
 const char* IMGUI_COLOR_NAMES[] = {

@@ -1,6 +1,6 @@
 #include <imgui.h>
 #include "change_history.h"
-#include "song.h"
+#include "../song.h"
 #include "ui.h"
 
 template <typename T>

@@ -3,12 +3,12 @@
 #include <math.h>
 #include <iostream>
 #include <string>
-#include "audio.h"
+#include <imgui.h>
+#include "../audio.h"
 #include "change_history.h"
-#include "imgui_stdlib.h"
-#include "modules/modules.h"
-#include "imgui.h"
-#include "song.h"
+#include "../imgui_stdlib.h"
+#include "../modules/modules.h"
+#include "../song.h"
 #include "editor.h"
 #include "ui.h"
 

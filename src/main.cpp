@@ -14,7 +14,7 @@
 
 #include <imgui.h>
 #include "glad/gl.h"
-#include "theme.h"
+#include "ui/theme.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
@@ -38,9 +38,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "audiofile.h"
-#include "ui.h"
+#include "ui/ui.h"
 #include "song.h"
-#include "editor.h"
+#include "ui/editor.h"
 #include "audio.h"
 #include "sys.h"
 

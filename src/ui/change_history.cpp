@@ -1,5 +1,5 @@
 #include "change_history.h"
-#include "audio.h"
+#include "../audio.h"
 #include "editor.h"
 #include <cstdlib>
 #include <iostream>
