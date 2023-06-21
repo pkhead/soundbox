@@ -186,13 +186,20 @@ int main()
         AudioDevice device(-1);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
 
-        // initialize theme
-        Theme* theme = new Theme("styles/Soundbox Dark.toml");
-        theme->set_imgui_colors();
-
         // initialize song editor
         Song* song = new Song(4, 8, 8, destination);
         SongEditor* song_editor = new SongEditor(*song);
+
+        // initialize theme
+        Theme* theme;
+
+        try {
+            theme = new Theme("styles/Soundbox Dark.toml");
+        } catch(...) {
+            theme = new Theme();
+        }
+        
+        theme->set_imgui_colors();
         song_editor->theme = theme;
 
         // this mutex is locked by the audio thread while audio is being processed

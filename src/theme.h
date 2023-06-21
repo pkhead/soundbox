@@ -16,6 +16,7 @@ public:
     std::vector<ChannelColor> channel_colors;
     std::unordered_map<std::string, ImVec4> ui_colors;
 
+    Theme();
     Theme(const std::string file_name);
     Theme(std::istream& stream);
 

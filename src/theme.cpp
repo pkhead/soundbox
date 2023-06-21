@@ -186,6 +186,25 @@ static void parse_toml(Theme* self, toml::value data)
     }
 }
 
+Theme::Theme()
+{
+    // use default colors
+    ImGuiStyle style;
+    ImGui::StyleColorsClassic(&style);
+    ImVec4* colors = style.Colors;
+
+    for (int i = 0; i < 55; i++)
+    {
+        const std::string str = IMGUI_COLOR_NAMES[i];
+        ui_colors[str] = colors[i];
+    }
+
+    channel_colors.push_back({
+        ImVec4(1.0f, 1.0f, 1.0f, 1.0f),
+        ImVec4(0.5f, 0.5f, 0.5f, 1.0f)
+    });
+}
+
 Theme::Theme(std::istream& stream)
 {
     auto data = toml::parse(stream, "unknown file");
