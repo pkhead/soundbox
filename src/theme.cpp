@@ -68,6 +68,15 @@ const char* IMGUI_COLOR_NAMES[] = {
     "ModalWindowDimBg",     
 };
 
+const char* CUSTOM_COLOR_NAMES[] = {
+    "OctaveRow",
+    "FifthRow",
+    "PianoKey",
+    "PianoKeyAccidental",
+    "PianoKeyOctave"
+};
+constexpr size_t NUM_CUSTOM_COLORS = sizeof(CUSTOM_COLOR_NAMES) / sizeof(*CUSTOM_COLOR_NAMES);
+
 /*
 const ImGuiCol_ IMGUI_COLOR_ENUMS[] = {
     ImGuiCol_Text,                 
@@ -168,6 +177,7 @@ static void parse_toml(Theme* self, toml::value data)
 
         i++;
     }
+
     // find ui colors
     auto ui_table = toml::find(data, "ui");
 
@@ -183,6 +193,21 @@ static void parse_toml(Theme* self, toml::value data)
 
         ImVec4 color = parse_color(toml::find(ui_table, name));
         self->ui_colors[name] = color;
+    }
+
+    // find custom colors
+    for (size_t i = 0; i < NUM_CUSTOM_COLORS; i++)
+    {
+        const char* name = CUSTOM_COLOR_NAMES[i];
+
+        if (!ui_table.contains(name))
+        {
+            std::cout << "did not find " << name << "\n";
+            continue;
+        }
+
+        ImVec4 color = parse_color(toml::find(ui_table, name));
+        self->custom_colors[i] = color;
     }
 }
 
@@ -221,6 +246,11 @@ ImU32 Theme::get_channel_color(int ch, bool is_primary) const
 {
     const ChannelColor& color_struct = channel_colors[ch % channel_colors.size()]; 
     return ImGui::ColorConvertFloat4ToU32(is_primary ? color_struct.primary : color_struct.secondary);
+}
+
+ImVec4 Theme::get_custom_color(CustomColor color) const
+{
+    return custom_colors[static_cast<size_t>(color)];
 }
 
 void Theme::set_imgui_colors() const

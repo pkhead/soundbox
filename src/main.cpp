@@ -280,6 +280,7 @@ int main()
                 delete song_editor;
                 song = new Song(4, 8, 8, destination);
                 song_editor = new SongEditor(*song);
+                song_editor->theme = theme;
                 ui_init(*song_editor, user_actions);
                 file_mutex.unlock();
             };
@@ -317,6 +318,7 @@ int main()
                         delete song_editor;
                         song = new_song;
                         song_editor = new SongEditor(*song);
+                        song_editor->theme = theme;
                         ui_init(*song_editor, user_actions);
 
                         last_file_path = out_path;

@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include "change_history.h"
 #include "song.h"
+#include "theme.h"
 #include "ui.h"
 
 void render_pattern_editor(SongEditor &editor)
@@ -10,7 +11,7 @@ void render_pattern_editor(SongEditor &editor)
     ImGuiIO& io = ImGui::GetIO();
     Song& song = editor.song;
     ImGuiStyle& style = ImGui::GetStyle();
-
+    Theme& theme = *editor.theme;
     Tuning* tuning = song.tunings[song.selected_tuning];
 
     if (ImGui::Begin("Pattern Editor")) {
@@ -506,9 +507,9 @@ void render_pattern_editor(SongEditor &editor)
                 // color based on accidental/octave
                 key_color =
                     key % 12 == 0 ?
-                        vec4_color(style.Colors[ImGuiCol_Button]) : // octave
-                        ACCIDENTAL[key % 12] ? IM_RGB32(38, 38, 38) : // fifth
-                        IM_RGB32(20, 20, 20); // default
+                        vec4_color(theme.get_custom_color(CustomColor::PianoKeyOctave)) : // octave
+                        ACCIDENTAL[key % 12] ? vec4_color(theme.get_custom_color(CustomColor::PianoKeyAccidental)) : // accidental
+                        vec4_color(theme.get_custom_color(CustomColor::PianoKey)); // default
             }
             else
             {
@@ -556,8 +557,8 @@ void render_pattern_editor(SongEditor &editor)
             );
             
             ImU32 row_color =
-                tuning_info.is_octave ? vec4_color(style.Colors[ImGuiCol_ButtonHovered]) : // highlight each octave
-                tuning_info.is_fifth ? vec4_color(style.Colors[ImGuiCol_FrameBgHovered]) : // highlight each fifth
+                tuning_info.is_octave ? vec4_color(theme.get_custom_color(CustomColor::OctaveRow)) : // highlight each octave
+                tuning_info.is_fifth ? vec4_color(theme.get_custom_color(CustomColor::FifthRow)) : // highlight each fifth
                 vec4_color(style.Colors[ImGuiCol_FrameBg]); // default color
 
             // draw cells in this row
@@ -578,7 +579,7 @@ void render_pattern_editor(SongEditor &editor)
                 draw_list->AddRectFilled(
                     rect_pos, 
                     rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, 0) * 2.0f,
-                    editor.theme->get_channel_color(editor.selected_channel, true)
+                    theme.get_channel_color(editor.selected_channel, true)
                 );
             }
         }
