@@ -564,3 +564,37 @@ bool change::ChangeRemoveBar::merge(Action* other)
         bars.push_back(bar);
     }*/
 }
+
+// Change Sequence //
+change::ChangeSequence::ChangeSequence(int channel, int bar, int old_val, int new_val)
+    : channel(channel), bar(bar), old_val(old_val), new_val(new_val)
+{}
+
+void change::ChangeSequence::undo(SongEditor& editor)
+{
+    editor.selected_channel = channel;
+    editor.selected_bar = bar;
+    editor.song.channels[channel]->sequence[bar] = old_val;
+}
+
+void change::ChangeSequence::redo(SongEditor& editor)
+{
+    editor.selected_channel = channel;
+    editor.selected_bar = bar;
+    editor.song.channels[channel]->sequence[bar] = new_val;
+}
+
+bool change::ChangeSequence::merge(Action* other)
+{
+    if (get_type() != other->get_type()) return false;
+    ChangeSequence* sub = static_cast<ChangeSequence*>(other);
+
+    // if same cell
+    if (channel == sub->channel && bar == sub->bar)
+    {
+        new_val = sub->new_val;
+        return true;
+    }
+
+    return false;
+}

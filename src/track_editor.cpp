@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include "change_history.h"
 #include "song.h"
 #include "ui.h"
 
@@ -217,4 +218,45 @@ void render_track_editor(SongEditor& editor)
 
         ImGui::EndChild();
     } ImGui::End();
+
+    // if selected pattern changed
+    static int pattern_input = 0;
+        
+    // if one of these variables changes, then clear pattern_input
+    static int last_selected_bar = editor.selected_bar;
+    static int last_selected_ch = editor.selected_channel;
+
+    if (last_selected_bar != editor.selected_bar || last_selected_ch != editor.selected_channel) {
+        last_selected_bar = editor.selected_bar;
+        last_selected_ch = editor.selected_channel;
+        pattern_input = 0;
+    }
+
+    // pattern entering: number keys
+    if (!io.WantTextInput)
+    {
+        for (int k = 0; k < 10; k++) {
+            if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
+                int& cell = song.channels[editor.selected_channel]->sequence[editor.selected_bar];
+                int old_value = cell;
+
+                pattern_input = (pattern_input * 10) + k;
+                if (pattern_input > song.max_patterns()) pattern_input = k;
+
+                if (pattern_input <= song.max_patterns())
+                {
+                    cell = pattern_input;
+
+                    // register change
+                    if (cell != old_value)
+                        editor.push_change(new change::ChangeSequence(
+                            editor.selected_channel,
+                            editor.selected_bar,
+                            old_value,
+                            cell
+                        ));
+                }
+            }
+        }
+    }
 }

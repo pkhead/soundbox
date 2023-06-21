@@ -34,9 +34,9 @@ namespace change
         NoteChange,
 
         NewPattern, // TODO
-        ChangePattern, // TODO
-        InsertBar, // TODO
-        RemoveBar, // TODO
+        SequenceChange,
+        InsertBar,
+        RemoveBar,
     };
 
     class Action
@@ -230,6 +230,18 @@ namespace change
         std::vector<Bar> bars;
 
         ActionType get_type() const override { return ActionType::RemoveBar; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeSequence : public Action
+    {
+    public:
+        ChangeSequence(int channel, int bar, int old_val, int new_val);
+        int channel, bar, old_val, new_val;
+
+        ActionType get_type() const override { return ActionType::SequenceChange; };
         void undo(SongEditor& editor) override;
         void redo(SongEditor& editor) override;
         bool merge(Action* other) override;

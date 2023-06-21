@@ -456,12 +456,6 @@ int main()
         // actions that don't require window management/io are defined in ui.cpp
         ui_init(*song_editor, user_actions);
 
-        int pattern_input = 0;
-        
-        // if one of these variables changes, then clear pattern_input
-        int last_selected_bar = song_editor->selected_bar;
-        int last_selected_ch = song_editor->selected_channel;
-
         static const double FRAME_LENGTH = 1.0 / 240.0;
 
         double next_time = glfwGetTime();
@@ -645,13 +639,6 @@ int main()
             
             glfwPollEvents();
 
-            // if selected pattern changed
-            if (last_selected_bar != song_editor->selected_bar || last_selected_ch != song_editor->selected_channel) {
-                last_selected_bar = song_editor->selected_bar;
-                last_selected_ch = song_editor->selected_channel;
-                pattern_input = 0;
-            }
-
             // key input
             if (!io.WantTextInput) {
                 if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
@@ -694,17 +681,6 @@ int main()
                 if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
                     song_editor->selected_channel--;
                     if (song_editor->selected_channel < 0) song_editor->selected_channel = song->channels.size() - 1;
-                }
-
-                // track editor pattern entering: number keys
-                for (int k = 0; k < 10; k++) {
-                    if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
-                        pattern_input = (pattern_input * 10) + k;
-                        if (pattern_input > song->max_patterns()) pattern_input = k;
-
-                        if (pattern_input <= song->max_patterns())
-                            song->channels[song_editor->selected_channel]->sequence[song_editor->selected_bar] = pattern_input;
-                    }
                 }
             }
 
