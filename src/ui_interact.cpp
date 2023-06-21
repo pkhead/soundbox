@@ -35,11 +35,11 @@ UserActionList::UserActionList() {
     add_action("export", 0, ImGuiKey_None);
     add_action("quit", 0, ImGuiKey_None);
 
-    add_action("undo", USERMOD_CTRL, ImGuiKey_Z);
+    add_action("undo", USERMOD_CTRL, ImGuiKey_Z, true);
 #ifdef _WIN32
-    add_action("redo", USERMOD_CTRL, ImGuiKey_Y);
+    add_action("redo", USERMOD_CTRL, ImGuiKey_Y, true);
 #else
-    add_action("redo", USERMOD_CTRL | USERMOD_SHIFT, ImGuiKey_Z);
+    add_action("redo", USERMOD_CTRL | USERMOD_SHIFT, ImGuiKey_Z, true);
 #endif
     add_action("copy", USERMOD_CTRL, ImGuiKey_C);
     add_action("paste", USERMOD_CTRL, ImGuiKey_V);

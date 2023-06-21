@@ -152,6 +152,9 @@ public:
 
     void insert_bar(int bar_position);
     void remove_bar(int bar_position);
+    std::vector<int> get_bar_patterns(int bar_position);
+    void set_bar_patterns(int bar_position, int* array, size_t size);
+    void set_bar_patterns(int bar_position, std::vector<int> patterns);
 
     Channel* insert_channel(int channel_index);
     void remove_channel(int channel_index);

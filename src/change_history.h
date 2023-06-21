@@ -203,6 +203,38 @@ namespace change
         bool merge(Action* other) override;
     };
 
+    class ChangeInsertBar : public Action
+    {
+    public:
+        ChangeInsertBar(int bar);
+        int pos;
+        int count;
+
+        ActionType get_type() const override { return ActionType::InsertBar; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeRemoveBar : public Action
+    {
+    public:
+        struct Bar
+        {
+            int pos;
+            std::vector<int> pattern_indices;
+        };
+
+        ChangeRemoveBar(int bar, Song* song);
+        int bar;
+        std::vector<Bar> bars;
+
+        ActionType get_type() const override { return ActionType::RemoveBar; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
     class Stack
     {
     private:

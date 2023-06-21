@@ -336,6 +336,32 @@ void Song::remove_bar(int position)
     mutex.unlock();
 }
 
+std::vector<int> Song::get_bar_patterns(int bar_position)
+{
+    std::vector<int> out;
+    out.reserve(channels.size());
+
+    for (Channel* channel : channels)
+    {
+        out.push_back(channel->sequence[bar_position]);
+    }
+
+    return out;
+}
+
+void Song::set_bar_patterns(int bar_position, int* array, size_t size)
+{
+    for (size_t ch = 0; ch < size; ch++)
+    {
+        channels[ch]->sequence[bar_position] = array[ch];
+    }
+}
+
+void Song::set_bar_patterns(int bar_position, std::vector<int> patterns)
+{
+    set_bar_patterns(bar_position, &patterns.front(), patterns.size());
+}
+
 Channel* Song::insert_channel(int channel_id)
 {
     mutex.lock();

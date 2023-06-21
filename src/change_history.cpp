@@ -471,3 +471,96 @@ void change::Stack::clear()
 
     changes.clear();
 }
+
+// Insert Bar //
+change::ChangeInsertBar::ChangeInsertBar(int bar)
+    : pos(bar), count(1)
+{}
+
+void change::ChangeInsertBar::undo(SongEditor& editor)
+{
+    editor.selected_bar = pos - 1;
+    if (editor.selected_bar < 0) editor.selected_bar = 0;
+
+    for (int i = 0; i < count; i++)
+        editor.song.remove_bar(pos);
+}
+
+void change::ChangeInsertBar::redo(SongEditor& editor)
+{
+    for (int i = 0; i < count; i++)
+        editor.song.insert_bar(pos);
+}
+
+bool change::ChangeInsertBar::merge(Action* other)
+{
+    return false;
+
+    // TODO: merge if changes are contiguous
+    /*if (get_type() != other->get_type()) return false;
+    ChangeInsertBar* sub = static_cast<ChangeInsertBar*>(other);
+    
+    // if new change is one unit left of old change
+    if (sub->pos + sub->count == pos + 1)
+    {
+        std::cout << "left\n";
+
+        pos = sub->pos;
+        count = sub->count + 1;
+        return true;
+    }
+
+    // if new change is one unit right of old change
+    else if (sub->pos == pos + count)
+    {
+        count += sub->count;
+        return true;
+    }
+
+    // bars are not touching, do not merge
+    return false;*/
+}
+
+// Remove Bar //
+change::ChangeRemoveBar::ChangeRemoveBar(int bar, Song* song)
+{
+    bars.push_back({
+        bar,
+        song->get_bar_patterns(bar)
+    });
+}
+
+void change::ChangeRemoveBar::undo(SongEditor& editor)
+{
+    for (const Bar& bar : bars)
+    {
+        editor.song.insert_bar(bar.pos);
+        editor.song.set_bar_patterns(bar.pos, bar.pattern_indices);
+        editor.selected_bar = bar.pos;
+    }
+}
+
+void change::ChangeRemoveBar::redo(SongEditor& editor)
+{
+    for (Bar& bar : bars)
+    {
+        bar.pattern_indices = std::move(editor.song.get_bar_patterns(bar.pos));
+        editor.song.remove_bar(bar.pos);
+        editor.selected_bar = bar.pos - 1;
+        if (editor.selected_bar < 0) editor.selected_bar = 0;
+    }
+}
+
+bool change::ChangeRemoveBar::merge(Action* other)
+{
+    return false;
+
+    /* TODO: merge if contiguous
+    if (get_type() != other->get_type()) return false;
+    ChangeRemoveBar* sub = static_cast<ChangeRemoveBar*>(other);
+    
+    for (const Bar& bar : sub->bars)
+    {
+        bars.push_back(bar);
+    }*/
+}

@@ -199,11 +199,14 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
     // insert bar
     user_actions.set_callback("insert_bar", [&]() {
         editor.selected_bar++;
+        
+        editor.push_change(new change::ChangeInsertBar(editor.selected_bar));
         song.insert_bar(editor.selected_bar);
     });
 
     // insert bar before
     user_actions.set_callback("insert_bar_before", [&]() {
+        editor.push_change(new change::ChangeInsertBar(editor.selected_bar));
         song.insert_bar(editor.selected_bar);
     });
 
@@ -211,6 +214,7 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
     user_actions.set_callback("remove_bar", [&]() {
         if (song.length() > 1)
         {
+            editor.push_change(new change::ChangeRemoveBar(editor.selected_bar, &song));
             song.remove_bar(editor.selected_bar);
             if (editor.selected_bar > 0) editor.selected_bar--;
         }
