@@ -16,8 +16,8 @@ namespace change
         SongTempo,
         SongMaxPatterns,
         
-        NewChannel, // TODO
-        RemoveChannel, // TODO
+        NewChannel,
+        RemoveChannel,
         ChannelVolume,
         ChannelPanning,
         ChannelOutput,
