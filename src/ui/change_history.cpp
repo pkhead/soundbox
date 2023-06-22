@@ -31,15 +31,50 @@ bool change::ChangeSongTempo::merge(change::Action* other)
 
 // Song Max Patterns //
 
-change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count)
+void track_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song* song)
+{
+    snapshot.rows = song->channels.size();
+    snapshot.cols = song->length();
+    snapshot.patterns.clear();
+    snapshot.patterns.reserve(snapshot.rows * snapshot.cols);
+
+    for (int row = 0; row < snapshot.rows; row++)
+    {
+        for (int col = 0; col < snapshot.cols; col++)
+        {
+            snapshot.patterns.push_back(song->channels[row]->sequence[col]);
+        }
+    }
+}
+
+void apply_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song* song)
+{
+    int i = 0;
+
+    for (int row = 0; row < snapshot.rows; row++)
+    {
+        for (int col = 0; col < snapshot.cols; col++)
+        {
+            song->channels[row]->sequence[col] = snapshot.patterns[i];
+            i++;
+        }
+    }
+}
+
+change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count, Song* song)
     : old_count(old_count), new_count(new_count)
-    {}
+{
+    track_snapshot(before, song);
+}
 
 void change::ChangeSongMaxPatterns::undo(SongEditor& editor) {
+    track_snapshot(after, &editor.song);
     editor.song.set_max_patterns(old_count);
+    apply_snapshot(before, &editor.song);
 }
 
 void change::ChangeSongMaxPatterns::redo(SongEditor& editor) {
+    apply_snapshot(after, &editor.song);
     editor.song.set_max_patterns(new_count);
 }
 
@@ -48,6 +83,7 @@ bool change::ChangeSongMaxPatterns::merge(change::Action* other)
     if (get_type() != other->get_type()) return false;
     ChangeSongMaxPatterns* sub = static_cast<ChangeSongMaxPatterns*>(other);
     new_count = sub->new_count;
+
     return true;
 }
 

@@ -67,8 +67,15 @@ namespace change
     class ChangeSongMaxPatterns : public Action
     {
     public:
-        ChangeSongMaxPatterns(int old_count, int new_count);
+        ChangeSongMaxPatterns(int old_count, int new_count, Song* song);
         int old_count, new_count;
+
+        struct TrackSnapshot
+        {
+            int rows;
+            int cols;
+            std::vector<int> patterns;
+        } before, after; // snapshots of patterns before change
 
         ActionType get_type() const override { return ActionType::SongMaxPatterns; };
         void undo(SongEditor& editor) override;

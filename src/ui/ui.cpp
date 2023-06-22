@@ -534,8 +534,8 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             int old_max_patterns = song.max_patterns();
             if (max_patterns != old_max_patterns)
             {
+                editor.push_change(new change::ChangeSongMaxPatterns(old_max_patterns, max_patterns, &song));
                 song.set_max_patterns(max_patterns);
-                editor.push_change(new change::ChangeSongMaxPatterns(old_max_patterns, max_patterns));
             }
         }
 
