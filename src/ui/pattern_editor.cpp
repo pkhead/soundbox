@@ -431,7 +431,7 @@ void render_pattern_editor(SongEditor &editor)
                 // or if note len == 0, remove the note
                 if (selected_note->length == 0 || (!is_adding_note && !did_mouse_move)) {
                     for (auto it = note_pattern->notes.begin(); it != note_pattern->notes.end(); it++) {
-                        if (it.base() == selected_note) {
+                        if (&*it == selected_note) {
                             // register change
                             editor.push_change(new change::ChangeRemoveNote(
                                 editor.selected_channel,

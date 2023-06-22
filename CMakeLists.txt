@@ -123,6 +123,8 @@ endif()
 # add debug macro
 target_compile_definitions(soundbox PUBLIC "$<$<CONFIG:DEBUG>:DEBUG>")
 
+# copy directories to binary directory, mainly for easy use in Visual Studio
 file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/styles DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/imgui.ini DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/logo.png DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
