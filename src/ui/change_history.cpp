@@ -199,6 +199,12 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
     audiomod::ModuleBase* mod = rack->remove(rack->modules.size() - 1);
     if (mod != nullptr) {
         editor.hide_module_interface(mod);
+
+        // save module data
+        std::stringstream stream;
+        mod->save_state(stream);
+        mod_data = stream.str();
+
         delete mod;
     }
     
@@ -215,6 +221,10 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
     audiomod::ModuleBase* mod = audiomod::create_module(mod_type, &editor.song);
     mod->parent_name = parent_name;
     rack->insert(mod);
+
+    // load module data
+    std::stringstream stream(mod_data);
+    mod->load_state(stream, mod_data.size());
 
     editor.song.mutex.unlock();
 }

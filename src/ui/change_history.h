@@ -39,6 +39,15 @@ namespace change
         RemoveBar,
     };
 
+    struct ModuleData
+    {
+        const char* type;
+        std::string data;
+
+        ModuleData(audiomod::ModuleBase* module);
+        audiomod::ModuleBase* load(Song* song) const;
+    };
+
     class Action
     {
     public:
@@ -134,6 +143,7 @@ namespace change
         int target_index;
         FXRackTargetType target_type;
         std::string mod_type;
+        std::string mod_data;
 
         ActionType get_type() const override { return ActionType::AddEffect; };
         void undo(SongEditor& editor) override;
@@ -260,15 +270,6 @@ namespace change
         void undo(SongEditor& editor) override;
         void redo(SongEditor& editor) override;
         bool merge(Action* other) override;
-    };
-
-    struct ModuleData
-    {
-        const char* type;
-        std::string data;
-
-        ModuleData(audiomod::ModuleBase* module);
-        audiomod::ModuleBase* load(Song* song) const;
     };
 
     class ChangeNewChannel : public Action
