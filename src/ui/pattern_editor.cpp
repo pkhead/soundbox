@@ -112,6 +112,8 @@ void render_pattern_editor(SongEditor &editor)
         static float note_anchor; // selected_note's time position when the drag started
         static float note_start_length; // selected_note's length when the drag started
         static Note old_note_data; // data of selected note before change
+        static bool from_null_pattern = false; // if added note from a null pattern
+        static int old_max_patterns = song.max_patterns(); // max patterns from note was added
         
         // this variable are used to determine whether the user simply clicked on a note
         // to delete it
@@ -247,6 +249,9 @@ void render_pattern_editor(SongEditor &editor)
                 if (ImGui::IsItemHovered()) {
                     // if selected null pattern, create a new pattern
                     // or reuse an empty one
+                    from_null_pattern = selected_pattern == nullptr;
+                    old_max_patterns = song.max_patterns();
+
                     if (selected_pattern == nullptr)
                     {
                         int pattern = song.new_pattern(editor.selected_channel);
@@ -435,7 +440,7 @@ void render_pattern_editor(SongEditor &editor)
                             // register change
                             editor.push_change(new change::ChangeRemoveNote(
                                 editor.selected_channel,
-                                pattern_id,
+                                editor.selected_bar,
                                 *it
                             ));
 
@@ -449,7 +454,8 @@ void render_pattern_editor(SongEditor &editor)
                     {
                         editor.push_change(new change::ChangeAddNote(
                             editor.selected_channel,
-                            pattern_id,
+                            editor.selected_bar,
+                            &song, from_null_pattern, old_max_patterns,
                             *selected_note
                         ));
                     }
@@ -457,7 +463,7 @@ void render_pattern_editor(SongEditor &editor)
                     {
                         editor.push_change(new change::ChangeNote(
                             editor.selected_channel,
-                            pattern_id,
+                            editor.selected_bar,
                             old_note_data,
                             *selected_note
                         ));

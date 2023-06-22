@@ -320,9 +320,12 @@ bool change::ChangeSwapEffect::merge(Action* other)
 }
 
 // Add Note //
-change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Note note)
-    : channel_index(channel_index), bar(bar), note(note)
-{}
+change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Song* song, bool from_null_pattern, int old_pattern_count, Note note)
+    : channel_index(channel_index), bar(bar), note(note), from_null_pattern(from_null_pattern)
+{
+    new_index = song->channels[channel_index]->sequence[bar];
+    old_max_patterns = old_pattern_count;
+}
 
 void change::ChangeAddNote::undo(SongEditor& editor)
 {
@@ -344,22 +347,39 @@ void change::ChangeAddNote::undo(SongEditor& editor)
         }
     }
 
+    if (from_null_pattern) {
+        new_max_patterns = editor.song.max_patterns();
+        new_index = pattern_id;
+
+        editor.song.channels[channel_index]->sequence[bar] = 0;
+        editor.song.set_max_patterns(old_max_patterns);
+    }
+
     editor.song.mutex.unlock();
 }
 
 void change::ChangeAddNote::redo(SongEditor& editor)
 {
-    editor.song.mutex.lock();
+    Song& song = editor.song;
+
+    song.mutex.lock();
     
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    Channel* channel = editor.song.channels[channel_index];
+    int pattern_id = channel->sequence[bar] - 1;
 
+    if (pattern_id == -1)
+    {
+        pattern_id = song.new_pattern(editor.selected_channel);
+        channel->sequence[editor.selected_bar] = pattern_id + 1;
+    }
+    
+    Pattern* pattern = channel->patterns[pattern_id];
     pattern->notes.push_back(note);
 
-    editor.song.mutex.unlock();
+    song.mutex.unlock();
 }
 
 bool change::ChangeAddNote::merge(Action* other)

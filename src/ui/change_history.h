@@ -174,9 +174,17 @@ namespace change
     class ChangeAddNote : public Action
     {
     public:
-        ChangeAddNote(int channel_index, int bar, Note note);
+        ChangeAddNote(int channel_index, int bar, Song* song, bool from_null_pattern, int old_pattern_count, Note note);
         int channel_index, bar;
         Note note;
+
+        // if clicked on a null pattern, index of selected cell changes
+        bool from_null_pattern;
+        int new_index;
+
+        // if there were no empty patterns on a null pattern, action increases pattern count by 1
+        int old_max_patterns;
+        int new_max_patterns;
 
         ActionType get_type() const override { return ActionType::NoteAdd; };
         void undo(SongEditor& editor) override;

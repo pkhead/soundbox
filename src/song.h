@@ -61,6 +61,7 @@ public:
     std::vector<int> sequence;
     std::vector<Pattern*> patterns;
     
+    int first_empty_pattern() const;
     void set_instrument(audiomod::ModuleBase* new_instrument);
     void set_fx_target(int fx_index);
 };
