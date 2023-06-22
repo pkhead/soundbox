@@ -3,7 +3,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <unistd.h>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -13,7 +12,7 @@
 #include <chrono>
 
 #include <imgui.h>
-#include "glad/gl.h"
+#include <glad/gl.h>
 #include "ui/theme.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
