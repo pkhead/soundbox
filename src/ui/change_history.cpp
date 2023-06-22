@@ -2,6 +2,7 @@
 #include "../audio.h"
 #include "editor.h"
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 
@@ -31,15 +32,50 @@ bool change::ChangeSongTempo::merge(change::Action* other)
 
 // Song Max Patterns //
 
-change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count)
+void track_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song* song)
+{
+    snapshot.rows = song->channels.size();
+    snapshot.cols = song->length();
+    snapshot.patterns.clear();
+    snapshot.patterns.reserve(snapshot.rows * snapshot.cols);
+
+    for (int row = 0; row < snapshot.rows; row++)
+    {
+        for (int col = 0; col < snapshot.cols; col++)
+        {
+            snapshot.patterns.push_back(song->channels[row]->sequence[col]);
+        }
+    }
+}
+
+void apply_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song* song)
+{
+    int i = 0;
+
+    for (int row = 0; row < snapshot.rows; row++)
+    {
+        for (int col = 0; col < snapshot.cols; col++)
+        {
+            song->channels[row]->sequence[col] = snapshot.patterns[i];
+            i++;
+        }
+    }
+}
+
+change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count, Song* song)
     : old_count(old_count), new_count(new_count)
-    {}
+{
+    track_snapshot(before, song);
+}
 
 void change::ChangeSongMaxPatterns::undo(SongEditor& editor) {
+    track_snapshot(after, &editor.song);
     editor.song.set_max_patterns(old_count);
+    apply_snapshot(before, &editor.song);
 }
 
 void change::ChangeSongMaxPatterns::redo(SongEditor& editor) {
+    apply_snapshot(after, &editor.song);
     editor.song.set_max_patterns(new_count);
 }
 
@@ -48,6 +84,7 @@ bool change::ChangeSongMaxPatterns::merge(change::Action* other)
     if (get_type() != other->get_type()) return false;
     ChangeSongMaxPatterns* sub = static_cast<ChangeSongMaxPatterns*>(other);
     new_count = sub->new_count;
+
     return true;
 }
 
@@ -284,9 +321,12 @@ bool change::ChangeSwapEffect::merge(Action* other)
 }
 
 // Add Note //
-change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Note note)
-    : channel_index(channel_index), bar(bar), note(note)
-{}
+change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Song* song, bool from_null_pattern, int old_pattern_count, Note note)
+    : channel_index(channel_index), bar(bar), note(note), from_null_pattern(from_null_pattern)
+{
+    new_index = song->channels[channel_index]->sequence[bar];
+    old_max_patterns = old_pattern_count;
+}
 
 void change::ChangeAddNote::undo(SongEditor& editor)
 {
@@ -308,22 +348,39 @@ void change::ChangeAddNote::undo(SongEditor& editor)
         }
     }
 
+    if (from_null_pattern) {
+        new_max_patterns = editor.song.max_patterns();
+        new_index = pattern_id;
+
+        editor.song.channels[channel_index]->sequence[bar] = 0;
+        editor.song.set_max_patterns(old_max_patterns);
+    }
+
     editor.song.mutex.unlock();
 }
 
 void change::ChangeAddNote::redo(SongEditor& editor)
 {
-    editor.song.mutex.lock();
+    Song& song = editor.song;
+
+    song.mutex.lock();
     
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    Channel* channel = editor.song.channels[channel_index];
+    int pattern_id = channel->sequence[bar] - 1;
 
+    if (pattern_id == -1)
+    {
+        pattern_id = song.new_pattern(editor.selected_channel);
+        channel->sequence[editor.selected_bar] = pattern_id + 1;
+    }
+    
+    Pattern* pattern = channel->patterns[pattern_id];
     pattern->notes.push_back(note);
 
-    editor.song.mutex.unlock();
+    song.mutex.unlock();
 }
 
 bool change::ChangeAddNote::merge(Action* other)
@@ -596,5 +653,128 @@ bool change::ChangeSequence::merge(Action* other)
         return true;
     }
 
+    return false;
+}
+
+// Add Channel //
+change::ChangeNewChannel::ChangeNewChannel(int index)
+    : index(index)
+{}
+
+void change::ChangeNewChannel::undo(SongEditor& editor)
+{
+    editor.selected_channel = index - 1;
+    if (editor.selected_channel < 0) editor.selected_channel = 0;
+    editor.song.remove_channel(index);
+}
+
+void change::ChangeNewChannel::redo(SongEditor& editor)
+{
+    editor.selected_channel = index;
+    editor.song.insert_channel(index);
+}
+
+bool change::ChangeNewChannel::merge(Action* other)
+{
+    return false;
+}
+
+// Remove Channel //
+change::ModuleData::ModuleData(audiomod::ModuleBase* module)
+{
+    std::stringstream stream;
+
+    type = module->id;
+    module->save_state(stream);
+    data = stream.str();
+}
+
+audiomod::ModuleBase* change::ModuleData::load(Song* song) const
+{
+    audiomod::ModuleBase* mod = audiomod::create_module(type, song);
+    std::stringstream stream(data);
+    mod->load_state(stream, data.size());
+    return mod;
+}
+
+change::ChangeRemoveChannel::ChangeRemoveChannel(int index, Channel* channel)
+    : index(index), instrument(channel->synth_mod)
+{
+    _save(channel);
+}
+
+void change::ChangeRemoveChannel::_save(Channel* channel)
+{
+    fx_target = channel->fx_target_idx;
+    solo = channel->solo;
+    name = channel->name;
+    sequence = channel->sequence;
+
+    // save patterns
+    patterns.clear();
+    patterns.reserve(channel->patterns.size());
+    for (Pattern* pat : channel->patterns)
+    {
+        patterns.push_back(*pat);
+    }
+    
+    // save volume mod configuration
+    std::stringstream data;
+    channel->vol_mod.save_state(data);
+    vol_mod_data = data.str();
+
+    instrument = std::move(ModuleData(channel->synth_mod));
+
+    effects.clear();
+    effects.reserve(channel->effects_rack.modules.size());
+
+    for (audiomod::ModuleBase* module : channel->effects_rack.modules)
+        effects.push_back(ModuleData(module));
+}
+
+void change::ChangeRemoveChannel::undo(SongEditor& editor)
+{
+    editor.selected_channel = index;
+
+    Channel* channel = editor.song.insert_channel(index);
+
+    channel->set_fx_target(fx_target);
+    channel->solo = solo;
+    strcpy(channel->name, name.c_str());
+
+    // load sequence
+    channel->sequence = sequence;
+    
+    // load patterns
+    for (int i = 0; i < patterns.size(); i++)
+    {
+        channel->patterns[i]->notes = patterns[i].notes;
+    }
+
+    // load volume mod configuration
+    std::stringstream data(vol_mod_data);
+    channel->vol_mod.load_state(data, vol_mod_data.size());
+
+    // load instrument config
+    channel->set_instrument(instrument.load(&editor.song));
+
+    // load effects
+    for (ModuleData& data : effects)
+    {
+        channel->effects_rack.insert(data.load(&editor.song));
+    }
+}
+
+void change::ChangeRemoveChannel::redo(SongEditor& editor)
+{
+    editor.selected_channel = index - 1;
+    if (editor.selected_channel < 0) editor.selected_channel = 0;
+
+    _save(editor.song.channels[index]);
+    editor.remove_channel(index);
+}
+
+bool change::ChangeRemoveChannel::merge(Action* other)
+{
     return false;
 }

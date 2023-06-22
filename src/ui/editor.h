@@ -43,6 +43,7 @@ public:
     change::Stack undo_stack;
     change::Stack redo_stack;
 
+    void remove_channel(int channel_index);
     void delete_fx_bus(audiomod::FXBus* bus_to_delete);
     void toggle_module_interface(audiomod::ModuleBase* mod);
     void hide_module_interface(audiomod::ModuleBase* mod);

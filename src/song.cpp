@@ -87,6 +87,19 @@ void Channel::set_fx_target(int fx_index)
     fx_mixer[fx_index]->connect_input(&vol_mod);
 }
 
+int Channel::first_empty_pattern() const
+{
+    int i = 0;
+
+    for (const Pattern* pattern : patterns)
+    {
+        if (pattern->is_empty()) return i;
+        i++;
+    }
+
+    return -1;
+}
+
 /*************************
 *        TUNING          *
 *************************/
@@ -264,6 +277,9 @@ void Song::set_length(int len) {
 // max_pattern field
 int Song::max_patterns() const { return _max_patterns; }
 void Song::set_max_patterns(int num_patterns) {
+    // if there was no change, don't do anything
+    if (_max_patterns == num_patterns) return;
+
     if (num_patterns > _max_patterns) {
         // add patterns
         for (Channel* ch : channels) {
@@ -295,9 +311,8 @@ int Song::new_pattern(int channel_id) {
     Channel* channel = channels[channel_id];
 
     // find first unused pattern slot in channel
-    for (int i = 0; i < channel->patterns.size(); i++) {
-        if (channel->patterns[i]->is_empty()) return i;
-    }
+    int i = channel->first_empty_pattern();
+    if (i >= 0) return i;
 
     // no unused patterns found, create a new one
     set_max_patterns(_max_patterns + 1);
