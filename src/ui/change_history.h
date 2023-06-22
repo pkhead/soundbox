@@ -262,6 +262,54 @@ namespace change
         bool merge(Action* other) override;
     };
 
+    struct ModuleData
+    {
+        const char* type;
+        std::string data;
+
+        ModuleData(audiomod::ModuleBase* module);
+        audiomod::ModuleBase* load(Song* song) const;
+    };
+
+    class ChangeNewChannel : public Action
+    {
+    public:
+        ChangeNewChannel(int index);
+
+        int index;
+
+        ActionType get_type() const override { return ActionType::NewChannel; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
+    class ChangeRemoveChannel : public Action
+    {
+    private:
+        void _save(Channel* channel);
+    
+    public:
+        ChangeRemoveChannel(int index, Channel* channel);
+
+        int index;
+        int fx_target;
+        bool solo;
+        std::string name;
+        std::vector<int> sequence;
+        std::vector<Pattern> patterns;
+
+        std::string vol_mod_data;
+
+        ModuleData instrument;
+        std::vector<ModuleData> effects;
+
+        ActionType get_type() const override { return ActionType::RemoveChannel; };
+        void undo(SongEditor& editor) override;
+        void redo(SongEditor& editor) override;
+        bool merge(Action* other) override;
+    };
+
     class Stack
     {
     private:

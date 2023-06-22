@@ -67,3 +67,16 @@ void SongEditor::delete_fx_bus(audiomod::FXBus* bus_to_delete)
 
     song.delete_fx_bus(bus_to_delete);
 }
+
+void SongEditor::remove_channel(int channel_index)
+{
+    Channel* channel = song.channels[channel_index];
+
+    // remove interfaces
+    for (audiomod::ModuleBase* mod : channel->effects_rack.modules)
+    {
+        hide_module_interface(mod);
+    }
+
+    song.remove_channel(channel_index);
+}

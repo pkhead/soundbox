@@ -2,6 +2,7 @@
 #include "../audio.h"
 #include "editor.h"
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 
@@ -652,5 +653,128 @@ bool change::ChangeSequence::merge(Action* other)
         return true;
     }
 
+    return false;
+}
+
+// Add Channel //
+change::ChangeNewChannel::ChangeNewChannel(int index)
+    : index(index)
+{}
+
+void change::ChangeNewChannel::undo(SongEditor& editor)
+{
+    editor.selected_channel = index - 1;
+    if (editor.selected_channel < 0) editor.selected_channel = 0;
+    editor.song.remove_channel(index);
+}
+
+void change::ChangeNewChannel::redo(SongEditor& editor)
+{
+    editor.selected_channel = index;
+    editor.song.insert_channel(index);
+}
+
+bool change::ChangeNewChannel::merge(Action* other)
+{
+    return false;
+}
+
+// Remove Channel //
+change::ModuleData::ModuleData(audiomod::ModuleBase* module)
+{
+    std::stringstream stream;
+
+    type = module->id;
+    module->save_state(stream);
+    data = stream.str();
+}
+
+audiomod::ModuleBase* change::ModuleData::load(Song* song) const
+{
+    audiomod::ModuleBase* mod = audiomod::create_module(type, song);
+    std::stringstream stream(data);
+    mod->load_state(stream, data.size());
+    return mod;
+}
+
+change::ChangeRemoveChannel::ChangeRemoveChannel(int index, Channel* channel)
+    : index(index), instrument(channel->synth_mod)
+{
+    _save(channel);
+}
+
+void change::ChangeRemoveChannel::_save(Channel* channel)
+{
+    fx_target = channel->fx_target_idx;
+    solo = channel->solo;
+    name = channel->name;
+    sequence = channel->sequence;
+
+    // save patterns
+    patterns.clear();
+    patterns.reserve(channel->patterns.size());
+    for (Pattern* pat : channel->patterns)
+    {
+        patterns.push_back(*pat);
+    }
+    
+    // save volume mod configuration
+    std::stringstream data;
+    channel->vol_mod.save_state(data);
+    vol_mod_data = data.str();
+
+    instrument = std::move(ModuleData(channel->synth_mod));
+
+    effects.clear();
+    effects.reserve(channel->effects_rack.modules.size());
+
+    for (audiomod::ModuleBase* module : channel->effects_rack.modules)
+        effects.push_back(ModuleData(module));
+}
+
+void change::ChangeRemoveChannel::undo(SongEditor& editor)
+{
+    editor.selected_channel = index;
+
+    Channel* channel = editor.song.insert_channel(index);
+
+    channel->set_fx_target(fx_target);
+    channel->solo = solo;
+    strcpy(channel->name, name.c_str());
+
+    // load sequence
+    channel->sequence = sequence;
+    
+    // load patterns
+    for (int i = 0; i < patterns.size(); i++)
+    {
+        channel->patterns[i]->notes = patterns[i].notes;
+    }
+
+    // load volume mod configuration
+    std::stringstream data(vol_mod_data);
+    channel->vol_mod.load_state(data, vol_mod_data.size());
+
+    // load instrument config
+    channel->set_instrument(instrument.load(&editor.song));
+
+    // load effects
+    for (ModuleData& data : effects)
+    {
+        channel->effects_rack.insert(data.load(&editor.song));
+    }
+}
+
+void change::ChangeRemoveChannel::redo(SongEditor& editor)
+{
+    editor.selected_channel = index - 1;
+    if (editor.selected_channel < 0) editor.selected_channel = 0;
+
+    _save(editor.song.channels[index]);
+    editor.remove_channel(index);
+}
+
+bool change::ChangeRemoveChannel::merge(Action* other)
+{
     return false;
 }

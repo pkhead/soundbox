@@ -181,6 +181,7 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
     // create new channel
     user_actions.set_callback("new_channel", [&]() {
         editor.selected_channel++;
+        editor.push_change(new change::ChangeNewChannel(editor.selected_channel));
         song.insert_channel(editor.selected_channel);
     });
 
@@ -188,7 +189,8 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
     user_actions.set_callback("remove_channel", [&]() {
         if (song.channels.size() > 1)
         {
-            song.remove_channel(editor.selected_channel);
+            editor.push_change(new change::ChangeRemoveChannel(editor.selected_channel, song.channels[editor.selected_channel]));
+            editor.remove_channel(editor.selected_channel);
             if (editor.selected_channel > 0) editor.selected_channel--;
         }
     });

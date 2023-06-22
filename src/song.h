@@ -31,7 +31,6 @@ struct Note {
 };
 
 struct Pattern {
-    Pattern(const Pattern&) = delete; // prevent copying
     Pattern();
 
     std::vector<Note> notes;
