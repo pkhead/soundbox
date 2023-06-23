@@ -21,7 +21,10 @@ public:
     std::vector<Note> note_clipboard;
 
     float quantization = 0.25f;
+    
     bool show_tuning_window = false;
+    bool show_themes_window = false;
+
     std::vector<audiomod::ModuleBase*> mod_interfaces;
     std::vector<audiomod::FXBus*> fx_interfaces;
 

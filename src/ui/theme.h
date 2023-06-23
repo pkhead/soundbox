@@ -16,6 +16,8 @@ enum class CustomColor : uint8_t
 
 class Theme
 {
+private:
+    std::string _name;
 public:
     struct ChannelColor
     {
@@ -28,10 +30,15 @@ public:
     ImVec4 custom_colors[5];
 
     Theme();
-    Theme(const std::string file_name);
+    Theme(const std::string theme_name);
     Theme(std::istream& stream);
 
+    void load(const std::string theme_name);
     void set_imgui_colors() const;
     ImU32 get_channel_color(int ch, bool is_primary) const;
     ImVec4 get_custom_color(CustomColor color) const;
+
+    void scan_themes();
+    inline const std::string& name() const { return _name; }; 
+    const std::vector<std::string>& get_themes_list() const;
 };

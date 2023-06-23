@@ -193,7 +193,7 @@ int main()
         Theme* theme;
 
         try {
-            theme = new Theme("styles/Soundbox Dark.toml");
+            theme = new Theme("Soundbox Dark");
         } catch(...) {
             theme = new Theme();
         }

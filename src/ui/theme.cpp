@@ -5,7 +5,9 @@
 #include <unordered_map>
 #include <vector>
 #include <imgui.h>
+#include <filesystem>
 #include "../song.h"
+#include "portaudio.h"
 #include "theme.h"
 
 const char* IMGUI_COLOR_NAMES[] = {
@@ -230,12 +232,31 @@ Theme::Theme()
 
 Theme::Theme(std::istream& stream)
 {
+    _name = "[ Unknown ]";
     auto data = toml::parse(stream, "unknown file");
     parse_toml(this, data);
 }
 
-Theme::Theme(const std::string file_name)
+const char PATH_SEP =
+#ifdef _WIN32
+    '\\';
+#else
+    '/';
+#endif
+
+Theme::Theme(const std::string theme_name)
 {
+    load(theme_name);
+}
+
+void Theme::load(const std::string theme_name)
+{
+    channel_colors.clear();
+    ui_colors.clear();
+
+    _name = theme_name;
+    std::string file_name = std::string("styles") + PATH_SEP + theme_name + ".toml";
+
     auto data = toml::parse(file_name);
     parse_toml(this, data);
 }
@@ -264,4 +285,28 @@ void Theme::set_imgui_colors() const
             style[i] = ui_colors.at(str);
         }
     }
+}
+
+// Theme discovery //
+static std::vector<std::string> theme_names;
+
+void Theme::scan_themes()
+{
+    theme_names.clear();
+
+    for (const auto& entry : std::filesystem::directory_iterator("styles"))
+    {
+        auto& path = entry.path();
+
+        if (path.extension() == ".toml")
+        {
+            std::cout << path.stem() << "\n";
+            theme_names.push_back(path.stem());
+        }
+    }
+}
+
+const std::vector<std::string>& Theme::get_themes_list() const
+{
+    return theme_names;
 }
