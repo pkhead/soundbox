@@ -95,7 +95,7 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    target_link_libraries(soundbox glfw comctl32.lib portaudio_static ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
+    target_link_libraries(soundbox glfw dwmapi comctl32.lib portaudio_static ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
 
 # Linux
 else()

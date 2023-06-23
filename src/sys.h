@@ -1,8 +1,10 @@
 #pragma once
 
 #ifdef _WIN32
-// Windows
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+
 #include <windows.h>
 
 #define sleep(time) Sleep((time) * 1000)

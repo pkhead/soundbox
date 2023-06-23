@@ -7,7 +7,7 @@
 using namespace sys;
 
 #ifdef _WIN32
-#include <Windows.h>
+#include <windows.h>
 
 static void lp_time_proc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2)
 {
@@ -30,7 +30,7 @@ void sys::clear_interval(interval_t* interval)
 {
 	// TODO: memory leak, did not delete std::function userdata
 	// not worth fixing for now because only one interval is ever created
-	UINT id = (UINT)interval;
+	UINT id = (UINT)(size_t)interval;
 	timeKillEvent(id);
 }
 

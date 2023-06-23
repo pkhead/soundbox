@@ -21,10 +21,8 @@
 #include <nfd.h>
 
 #ifdef _WIN32
-#define NOMINMAX
-
 // i want the title bar to match light/dark theme in windows
-#pragma comment (lib, "Dwmapi")
+// using the dwm api
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #include <dwmapi.h>
