@@ -542,9 +542,9 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
                 pull_bytes(input, key);
                 pull_bytes(input, length);
 
-                channel->patterns[pattern_i]->notes.push_back({
+                channel->patterns[pattern_i]->notes.push_back(Note(
                     time, key, length
-                });
+                ));
             }
         }
     }

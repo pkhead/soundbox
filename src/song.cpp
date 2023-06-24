@@ -27,8 +27,22 @@
 
 Pattern::Pattern() { };
 
+static unsigned long new_note_id = 0;
+
+Note::Note()
+    : Note(0.0f, 0, 0.0f)
+{}
+
+Note::Note(float time, int key, float length) :
+    time(time),
+    key(key),
+    length(length),
+    id(new_note_id++)
+{}
+
+
 Note& Pattern::add_note(float time, int key, float length) {
-    notes.push_back({ time, key, length });
+    notes.push_back(Note(time, key, length));
     return *(notes.end() - 1);
 }
 

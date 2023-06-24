@@ -29,7 +29,7 @@ UserActionList::UserActionList() {
     add_action("song_new", USERMOD_CTRL, ImGuiKey_N);
     add_action("song_save_as", USERMOD_CTRL | USERMOD_SHIFT, ImGuiKey_S);
     add_action("song_open", USERMOD_CTRL, ImGuiKey_O);
-    add_action("song_play_pause", 0, ImGuiKey_Space);
+    add_action("song_play_pause", 0, ImGuiKey_Space, true);
     add_action("song_prev_bar", 0, ImGuiKey_LeftBracket, true);
     add_action("song_next_bar", 0, ImGuiKey_RightBracket, true);
     add_action("export", 0, ImGuiKey_None);

@@ -21,8 +21,16 @@ struct Note {
     int key;
     float length;
 
+    // Notes are not dynamically allocated so
+    // we can't use their pointers for identification
+    // this is why we make a unique id for all new notes
+    unsigned long id;
+
+    Note();
+    Note(float time, int key, float length);
+
     inline bool operator==(const Note& other) {
-        return time == other.time && key == other.key && length == other.length;
+        return id == other.id;
     }
 
     inline bool operator!=(const Note& other) {
