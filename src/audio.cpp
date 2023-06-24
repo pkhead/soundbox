@@ -238,14 +238,13 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 // destination module is the one that now
 // creates and owns the audio buffers
 
-ModuleBase::ModuleBase(Song* song, bool has_interface) :
+ModuleBase::ModuleBase(bool has_interface) :
     _output(nullptr),
     _audio_buffer(nullptr),
     _audio_buffer_size(0),
     show_interface(false),
     _has_interface(has_interface),
     id(""),
-    song(song),
     name("Module")
 {};
 
@@ -734,7 +733,7 @@ ModuleOutputTarget* FXBus::disconnect_output()
     return old_output;
 }
 
-FXBus::ControllerModule::ControllerModule() : ModuleBase(nullptr, false) { }
+FXBus::ControllerModule::ControllerModule() : ModuleBase(false) { }
 
 void FXBus::ControllerModule::process(
     float** inputs,

@@ -14,6 +14,6 @@ namespace audiomod
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& state, size_t size) override;
 
-        GainModule(Song* song);
+        GainModule();
     };
 }

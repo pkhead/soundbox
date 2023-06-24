@@ -15,6 +15,15 @@ using namespace plugins;
 Plugin::Plugin(const PluginData& data) : data(data)
 {}
 
+Plugin::~Plugin()
+{
+    // free control values
+    for (ControlValue* control_value : control_values)
+    {
+        delete control_value;
+    }
+}
+
 ///////////////////
 // LADSPA plugin //
 ///////////////////
@@ -78,7 +87,7 @@ std::vector<PluginData> LadspaPlugin::get_data(const char *path)
 }
 
 // constructor
-LadspaPlugin::LadspaPlugin(const PluginData& plugin_data)
+LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
     : Plugin(plugin_data)
 {
     lib = sys::dl_open(plugin_data.file_path.c_str());
@@ -103,6 +112,13 @@ LadspaPlugin::LadspaPlugin(const PluginData& plugin_data)
         sys::dl_close(lib);
         throw std::runtime_error(std::string("no plugin at index ") + std::to_string(plugin_data.index) + " of " + plugin_data.file_path);
     }
+
+    instance = descriptor->instantiate(descriptor, dest.sample_rate);
+    if (instance == nullptr)
+    {
+        sys::dl_close(lib);
+        throw std::runtime_error(std::string("could not instantiate ") + plugin_data.name);
+    }
 }
 
 LadspaPlugin::~LadspaPlugin()
@@ -110,6 +126,15 @@ LadspaPlugin::~LadspaPlugin()
     descriptor->cleanup(instance);
     sys::dl_close(lib);
 }
+
+void LadspaPlugin::start()
+{}
+
+void LadspaPlugin::stop()
+{}
+
+void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size)
+{}
 
 
 
@@ -126,8 +151,8 @@ LadspaPlugin::~LadspaPlugin()
 // Plugin Module //
 ///////////////////
 
-PluginModule::PluginModule(Song* song, Plugin* plugin)
-    : ModuleBase(song, true), _plugin(plugin)
+PluginModule::PluginModule(Plugin* plugin)
+    : ModuleBase(true), _plugin(plugin)
 {
     name = _plugin->data.name;
 }

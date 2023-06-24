@@ -33,10 +33,23 @@ namespace plugins
     // base class for plugins
     class Plugin {
     public:
+        struct ControlValue
+        {
+            std::string name;
+            float min, max;
+            float value;
+        };
+
+        std::vector<ControlValue*> control_values;
+
         const PluginData data;
 
         Plugin(const PluginData& data);
-        virtual ~Plugin() {};
+        virtual ~Plugin();
+
+        virtual void start() = 0;
+        virtual void stop() = 0;
+        virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) = 0;
     };
 
     class LadspaPlugin : public Plugin
@@ -47,12 +60,16 @@ namespace plugins
         LADSPA_Handle instance;
     
     public:
-        LadspaPlugin(const PluginData& data);
+        LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& data);
         ~LadspaPlugin();
 
         virtual PluginType plugin_type() { return PluginType::Ladspa; };
 
         static std::vector<PluginData> get_data(const char* path);
+
+        void start() override;
+        void stop() override;
+        void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) override;
     };
 
     class PluginModule : public audiomod::ModuleBase
@@ -64,7 +81,7 @@ namespace plugins
     public:
         // assumes ownership of the plugin pointer
         // meaning it will be invalidated once this class is deleted
-        PluginModule(Song* song, Plugin* plugin);
+        PluginModule(Plugin* plugin);
         ~PluginModule();
 
         void process(

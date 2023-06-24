@@ -185,7 +185,7 @@ int main()
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
         
         // initialize song editor
-        SongEditor song_editor(new Song(4, 8, 8, destination));
+        SongEditor song_editor(new Song(4, 8, 8, &destination), destination);
 
         // this mutex is locked by the audio thread while audio is being processed
         // and is locked by the main thread when a new song is being loaded
@@ -263,7 +263,7 @@ int main()
                 destination.reset();
 
                 Song* old_song = song_editor.song;
-                song_editor.song = new Song(4, 8, 8, destination);
+                song_editor.song = new Song(4, 8, 8, &destination);
                 song_editor.reset();
                 ui_init(song_editor, user_actions);
                 delete old_song;
@@ -295,7 +295,7 @@ int main()
                     file_mutex.lock();
 
                     std::string error_msg = "unknown error";
-                    Song* new_song = Song::from_file(file, destination, song_editor.plugin_manager, &error_msg);
+                    Song* new_song = Song::from_file(file, song_editor.audio_dest, song_editor.plugin_manager, &error_msg);
                     file.close();
 
                     if (new_song != nullptr) {

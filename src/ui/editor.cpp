@@ -2,8 +2,8 @@
 #include "../audio.h"
 #include "theme.h"
 
-SongEditor::SongEditor(Song* song) :
-    song(song)
+SongEditor::SongEditor(Song* song, audiomod::DestinationModule& audio_dest) :
+    song(song), audio_dest(audio_dest)
 {
     const char* theme_name = "Soundbox Dark";
 

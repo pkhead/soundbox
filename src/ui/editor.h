@@ -11,10 +11,11 @@ class SongEditor {
 private:
 
 public:
-    SongEditor(Song* song);
+    SongEditor(Song* song, audiomod::DestinationModule& audio_dest);
     ~SongEditor();
     Song* song;
     Theme theme;
+    audiomod::DestinationModule& audio_dest;
     plugins::PluginManager plugin_manager;
     
     void reset();

@@ -119,7 +119,6 @@ namespace audiomod {
         ModuleOutputTarget* _output;
         DestinationModule* _dest = nullptr;
         bool _has_interface;
-        Song* song;
         
         float* _audio_buffer;
         size_t _audio_buffer_size;
@@ -129,10 +128,11 @@ namespace audiomod {
         bool show_interface;
         const char* id;
         std::string name;
+        Song* song = nullptr;
         const char* parent_name = nullptr; // i keep forgetting to explicity set values to nullptr!
 
         ModuleBase(const ModuleBase&) = delete;
-        ModuleBase(Song* song, bool has_interface);
+        ModuleBase(bool has_interface);
         virtual ~ModuleBase();
 
         // send a note event to the module
@@ -346,5 +346,5 @@ namespace audiomod {
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 
-    ModuleBase* create_module(const std::string& mod_id, Song* song, plugins::PluginManager& plugin_manager);
+    ModuleBase* create_module(const std::string& mod_id, DestinationModule& audio_dest, plugins::PluginManager& editor);
 }

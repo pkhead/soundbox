@@ -708,8 +708,9 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             case EffectsInterfaceAction::Add: {
                 song.mutex.lock();
 
-                audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song, editor.plugin_manager);
+                audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
                 mod->parent_name = cur_channel->name;
+                mod->song = &song;
                 cur_channel->effects_rack.insert(mod);
 
                 // register change
@@ -989,8 +990,9 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 case EffectsInterfaceAction::Add: {
                     song.mutex.lock();
                     
-                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song, editor.plugin_manager);
+                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
                     mod->parent_name = fx_bus->name;
+                    mod->song = &song;
                     fx_bus->insert(mod);
 
                     // register change

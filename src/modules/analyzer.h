@@ -23,7 +23,7 @@ namespace audiomod
         float* right_channel[2] = { nullptr, nullptr };
 
     public:
-        AnalyzerModule(Song* song);
+        AnalyzerModule();
         ~AnalyzerModule();
     };
 }

@@ -46,7 +46,7 @@ namespace change
         std::string data;
 
         ModuleData(audiomod::ModuleBase* module);
-        audiomod::ModuleBase* load(Song* song, plugins::PluginManager& plugin_manager) const;
+        audiomod::ModuleBase* load(SongEditor& editor) const;
     };
 
     class Action

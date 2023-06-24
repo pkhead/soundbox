@@ -1,6 +1,7 @@
 #include "../audio.h"
 #include "../sys.h"
 #include "../plugins.h"
+#include "../ui/editor.h"
 #include "modules.h"
 #include <iostream>
 #include <stdexcept>
@@ -17,8 +18,8 @@ std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list(
     "synth.waveform", "Waveform"
 });
 
-#define MAP(id, class) if (mod_id == id) return new class(song)
-ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song, plugins::PluginManager& plugin_manager) {
+#define MAP(id, class) if (mod_id == id) return new class()
+ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule& audio_dest, plugins::PluginManager& plugin_manager) {
     // synthesizers
     MAP("synth.waveform", WaveformSynth); // TODO: add fourth oscillator and allow FM modulation
     // TODO: harmonics synth
@@ -51,14 +52,14 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song, plugi
             switch (plugin_data.type)
             {
                 case plugins::PluginType::Ladspa:
-                    plugin = new plugins::LadspaPlugin(plugin_data);
+                    plugin = new plugins::LadspaPlugin(audio_dest, plugin_data);
                     break;
 
                 default:
                     throw std::runtime_error("invalid plugin type");
             }
 
-            return new plugins::PluginModule(song, plugin);
+            return new plugins::PluginModule(plugin);
         }
     }
 
