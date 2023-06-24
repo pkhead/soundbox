@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <string>
 #include <imgui.h>
+#include <tomlcpp/tomlcpp.hpp>
 
 enum class CustomColor : uint8_t
 {
@@ -18,6 +19,7 @@ class Theme
 {
 private:
     std::string _name;
+    void _parse_toml(toml::Table* table);
 public:
     struct ChannelColor
     {

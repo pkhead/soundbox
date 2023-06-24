@@ -33,6 +33,10 @@ set(SOURCES
     deps/AnaMark-Tuning-Library/TUN_StringTools.cpp
     deps/AnaMark-Tuning-Library/SCL_Import.cpp
 
+    # tomlcpp
+    deps/tomlcpp/toml.c
+    deps/tomlcpp/tomlcpp.cpp
+
     # glad
     deps/gl/glad/gl.c
 
