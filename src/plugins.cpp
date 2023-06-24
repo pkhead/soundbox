@@ -3,10 +3,77 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <vector>
+#include <plugins/ladspa.h>
 
 #include "plugins.h"
+#include "sys.h"
 using namespace plugins;
 
+///////////////////
+// LADSPA plugin //
+///////////////////
+
+std::vector<PluginData> LadspaPlugin::get_data(const char *path)
+{
+    std::vector<PluginData> output;
+    sys::dl_handle handle = sys::dl_open(path);
+
+    if (handle == nullptr)
+    {
+        std::cerr << "dl error: " << sys::dl_error() << "\n";
+        sys::dl_close(handle);
+        return output; // return empty vector
+    }
+
+    // retrieve descriptor function
+    LADSPA_Descriptor_Function ladspa_descriptor =
+        (LADSPA_Descriptor_Function) sys::dl_sym(handle, "ladspa_descriptor");
+
+    if (ladspa_descriptor == nullptr)
+    {
+        std::cerr << "dl error: " << sys::dl_error() << "\n";
+        sys::dl_close(handle);
+        return output; // return empty vector
+    }
+
+    // get descriptors from an increasing index
+    // if plugin_data == nullptr, there are no more plugins
+    const LADSPA_Descriptor* plugin_desc;
+    for (int i = 0; (plugin_desc = ladspa_descriptor(i)) != nullptr; i++)
+    {
+        PluginData data;
+        data.type = PluginType::Ladspa;
+        data.file_path = path;
+        data.index = i;
+
+        data.name = plugin_desc->Name;
+        data.author = plugin_desc->Maker;
+        data.copyright = plugin_desc->Copyright;
+        data.is_instrument = false;
+
+        output.push_back(data);
+    }
+
+    sys::dl_close(handle);
+    return output;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////
+// Plugin Manager //
+////////////////////
 PluginManager::PluginManager()
 {
     ladspa_paths = get_default_plugin_paths(PluginType::Ladspa);
@@ -46,7 +113,7 @@ std::vector<std::string> PluginManager::get_default_plugin_paths(PluginType type
 
 void PluginManager::scan_plugins()
 {
-    plugin_list.clear();
+    plugin_data.clear();
 
     // scan directories for ladspa plugins
     for (const std::string& directory : ladspa_paths)
@@ -59,10 +126,16 @@ void PluginManager::scan_plugins()
                 if (entry.is_directory()) continue;
 
                 auto& path = entry.path();
-
-                if (path.has_filename())
-                    std::cout << "found LADSPA: " << path << "\n";
+                std::cout << "found LADSPA: " << path << ":\n";
                 
+                // get plugin information for all plugins in library
+                std::vector<PluginData> plugins = LadspaPlugin::get_data(entry.path().c_str());
+
+                for (PluginData& plugin : plugins)
+                {
+                    std::cout << "\t" << plugin.name << " by " << plugin.author << "\n";
+                    plugin_data.push_back(plugin);
+                }
             }
         }
     }
