@@ -242,16 +242,20 @@ LadspaPlugin::~LadspaPlugin()
 
 void LadspaPlugin::start()
 {
-    descriptor->activate(instance);
+    if (descriptor->activate != nullptr)
+        descriptor->activate(instance);
 }
 
 void LadspaPlugin::stop()
 {
-    descriptor->deactivate(instance);
+    if (descriptor->deactivate != nullptr)
+        descriptor->deactivate(instance);
 }
 
 void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size)
 {
+    if (descriptor->run == nullptr) return;
+
     // initialize input buffers
     if (input_buffers.size() > 0)
     {
@@ -293,7 +297,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         }
     }
 
-    descriptor->run(instance, buffer_size);
+    descriptor->run(instance, dest.buffer_size);
 
     // write output buffers
     // mono
@@ -335,25 +339,18 @@ PluginModule::PluginModule(Plugin* plugin)
     : ModuleBase(true), _plugin(plugin)
 {
     name = _plugin->data.name;
+    _plugin->start();
 }
 
 PluginModule::~PluginModule()
 {
+    _plugin->stop();
     delete _plugin;
 }
 
 void PluginModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     // TODO: call plugin run process
-    for (size_t i = 0; i < buffer_size; i += channel_count) {
-        output[i] = 0.0f;
-        output[i+1] = 0.0f;
-
-        for (size_t k = 0; k < num_inputs; k++)
-        {
-            output[i] += inputs[k][i];
-            output[i+1] += inputs[k][i+1];
-        }
-    }
+    _plugin->process(inputs, output, num_inputs, buffer_size);
 }
 
 ////////////////////
