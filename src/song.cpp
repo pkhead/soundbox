@@ -27,8 +27,22 @@
 
 Pattern::Pattern() { };
 
+static unsigned long new_note_id = 0;
+
+Note::Note()
+    : Note(0.0f, 0, 0.0f)
+{}
+
+Note::Note(float time, int key, float length) :
+    time(time),
+    key(key),
+    length(length),
+    id(new_note_id++)
+{}
+
+
 Note& Pattern::add_note(float time, int key, float length) {
-    notes.push_back({ time, key, length });
+    notes.push_back(Note(time, key, length));
     return *(notes.end() - 1);
 }
 
@@ -455,10 +469,14 @@ bool Song::get_key_frequency(int key, float* freq) const {
     return true;
 }
 
+// this variable is solely for debug purposes
+static int notes_playing = 0;
+
 void Song::play() {
     is_playing = true;
     position = bar_position * beats_per_bar;
 
+    assert(notes_playing == 0);
     cur_notes.clear();
     prev_notes.clear();
 }
@@ -468,154 +486,160 @@ void Song::stop() {
     position = bar_position * beats_per_bar;
 
     for (NoteData note_data : cur_notes) {
+        notes_playing--;
+        
         channels[note_data.channel_i]->synth_mod->event({
             audiomod::NoteEventKind::NoteOff,
             note_data.note.key
         });
     }
 
+    assert(notes_playing == 0);
     prev_notes.clear();
     cur_notes.clear();
 }
 
 void Song::update(double elapsed) {
-    if (is_playing) {
-        // first check if any channels are solo'd
-        bool solo_mode = false;
-        for (Channel* channel : channels) {
-            if (channel->solo) {
-                solo_mode = true;
-                break;
-            }
+    // first check if any channels are solo'd
+    bool solo_mode = false;
+    for (Channel* channel : channels) {
+        if (channel->solo) {
+            solo_mode = true;
+            break;
+        }
+    }
+
+    // if a channel is solo'd, then mute all but the channels that are solo'd
+    if (solo_mode) {
+        for (Channel* channel : channels)
+        {
+            channel->vol_mod.mute_override = !channel->solo;
+        }
+    } else {
+        for (Channel* channel : channels)
+        {
+            channel->vol_mod.mute_override = false;
+        }
+    }
+
+    // then, do the same for fx channels
+    solo_mode = false;
+    for (audiomod::FXBus* bus : fx_mixer) {
+        if (bus->solo) {
+            solo_mode = true;
+            break;
+        }
+    }
+    if (solo_mode) {
+        for (audiomod::FXBus* bus : fx_mixer) {
+            bus->controller.mute_override = !bus->solo;
         }
 
-        // if a channel is solo'd, then mute all but the channels that are solo'd
-        if (solo_mode) {
-            for (Channel* channel : channels)
-            {
-                channel->vol_mod.mute_override = !channel->solo;
-            }
-        } else {
-            for (Channel* channel : channels)
-            {
-                channel->vol_mod.mute_override = false;
-            }
-        }
-
-        // then, do the same for fx channels
-        solo_mode = false;
+        // unmute any buses that are connected to the soloed bus
         for (audiomod::FXBus* bus : fx_mixer) {
             if (bus->solo) {
-                solo_mode = true;
-                break;
-            }
-        }
-        if (solo_mode) {
-            for (audiomod::FXBus* bus : fx_mixer) {
-                bus->controller.mute_override = !bus->solo;
-            }
-
-            // unmute any buses that are connected to the soloed bus
-            for (audiomod::FXBus* bus : fx_mixer) {
-                if (bus->solo) {
-                    while (bus != fx_mixer[0])
-                    {
-                        bus->controller.mute_override = false;
-                        bus = fx_mixer[bus->target_bus];
-                    }
+                while (bus != fx_mixer[0])
+                {
                     bus->controller.mute_override = false;
+                    bus = fx_mixer[bus->target_bus];
                 }
-            }
-        } else {
-            for (audiomod::FXBus* bus : fx_mixer) {
                 bus->controller.mute_override = false;
             }
         }
-
-        // get notes at playhead
-        float pos_in_bar = fmod(position, (double)beats_per_bar);
-        cur_notes.clear();
-
-        int channel_i = 0;
-        for (Channel* channel : channels) {
-            int pattern_index = channel->sequence[bar_position] - 1;
-            if (pattern_index >= 0) {
-                Pattern* pattern = channel->patterns[pattern_index];
-
-                for (Note& note : pattern->notes) {
-                    if (pos_in_bar > note.time && pos_in_bar < note.time + note.length)    
-                        cur_notes.push_back({
-                            channel_i,
-                            note
-                        });
-                }
-            }
-
-            channel_i++;
+    } else {
+        for (audiomod::FXBus* bus : fx_mixer) {
+            bus->controller.mute_override = false;
         }
-
-        // if there are notes in prev_notes that are not in cur_notes
-        // they are notes that just ended
-        for (NoteData& old_note : prev_notes) {
-            bool is_old = true;
-
-            for (NoteData& new_note : cur_notes) {
-                if (new_note.note == old_note.note) {
-                    is_old = false;
-                    break;
-                }
-            }
-
-            if (is_old) {
-                channels[old_note.channel_i]->synth_mod->event({
-                    audiomod::NoteEventKind::NoteOff,
-                    old_note.note.key
-                });
-            }
-        }
-
-        // if there are notes in cur_notes that are not in prev_notes
-        // they are new notes
-        for (NoteData& new_note : cur_notes) {
-            bool is_new = true;
-
-            for (NoteData& old_note : prev_notes) {
-                if (new_note.note == old_note.note) {
-                    is_new = false;
-                    break;
-                }
-            }
-
-            if (is_new) {
-                channels[new_note.channel_i]->synth_mod->event({
-                    audiomod::NoteEventKind::NoteOn,
-                    {
-                        new_note.note.key,
-                        0.8f
-                    }
-                });
-            }
-        }
-
-        prev_notes = cur_notes;
-
-        position += elapsed * (tempo / 60.0);
-
-        // if reached past the end of the song
-        if (position >= _length * beats_per_bar) {
-            if (do_loop) // loop back to the beginning of the song
-                position -= _length * beats_per_bar;
-            else {
-                // stop the song and set cursor to the beginning
-                bar_position = 0;
-                position = 0;
-                stop();
-                return;
-            }
-        }
-
-        bar_position = position / beats_per_bar;
     }
+
+    // get notes at playhead
+    float pos_in_bar = fmod(position, (double)beats_per_bar);
+    cur_notes.clear();
+
+    int channel_i = 0;
+    for (Channel* channel : channels) {
+        int pattern_index = channel->sequence[bar_position] - 1;
+        if (pattern_index >= 0) {
+            Pattern* pattern = channel->patterns[pattern_index];
+
+            for (Note& note : pattern->notes) {
+                if (pos_in_bar >= note.time && pos_in_bar < note.time + note.length)    
+                    cur_notes.push_back({
+                        channel_i,
+                        note
+                    });
+            }
+        }
+
+        channel_i++;
+    }
+
+    // if there are notes in prev_notes that are not in cur_notes
+    // they are notes that just ended
+    for (NoteData& old_note : prev_notes) {
+        bool is_old = true;
+
+        for (const NoteData& new_note : cur_notes) {
+            if (new_note.note == old_note.note) {
+                is_old = false;
+                break;
+            }
+        }
+
+        if (is_old) {
+            notes_playing--;
+            assert(notes_playing >= 0);
+            
+            channels[old_note.channel_i]->synth_mod->event({
+                audiomod::NoteEventKind::NoteOff,
+                old_note.note.key
+            });
+        }
+    }
+
+    // if there are notes in cur_notes that are not in prev_notes
+    // they are new notes
+    for (NoteData& new_note : cur_notes) {
+        bool is_new = true;
+
+        for (const NoteData& old_note : prev_notes) {
+            if (new_note.note == old_note.note) {
+                is_new = false;
+                break;
+            }
+        }
+
+        if (is_new) {
+            notes_playing++;
+            
+            channels[new_note.channel_i]->synth_mod->event({
+                audiomod::NoteEventKind::NoteOn,
+                {
+                    new_note.note.key,
+                    0.8f
+                }
+            });
+        }
+    }
+
+    prev_notes = cur_notes;
+
+    position += elapsed * (tempo / 60.0);
+
+    // if reached past the end of the song
+    if (position >= _length * beats_per_bar) {
+        if (do_loop) // loop back to the beginning of the song
+            position -= _length * beats_per_bar;
+        else {
+            // stop the song and set cursor to the beginning
+            bar_position = 0;
+            position = 0;
+            stop();
+            return;
+        }
+    }
+
+    bar_position = position / beats_per_bar;
 }
 
 Tuning* Song::load_scale_tun(std::istream& input, std::string* err)

@@ -555,9 +555,9 @@ Song* Song::from_file(
                 pull_bytes(input, key);
                 pull_bytes(input, length);
 
-                channel->patterns[pattern_i]->notes.push_back({
+                channel->patterns[pattern_i]->notes.push_back(Note(
                     time, key, length
-                });
+                ));
             }
         }
     }

@@ -22,11 +22,19 @@ struct Note {
     int key;
     float length;
 
-    inline bool operator==(const Note& other) {
-        return time == other.time && key == other.key && length == other.length;
+    // Notes are not dynamically allocated so
+    // we can't use their pointers for identification
+    // this is why we make a unique id for all new notes
+    unsigned long id;
+
+    Note();
+    Note(float time, int key, float length);
+
+    inline bool operator==(const Note& other) const noexcept {
+        return id == other.id;
     }
 
-    inline bool operator!=(const Note& other) {
+    inline bool operator!=(const Note& other) const noexcept {
         return !(*this == other);
     }
 };
@@ -114,6 +122,7 @@ private:
     std::vector<NoteData> prev_notes;
     std::vector<NoteData> cur_notes;
 
+
 public:
     Song(const Song&) = delete; // disable copy
     Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget* audio_out);
@@ -133,7 +142,7 @@ public:
     int beats_per_bar = 8;
     int bar_position = 0;
     double position = 0.0;
-    bool is_playing = false;
+    std::atomic<bool> is_playing = false;
     bool do_loop = true;
     float tempo = 120;
 
@@ -163,6 +172,8 @@ public:
 
     bool get_key_frequency(int key, float* freq) const;
 
+    // only call these functions from the processing thread
+    // other threads set is_playing
     void play();
     void stop();
     void update(double elasped);

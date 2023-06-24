@@ -603,23 +603,24 @@ int main()
         sys::interval_t* audioaux_interval = sys::set_interval(5, [&]() {
             // ooh symbols
             Song*& song = song_editor.song;
-
+            
             file_mutex.lock();
             song->mutex.lock();
 
             destination.prepare();
 
-            if (song->is_playing != last_playing) {
-                last_playing = song->is_playing;
-
-                if (song->is_playing) song->play();
+            bool song_playing = song->is_playing;
+            if (song_playing != last_playing) {
+                last_playing = song_playing;
+                
+                if (song_playing) song->play();
                 else song->stop();
             }
 
             while (device.samples_queued() < device.sample_rate() * 0.05)
             {
                 float* buf;
-                song->update((double)destination.buffer_size / device.sample_rate());
+                if (song_playing) song->update((double)destination.buffer_size / device.sample_rate());
                 size_t buf_size = destination.process(&buf);
                 device.queue(buf, buf_size);
             }
