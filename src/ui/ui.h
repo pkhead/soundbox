@@ -1,14 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <cstring>
-#include <ctime>
-#include <functional>
 #include <iostream>
-#include <math.h>
 #include <imgui.h>
-#include <sstream>
-#include <unordered_map>
 #include <glad/gl.h>
 
 #include "../audio.h"

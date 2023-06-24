@@ -457,7 +457,10 @@ void compute_imgui(SongEditor& editor) {
                     editor.theme.scan_themes();
             }
 
-            ImGui::MenuItem("Directories...");
+            if (ImGui::MenuItem("Directories..."))
+            {
+                editor.show_dir_window = !editor.show_dir_window;
+            }
             ImGui::MenuItem("MIDI Configuration...");
             
             ImGui::EndMenu();
@@ -500,6 +503,7 @@ void compute_imgui(SongEditor& editor) {
     render_tunings_window(editor);  
     render_plugin_list(editor);
     render_themes_window(editor);
+    render_directories_window(editor);
 
     // render module interfaces
     for (size_t i = 0; i < editor.mod_interfaces.size();)

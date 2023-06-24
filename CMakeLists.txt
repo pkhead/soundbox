@@ -59,7 +59,7 @@ set(SOURCES
     src/ui/fx_mixer.cpp
 
     src/ui/plugin_list.cpp
-    # src/ui/directories.cpp
+    src/ui/directories.cpp
     src/ui/tunings.cpp
     src/ui/themes_ui.cpp
 
