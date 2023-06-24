@@ -50,8 +50,19 @@ std::vector<PluginData> LadspaPlugin::get_data(const char *path)
         data.name = plugin_desc->Name;
         data.author = plugin_desc->Maker;
         data.copyright = plugin_desc->Copyright;
-        data.is_instrument = false;
 
+        // if plugin has no input audio ports, it is an instrument
+        data.is_instrument = true;
+        for (int port_i = 0; port_i < plugin_desc->PortCount; port_i++)
+        {
+            LADSPA_PortDescriptor port_descriptor = plugin_desc->PortDescriptors[port_i];
+
+            if (LADSPA_IS_PORT_INPUT(port_descriptor) && LADSPA_IS_PORT_AUDIO(port_descriptor)) {
+                data.is_instrument = false;
+                break;
+            }
+        }
+        
         output.push_back(data);
     }
 

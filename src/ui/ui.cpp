@@ -1266,8 +1266,10 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
 
         if (selected_plugin >= 0)
         {
-            auto& plugin_data = plugin_list[i];
+            auto& plugin_data = plugin_list[selected_plugin];
 
+            ImGui::Text("File: %s", plugin_data.file_path.c_str());
+            ImGui::Separator();
             ImGui::Text("Author: %s", plugin_data.author.c_str());
             ImGui::Separator();
             ImGui::Text("Copyright: %s", plugin_data.copyright.c_str());
@@ -1294,6 +1296,8 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                     break;
             }
 
+            ImGui::Text("Is Instrument?: %s", plugin_data.is_instrument ? "Yes": "No");
+            ImGui::Separator();
             ImGui::Text("Type: %s", plugin_type);
         }
 
