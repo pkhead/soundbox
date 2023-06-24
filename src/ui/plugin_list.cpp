@@ -10,6 +10,9 @@ void render_plugin_list(SongEditor &editor)
         ImGuiWindowFlags_NoDocking
     ))
     {
+        if (ImGui::Button("Rescan"))
+            editor.plugin_manager.scan_plugins();
+        
         auto& plugin_list = editor.plugin_manager.get_plugin_data();
 
         selected_plugin = -1;

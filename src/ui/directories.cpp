@@ -20,12 +20,16 @@ void render_directories_window(SongEditor &editor)
                 ImGui::OpenPopup("adddirectory");
             }
 
+            ImGui::SameLine();
+            if (ImGui::Button("Rescan"))
+                plugins.scan_plugins();
+
             int listbox_size = plugins.ladspa_paths.size();
             if (listbox_size == 0) listbox_size = 1;
 
             if (ImGui::BeginListBox(
                 "##ladspa_plugins",
-                ImVec2(0.0f, ImGui::GetFrameHeight() * listbox_size)
+                ImVec2(-1.0f, ImGui::GetFrameHeight() * listbox_size)
             ))
             {
                 int index_to_delete = -1;
