@@ -43,7 +43,7 @@ namespace plugins
             bool is_sample_rate;
             bool is_integer;
             bool has_default;
-            
+
             float min, max;
             float default_value;
         };
@@ -87,7 +87,7 @@ namespace plugins
     class PluginModule : public audiomod::ModuleBase
     {
     private:
-        // void _interface_proc() override;
+        void _interface_proc() override;
         Plugin* _plugin;
 
     public:

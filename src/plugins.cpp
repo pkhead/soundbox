@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <imgui.h>
 #include <plugins/ladspa.h>
 
 #include "audio.h"
@@ -336,7 +337,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
 ///////////////////
 
 PluginModule::PluginModule(Plugin* plugin)
-    : ModuleBase(true), _plugin(plugin)
+    : ModuleBase(plugin->control_values.size() > 0), _plugin(plugin)
 {
     name = _plugin->data.name;
     _plugin->start();
@@ -351,6 +352,60 @@ PluginModule::~PluginModule()
 void PluginModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     // TODO: call plugin run process
     _plugin->process(inputs, output, num_inputs, buffer_size);
+}
+
+void PluginModule::_interface_proc()
+{
+    for (auto& control_value : _plugin->control_values)
+    {
+        ImGui::PushID(&control_value);
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("%s", control_value->name.c_str());
+        ImGui::SameLine();
+
+        float value = control_value->value;
+        float min = control_value->min;
+        float max = control_value->max;
+        
+        if (control_value->is_sample_rate) {
+            value /= _dest->sample_rate;
+            min /= _dest->sample_rate;
+            max /= _dest->sample_rate;
+        }
+
+        // TODO is_logarithmic
+        if (control_value->is_toggle)
+        {
+            bool toggle = value >= 0.0f;
+            ImGui::Checkbox("##toggle", &toggle);
+            value = toggle ? 1.0f : -1.0f;
+        }
+        else if (control_value->is_integer)
+        {
+            int integer = (int)roundf(value);
+            ImGui::SliderInt("##slider", &integer, (int)roundf(min), (int)roundf(max));
+            value = integer;
+
+            if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
+                value = control_value->default_value;
+            }
+        }
+        else
+        {
+            ImGui::SliderFloat("##slider", &value, min, max, "%.3f");
+
+            if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
+                value = control_value->default_value;
+            }
+        }
+
+
+        if (control_value->is_sample_rate) value *= _dest->sample_rate;
+        control_value->value = value;
+
+        ImGui::PopID();
+    }
 }
 
 ////////////////////
