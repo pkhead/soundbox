@@ -107,6 +107,7 @@ void PluginModule::_interface_proc()
 ////////////////////
 // Plugin Manager //
 ////////////////////
+
 PluginManager::PluginManager()
 {
     ladspa_paths = get_default_plugin_paths(PluginType::Ladspa);
@@ -123,6 +124,29 @@ static std::vector<std::string> parse_path_list(const std::string list_string)
     }
 
     return list;
+}
+
+void PluginManager::add_path(PluginType type, const std::string& path)
+{
+    std::vector<std::string>* vec;
+
+    switch (type)
+    {
+        case PluginType::Ladspa:
+            vec = &ladspa_paths;
+            break;
+
+        default:
+            throw std::runtime_error("unsupported PluginType");
+    }
+
+    // don't add path if path is already in list
+    for (std::string& v : *vec)
+    {
+        if (v == path) return;
+    }
+
+    vec->push_back(path);
 }
 
 std::vector<std::string> PluginManager::get_default_plugin_paths(PluginType type)

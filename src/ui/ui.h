@@ -74,6 +74,13 @@ inline ImU32 vec4_color(const ImVec4 &vec4) {
 void ui_init(SongEditor& editor);
 void compute_imgui(SongEditor& editor);
 
+enum class FileBrowserMode
+{
+    Save, Open, Directory
+};
+
+std::string file_browser(FileBrowserMode mode, const std::string& filter_list, const std::string& default_path);
+
 void render_song_settings(SongEditor& editor);
 void render_channel_settings(SongEditor& editor);
 void render_track_editor(SongEditor& editor);

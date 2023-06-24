@@ -93,6 +93,7 @@ namespace plugins
         std::vector<std::string> ladspa_paths;
         
         PluginManager();
+        void add_path(PluginType type, const std::string& path);
         inline const std::vector<PluginData>& get_plugin_data() { return plugin_data; };
         void scan_plugins();
 

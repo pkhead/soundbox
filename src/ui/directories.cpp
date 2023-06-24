@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "ui.h"
 
 void render_directories_window(SongEditor &editor)
@@ -5,7 +6,7 @@ void render_directories_window(SongEditor &editor)
     ImGuiStyle& style = ImGui::GetStyle();
     plugins::PluginManager& plugins = editor.plugin_manager;
 
-    static char test[64];
+    static char dir_prompt[128];
 
     if (editor.show_dir_window)
     {
@@ -14,8 +15,10 @@ void render_directories_window(SongEditor &editor)
             ImGui::AlignTextToFramePadding();
             ImGui::Text("LADSPA/LV1 plugins");
             ImGui::SameLine();
-            if (ImGui::Button("Add"))
+            if (ImGui::Button("Add")) {
+                dir_prompt[0] = 0;
                 ImGui::OpenPopup("adddirectory");
+            }
 
             if (ImGui::BeginListBox(
                 "##ladspa_plugins",
@@ -32,10 +35,23 @@ void render_directories_window(SongEditor &editor)
 
             if (ImGui::BeginPopup("adddirectory"))
             {
-                ImGui::Text("Add Path");
-                ImGui::InputText("##path", test, 64);
+                if (ImGui::InputText("##path", dir_prompt, 128, ImGuiInputTextFlags_EnterReturnsTrue))
+                {
+                    plugins.add_path(plugins::PluginType::Ladspa, dir_prompt);
+                    ImGui::CloseCurrentPopup();
+                }
+
                 ImGui::SameLine();
-                ImGui::Button("Choose...");
+                if (ImGui::Button("Browse..."))
+                {
+                    const char* default_path = std::filesystem::current_path().root_path().c_str();
+                    std::string result = file_browser(FileBrowserMode::Directory, "", default_path);
+                    if (!result.empty()) {
+                        plugins.add_path(plugins::PluginType::Ladspa, result);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+
                 ImGui::EndPopup();
             }
         } ImGui::End();

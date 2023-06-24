@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <imgui.h>
+#include <nfd.h>
 #include "../audio.h"
 #include "change_history.h"
 #include "../modules/modules.h"
@@ -47,6 +48,38 @@ void pop_btn_disabled()
     ImGui::PopStyleColor(3);
 }
 
+std::string file_browser(FileBrowserMode mode, const std::string &filter_list, const std::string &default_path)
+{
+    std::string result_path("");
+    nfdchar_t* out_path;
+
+    nfdresult_t result;
+    
+    if (mode == FileBrowserMode::Save)
+        result = NFD_SaveDialog(filter_list.c_str(), default_path.c_str(), &out_path);
+    else if (mode == FileBrowserMode::Open)
+        result = NFD_OpenDialog(filter_list.c_str(), default_path.c_str(), &out_path);
+    else if (mode == FileBrowserMode::Directory)
+        result = NFD_PickFolder(default_path.c_str(), &out_path);
+    else
+        throw std::runtime_error("invalid FileBrowserMode " + std::to_string((int)mode));
+    
+    switch (result)
+    {
+        case NFD_OKAY:
+            result_path = out_path;
+            break;
+
+        case NFD_CANCEL:
+            break; 
+
+        case NFD_ERROR:
+            std::cerr << "error: " << NFD_GetError() << "\n";
+            break;
+    }
+
+    return result_path;
+}
 
 
 
