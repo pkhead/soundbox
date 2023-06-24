@@ -2,6 +2,8 @@
 #include "../sys.h"
 #include "../plugins.h"
 #include "modules.h"
+#include <iostream>
+#include <stdexcept>
 
 using namespace audiomod;
 
@@ -39,8 +41,28 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song, plugi
     // TODO: phaser effect
     // TODO: compressor effect
 
-    // LADSPA plugins
+    // create module for plugin
+    for (auto& plugin_data : plugin_manager.get_plugin_data())
+    {
+        if (mod_id == plugin_data.id)
+        {
+            plugins::Plugin* plugin;
 
+            switch (plugin_data.type)
+            {
+                case plugins::PluginType::Ladspa:
+                    plugin = new plugins::LadspaPlugin(plugin_data);
+                    break;
+
+                default:
+                    throw std::runtime_error("invalid plugin type");
+            }
+
+            return new plugins::PluginModule(song, plugin);
+        }
+    }
+
+    // no module found
     return nullptr;
 }
 

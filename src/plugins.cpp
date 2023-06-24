@@ -128,7 +128,9 @@ LadspaPlugin::~LadspaPlugin()
 
 PluginModule::PluginModule(Song* song, Plugin* plugin)
     : ModuleBase(song, true), _plugin(plugin)
-{}
+{
+    name = _plugin->data.name;
+}
 
 PluginModule::~PluginModule()
 {
