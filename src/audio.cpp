@@ -234,10 +234,11 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //   MODULE BASE    //
 //////////////////////
 
+static std::vector<ModuleBase*> garbage_modules;
+
 // TODO: remove audio buffers in ModuleBase, as
 // destination module is the one that now
 // creates and owns the audio buffers
-
 ModuleBase::ModuleBase(bool has_interface) :
     _output(nullptr),
     _audio_buffer(nullptr),
@@ -252,6 +253,26 @@ ModuleBase::~ModuleBase() {
     remove_all_connections();
 
     if (_audio_buffer != nullptr) delete[] _audio_buffer;
+}
+
+void ModuleBase::release()
+{
+    if (_is_released) return;
+    _is_released = true;
+
+    remove_all_connections();
+    garbage_modules.push_back(this);
+}
+
+void ModuleBase::free_garbage_modules()
+{
+    if (garbage_modules.size() > 0)
+        std::cout << "free " << garbage_modules.size() << " modules\n";
+    
+    for (ModuleBase* mod : garbage_modules)
+        delete mod;
+
+    garbage_modules.clear();
 }
 
 void ModuleBase::connect(ModuleOutputTarget* dest) {
@@ -382,6 +403,7 @@ void DestinationModule::prepare()
     {
         std::cout << "free\n";
         free_graph(_old_graph);
+        ModuleBase::free_garbage_modules();
         old_graph = nullptr;
     }
 
@@ -543,7 +565,7 @@ EffectsRack::~EffectsRack() {
     if (!modules.empty()) modules.back()->disconnect();
 
     for (ModuleBase* module : modules) {
-        delete module;
+        module->release();
     }
 }
 

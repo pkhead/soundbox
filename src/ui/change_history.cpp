@@ -205,7 +205,7 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
         mod->save_state(stream);
         mod_data = stream.str();
 
-        delete mod;
+        mod->release();
     }
     
     editor.song->mutex.unlock();
@@ -267,7 +267,7 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
         mod_state = stream.str();
 
         editor.hide_module_interface(mod);
-        delete mod;
+        mod->release();
     }
     
     editor.song->mutex.unlock();

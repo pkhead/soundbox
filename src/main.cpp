@@ -838,5 +838,8 @@ int main()
 
     device.stop();
     AudioDevice::_pa_stop();
+
+    audiomod::ModuleBase::free_garbage_modules();
+    
     return 0;
 }

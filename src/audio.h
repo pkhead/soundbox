@@ -119,6 +119,7 @@ namespace audiomod {
         ModuleOutputTarget* _output;
         DestinationModule* _dest = nullptr;
         bool _has_interface;
+        bool _is_released = false;
         
         float* _audio_buffer;
         size_t _audio_buffer_size;
@@ -134,6 +135,14 @@ namespace audiomod {
         ModuleBase(const ModuleBase&) = delete;
         ModuleBase(bool has_interface);
         virtual ~ModuleBase();
+
+        // mark module for deletion
+        // modules can't be deleted immediately because multithreading
+        // so only delete it when thread is done
+        void release();
+        
+        // free all modules that were marked for deletion
+        static void free_garbage_modules();
 
         // send a note event to the module
         virtual void event(const NoteEvent& event) {};
@@ -212,6 +221,9 @@ namespace audiomod {
 
         // if graph needs to be constructed on the main thread
         bool is_dirty = false;
+
+        // modules that need to be freed on free_graph
+        std::vector<ModuleBase*> garbage_modules;
 
         // construct a graph of ModuleNodes
         ModuleNode* _create_node(ModuleBase* module);

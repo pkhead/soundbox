@@ -67,12 +67,12 @@ Channel::~Channel() {
     effects_rack.disconnect_output();
 
     fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
-    delete synth_mod;
+    synth_mod->release();
 }
 
 void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
     effects_rack.disconnect_input(synth_mod);
-    if (synth_mod != nullptr) delete synth_mod;
+    if (synth_mod != nullptr) synth_mod->release();
     
     synth_mod = new_instrument;
     synth_mod->parent_name = name;

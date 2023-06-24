@@ -766,7 +766,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                     ));
 
                     editor.hide_module_interface(mod);
-                    delete mod;
+                    mod->release();
                 }
 
                 song.mutex.unlock();
@@ -1048,7 +1048,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                         ));
 
                         editor.hide_module_interface(mod);
-                        delete mod;
+                        mod->release();
                     }
 
                     song.mutex.unlock();
