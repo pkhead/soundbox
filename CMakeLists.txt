@@ -55,7 +55,7 @@ set(SOURCES
     src/ui/theme.cpp
 
     # audio modules
-    src/modules/create.cpp
+    src/modules/modules.cpp
     src/modules/analyzer.cpp
     src/modules/gain.cpp
     src/modules/volume.cpp
