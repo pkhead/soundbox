@@ -171,6 +171,8 @@ int main()
         }
     }
 
+    AudioDevice device(-1);
+
     {
         std::string last_file_path;
         std::string last_file_name;
@@ -180,24 +182,10 @@ int main()
 
         const size_t BUFFER_SIZE = 128;
 
-        AudioDevice device(-1);
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
-
-        // initialize song editor
-        Song* song = new Song(4, 8, 8, destination);
-        SongEditor* song_editor = new SongEditor(*song);
-
-        // initialize theme
-        Theme* theme;
-
-        try {
-            theme = new Theme("Soundbox Dark");
-        } catch(...) {
-            theme = new Theme();
-        }
         
-        theme->set_imgui_colors();
-        song_editor->theme = theme;
+        // initialize song editor
+        SongEditor song_editor(new Song(4, 8, 8, destination));
 
         // this mutex is locked by the audio thread while audio is being processed
         // and is locked by the main thread when a new song is being loaded
@@ -205,7 +193,7 @@ int main()
         
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                song->channels[i]->sequence[j] = 1;
+                song_editor.song->channels[i]->sequence[j] = 1;
             }
         }
 
@@ -220,7 +208,7 @@ int main()
 
         auto save_song_as = [&]() -> bool {
             std::string file_name = last_file_path.empty()
-                ? default_save_dir + song->name + ".box"
+                ? default_save_dir + song_editor.song->name + ".box"
                 : last_file_path;
             nfdchar_t* out_path = nullptr;
             nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
@@ -252,7 +240,7 @@ int main()
             file.open(last_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
 
             if (file.is_open()) {
-                song->serialize(file);
+                song_editor.song->serialize(file);
                 file.close();
 
                 show_status("Successfully saved %s", last_file_path.c_str());
@@ -273,12 +261,13 @@ int main()
                 
                 file_mutex.lock();
                 destination.reset();
-                delete song;
-                delete song_editor;
-                song = new Song(4, 8, 8, destination);
-                song_editor = new SongEditor(*song);
-                song_editor->theme = theme;
-                ui_init(*song_editor, user_actions);
+
+                Song* old_song = song_editor.song;
+                song_editor.song = new Song(4, 8, 8, destination);
+                song_editor.reset();
+                ui_init(song_editor, user_actions);
+                delete old_song;
+
                 file_mutex.unlock();
             };
         });
@@ -311,12 +300,12 @@ int main()
 
                     if (new_song != nullptr) {
                         destination.reset();
-                        delete song;
-                        delete song_editor;
-                        song = new_song;
-                        song_editor = new SongEditor(*song);
-                        song_editor->theme = theme;
-                        ui_init(*song_editor, user_actions);
+
+                        Song* old_song = song_editor.song;
+                        song_editor.song = new_song;
+                        song_editor.reset();
+                        delete old_song;
+                        ui_init(song_editor, user_actions);
 
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
@@ -337,7 +326,7 @@ int main()
         user_actions.set_callback("load_tuning", [&]()
         {
             // only 256 tunings can be loaded
-            if (song->tunings.size() >= 256)
+            if (song_editor.song->tunings.size() >= 256)
             {
                 show_status("Cannot add more tunings");
                 return;
@@ -351,7 +340,9 @@ int main()
             );
 
             if (result == NFD_OKAY) {
-                song->mutex.lock();
+                Song*& song = song_editor.song;
+
+                song_editor.song->mutex.lock();
 
                 const std::string path_str = std::string(out_path);
                 std::string error_msg = "unknown error";
@@ -367,7 +358,7 @@ int main()
                 {
                     Tuning* tun;
 
-                    if ((tun = song->load_scale_scl(out_path, &error_msg)))
+                    if ((tun = song_editor.song->load_scale_scl(out_path, &error_msg)))
                     {
                         // if tuning name was not found, write file name as name of the tuning
                         if (tun->name.empty())
@@ -467,7 +458,7 @@ int main()
         });
 
         // actions that don't require window management/io are defined in ui.cpp
-        ui_init(*song_editor, user_actions);
+        ui_init(song_editor, user_actions);
 
         static const double FRAME_LENGTH = 1.0 / 240.0;
 
@@ -541,6 +532,8 @@ int main()
 
         auto begin_export = [&]() {
             // calculate length of song
+            Song* song = song_editor.song;
+
             const int sample_rate = export_config.sample_rate;
 
             int beat_len = song->length() * song->beats_per_bar;
@@ -603,11 +596,14 @@ int main()
         });
 
         // audio auxillary thread
-        bool last_playing = song->is_playing;
+        bool last_playing = song_editor.song->is_playing;
         uint64_t audio_last_timestamp = device.frames_written();
         std::atomic<long> thread_processing_time = 0;
 
         sys::interval_t* audioaux_interval = sys::set_interval(5, [&]() {
+            // ooh symbols
+            Song*& song = song_editor.song;
+
             file_mutex.lock();
             song->mutex.lock();
 
@@ -638,6 +634,8 @@ int main()
         glfwShowWindow(window);
         while (run_app)
         {
+            Song*& song = song_editor.song;
+
             if (glfwWindowShouldClose(window)) {
                 glfwSetWindowShouldClose(window, 0);
                 prompt_unsaved_work = true;
@@ -677,23 +675,23 @@ int main()
 
                 // track editor controls: arrow keys
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-                    song_editor->selected_bar++;
-                    song_editor->selected_bar %= song->length();
+                    song_editor.selected_bar++;
+                    song_editor.selected_bar %= song->length();
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-                    song_editor->selected_bar--;
-                    if (song_editor->selected_bar < 0) song_editor->selected_bar = song->length() - 1;
+                    song_editor.selected_bar--;
+                    if (song_editor.selected_bar < 0) song_editor.selected_bar = song->length() - 1;
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-                    song_editor->selected_channel++;
-                    song_editor->selected_channel %= song->channels.size();
+                    song_editor.selected_channel++;
+                    song_editor.selected_channel %= song->channels.size();
                 }
 
                 if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-                    song_editor->selected_channel--;
-                    if (song_editor->selected_channel < 0) song_editor->selected_channel = song->channels.size() - 1;
+                    song_editor.selected_channel--;
+                    if (song_editor.selected_channel < 0) song_editor.selected_channel = song->channels.size() - 1;
                 }
             }
 
@@ -703,7 +701,7 @@ int main()
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
 
-            compute_imgui(*song_editor, user_actions);
+            compute_imgui(song_editor, user_actions);
 
             // show new prompt
             if (prompt_unsaved_work) {
@@ -836,10 +834,9 @@ int main()
         }
 
         sys::clear_interval(audioaux_interval);
-        device.stop();
-        delete song;
     }
 
+    device.stop();
     AudioDevice::_pa_stop();
     return 0;
 }

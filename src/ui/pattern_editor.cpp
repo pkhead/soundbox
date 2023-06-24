@@ -9,9 +9,9 @@
 void render_pattern_editor(SongEditor &editor)
 {
     ImGuiIO& io = ImGui::GetIO();
-    Song& song = editor.song;
+    Song& song = *editor.song;
     ImGuiStyle& style = ImGui::GetStyle();
-    Theme& theme = *editor.theme;
+    Theme& theme = editor.theme;
     Tuning* tuning = song.tunings[song.selected_tuning];
 
     if (ImGui::Begin("Pattern Editor")) {

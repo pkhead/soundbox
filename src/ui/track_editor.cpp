@@ -15,7 +15,7 @@ static inline T min(T a, T b) {
 
 void render_track_editor(SongEditor& editor)
 {
-    Song& song = editor.song;
+    Song& song = *editor.song;
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
 
@@ -137,7 +137,7 @@ void render_track_editor(SongEditor& editor)
                     draw_list->AddRectFilled(
                         rect_pos,
                         Vec2(rect_pos.x + CELL_SIZE.x - CELL_MARGIN * 2, rect_pos.y + CELL_SIZE.y - CELL_MARGIN * 2),
-                        is_selected ? editor.theme->get_channel_color(ch, true) : vec4_color(style.Colors[ImGuiCol_FrameBg])
+                        is_selected ? editor.theme.get_channel_color(ch, true) : vec4_color(style.Colors[ImGuiCol_FrameBg])
                     );
                 
                 snprintf(str_buf, 8, "%i", pattern_num); // convert pattern_num to string (too lazy to figure out how to do it the C++ way)
@@ -145,7 +145,7 @@ void render_track_editor(SongEditor& editor)
                 // draw pattern number
                 draw_list->AddText(
                     rect_pos + (CELL_SIZE - Vec2(CELL_MARGIN, CELL_MARGIN) * 2.0f - ImGui::CalcTextSize(str_buf)) / 2.0f,
-                    is_selected ? IM_COL32_BLACK : editor.theme->get_channel_color(ch, pattern_num > 0),
+                    is_selected ? IM_COL32_BLACK : editor.theme.get_channel_color(ch, pattern_num > 0),
                     str_buf
                 );
 

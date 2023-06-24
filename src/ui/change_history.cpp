@@ -13,12 +13,12 @@ change::ChangeSongTempo::ChangeSongTempo(ImGuiID id, float old_tempo, float new_
     {}
 
 void change::ChangeSongTempo::undo(SongEditor& editor) {
-    editor.song.tempo = old_tempo;
+    editor.song->tempo = old_tempo;
     memcpy(editor.ui_values[id], &old_tempo, sizeof(old_tempo));
 }
 
 void change::ChangeSongTempo::redo(SongEditor& editor) {
-    editor.song.tempo = new_tempo;
+    editor.song->tempo = new_tempo;
     memcpy(editor.ui_values[id], &old_tempo, sizeof(old_tempo));
 }
 
@@ -69,14 +69,14 @@ change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_coun
 }
 
 void change::ChangeSongMaxPatterns::undo(SongEditor& editor) {
-    track_snapshot(after, &editor.song);
-    editor.song.set_max_patterns(old_count);
-    apply_snapshot(before, &editor.song);
+    track_snapshot(after, editor.song);
+    editor.song->set_max_patterns(old_count);
+    apply_snapshot(before, editor.song);
 }
 
 void change::ChangeSongMaxPatterns::redo(SongEditor& editor) {
-    apply_snapshot(after, &editor.song);
-    editor.song.set_max_patterns(new_count);
+    apply_snapshot(after, editor.song);
+    editor.song->set_max_patterns(new_count);
 }
 
 bool change::ChangeSongMaxPatterns::merge(change::Action* other)
@@ -96,12 +96,12 @@ change::ChangeChannelVolume::ChangeChannelVolume(int channel_index, float old_va
 
 void change::ChangeChannelVolume::undo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song.channels[channel_index]->vol_mod.volume = old_vol;
+    editor.song->channels[channel_index]->vol_mod.volume = old_vol;
 }
 
 void change::ChangeChannelVolume::redo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song.channels[channel_index]->vol_mod.volume = new_vol;
+    editor.song->channels[channel_index]->vol_mod.volume = new_vol;
 }
 
 bool change::ChangeChannelVolume::merge(Action* other) {
@@ -120,12 +120,12 @@ change::ChangeChannelPanning::ChangeChannelPanning(int channel_index, float old_
 
 void change::ChangeChannelPanning::undo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song.channels[channel_index]->vol_mod.panning = old_val;
+    editor.song->channels[channel_index]->vol_mod.panning = old_val;
 }
 
 void change::ChangeChannelPanning::redo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song.channels[channel_index]->vol_mod.panning = new_val;
+    editor.song->channels[channel_index]->vol_mod.panning = new_val;
 }
 
 bool change::ChangeChannelPanning::merge(Action* other) {
@@ -144,12 +144,12 @@ change::ChangeChannelOutput::ChangeChannelOutput(int channel_index, int old_val,
 
 void change::ChangeChannelOutput::undo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song.channels[channel_index]->set_fx_target(old_val);
+    editor.song->channels[channel_index]->set_fx_target(old_val);
 }
 
 void change::ChangeChannelOutput::redo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song.channels[channel_index]->set_fx_target(new_val);
+    editor.song->channels[channel_index]->set_fx_target(new_val);
 }
 
 bool change::ChangeChannelOutput::merge(Action* other) {
@@ -167,14 +167,14 @@ static void get_rack_info(
 {
     if (target_type == change::FXRackTargetType::TargetChannel)
     {
-        *rack = &editor.song.channels[target_index]->effects_rack;
-        *parent_name = editor.song.channels[target_index]->name;
+        *rack = &editor.song->channels[target_index]->effects_rack;
+        *parent_name = editor.song->channels[target_index]->name;
         editor.selected_channel = target_index;
     }
     else if (target_type == change::FXRackTargetType::TargetFXBus)
     {
-        *rack = &editor.song.fx_mixer[target_index]->rack;
-        *parent_name = editor.song.channels[target_index]->name;
+        *rack = &editor.song->fx_mixer[target_index]->rack;
+        *parent_name = editor.song->channels[target_index]->name;
     }
     else {
         std::cerr << "invalid target type\n";
@@ -194,7 +194,7 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     // delete the module at the back
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
 
     audiomod::ModuleBase* mod = rack->remove(rack->modules.size() - 1);
     if (mod != nullptr) {
@@ -208,7 +208,7 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
         delete mod;
     }
     
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 void change::ChangeAddEffect::redo(SongEditor& editor) {
@@ -216,9 +216,9 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
     const char* parent_name;
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, &editor.song);
+    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.song);
     mod->parent_name = parent_name;
     rack->insert(mod);
 
@@ -226,7 +226,7 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
     std::stringstream stream(mod_data);
     mod->load_state(stream, mod_data.size());
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 bool change::ChangeAddEffect::merge(Action* other) {
@@ -253,7 +253,7 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     // delete the module at the back
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
 
     audiomod::ModuleBase* mod = rack->remove(index);
     if (mod != nullptr) {
@@ -269,7 +269,7 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
         delete mod;
     }
     
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 void change::ChangeRemoveEffect::undo(SongEditor& editor) {
@@ -277,9 +277,9 @@ void change::ChangeRemoveEffect::undo(SongEditor& editor) {
     const char* parent_name;
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, &editor.song);
+    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.song);
     mod->parent_name = parent_name;
     rack->insert(mod, index);
 
@@ -287,7 +287,7 @@ void change::ChangeRemoveEffect::undo(SongEditor& editor) {
     std::stringstream stream(mod_state);
     mod->load_state(stream, mod_state.size());
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 bool change::ChangeRemoveEffect::merge(Action* other) {
@@ -306,7 +306,7 @@ void change::ChangeSwapEffect::undo(SongEditor& editor)
     const char* parent_name;
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
 
     int min = new_index > old_index ? old_index : new_index;
     int max = new_index > old_index ? new_index : old_index;
@@ -316,7 +316,7 @@ void change::ChangeSwapEffect::undo(SongEditor& editor)
     audiomod::ModuleBase* mod1 = rack->remove(max - 1);
     rack->insert(mod1, min);
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 // same as undo
@@ -340,13 +340,13 @@ change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Song* song, boo
 
 void change::ChangeAddNote::undo(SongEditor& editor)
 {
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
 
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
 
-    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (auto it = pattern->notes.begin(); it != pattern->notes.end(); it++)
     {
@@ -359,38 +359,38 @@ void change::ChangeAddNote::undo(SongEditor& editor)
     }
 
     if (from_null_pattern) {
-        new_max_patterns = editor.song.max_patterns();
+        new_max_patterns = editor.song->max_patterns();
         new_index = pattern_id;
 
-        editor.song.channels[channel_index]->sequence[bar] = 0;
-        editor.song.set_max_patterns(old_max_patterns);
+        editor.song->channels[channel_index]->sequence[bar] = 0;
+        editor.song->set_max_patterns(old_max_patterns);
     }
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 void change::ChangeAddNote::redo(SongEditor& editor)
 {
-    Song& song = editor.song;
+    Song* song = editor.song;
 
-    song.mutex.lock();
+    song->mutex.lock();
     
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    Channel* channel = editor.song.channels[channel_index];
+    Channel* channel = editor.song->channels[channel_index];
     int pattern_id = channel->sequence[bar] - 1;
 
     if (pattern_id == -1)
     {
-        pattern_id = song.new_pattern(editor.selected_channel);
+        pattern_id = song->new_pattern(editor.selected_channel);
         channel->sequence[editor.selected_bar] = pattern_id + 1;
     }
     
     Pattern* pattern = channel->patterns[pattern_id];
     pattern->notes.push_back(note);
 
-    song.mutex.unlock();
+    song->mutex.unlock();
 }
 
 bool change::ChangeAddNote::merge(Action* other)
@@ -405,13 +405,13 @@ change::ChangeRemoveNote::ChangeRemoveNote(int channel_index, int bar, Note note
 
 void change::ChangeRemoveNote::redo(SongEditor& editor)
 {
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
     
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (auto it = pattern->notes.begin(); it != pattern->notes.end(); it++)
     {
@@ -423,21 +423,21 @@ void change::ChangeRemoveNote::redo(SongEditor& editor)
         }
     }
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 void change::ChangeRemoveNote::undo(SongEditor& editor)
 {
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
     
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
     pattern->notes.push_back(note);
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 bool change::ChangeRemoveNote::merge(Action* other)
@@ -452,13 +452,13 @@ change::ChangeNote::ChangeNote(int channel_index, int bar, Note old_note, Note n
 
 void change::ChangeNote::undo(SongEditor& editor)
 {
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
     
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (Note& note_v : pattern->notes)
     {
@@ -469,18 +469,18 @@ void change::ChangeNote::undo(SongEditor& editor)
         }
     }
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 void change::ChangeNote::redo(SongEditor& editor)
 {
-    editor.song.mutex.lock();
+    editor.song->mutex.lock();
     
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    int pattern_id = editor.song.channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song.channels[channel_index]->patterns[pattern_id];
+    int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
+    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (Note& note_v : pattern->notes)
     {
@@ -491,7 +491,7 @@ void change::ChangeNote::redo(SongEditor& editor)
         }
     }
 
-    editor.song.mutex.unlock();
+    editor.song->mutex.unlock();
 }
 
 bool change::ChangeNote::merge(Action* other)
@@ -550,13 +550,13 @@ void change::ChangeInsertBar::undo(SongEditor& editor)
     if (editor.selected_bar < 0) editor.selected_bar = 0;
 
     for (int i = 0; i < count; i++)
-        editor.song.remove_bar(pos);
+        editor.song->remove_bar(pos);
 }
 
 void change::ChangeInsertBar::redo(SongEditor& editor)
 {
     for (int i = 0; i < count; i++)
-        editor.song.insert_bar(pos);
+        editor.song->insert_bar(pos);
 }
 
 bool change::ChangeInsertBar::merge(Action* other)
@@ -601,8 +601,8 @@ void change::ChangeRemoveBar::undo(SongEditor& editor)
 {
     for (const Bar& bar : bars)
     {
-        editor.song.insert_bar(bar.pos);
-        editor.song.set_bar_patterns(bar.pos, bar.pattern_indices);
+        editor.song->insert_bar(bar.pos);
+        editor.song->set_bar_patterns(bar.pos, bar.pattern_indices);
         editor.selected_bar = bar.pos;
     }
 }
@@ -611,8 +611,8 @@ void change::ChangeRemoveBar::redo(SongEditor& editor)
 {
     for (Bar& bar : bars)
     {
-        bar.pattern_indices = std::move(editor.song.get_bar_patterns(bar.pos));
-        editor.song.remove_bar(bar.pos);
+        bar.pattern_indices = std::move(editor.song->get_bar_patterns(bar.pos));
+        editor.song->remove_bar(bar.pos);
         editor.selected_bar = bar.pos - 1;
         if (editor.selected_bar < 0) editor.selected_bar = 0;
     }
@@ -641,14 +641,14 @@ void change::ChangeSequence::undo(SongEditor& editor)
 {
     editor.selected_channel = channel;
     editor.selected_bar = bar;
-    editor.song.channels[channel]->sequence[bar] = old_val;
+    editor.song->channels[channel]->sequence[bar] = old_val;
 }
 
 void change::ChangeSequence::redo(SongEditor& editor)
 {
     editor.selected_channel = channel;
     editor.selected_bar = bar;
-    editor.song.channels[channel]->sequence[bar] = new_val;
+    editor.song->channels[channel]->sequence[bar] = new_val;
 }
 
 bool change::ChangeSequence::merge(Action* other)
@@ -675,13 +675,13 @@ void change::ChangeNewChannel::undo(SongEditor& editor)
 {
     editor.selected_channel = index - 1;
     if (editor.selected_channel < 0) editor.selected_channel = 0;
-    editor.song.remove_channel(index);
+    editor.song->remove_channel(index);
 }
 
 void change::ChangeNewChannel::redo(SongEditor& editor)
 {
     editor.selected_channel = index;
-    editor.song.insert_channel(index);
+    editor.song->insert_channel(index);
 }
 
 bool change::ChangeNewChannel::merge(Action* other)
@@ -746,7 +746,7 @@ void change::ChangeRemoveChannel::undo(SongEditor& editor)
 {
     editor.selected_channel = index;
 
-    Channel* channel = editor.song.insert_channel(index);
+    Channel* channel = editor.song->insert_channel(index);
 
     channel->set_fx_target(fx_target);
     channel->solo = solo;
@@ -766,12 +766,12 @@ void change::ChangeRemoveChannel::undo(SongEditor& editor)
     channel->vol_mod.load_state(data, vol_mod_data.size());
 
     // load instrument config
-    channel->set_instrument(instrument.load(&editor.song));
+    channel->set_instrument(instrument.load(editor.song));
 
     // load effects
     for (ModuleData& data : effects)
     {
-        channel->effects_rack.insert(data.load(&editor.song));
+        channel->effects_rack.insert(data.load(editor.song));
     }
 }
 
@@ -780,7 +780,7 @@ void change::ChangeRemoveChannel::redo(SongEditor& editor)
     editor.selected_channel = index - 1;
     if (editor.selected_channel < 0) editor.selected_channel = 0;
 
-    _save(editor.song.channels[index]);
+    _save(editor.song->channels[index]);
     editor.remove_channel(index);
 }
 

@@ -1,16 +1,38 @@
 #include "editor.h"
 #include "../audio.h"
+#include "theme.h"
 
-SongEditor::SongEditor(Song& song) :
+SongEditor::SongEditor(Song* song) :
     song(song)
 {
-    
+    const char* theme_name = "Soundbox Dark";
+
+    try
+    {
+        theme = Theme(theme_name);
+    } catch(...) {
+        std::cerr << "error: could not find theme \"" << theme_name << "\"\n";
+    }
+
+    theme.set_imgui_colors();
+    reset();
 }
 
 SongEditor::~SongEditor()
 {
+    delete song;
+
     for (auto it : ui_values)
         free(it.second);
+}
+
+void SongEditor::reset()
+{
+    undo_stack.clear();
+    redo_stack.clear();
+    ui_values.clear();
+    selected_channel = 0;
+    selected_bar = 0;
 }
 
 bool SongEditor::undo()
@@ -65,12 +87,12 @@ void SongEditor::delete_fx_bus(audiomod::FXBus* bus_to_delete)
             break;
         }
 
-    song.delete_fx_bus(bus_to_delete);
+    song->delete_fx_bus(bus_to_delete);
 }
 
 void SongEditor::remove_channel(int channel_index)
 {
-    Channel* channel = song.channels[channel_index];
+    Channel* channel = song->channels[channel_index];
 
     // remove interfaces
     for (audiomod::ModuleBase* mod : channel->effects_rack.modules)
@@ -78,5 +100,5 @@ void SongEditor::remove_channel(int channel_index)
         hide_module_interface(mod);
     }
 
-    song.remove_channel(channel_index);
+    song->remove_channel(channel_index);
 }

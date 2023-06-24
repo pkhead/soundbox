@@ -1,6 +1,7 @@
 #pragma once
 #include "../audio.h"
 #include <imgui.h>
+#include <mutex>
 #include "../song.h"
 #include "theme.h"
 #include "change_history.h"
@@ -9,10 +10,12 @@ class SongEditor {
 private:
 
 public:
-    SongEditor(Song& song);
+    SongEditor(Song* song);
     ~SongEditor();
-    Song& song;
-    Theme* theme = nullptr;
+    Song* song;
+    Theme theme;
+    
+    void reset();
 
     int selected_channel = 0;
     int selected_bar = 0;

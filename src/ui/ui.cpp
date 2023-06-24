@@ -96,7 +96,7 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
     snprintf(VERSION_STR, 64, "version %s / %s", APP_VERSION, FILE_VERSION);
 #endif
 
-    Song& song = editor.song;
+    Song& song = *editor.song;
     show_about_window = false;
 
     // copy+paste
@@ -169,7 +169,7 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
 
     // mute selected channel
     user_actions.set_callback("mute_channel", [&]() {
-        Channel* ch = editor.song.channels[editor.selected_channel];
+        Channel* ch = editor.song->channels[editor.selected_channel];
         ch->vol_mod.mute = !ch->vol_mod.mute;
     });
 
@@ -238,7 +238,7 @@ void ui_init(SongEditor& editor, UserActionList& user_actions)
 
 EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* effects_rack, EffectsInterfaceResult* result)
 {
-    Song* song = &editor->song;
+    Song* song = editor->song;
 
     std::mutex& mutex = song->mutex;
     EffectsInterfaceAction action = EffectsInterfaceAction::Nothing;
@@ -352,7 +352,7 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
 
 void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
     ImGuiStyle& style = ImGui::GetStyle();
-    Song& song = editor.song;
+    Song& song = *editor.song;
     static char char_buf[64];
 
     ImGui::NewFrame();
@@ -437,7 +437,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 editor.show_themes_window = !editor.show_themes_window;
 
                 if (editor.show_themes_window)
-                    editor.theme->scan_themes();
+                    editor.theme.scan_themes();
             }
 
             ImGui::MenuItem("Directories...");
@@ -1134,12 +1134,12 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 ImGui::EndMenuBar();
             }
 
-            for (const std::string& name : editor.theme->get_themes_list())
+            for (const std::string& name : editor.theme.get_themes_list())
             {
-                if (ImGui::Selectable(name.c_str(), name == editor.theme->name()))
+                if (ImGui::Selectable(name.c_str(), name == editor.theme.name()))
                 {
-                    editor.theme->load(name);
-                    editor.theme->set_imgui_colors();
+                    editor.theme.load(name);
+                    editor.theme.set_imgui_colors();
                 }
             }
         } ImGui::End();
