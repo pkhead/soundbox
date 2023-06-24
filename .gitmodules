@@ -12,3 +12,6 @@
 [submodule "deps/tuning-library"]
 	path = deps/tuning-library
 	url = https://github.com/surge-synthesizer/tuning-library
+[submodule "tomlcpp"]
+	path = deps/tomlcpp
+	url = https://github.com/cktan/tomlcpp
