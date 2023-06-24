@@ -89,6 +89,8 @@ namespace plugins
     private:
         std::vector<PluginData> plugin_data;
 
+        std::vector<std::string> _std_ladspa;
+        std::vector<std::string> _std_dummy; // empty vector
     public:
         std::vector<std::string> ladspa_paths;
         
@@ -97,6 +99,6 @@ namespace plugins
         inline const std::vector<PluginData>& get_plugin_data() { return plugin_data; };
         void scan_plugins();
 
-        static std::vector<std::string> get_default_plugin_paths(PluginType type);
+        const std::vector<std::string>& get_standard_plugin_paths(PluginType type) const;
     };
 } // namespace plugin

@@ -228,7 +228,7 @@ void SongEditor::save_preferences() const
     file << "ladspa = [";
 
     int i = 0;
-    const std::vector<std::string> system_paths = plugin_manager.get_default_plugin_paths(plugins::PluginType::Ladspa);
+    const std::vector<std::string>& system_paths = plugin_manager.get_standard_plugin_paths(plugins::PluginType::Ladspa);
     for (const std::string& path : plugin_manager.ladspa_paths)
     {
         bool is_system_path = false;

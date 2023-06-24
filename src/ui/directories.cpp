@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <algorithm>
 #include "ui.h"
 
 void render_directories_window(SongEditor &editor)
@@ -45,8 +46,17 @@ void render_directories_window(SongEditor &editor)
                     
                     if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
                     {
-                        if (ImGui::Selectable("Remove"))
-                            index_to_delete = i;
+                        auto std_paths = plugins.get_standard_plugin_paths(plugins::PluginType::Ladspa);
+
+                        // tell user they can't remove standard paths
+                        // this is only because application adds
+                        // standard paths on startup
+                        if (std::find(std_paths.begin(), std_paths.end(), path) != std_paths.end()) {
+                            ImGui::TextDisabled("Remove");
+                        } else {
+                            if (ImGui::Selectable("Remove"))
+                                index_to_delete = i;
+                        }
 
                         ImGui::EndPopup();
                     }

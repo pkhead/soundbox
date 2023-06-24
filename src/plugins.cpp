@@ -108,11 +108,6 @@ void PluginModule::_interface_proc()
 // Plugin Manager //
 ////////////////////
 
-PluginManager::PluginManager()
-{
-    ladspa_paths = get_default_plugin_paths(PluginType::Ladspa);
-}
-
 static std::vector<std::string> parse_path_list(const std::string list_string)
 {
     std::vector<std::string> list;
@@ -124,6 +119,24 @@ static std::vector<std::string> parse_path_list(const std::string list_string)
     }
 
     return list;
+}
+
+PluginManager::PluginManager()
+{
+    // get system ladspa paths
+    // (read from LADSPA_PATH environment variable or use standard paths)
+    {
+        const char* list_str = std::getenv("LADSPA_PATH");
+        if (list_str == nullptr)
+    #ifdef _WIN32
+            list_str = ""; // windows has no standard paths for ladspa plugins
+    #else
+            list_str = "/usr/lib/ladspa";
+    #endif
+        _std_ladspa = parse_path_list(list_str);
+    }
+
+    ladspa_paths = _std_ladspa;
 }
 
 void PluginManager::add_path(PluginType type, const std::string& path)
@@ -149,24 +162,16 @@ void PluginManager::add_path(PluginType type, const std::string& path)
     vec->push_back(path);
 }
 
-std::vector<std::string> PluginManager::get_default_plugin_paths(PluginType type)
+const std::vector<std::string>& PluginManager::get_standard_plugin_paths(PluginType type) const
 {
     switch (type)
     {
-        case PluginType::Ladspa: {
-            const char* list_str = std::getenv("LADSPA_PATH");
-            if (list_str == nullptr)
-#ifdef _WIN32
-                list_str = ""; // windows has no default directory for ladspa plugins
-#else
-                list_str = "/usr/lib/ladspa:/usr/local/lib/ladspa";
-#endif
-            return parse_path_list(list_str);
-        }
+        case PluginType::Ladspa:
+            return _std_ladspa;
 
         default: {
             // return empty list
-            return std::vector<std::string>();
+            return _std_dummy;
         }
     }
 }
