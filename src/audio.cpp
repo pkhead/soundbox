@@ -328,7 +328,12 @@ bool ModuleBase::render_interface() {
     snprintf(window_name, 128, "%s - %s###%p", name.c_str(), parent_name == nullptr ? "" : parent_name, this);
 
     if (ImGui::Begin(window_name, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
-        _interface_proc();
+        if (has_interface())
+            _interface_proc();
+        else
+        {
+            ImGui::TextDisabled("(no interface)");
+        }
     } ImGui::End();
 
     return show_interface;
