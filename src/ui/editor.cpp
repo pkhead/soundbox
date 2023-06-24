@@ -210,3 +210,13 @@ void SongEditor::remove_channel(int channel_index)
 
     song->remove_channel(channel_index);
 }
+
+void SongEditor::save_preferences() const
+{
+
+}
+
+void SongEditor::load_preferences()
+{
+    
+}

@@ -34,6 +34,26 @@ void sys::clear_interval(interval_t* interval)
 	timeKillEvent(id);
 }
 
+const char* sys::dl_error()
+{
+	return "Win32 error messages unimplemented";
+}
+
+dl_handle sys::dl_open(const char* file_path)
+{
+	return LoadLibrary(file_path);
+}
+
+int sys::dl_close(dl_handle handle)
+{
+	return FreeLibrary(handle);
+}
+
+void* sys::dl_sym(dl_handle handle, const char *symbol_name)
+{
+	return GetProcAddress(handle, symbol_name);
+}
+
 #else
 #include <thread>
 #include <time.h>
@@ -86,7 +106,7 @@ void* sys::dl_sym(dl_handle handle, const char *symbol_name)
 	return dlsym(handle, symbol_name);
 }
 
-char* sys::dl_error()
+const char* sys::dl_error()
 {
 	return dlerror();
 }

@@ -58,6 +58,8 @@ public:
     plugins::PluginManager plugin_manager;
     
     void reset();
+    void save_preferences() const;
+    void load_preferences();
 
     int selected_channel = 0;
     int selected_bar = 0;

@@ -156,8 +156,11 @@ std::vector<std::string> PluginManager::get_default_plugin_paths(PluginType type
         case PluginType::Ladspa: {
             const char* list_str = std::getenv("LADSPA_PATH");
             if (list_str == nullptr)
+#ifdef _WIN32
+                list_str = ""; // windows has no default directory for ladspa plugins
+#else
                 list_str = "/usr/lib/ladspa:/usr/local/lib/ladspa";
-
+#endif
             return parse_path_list(list_str);
         }
 
