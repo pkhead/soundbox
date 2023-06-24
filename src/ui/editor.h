@@ -29,6 +29,7 @@ public:
     
     bool show_tuning_window = false;
     bool show_themes_window = false;
+    bool show_plugin_list = false;
 
     std::vector<audiomod::ModuleBase*> mod_interfaces;
     std::vector<audiomod::FXBus*> fx_interfaces;
