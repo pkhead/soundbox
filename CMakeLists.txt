@@ -45,6 +45,7 @@ set(SOURCES
     src/audiofile.cpp
     src/imgui_stdlib.cpp
     src/plugins.cpp
+    src/plugin_hosts/ladspa.cpp
     
     # sources for app ui
     src/ui/ui.cpp
