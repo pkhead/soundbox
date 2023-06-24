@@ -20,21 +20,43 @@ void render_directories_window(SongEditor &editor)
                 ImGui::OpenPopup("adddirectory");
             }
 
+            int listbox_size = plugins.ladspa_paths.size();
+            if (listbox_size == 0) listbox_size = 1;
+
             if (ImGui::BeginListBox(
                 "##ladspa_plugins",
-                ImVec2(0.0f, ImGui::GetFrameHeight() * plugins.ladspa_paths.size())
+                ImVec2(0.0f, ImGui::GetFrameHeight() * listbox_size)
             ))
             {
+                int index_to_delete = -1;
+
+                int i = 0;
                 for (const std::string& path : plugins.ladspa_paths)
                 {
                     ImGui::Selectable(path.c_str(), false);
+                    
+                    if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
+                    {
+                        if (ImGui::Selectable("Remove"))
+                            index_to_delete = i;
+
+                        ImGui::EndPopup();
+                    }
+
+                    i++;
                 }
 
                 ImGui::EndListBox();
+
+                if (index_to_delete >= 0)
+                    plugins.ladspa_paths.erase(plugins.ladspa_paths.begin() + index_to_delete);
             }
 
             if (ImGui::BeginPopup("adddirectory"))
             {
+                if (ImGui::IsWindowAppearing())
+                    ImGui::SetKeyboardFocusHere();
+                
                 if (ImGui::InputText("##path", dir_prompt, 128, ImGuiInputTextFlags_EnterReturnsTrue))
                 {
                     plugins.add_path(plugins::PluginType::Ladspa, dir_prompt);
