@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "plugins/ladspa.h"
 #include "sys.h"
 #include "audio.h"
 #include "sys.h"
@@ -21,6 +22,7 @@ namespace plugins
         PluginType type;
         int index;
 
+        std::string id; // internal soundbox id 
         std::string name;
         std::string author;
         std::string copyright;
@@ -29,30 +31,50 @@ namespace plugins
     };
 
     // base class for plugins
-    class Plugin
-    {
-    protected:
-        bool _is_instrument;
+    class Plugin {
     public:
-        std::string name;
-        std::string file_path;
+        const PluginData data;
 
-        Plugin();
+        Plugin(const PluginData& data);
         virtual ~Plugin() {};
-
-        virtual PluginType plugin_type() = 0;
-        inline bool is_instrument() const { return _is_instrument; }
     };
 
     class LadspaPlugin : public Plugin
     {
+    private:
+        sys::dl_handle lib;
+        const LADSPA_Descriptor* descriptor;
+        LADSPA_Handle instance;
+    
     public:
-        LadspaPlugin(sys::dl_handle lib, int index);
+        LadspaPlugin(const PluginData& data);
         ~LadspaPlugin();
 
         virtual PluginType plugin_type() { return PluginType::Ladspa; };
 
         static std::vector<PluginData> get_data(const char* path);
+    };
+
+    class PluginModule : public audiomod::ModuleBase
+    {
+    private:
+        // void _interface_proc() override;
+        Plugin* _plugin;
+
+    public:
+        // assumes ownership of the plugin pointer
+        // meaning it will be invalidated once this class is deleted
+        PluginModule(Song* song, Plugin* plugin);
+        ~PluginModule();
+
+        void process(
+            float** inputs,
+            float* output,
+            size_t num_inputs,
+            size_t buffer_size,
+            int sample_rate,
+            int channel_count
+        ) override;
     };
 
     /**

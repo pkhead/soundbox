@@ -13,6 +13,7 @@
 #include <TUN_Scale.h>
 #include <Tunings.h>
 #include "audio.h"
+#include "plugins.h"
 #include <imgui.h>
 #include "modules/volume.h"
 
@@ -193,5 +194,5 @@ public:
     bool load_kbm(const char* file_path, Tuning& tuning, std::string* error);
 
     void serialize(std::ostream& out) const;
-    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string *error_msg);
+    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, plugins::PluginManager& plugin_manager, std::string *error_msg);
 };

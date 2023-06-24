@@ -1,5 +1,6 @@
 #include "../audio.h"
 #include "../sys.h"
+#include "../plugins.h"
 #include "modules.h"
 
 using namespace audiomod;
@@ -15,7 +16,7 @@ std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list(
 });
 
 #define MAP(id, class) if (mod_id == id) return new class(song)
-ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song) {
+ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song, plugins::PluginManager& plugin_manager) {
     // synthesizers
     MAP("synth.waveform", WaveformSynth); // TODO: add fourth oscillator and allow FM modulation
     // TODO: harmonics synth
@@ -37,6 +38,8 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song) {
     // TODO: flanger effect
     // TODO: phaser effect
     // TODO: compressor effect
+
+    // LADSPA plugins
 
     return nullptr;
 }

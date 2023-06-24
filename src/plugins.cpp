@@ -2,13 +2,18 @@
 #include <sstream>
 #include <filesystem>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include <plugins/ladspa.h>
 
+#include "audio.h"
 #include "plugins.h"
 #include "sys.h"
 using namespace plugins;
+
+Plugin::Plugin(const PluginData& data) : data(data)
+{}
 
 ///////////////////
 // LADSPA plugin //
@@ -47,6 +52,8 @@ std::vector<PluginData> LadspaPlugin::get_data(const char *path)
         data.file_path = path;
         data.index = i;
 
+        // id from file path and plugin label
+        data.id = std::string("plugins.ladspa:") + plugin_desc->Label + "@" + std::filesystem::path(path).stem().string();
         data.name = plugin_desc->Name;
         data.author = plugin_desc->Maker;
         data.copyright = plugin_desc->Copyright;
@@ -70,6 +77,39 @@ std::vector<PluginData> LadspaPlugin::get_data(const char *path)
     return output;
 }
 
+// constructor
+LadspaPlugin::LadspaPlugin(const PluginData& plugin_data)
+    : Plugin(plugin_data)
+{
+    lib = sys::dl_open(plugin_data.file_path.c_str());
+    if (lib == nullptr)
+    {
+        throw std::runtime_error(sys::dl_error());
+    }
+
+    LADSPA_Descriptor_Function ladspa_descriptor =
+        (LADSPA_Descriptor_Function) sys::dl_sym(lib, "ladspa_descriptor");
+
+    if (ladspa_descriptor == nullptr)
+    {
+        auto err = std::runtime_error(sys::dl_error());
+        sys::dl_close(lib);
+        throw err;
+    }
+
+    descriptor = ladspa_descriptor(plugin_data.index);
+    if (descriptor == nullptr)
+    {
+        sys::dl_close(lib);
+        throw std::runtime_error(std::string("no plugin at index ") + std::to_string(plugin_data.index) + " of " + plugin_data.file_path);
+    }
+}
+
+LadspaPlugin::~LadspaPlugin()
+{
+    descriptor->cleanup(instance);
+    sys::dl_close(lib);
+}
 
 
 
@@ -81,6 +121,33 @@ std::vector<PluginData> LadspaPlugin::get_data(const char *path)
 
 
 
+
+///////////////////
+// Plugin Module //
+///////////////////
+
+PluginModule::PluginModule(Song* song, Plugin* plugin)
+    : ModuleBase(song, true), _plugin(plugin)
+{}
+
+PluginModule::~PluginModule()
+{
+    delete _plugin;
+}
+
+void PluginModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
+    // TODO: call plugin run process
+    for (size_t i = 0; i < buffer_size; i += channel_count) {
+        output[i] = 0.0f;
+        output[i+1] = 0.0f;
+
+        for (size_t k = 0; k < num_inputs; k++)
+        {
+            output[i] += inputs[k][i];
+            output[i+1] += inputs[k][i+1];
+        }
+    }
+}
 
 ////////////////////
 // Plugin Manager //

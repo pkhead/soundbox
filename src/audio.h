@@ -67,6 +67,11 @@ public:
 
 class Song;
 
+namespace plugins
+{
+    class PluginManager;
+}
+
 namespace audiomod {
     enum NoteEventKind {
         NoteOn,
@@ -341,5 +346,5 @@ namespace audiomod {
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 
-    ModuleBase* create_module(const std::string& mod_id, Song* song);
+    ModuleBase* create_module(const std::string& mod_id, Song* song, plugins::PluginManager& plugin_manager);
 }

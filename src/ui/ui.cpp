@@ -252,6 +252,9 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
     }
 
     if (ImGui::BeginPopup("add_effect")) {
+        ImGui::SeparatorText("Built-in");
+
+        // display built-in effects
         for (auto listing : audiomod::effects_list)
         {
             if (ImGui::Selectable(listing.name))
@@ -261,6 +264,18 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
             }
         }
 
+        // display effect plugins
+        ImGui::SeparatorText("Plugins");
+
+        for (auto& plugin_data : editor->plugin_manager.get_plugin_data())
+        {
+            if (ImGui::Selectable(plugin_data.name.c_str()))
+            {
+                result->module_id = plugin_data.id.c_str();
+                action = EffectsInterfaceAction::Add;
+            }
+        }
+        
         ImGui::EndPopup();
     }
 
@@ -693,7 +708,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
             case EffectsInterfaceAction::Add: {
                 song.mutex.lock();
 
-                audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song);
+                audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song, editor.plugin_manager);
                 mod->parent_name = cur_channel->name;
                 cur_channel->effects_rack.insert(mod);
 
@@ -974,7 +989,7 @@ void compute_imgui(SongEditor& editor, UserActionList& user_actions) {
                 case EffectsInterfaceAction::Add: {
                     song.mutex.lock();
                     
-                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song);
+                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, &song, editor.plugin_manager);
                     mod->parent_name = fx_bus->name;
                     fx_bus->insert(mod);
 

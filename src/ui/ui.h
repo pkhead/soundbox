@@ -184,6 +184,7 @@ enum class EffectsInterfaceAction
 struct EffectsInterfaceResult
 {
     const char* module_id;
+    const char* plugin_id; // if module_id == "plugin", use this
     int target_index;
     int swap_start;
     int swap_end;    
