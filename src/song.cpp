@@ -75,6 +75,7 @@ void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
     if (synth_mod != nullptr) delete synth_mod;
     
     synth_mod = new_instrument;
+    synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
 }
 
