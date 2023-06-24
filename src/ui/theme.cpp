@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <fstream>
 #include <stdexcept>
-#include <toml11/toml.hpp>
+#include <tomlcpp/tomlcpp.hpp>
 #include <unordered_map>
 #include <vector>
 #include <imgui.h>
@@ -137,40 +137,44 @@ const ImGuiCol_ IMGUI_COLOR_ENUMS[] = {
 };
 */
 
-static ImVec4 parse_color(toml::value& value)
+static ImVec4 parse_color(const std::string& hex)
 {
-    if (value.is_array())
-    {
-        std::vector<toml::value> arr = value.as_array();
-        return ImVec4(arr[0].as_floating(), arr[1].as_floating(), arr[2].as_floating(), arr[3].as_floating());
-    }
-    else
-    {
-        std::string hex = value.as_string();
-        int r, g, b, a;
-        sscanf(hex.c_str(), "#%02x%02x%02x%02x", &r, &g, &b, &a);
-        return ImVec4((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, (float)a / 255.0f);
-    }
+    int r, g, b, a;
+    sscanf(hex.c_str(), "#%02x%02x%02x%02x", &r, &g, &b, &a);
+    return ImVec4((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, (float)a / 255.0f);
 }
 
-static void parse_toml(Theme* self, toml::value data)
+void Theme::_parse_toml(toml::Table* data)
 {
-    // find channel colors
-    auto channel_table = toml::find(data, "channels");
+    // find tables
+    auto channel_table = data->getTable("channels");
+    auto ui_table = data->getTable("ui");
 
+    if (!channel_table)
+        throw std::runtime_error("could not find [channel]");
+
+    if (!ui_table)
+        throw std::runtime_error("could not find [ui]");
+    
     int i = 1;
     while (true)
     {
         std::string key_name = "Channel_" + std::to_string(i);
-        if (!channel_table.contains(key_name)) break;
+        if (!channel_table->getArray(key_name)) break;
 
-        std::vector<toml::value>& colors_array =
-            toml::find<toml::array>(channel_table, key_name);
+        auto colors_array =
+            channel_table->getArray(key_name);
+        
+        auto [ ok0, color0 ]  = colors_array->getString(0);
+        auto [ ok1, color1 ] = colors_array->getString(1);
 
-        ImVec4 primary_color = parse_color(colors_array[0]);
-        ImVec4 secondary_color = parse_color(colors_array[1]);
+        if (!ok0 || !ok1)
+            throw std::runtime_error("invalid channel color array");
+        
+        ImVec4 primary_color = parse_color(color0);
+        ImVec4 secondary_color = parse_color(color1);
 
-        self->channel_colors.push_back({
+        channel_colors.push_back({
             primary_color,
             secondary_color
         });
@@ -178,36 +182,36 @@ static void parse_toml(Theme* self, toml::value data)
         i++;
     }
 
-    // find ui colors
-    auto ui_table = toml::find(data, "ui");
-
+    // read ui colors
     for (size_t i = 0; i < sizeof(IMGUI_COLOR_NAMES) / sizeof(*IMGUI_COLOR_NAMES); i++)
     {
         const char* name = IMGUI_COLOR_NAMES[i];
+        auto [ok, color_value] = ui_table->getString(name);
 
-        if (!ui_table.contains(name))
+        if (!ok)
         {
             std::cout << "did not find " << name << "\n";
             continue;
         }
 
-        ImVec4 color = parse_color(toml::find(ui_table, name));
-        self->ui_colors[name] = color;
+        ImVec4 color = parse_color(color_value);
+        ui_colors[name] = color;
     }
 
     // find custom colors
     for (size_t i = 0; i < NUM_CUSTOM_COLORS; i++)
     {
         const char* name = CUSTOM_COLOR_NAMES[i];
+        auto [ok, color_value] = ui_table->getString(name);
 
-        if (!ui_table.contains(name))
+        if (!ok)
         {
             std::cout << "did not find " << name << "\n";
             continue;
         }
 
-        ImVec4 color = parse_color(toml::find(ui_table, name));
-        self->custom_colors[i] = color;
+        ImVec4 color = parse_color(color_value);
+        custom_colors[i] = color;
     }
 }
 
@@ -232,9 +236,12 @@ Theme::Theme()
 
 Theme::Theme(std::istream& stream)
 {
-    _name = "[ Unknown ]";
-    auto data = toml::parse(stream, "unknown file");
-    parse_toml(this, data);
+    std::string conf(std::istreambuf_iterator<char>{stream}, {});
+    auto res = toml::parse(conf);
+    if (!res.table)
+        throw std::runtime_error("cannot parse stream: " + res.errmsg);
+
+    _parse_toml(res.table.get());
 }
 
 const char PATH_SEP =
@@ -257,8 +264,11 @@ void Theme::load(const std::string theme_name)
     _name = theme_name;
     std::string file_name = std::string("styles") + PATH_SEP + theme_name + ".toml";
 
-    auto data = toml::parse(file_name);
-    parse_toml(this, data);
+    auto res = toml::parseFile(file_name);
+    if (!res.table)
+        throw std::runtime_error("cannot parse " + file_name + ": " + res.errmsg);
+    
+    _parse_toml(res.table.get());
 }
 
 ImU32 Theme::get_channel_color(int ch, bool is_primary) const
