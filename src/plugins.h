@@ -36,8 +36,16 @@ namespace plugins
         struct ControlValue
         {
             std::string name;
-            float min, max;
             float value;
+
+            bool is_toggle;
+            bool is_logarithmic;
+            bool is_sample_rate;
+            bool is_integer;
+            bool has_default;
+            
+            float min, max;
+            float default_value;
         };
 
         std::vector<ControlValue*> control_values;
@@ -58,6 +66,10 @@ namespace plugins
         sys::dl_handle lib;
         const LADSPA_Descriptor* descriptor;
         LADSPA_Handle instance;
+        audiomod::DestinationModule& dest;
+
+        std::vector<float*> input_buffers;
+        std::vector<float*> output_buffers;
     
     public:
         LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& data);
