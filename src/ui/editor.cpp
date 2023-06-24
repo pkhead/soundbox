@@ -215,11 +215,16 @@ void SongEditor::remove_channel(int channel_index)
 
 void SongEditor::save_preferences() const
 {
-    std::ofstream file("pref.toml", std::ios_base::out | std::ios_base::trunc);
+    std::ofstream file("user.toml", std::ios_base::out | std::ios_base::trunc);
 
-    file << "[plugins]\n";
+    // write selected theme
+    file << "[ui]\n";
+    file << "theme = " << std::quoted(theme.name()) << "\n";
 
-    // write ladspa plugin paths
+    // write plugin paths
+    file << "\n[plugins]\n";
+
+    // ladspa
     file << "ladspa = [";
 
     int i = 0;
@@ -252,10 +257,21 @@ void SongEditor::save_preferences() const
 
 void SongEditor::load_preferences()
 {
-    auto data = toml::parseFile("pref.toml");
+    auto data = toml::parseFile("user.toml");
     if (!data.table) {
         std::cerr << "error parsing preferences: " << data.errmsg << "\n";
         return;
+    }
+
+    // get ui preferences
+    auto ui_table = data.table->getTable("ui");
+    if (ui_table)
+    {
+        auto theme_pref = ui_table->getString("theme");
+        if (theme_pref.first) {
+            theme.load(theme_pref.second);
+            theme.set_imgui_colors();
+        }
     }
 
     // get plugin paths
