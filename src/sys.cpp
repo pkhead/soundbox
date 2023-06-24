@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <chrono>
-#include <dlfcn.h>
 #include <iostream>
 #include <atomic>
 #include "sys.h"
@@ -38,6 +37,7 @@ void sys::clear_interval(interval_t* interval)
 #else
 #include <thread>
 #include <time.h>
+#include <dlfcn.h>
 
 struct interval_impl
 {
