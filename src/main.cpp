@@ -251,7 +251,7 @@ int main()
             }
         };
 
-        UserActionList user_actions;
+        UserActionList& user_actions = song_editor.ui_actions;
 
         user_actions.set_callback("song_new", [&]() {
             prompt_unsaved_work = true;
@@ -265,7 +265,7 @@ int main()
                 Song* old_song = song_editor.song;
                 song_editor.song = new Song(4, 8, 8, &destination);
                 song_editor.reset();
-                ui_init(song_editor, user_actions);
+                ui_init(song_editor);
                 delete old_song;
 
                 file_mutex.unlock();
@@ -305,7 +305,7 @@ int main()
                         song_editor.song = new_song;
                         song_editor.reset();
                         delete old_song;
-                        ui_init(song_editor, user_actions);
+                        ui_init(song_editor);
 
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
@@ -458,7 +458,7 @@ int main()
         });
 
         // actions that don't require window management/io are defined in ui.cpp
-        ui_init(song_editor, user_actions);
+        ui_init(song_editor);
 
         static const double FRAME_LENGTH = 1.0 / 240.0;
 
@@ -702,7 +702,7 @@ int main()
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
 
-            compute_imgui(song_editor, user_actions);
+            compute_imgui(song_editor);
 
             // show new prompt
             if (prompt_unsaved_work) {
