@@ -10,8 +10,12 @@ void render_directories_window(SongEditor &editor)
 
     if (editor.show_dir_window)
     {
-        if (ImGui::Begin("Directories", &editor.show_dir_window, ImGuiWindowFlags_AlwaysAutoResize))
-        {
+        if (ImGui::Begin(
+            "Directories",
+            &editor.show_dir_window,
+            ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoDocking
+        )) {
             ImGui::AlignTextToFramePadding();
             ImGui::Text("LADSPA/LV1 plugins");
             ImGui::SameLine();

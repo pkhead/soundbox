@@ -186,7 +186,8 @@ int main()
         
         // initialize song editor
         SongEditor song_editor(new Song(4, 8, 8, &destination), destination);
-
+        song_editor.load_preferences();
+        
         // this mutex is locked by the audio thread while audio is being processed
         // and is locked by the main thread when a new song is being loaded
         std::mutex file_mutex;
@@ -835,6 +836,7 @@ int main()
         }
 
         sys::clear_interval(audioaux_interval);
+        song_editor.save_preferences();
     }
 
     device.stop();

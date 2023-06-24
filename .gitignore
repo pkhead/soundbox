@@ -9,3 +9,6 @@
 # build directories
 /build
 /out
+
+# soundbox preferences file
+/pref.toml

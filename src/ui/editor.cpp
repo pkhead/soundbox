@@ -1,3 +1,5 @@
+#include <tomlcpp/tomlcpp.hpp>
+#include <fstream>
 #include "editor.h"
 #include "../audio.h"
 #include "theme.h"
@@ -213,10 +215,63 @@ void SongEditor::remove_channel(int channel_index)
 
 void SongEditor::save_preferences() const
 {
+    std::ofstream file("pref.toml", std::ios_base::out | std::ios_base::trunc);
 
+    file << "[plugins]\n";
+
+    // write ladspa plugin paths
+    file << "ladspa = [";
+
+    int i = 0;
+    const std::vector<std::string> system_paths = plugin_manager.get_default_plugin_paths(plugins::PluginType::Ladspa);
+    for (const std::string& path : plugin_manager.ladspa_paths)
+    {
+        bool is_system_path = false;
+
+        // exclude system paths
+        for (const std::string& other : system_paths) {
+            if (path == other) {
+                is_system_path = true;
+                break;
+            }
+        }
+
+        if (is_system_path) continue;
+
+        if (i == 0)
+            file << "\n";
+
+        file << "\t" << std::quoted(path) << "\n";
+        i++;
+    }
+
+    file << "]\n";
+
+    file.close();
 }
 
 void SongEditor::load_preferences()
 {
-    
+    auto data = toml::parseFile("pref.toml");
+    if (!data.table) {
+        std::cerr << "error parsing preferences: " << data.errmsg << "\n";
+        return;
+    }
+
+    // get plugin paths
+    auto plugins = data.table->getTable("plugins");
+    if (plugins)
+    {
+        // read ladspa paths
+        auto ladspa_paths = plugins->getArray("ladspa");
+        if (ladspa_paths)
+        {
+            for (int i = 0; ; i++) {
+                auto p = ladspa_paths->getString(i);
+                if (!p.first) break;
+                plugin_manager.add_path(plugins::PluginType::Ladspa, p.second);
+            }
+
+        }
+    }
 }
