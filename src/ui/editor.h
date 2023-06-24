@@ -4,6 +4,7 @@
 #include <mutex>
 #include "../song.h"
 #include "theme.h"
+#include "../plugins.h"
 #include "change_history.h"
 
 class SongEditor {
@@ -14,6 +15,7 @@ public:
     ~SongEditor();
     Song* song;
     Theme theme;
+    plugins::PluginManager plugin_manager;
     
     void reset();
 

@@ -336,28 +336,10 @@ namespace audiomod {
         const char* name;
     };
 
-    enum class PluginType : uint8_t
-    {
-        Ladspa,
-        Lv2,  // TODO
-        Vst,  // TODO
-        Clap ,// TODO
-    };
-
-    struct PluginListing
-    {
-        const char* name;
-        const char* file_path;
-        PluginType plugin_type;
-        bool is_instrument;
-    };
-
     constexpr size_t NUM_EFFECTS = 3;
     constexpr size_t NUM_INSTRUMENTS = 1;
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 
     ModuleBase* create_module(const std::string& mod_id, Song* song);
-    const std::vector<PluginListing>& get_plugins();
-    void scan_plugins();
 }

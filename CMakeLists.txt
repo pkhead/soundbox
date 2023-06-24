@@ -44,6 +44,7 @@ set(SOURCES
     src/sys.cpp
     src/audiofile.cpp
     src/imgui_stdlib.cpp
+    src/plugins.cpp
     
     # sources for app ui
     src/ui/ui.cpp

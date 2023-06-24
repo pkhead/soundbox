@@ -14,20 +14,6 @@ std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list(
     "synth.waveform", "Waveform"
 });
 
-static std::vector<PluginListing> plugin_list;
-
-const std::vector<PluginListing>& audiomod::get_plugins()
-{
-    return plugin_list;
-}
-
-void audiomod::scan_plugins()
-{
-    plugin_list.clear();
-
-    
-}
-
 #define MAP(id, class) if (mod_id == id) return new class(song)
 ModuleBase* audiomod::create_module(const std::string& mod_id, Song* song) {
     // synthesizers

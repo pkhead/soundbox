@@ -15,6 +15,8 @@ SongEditor::SongEditor(Song* song) :
     }
 
     theme.set_imgui_colors();
+    plugin_manager.scan_plugins();
+    
     reset();
 }
 
