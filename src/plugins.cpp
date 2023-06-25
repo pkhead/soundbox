@@ -194,7 +194,7 @@ void PluginManager::scan_plugins()
                 std::cout << "found LADSPA: " << path << ":\n";
                 
                 // get plugin information for all plugins in library
-                std::vector<PluginData> plugins = LadspaPlugin::get_data(entry.path().c_str());
+                std::vector<PluginData> plugins = LadspaPlugin::get_data(entry.path().string().c_str());
 
                 for (PluginData& plugin : plugins)
                 {

@@ -84,7 +84,8 @@ void render_directories_window(SongEditor &editor)
                 ImGui::SameLine();
                 if (ImGui::Button("Browse..."))
                 {
-                    const char* default_path = std::filesystem::current_path().root_path().c_str();
+                    std::string path_str = std::filesystem::current_path().root_path().string();
+                    const char* default_path = path_str.c_str();
                     std::string result = file_browser(FileBrowserMode::Directory, "", default_path);
                     if (!result.empty()) {
                         plugins.add_path(plugins::PluginType::Ladspa, result);

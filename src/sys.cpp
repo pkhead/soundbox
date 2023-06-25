@@ -17,20 +17,20 @@ static void lp_time_proc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR d
 
 interval_t* sys::set_interval(int ms, const std::function<void()>&& callback_proc)
 {
-	return (interval_t*)timeSetEvent(
+	return (interval_t*)size_t(timeSetEvent(
 		ms,
 		ms,
 		lp_time_proc,
 		(DWORD_PTR)(new std::function(callback_proc)),
 		TIME_PERIODIC
-	);
+	));
 }
 
 void sys::clear_interval(interval_t* interval)
 {
 	// TODO: memory leak, did not delete std::function userdata
 	// not worth fixing for now because only one interval is ever created
-	UINT id = (UINT)(size_t)interval;
+	MMRESULT id = (MMRESULT)((size_t)interval);
 	timeKillEvent(id);
 }
 
@@ -46,12 +46,12 @@ dl_handle sys::dl_open(const char* file_path)
 
 int sys::dl_close(dl_handle handle)
 {
-	return FreeLibrary(handle);
+	return FreeLibrary((HMODULE) handle);
 }
 
 void* sys::dl_sym(dl_handle handle, const char *symbol_name)
 {
-	return GetProcAddress(handle, symbol_name);
+	return (void*) GetProcAddress((HMODULE) handle, symbol_name);
 }
 
 #else

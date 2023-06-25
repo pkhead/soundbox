@@ -311,7 +311,7 @@ void Theme::scan_themes()
         if (path.extension() == ".toml")
         {
             std::cout << path.stem() << "\n";
-            theme_names.push_back(path.stem());
+            theme_names.push_back(path.stem().string());
         }
     }
 }
