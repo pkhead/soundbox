@@ -297,7 +297,7 @@ Song* Song::from_file(
     pull_bytes(input, tempo);
 
     // create song
-    Song* song = new Song(num_channels, length, max_patterns, &audio_dest);
+    Song* song = new Song(num_channels, length, max_patterns, audio_dest);
     strncpy(song->name, song_name, song->name_capcity);
     song->project_notes = project_notes;
     song->name[song_name_size] = 0;

@@ -9,7 +9,6 @@ namespace audiomod
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
 
-        // TODO: size buffer based off sample rate (requires passing it in in constructor, or detecting a change)
         size_t delay_line_size;
         size_t delay_line_index[2];
         float* delay_line[2];
@@ -32,7 +31,7 @@ namespace audiomod
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream&, size_t size) override;
 
-        DelayModule();
+        DelayModule(DestinationModule& dest);
         ~DelayModule();
     };
 }

@@ -10,7 +10,7 @@
 
 using namespace audiomod;
 
-DelayModule::DelayModule() : ModuleBase(true)
+DelayModule::DelayModule(DestinationModule& dest) : ModuleBase(true)
 {
     id = "effects.delay";
     name = "Delay";
@@ -24,7 +24,7 @@ DelayModule::DelayModule() : ModuleBase(true)
 
     delay_line_index[0] = 0;
     delay_line_index[1] = 0;
-    delay_line_size = 240000;
+    delay_line_size = dest.sample_rate * 5; // maximum delay of 5 seconds
     delay_line[0] = new float[delay_line_size];
     delay_line[1] = new float[delay_line_size];
 

@@ -182,7 +182,7 @@ int main()
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
         
         // initialize song editor
-        SongEditor song_editor(new Song(4, 8, 8, &destination), destination);
+        SongEditor song_editor(new Song(4, 8, 8, destination), destination);
         song_editor.load_preferences();
         
         // this mutex is locked by the audio thread while audio is being processed
@@ -261,7 +261,7 @@ int main()
                 destination.reset();
 
                 Song* old_song = song_editor.song;
-                song_editor.song = new Song(4, 8, 8, &destination);
+                song_editor.song = new Song(4, 8, 8, destination);
                 song_editor.reset();
                 ui_init(song_editor);
                 delete old_song;

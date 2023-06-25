@@ -5,7 +5,7 @@
 #include "analyzer.h"
 using namespace audiomod;
 
-AnalyzerModule::AnalyzerModule() : ModuleBase(true)
+AnalyzerModule::AnalyzerModule(DestinationModule& dest) : ModuleBase(true)
 {
     id = "effects.analyzer";
     name = "Analyzer";

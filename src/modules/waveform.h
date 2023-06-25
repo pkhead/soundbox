@@ -22,7 +22,7 @@ namespace audiomod {
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
     public:
-        WaveformSynth();
+        WaveformSynth(DestinationModule& dest);
 
         enum WaveformType: uint8_t {
             Sine = (uint8_t)0,

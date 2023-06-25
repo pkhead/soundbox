@@ -19,7 +19,7 @@ static const size_t NOISE_DATA_SIZE = 1 << 16;
 static float NOISE_DATA[1 << 16];
 static bool PREPROCESSED_DATA_READY = false;
 
-WaveformSynth::WaveformSynth() : ModuleBase(true) {
+WaveformSynth::WaveformSynth(DestinationModule& dest) : ModuleBase(true) {
     id = "synth.waveform";
     name = "Waveform Synth";
 

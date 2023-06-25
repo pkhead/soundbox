@@ -121,11 +121,11 @@ private:
 
     std::vector<NoteData> prev_notes;
     std::vector<NoteData> cur_notes;
-
+    audiomod::DestinationModule& audio_out;
 
 public:
     Song(const Song&) = delete; // disable copy
-    Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget* audio_out);
+    Song(int num_channels, int length, int max_patterns, audiomod::DestinationModule& audio_out);
     ~Song();
 
     std::mutex mutex;
@@ -150,6 +150,10 @@ public:
     // and song may be able to switch between them while playing
     std::vector<Tuning*> tunings;
     int selected_tuning = 0;
+
+    inline audiomod::DestinationModule& audio_dest() const {
+        return audio_out;
+    };
     
     int length() const;
     void set_length(int len);

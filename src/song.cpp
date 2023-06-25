@@ -53,7 +53,7 @@ inline bool Pattern::is_empty() const {
 /*************************
 *        CHANNEL         *
 *************************/
-Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song->fx_mixer), vol_mod() {
+Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song->fx_mixer), vol_mod(song->audio_dest()) {
     strcpy(name, "Channel");
     
     for (int i = 0; i < song_length; i++) {
@@ -64,7 +64,7 @@ Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song-
         patterns.push_back(new Pattern());
     }
 
-    synth_mod = new audiomod::WaveformSynth();
+    synth_mod = new audiomod::WaveformSynth(song->audio_dest());
     synth_mod->song = song;
     synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
@@ -243,7 +243,9 @@ void Tuning::analyze()
 *         SONG           *
 *************************/
 
-Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget* audio_out) : _length(length), _max_patterns(max_patterns) {
+Song::Song(int num_channels, int length, int max_patterns, audiomod::DestinationModule& audio_out)
+    : _length(length), audio_out(audio_out), _max_patterns(max_patterns)
+{
     strcpy(name, "Untitled");
 
     // create 12edo scale
@@ -262,7 +264,7 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     audiomod::FXBus* master_bus = new audiomod::FXBus();
     strcpy(master_bus->name, "Master");
     master_bus->target_bus = 0;
-    master_bus->connect_output(audio_out);
+    master_bus->connect_output(&audio_out);
     fx_mixer.push_back(master_bus);
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
@@ -277,8 +279,7 @@ Song::~Song() {
         delete channel;
     }
 
-    for (audiomod::FXBus* bus : fx_mixer)
-    {
+    for (audiomod::FXBus* bus : fx_mixer) {
         delete bus;
     }
 }
