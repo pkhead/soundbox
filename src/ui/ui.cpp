@@ -266,16 +266,51 @@ void ui_init(SongEditor& editor)
 
 
 
+static bool str_search(const std::string& str, const char* query)
+{
+    // a C string is empty if and only if the first character is NULL
+    if (query[0] == 0) return true;
+
+    // convert input strings to lowercase
+    size_t query_size = strlen(query);
+    std::string str_low;
+    std::string query_low;
+    str_low.reserve(str.size());
+    query_low.reserve(query_size);
+
+    for (size_t i = 0; i < str.size(); i++)
+        str_low.push_back(std::tolower(str[i]));    
+
+    for (size_t i = 0; i < query_size; i++)
+        query_low.push_back(std::tolower(query[i]));
+
+    // perform search
+    return str_low.find(query_low) != std::string::npos;
+}
 
 const char* module_selection_popup(SongEditor& editor, bool instruments)
 {
     static char search_query[64];
 
-    // clear search query if popup is newly opened
-    if (ImGui::IsWindowAppearing())
+    if (ImGui::IsWindowAppearing()) {
+        // clear search query
         search_query[0] = 0;
+        
+        // focus on search bar
+        ImGui::SetKeyboardFocusHere();
+    }
 
-    ImGui::InputTextWithHint("##search", "Search...", search_query, 64);
+    // if enter is pressed, select the only displayed module
+    // if there is more than one module displayed, this does nothing
+    bool enter_pressed = ImGui::InputTextWithHint(
+        "##search",
+        "Search...",
+        search_query, 64,
+        ImGuiInputTextFlags_EnterReturnsTrue
+    );
+    int displayed = 0;
+    const char* displayed_module_id = nullptr;
+
     ImGui::SeparatorText("Built-in");
 
     const char* new_module_id = nullptr;
@@ -285,18 +320,28 @@ const char* module_selection_popup(SongEditor& editor, bool instruments)
     {
         for (auto listing : audiomod::instruments_list)
         {
-            if (ImGui::Selectable(listing.name))
-                new_module_id = listing.id;
+            if ( str_search(listing.name, search_query) ) {
+                displayed++;
+                displayed_module_id = listing.id;
+
+                if (ImGui::Selectable(listing.name))
+                    new_module_id = listing.id;
+            }
         }
     }
 
-    // display built in effects
+    // or display built in effects
     else
     {
         for (auto listing : audiomod::effects_list)
         {
-            if (ImGui::Selectable(listing.name))
-                new_module_id = listing.id;
+            if ( str_search(listing.name, search_query) ) {
+                displayed++;
+                displayed_module_id = listing.id;
+
+                if (ImGui::Selectable(listing.name))
+                    new_module_id = listing.id;
+            }
         }
     }
 
@@ -305,12 +350,26 @@ const char* module_selection_popup(SongEditor& editor, bool instruments)
 
     for (auto& plugin_data : editor.plugin_manager.get_plugin_data())
     {
-        if ((!instruments || plugin_data.is_instrument) && ImGui::Selectable(plugin_data.name.c_str()))
-        {
-            new_module_id = plugin_data.id.c_str();
+        if (
+            // if instruments is true, only show plugin if it is an instrument
+            // otherwise, show all plugins
+            (!instruments || plugin_data.is_instrument) &&
+            // search query
+            ( str_search(plugin_data.name, search_query) )
+        ) {
+            displayed++;
+            displayed_module_id = plugin_data.id.c_str();
+
+            if (ImGui::Selectable(plugin_data.name.c_str()))
+                new_module_id = plugin_data.id.c_str();
         }
     }
     
+    if (enter_pressed && displayed == 1) {
+        new_module_id = displayed_module_id;
+        ImGui::CloseCurrentPopup();
+    }
+
     return new_module_id;
 }
 
