@@ -71,6 +71,10 @@ should be able to follow the instructions for Linux.
 If anyone reading this is on a Mac, I would appreciate it if you helped out by providing a way
 to build this program.
 
+## Contributing
+Please report bugs and feature requests to the [GitHub issue tracker](https://github.com/pkhead/soundbox/issues).
+Pull requests are welcome.
+
 ## Thanks to
 - [PortAudio](http://www.portaudio.com/) for the audio library
 - [GLFW](https://www.glfw.org/) for the graphics backend
