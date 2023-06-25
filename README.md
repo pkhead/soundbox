@@ -4,9 +4,8 @@
 A free and cross-platform application used for creating tunes.
 
 ## Goals
-Soundbox is mainly targeted towards music-creating hobbyists who wish to have a simple and lightweight
+Soundbox is mainly targeted towards hobbyists who wish to have a simple and lightweight
 tool for creating music. It should be relatively easy to figure out how to use this application.
-Even though it is mainly for instrumental music, it is also possible to add vocals into a song.
 
 ## Features
 - Pattern-based grid sequencer

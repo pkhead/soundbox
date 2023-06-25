@@ -5,7 +5,6 @@
 - alternative FX mixer ui
     - always once selected FX bus, add another docked window called "FX Bus"
 - Variable-length patterns (useful mainly for audio clips/sampling)
-- Search for plugin when inserting module
 - metronome
 - mp3 exports
 - Plugin support (VST, LV2, CLAP)
