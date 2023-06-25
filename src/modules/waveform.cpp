@@ -375,7 +375,7 @@ bool WaveformSynth::load_state(std::istream& istream, size_t size)
         waveform_types[osc] = static_cast<WaveformType>(pull_bytesr<uint8_t>(istream));
         volume[osc] = pull_bytesr<float>(istream);
         panning[osc] = pull_bytesr<float>(istream);
-        coarse[osc] = pull_bytesr<float>(istream);
+        coarse[osc] = pull_bytesr<int32_t>(istream);
         fine[osc] = pull_bytesr<float>(istream);
     }
 
