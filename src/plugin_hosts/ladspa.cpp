@@ -109,10 +109,10 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             control->name = descriptor->PortNames[port_i];
             
             // use these values if unspecified
-            control->min = -1.0f;
+            control->min = -10.0f;
             control->default_value = 0.0f;
             control->has_default = false;
-            control->max = 1.0f;
+            control->max = 10.0f;
             
             // read hints
             const LADSPA_PortRangeHint& range_hint = descriptor->PortRangeHints[port_i];
@@ -138,6 +138,8 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             // default value
             if (LADSPA_IS_HINT_HAS_DEFAULT(hint_descriptor))
             {
+                control->has_default = true;
+
                 if (LADSPA_IS_HINT_DEFAULT_0(hint_descriptor))
                     control->default_value = 0.0f;
 
