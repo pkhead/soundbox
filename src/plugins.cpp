@@ -36,6 +36,7 @@ PluginModule::PluginModule(Plugin* plugin)
     : ModuleBase(plugin->control_values.size() > 0), _plugin(plugin)
 {
     name = _plugin->data.name;
+    id = _plugin->data.id.c_str();
     _plugin->start();
 }
 
@@ -47,6 +48,16 @@ PluginModule::~PluginModule()
 
 void PluginModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     _plugin->process(inputs, output, num_inputs, buffer_size);
+}
+
+void PluginModule::save_state(std::ostream& stream) const
+{
+     _plugin->save_state(stream);
+}
+
+bool PluginModule::load_state(std::istream& stream, size_t size)
+{
+    return _plugin->load_state(stream, size);
 }
 
 void PluginModule::_interface_proc()
@@ -62,6 +73,8 @@ void PluginModule::_interface_proc()
         float value = control_value->value;
         float min = control_value->min;
         float max = control_value->max;
+
+        ImGuiSliderFlags log_flag = (control_value->is_logarithmic ? ImGuiSliderFlags_Logarithmic : 0);
         
         if (control_value->is_sample_rate) {
             value /= _dest->sample_rate;
@@ -69,7 +82,6 @@ void PluginModule::_interface_proc()
             max /= _dest->sample_rate;
         }
 
-        // TODO is_logarithmic
         if (control_value->is_toggle)
         {
             bool toggle = value >= 0.0f;
@@ -79,7 +91,7 @@ void PluginModule::_interface_proc()
         else if (control_value->is_integer)
         {
             int integer = (int)roundf(value);
-            ImGui::SliderInt("##slider", &integer, (int)roundf(min), (int)roundf(max));
+            ImGui::SliderInt("##slider", &integer, (int)roundf(min), (int)roundf(max), "%d", log_flag);
             value = integer;
 
             if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
@@ -88,7 +100,14 @@ void PluginModule::_interface_proc()
         }
         else
         {
-            ImGui::SliderFloat("##slider", &value, min, max, "%.3f");
+            ImGui::SliderFloat(
+                "##slider",
+                &value,
+                min,
+                max,
+                "%.3f",
+                ImGuiSliderFlags_NoRoundToFormat |
+                log_flag);
 
             if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
                 value = control_value->default_value;

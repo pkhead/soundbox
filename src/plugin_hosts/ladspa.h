@@ -25,5 +25,7 @@ namespace plugins
         void start() override;
         void stop() override;
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) override;
+        void save_state(std::ostream& ostream) const override;
+        bool load_state(std::istream& istream, size_t size) override;
     };
 } // namespace plugins

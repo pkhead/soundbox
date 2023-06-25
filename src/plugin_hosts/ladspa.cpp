@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <cmath>
 #include "ladspa.h"
+#include "../sys.h"
 
 using namespace plugins;
 
@@ -107,6 +108,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             ControlValue* control = new ControlValue;
             control_values.push_back(control);
             control->name = descriptor->PortNames[port_i];
+            control->port_index = port_i;
             
             // use these values if unspecified
             control->min = -10.0f;
@@ -296,4 +298,37 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
             output[i * 2 + 1] = output_buffers[1][i];
         }
     }
+}
+
+void LadspaPlugin::save_state(std::ostream& stream) const
+{
+    // LV1
+    push_bytes<uint8_t>(stream, (uint8_t) 1);
+
+    // write size of state (used for validation)
+    push_bytes<uint32_t>(stream, control_values.size() * 4);
+
+    // write list of control values
+    for (const ControlValue* control : control_values)
+    {
+        push_bytes<float>(stream, control->value);
+    }
+}
+
+bool LadspaPlugin::load_state(std::istream& stream, size_t size)
+{
+    // check LV1
+    if (pull_bytesr<uint8_t>(stream) != 1) return false;
+
+    // check size of state
+    uint32_t state_size = pull_bytesr<uint32_t>(stream);
+    if (control_values.size() * 4 != state_size) return false;
+
+    // read list of control values
+    for (ControlValue* control : control_values)
+    {
+        control->value = pull_bytesr<float>(stream); 
+    }
+
+    return true;
 }
