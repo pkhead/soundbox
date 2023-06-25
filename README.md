@@ -23,23 +23,26 @@ To see which features are not currently implemented, consult [TODO.txt](TODO.txt
 Most features aren't implemented as this is still fairly early into development.
 
 ## Building
+Dependencies:
+- [lilv](http://drobilla.net/software/lilv.html) for LV2 support
 
 ### Linux
-Prerequisites:
-- CMake
-- A build system such as Make (Linux)
+Install dependencies:
+```bash
+# ubuntu
+apt install cmake liblilv-dev 
+```
 
+Clone repository and build the project
 ```bash
 # clone repository
-git clone https://github.com/pkhead/soundbox
+git clone --recursive https://github.com/pkhead/soundbox
 cd soundbox
-git submodule init
-git submodule update
 
 # build the project
 mkdir build && cd build
 cmake ..
-make
+make # depends on your build system
 
 # run the program
 ./soundbox
@@ -52,12 +55,12 @@ It will automatically configure CMake once the folder is opened through Visual S
 If you wish to use the VS Native Build Tools Command Prompt, it is recommended to use Ninja as the CMake generator as
 that appears to be the default build system for the GUI version. To configure
 CMake and build the project using Ninja, type in the following commands:
-```batch
+```powershell
 cmake -GNinja ..
 ninja
 ```
 If you wish to use NMake, type in these commands instead:
-```batch
+```powershell
 cmake -G "NMake Makefiles" ..
 nmake
 ```
