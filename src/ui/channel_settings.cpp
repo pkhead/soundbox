@@ -113,38 +113,16 @@ void render_channel_settings(SongEditor &editor)
         ImGui::SameLine();
 
         if (ImGui::BeginPopup("load_instrument")) {
-            ImGui::SeparatorText("Built-in");
+            const char* mod_id = module_selection_popup(editor, true);
+            ImGui::EndPopup();
 
-            const char* new_module_id = nullptr;
-
-            // display built-in instruments
-            for (auto listing : audiomod::instruments_list)
+            if (mod_id)
             {
-                if (ImGui::Selectable(listing.name))
-                    new_module_id = listing.id;
-            }
-
-            // display effect plugins
-            ImGui::SeparatorText("Plugins");
-
-            for (auto& plugin_data : editor.plugin_manager.get_plugin_data())
-            {
-                if (plugin_data.is_instrument && ImGui::Selectable(plugin_data.name.c_str()))
-                {
-                    new_module_id = plugin_data.id.c_str();
-                }
-            }
-            
-            // if a module was selected, replace module
-            // TODO: add undo action for this
-            if (new_module_id != nullptr)
-            {
-                audiomod::ModuleBase* mod = audiomod::create_module(new_module_id, editor.audio_dest, editor.plugin_manager);
-                mod->song = &song;
+                audiomod::ModuleBase* mod = audiomod::create_module(mod_id, editor.audio_dest, editor.plugin_manager);
+                mod->song = editor.song;
+                mod->parent_name = cur_channel->name;
                 cur_channel->set_instrument(mod);
             }
-
-            ImGui::EndPopup();
         }
 
         // edit loaded instrument

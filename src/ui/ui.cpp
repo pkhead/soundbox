@@ -267,6 +267,58 @@ void ui_init(SongEditor& editor)
 
 
 
+const char* module_selection_popup(SongEditor& editor, bool instruments)
+{
+    static char search_query[64];
+
+    // clear search query if popup is newly opened
+    if (ImGui::IsWindowAppearing())
+        search_query[0] = 0;
+
+    ImGui::InputTextWithHint("##search", "Search...", search_query, 64);
+    ImGui::SeparatorText("Built-in");
+
+    const char* new_module_id = nullptr;
+
+    // display built-in instruments
+    if (instruments)
+    {
+        for (auto listing : audiomod::instruments_list)
+        {
+            if (ImGui::Selectable(listing.name))
+                new_module_id = listing.id;
+        }
+    }
+
+    // display built in effects
+    else
+    {
+        for (auto listing : audiomod::effects_list)
+        {
+            if (ImGui::Selectable(listing.name))
+                new_module_id = listing.id;
+        }
+    }
+
+    // display effect plugins
+    ImGui::SeparatorText("Plugins");
+
+    for (auto& plugin_data : editor.plugin_manager.get_plugin_data())
+    {
+        if ((!instruments || plugin_data.is_instrument) && ImGui::Selectable(plugin_data.name.c_str()))
+        {
+            new_module_id = plugin_data.id.c_str();
+        }
+    }
+    
+    return new_module_id;
+}
+
+
+
+
+
+
 
 
 
@@ -286,31 +338,13 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
     }
 
     if (ImGui::BeginPopup("add_effect")) {
-        ImGui::SeparatorText("Built-in");
-
-        // display built-in effects
-        for (auto listing : audiomod::effects_list)
-        {
-            if (ImGui::Selectable(listing.name))
-            {
-                result->module_id = listing.id;
-                action = EffectsInterfaceAction::Add;
-            }
-        }
-
-        // display effect plugins
-        ImGui::SeparatorText("Plugins");
-
-        for (auto& plugin_data : editor->plugin_manager.get_plugin_data())
-        {
-            if (ImGui::Selectable(plugin_data.name.c_str()))
-            {
-                result->module_id = plugin_data.id.c_str();
-                action = EffectsInterfaceAction::Add;
-            }
-        }
-        
+        const char* mod_id = module_selection_popup(*editor, false);
         ImGui::EndPopup();
+
+        if (mod_id) {
+            result->module_id = mod_id;
+            action = EffectsInterfaceAction::Add;
+        }
     }
 
     // effects help

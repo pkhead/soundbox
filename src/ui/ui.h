@@ -92,6 +92,8 @@ void render_directories_window(SongEditor& editor);
 void render_tunings_window(SongEditor& editor);
 void render_themes_window(SongEditor& editor);
 
+const char* module_selection_popup(SongEditor& editor, bool instruments);
+
 // these functions make it so the following items
 // are slightly transparent if disabled
 void push_btn_disabled(ImGuiStyle& style, bool is_disabled);
