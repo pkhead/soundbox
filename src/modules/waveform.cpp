@@ -310,38 +310,6 @@ void WaveformSynth::_interface_proc() {
     ImGui::PopItemWidth();
 }
 
-// TODO: in a later version, remove the alpha v1 version
-struct WaveformSynthState_v1 {
-    uint8_t waveform_types[3];
-    float volume[3];
-    float panning[3];
-    int coarse[3];
-    float fine[3];
-};
-
-// TODO: remove this too
-struct WaveformSynthState_v2 {
-    uint8_t waveform_types[3];
-    float volume[3];
-    float panning[3];
-    int coarse[3];
-    float fine[3];
-
-    float atk, dky, sus, rls;
-};
-
-struct WaveformSynthState_v3
-{
-    uint8_t version;
-    uint8_t waveform_types[3];
-    float volume[3];
-    float panning[3];
-    int32_t coarse[3];
-    float fine[3];
-
-    float atk, dky, sus, rls;
-};
-
 void WaveformSynth::save_state(std::ostream& ostream) const {
     // write version
     push_bytes<uint8_t>(ostream, 0);

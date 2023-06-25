@@ -8,9 +8,6 @@
 #include <mutex>
 #include <sstream>
 
-// TODO: remove
-#include <chrono>
-
 #include <imgui.h>
 #include <glad/gl.h>
 #include "ui/theme.h"

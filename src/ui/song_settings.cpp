@@ -8,7 +8,6 @@ void render_song_settings(SongEditor &editor)
 
     if (ImGui::Begin("Song Settings")) {
         // song name input
-        // TODO: change detection
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Name");
         ImGui::SameLine();
@@ -81,7 +80,6 @@ void render_song_settings(SongEditor &editor)
         }
 
         // project notes
-        // TODO: change detection?
         ImGui::Text("Project Notes");
         ImGui::InputTextMultiline_str("###project_notes", &song.project_notes, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 16.0f));
     } ImGui::End();
