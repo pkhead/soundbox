@@ -1,7 +1,11 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.18)
 project(soundbox)
 
 set(CMAKE_CXX_STANDARD 17)
+
+# find lilv on system
+find_library(LILV_LIBRARIES lilv-0 REQUIRED)
+find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0 REQUIRED)
 
 # send these options to glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -48,7 +52,9 @@ set(SOURCES
     src/sys.cpp
     src/audiofile.cpp
     src/plugins.cpp
+
     src/plugin_hosts/ladspa.cpp
+    src/plugin_hosts/lv2.cpp
     
     # sources for app ui
     src/ui/ui.cpp
@@ -79,6 +85,12 @@ set(SOURCES
     src/modules/delay.cpp
 )
 
+set(LIBRARIES
+    glfw
+    portaudio_static
+    ${LILV_LIBRARIES}
+)
+
 include_directories(
     deps
     deps/gl
@@ -88,6 +100,7 @@ include_directories(
     deps/portaudio-19.7.0/include
     deps/nativefiledialog/src/include
     deps/tuning-library/include
+    ${LILV_INCLUDE}
 )
 
 # Windows
@@ -111,7 +124,7 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    target_link_libraries(soundbox glfw dwmapi comctl32.lib portaudio_static ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
+    target_link_libraries(soundbox dwmapi comctl32.lib ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
 
 # Linux
 else()
@@ -133,7 +146,7 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    target_link_libraries(soundbox glfw portaudio_static ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
+    target_link_libraries(soundbox ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
 endif()
 
 # add debug macro

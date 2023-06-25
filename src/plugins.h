@@ -105,11 +105,15 @@ namespace plugins
         std::vector<PluginData> plugin_data;
 
         std::vector<std::string> _std_ladspa;
+        std::vector<std::string> _std_lv2;
         std::vector<std::string> _std_dummy; // empty vector
     public:
         std::vector<std::string> ladspa_paths;
+        std::vector<std::string> lv2_paths;
         
         PluginManager();
+        ~PluginManager();
+
         void add_path(PluginType type, const std::string& path);
         inline const std::vector<PluginData>& get_plugin_data() { return plugin_data; };
         void scan_plugins();

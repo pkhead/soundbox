@@ -18,7 +18,7 @@ const char* LadspaPlugin::get_standard_paths()
     return list_str;
 }
 
-std::vector<PluginData> LadspaPlugin::get_data(const char *path)
+static std::vector<PluginData> get_plugin_data(const char *path)
 {
     std::vector<PluginData> output;
     sys::dl_handle handle = sys::dl_open(path);
@@ -74,6 +74,33 @@ std::vector<PluginData> LadspaPlugin::get_data(const char *path)
 
     sys::dl_close(handle);
     return output;
+}
+
+void LadspaPlugin::scan_plugins(const std::vector<std::string>& ladspa_paths, std::vector<PluginData> &plugin_data)
+{
+    for (const std::string& directory : ladspa_paths)
+    {
+        if (std::filesystem::exists(directory) && std::filesystem::is_directory(directory))
+        {
+            for (const auto& entry : std::filesystem::directory_iterator(directory))
+            {
+                // don't read directories
+                if (entry.is_directory()) continue;
+
+                auto& path = entry.path();
+                std::cout << "found LADSPA: " << path << ":\n";
+                
+                // get plugin information for all plugins in library
+                std::vector<PluginData> plugins = get_plugin_data(entry.path().string().c_str());
+
+                for (PluginData& plugin : plugins)
+                {
+                    std::cout << "\t" << plugin.name << " by " << plugin.author << "\n";
+                    plugin_data.push_back(plugin);
+                }
+            }
+        }
+    }
 }
 
 // constructor

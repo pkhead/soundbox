@@ -1,26 +1,24 @@
 #pragma once
 #include "../plugins.h"
-#include <plugins/ladspa.h>
+
+extern "C" {
+#include <lilv/lilv.h>
+}
 
 namespace plugins
 {
-    class LadspaPlugin : public Plugin
+    class Lv2Plugin : public Plugin
     {
     private:
-        sys::dl_handle lib;
-        const LADSPA_Descriptor* descriptor;
-        LADSPA_Handle instance;
         audiomod::DestinationModule& dest;
-
-        std::vector<float*> input_buffers;
-        std::vector<float*> output_buffers;
-        std::vector<float*> output_ports;
     
     public:
-        LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& data);
-        ~LadspaPlugin();
+        Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data);
+        ~Lv2Plugin();
 
-        virtual PluginType plugin_type() { return PluginType::Ladspa; };
+        virtual PluginType plugin_type() { return PluginType::Lv2; };
+
+        static std::vector<PluginData> get_data(const char* path);
 
         void start() override;
         void stop() override;
@@ -30,5 +28,7 @@ namespace plugins
 
         static const char* get_standard_paths();
         static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
+        static void lilv_init();
+        static void lilv_fini();
     }; // class LadspaPlugin
 } // namespace plugins

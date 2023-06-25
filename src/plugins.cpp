@@ -12,6 +12,7 @@
 #include "audio.h"
 #include "plugins.h"
 #include "plugin_hosts/ladspa.h"
+#include "plugin_hosts/lv2.h"
 #include "sys.h"
 
 using namespace plugins;
@@ -167,7 +168,14 @@ static std::vector<std::string> parse_path_list(const std::string list_string)
     std::stringstream stream(list_string);
     std::string item;
 
-    while (std::getline(stream, item, ':')) {
+    const char delim =
+#ifdef _WIN32
+        ';';
+#else
+        ':';
+#endif
+
+    while (std::getline(stream, item, delim)) {
         list.push_back(item);
     }
 
@@ -176,14 +184,19 @@ static std::vector<std::string> parse_path_list(const std::string list_string)
 
 PluginManager::PluginManager()
 {
-    // get system ladspa paths
-    // (read from LADSPA_PATH environment variable or use standard paths)
-    {
-        const char* list_str = LadspaPlugin::get_standard_paths();
-        _std_ladspa = parse_path_list(list_str);
-    }
+    // get standard paths for plugin standards
+    _std_ladspa = parse_path_list( LadspaPlugin::get_standard_paths() );
+    _std_lv2 = parse_path_list( Lv2Plugin::get_standard_paths() );
 
     ladspa_paths = _std_ladspa;
+    lv2_paths = _std_lv2;
+
+    Lv2Plugin::lilv_init();
+}
+
+PluginManager::~PluginManager()
+{
+    Lv2Plugin::lilv_fini();
 }
 
 void PluginManager::add_path(PluginType type, const std::string& path)
@@ -194,6 +207,10 @@ void PluginManager::add_path(PluginType type, const std::string& path)
     {
         case PluginType::Ladspa:
             vec = &ladspa_paths;
+            break;
+
+        case PluginType::Lv2:
+            vec = &lv2_paths;
             break;
 
         default:
@@ -216,6 +233,9 @@ const std::vector<std::string>& PluginManager::get_standard_plugin_paths(PluginT
         case PluginType::Ladspa:
             return _std_ladspa;
 
+        case PluginType::Lv2:
+            return _std_lv2;
+
         default: {
             // return empty list
             return _std_dummy;
@@ -226,29 +246,6 @@ const std::vector<std::string>& PluginManager::get_standard_plugin_paths(PluginT
 void PluginManager::scan_plugins()
 {
     plugin_data.clear();
-
-    // scan directories for ladspa plugins
-    for (const std::string& directory : ladspa_paths)
-    {
-        if (std::filesystem::exists(directory) && std::filesystem::is_directory(directory))
-        {
-            for (const auto& entry : std::filesystem::directory_iterator(directory))
-            {
-                // don't read directories
-                if (entry.is_directory()) continue;
-
-                auto& path = entry.path();
-                std::cout << "found LADSPA: " << path << ":\n";
-                
-                // get plugin information for all plugins in library
-                std::vector<PluginData> plugins = LadspaPlugin::get_data(entry.path().string().c_str());
-
-                for (PluginData& plugin : plugins)
-                {
-                    std::cout << "\t" << plugin.name << " by " << plugin.author << "\n";
-                    plugin_data.push_back(plugin);
-                }
-            }
-        }
-    }
+    LadspaPlugin::scan_plugins(ladspa_paths, plugin_data);
+    Lv2Plugin::scan_plugins(lv2_paths, plugin_data);
 }
