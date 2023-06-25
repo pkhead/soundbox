@@ -35,6 +35,7 @@ namespace plugins
         struct ControlValue
         {
             std::string name;
+            int port_index;
             float value;
 
             bool is_toggle;
@@ -57,6 +58,9 @@ namespace plugins
         virtual void start() = 0;
         virtual void stop() = 0;
         virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) = 0;
+
+        virtual void save_state(std::ostream& ostream) const = 0;
+        virtual bool load_state(std::istream& istream, size_t size) = 0;
     };
 
     class PluginModule : public audiomod::ModuleBase
@@ -79,6 +83,9 @@ namespace plugins
             int sample_rate,
             int channel_count
         ) override;
+
+        void save_state(std::ostream& ostream) const override;
+        bool load_state(std::istream& istream, size_t size) override;
     };
 
     /**

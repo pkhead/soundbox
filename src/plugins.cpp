@@ -36,6 +36,7 @@ PluginModule::PluginModule(Plugin* plugin)
     : ModuleBase(plugin->control_values.size() > 0), _plugin(plugin)
 {
     name = _plugin->data.name;
+    id = _plugin->data.id.c_str();
     _plugin->start();
 }
 
@@ -48,6 +49,16 @@ PluginModule::~PluginModule()
 void PluginModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     // TODO: call plugin run process
     _plugin->process(inputs, output, num_inputs, buffer_size);
+}
+
+void PluginModule::save_state(std::ostream& stream) const
+{
+     _plugin->save_state(stream);
+}
+
+bool PluginModule::load_state(std::istream& stream, size_t size)
+{
+    return _plugin->load_state(stream, size);
 }
 
 void PluginModule::_interface_proc()
