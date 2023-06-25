@@ -506,7 +506,7 @@ int main()
             while (export_data.song->is_playing) {
                 if (!export_data.is_exporting) break;
 
-                export_data.song->update(1.0 / export_data.destination->sample_rate * export_data.destination->buffer_size);
+                export_data.song->update(1.0 / export_data.destination->sample_rate * export_data.destination->frames_per_buffer);
 
                 float* buf;
                 size_t buf_size = export_data.destination->process(&buf);
@@ -618,7 +618,7 @@ int main()
             while (device.samples_queued() < device.sample_rate() * 0.05)
             {
                 float* buf;
-                if (song_playing) song->update((double)destination.buffer_size / device.sample_rate());
+                if (song_playing) song->update((double)destination.frames_per_buffer / device.sample_rate());
                 size_t buf_size = destination.process(&buf);
                 device.queue(buf, buf_size);
             }

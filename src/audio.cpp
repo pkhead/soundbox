@@ -307,7 +307,7 @@ void ModuleBase::prepare_audio(DestinationModule* dest)
     _dest = dest;
 
     // audio buffer array to correct size
-    size_t desired_size = dest->buffer_size * dest->channel_count;
+    size_t desired_size = dest->frames_per_buffer * dest->channel_count;
     if (_audio_buffer == nullptr || _audio_buffer_size != desired_size) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
         _audio_buffer_size = desired_size;
@@ -330,7 +330,7 @@ float* ModuleBase::get_audio() {
         num_inputs > 0 ? &_input_arrays.front() : nullptr, // float input[][]
         _audio_buffer, // float output[]
         num_inputs, // num inputs
-        _dest->buffer_size * _dest->channel_count, // number of samples
+        _dest->frames_per_buffer * _dest->channel_count, // number of samples
         _dest->sample_rate, // sample rate
         _dest->channel_count // channel count
     );
@@ -373,7 +373,12 @@ bool ModuleBase::render_interface() {
 //  DESTINATION MODULE  //
 //////////////////////////
 
-DestinationModule::DestinationModule(int sample_rate, int num_channels, size_t buffer_size) : time(0.0), sample_rate(sample_rate), channel_count(num_channels), buffer_size(buffer_size) {
+DestinationModule::DestinationModule(int sample_rate, int num_channels, size_t buffer_size) :
+    time(0.0),
+    sample_rate(sample_rate),
+    channel_count(num_channels),
+    frames_per_buffer(buffer_size)
+{
     _audio_buffer = nullptr;
     _prev_buffer_size = 0;
 
@@ -391,9 +396,9 @@ DestinationModule::~DestinationModule() {
 // allocate buffers, not called by audio thread
 void DestinationModule::prepare()
 {
-    if (_audio_buffer == nullptr || _prev_buffer_size != buffer_size * channel_count) {
+    if (_audio_buffer == nullptr || _prev_buffer_size != frames_per_buffer * channel_count) {
         if (_audio_buffer != nullptr) delete[] _audio_buffer;
-        _prev_buffer_size = buffer_size * channel_count;
+        _prev_buffer_size = frames_per_buffer * channel_count;
         _audio_buffer = new float[_prev_buffer_size];
     }
 
@@ -433,8 +438,8 @@ DestinationModule::ModuleNode* DestinationModule::_create_node(ModuleBase* modul
     ModuleNode* node = new ModuleNode;
 
     node->module = module;
-    node->output = new float[buffer_size * channel_count];
-    node->buf_size = buffer_size * channel_count;
+    node->output = new float[frames_per_buffer * channel_count];
+    node->buf_size = frames_per_buffer * channel_count;
     
     // get inputs
     node->num_inputs = module->get_inputs().size();
@@ -460,8 +465,8 @@ DestinationModule::ModuleNode* DestinationModule::construct_graph()
     ModuleNode* node = new ModuleNode;
 
     node->module = nullptr;
-    node->output = new float[buffer_size * channel_count];
-    node->buf_size = buffer_size * channel_count;
+    node->output = new float[frames_per_buffer * channel_count];
+    node->buf_size = frames_per_buffer * channel_count;
 
     // get inputs
     node->num_inputs = get_inputs().size();

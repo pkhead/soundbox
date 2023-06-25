@@ -239,7 +239,7 @@ namespace audiomod {
         int channel_count;
 
         double time;
-        size_t buffer_size; // frames per buffer
+        size_t frames_per_buffer;
 
         size_t process(float** output);
         void prepare();

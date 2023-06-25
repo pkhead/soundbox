@@ -217,7 +217,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             if (LADSPA_IS_PORT_INPUT(port))
             {
                 // dest.buffer_size is frames per buffer
-                float* input_buf = new float[dest.buffer_size];
+                float* input_buf = new float[dest.frames_per_buffer];
                 input_buffers.push_back(input_buf);
                 descriptor->connect_port(instance, port_i, input_buf);
             }
@@ -225,7 +225,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             // output buffer
             else if (LADSPA_IS_PORT_OUTPUT(port))
             {
-                float* output_buf = new float[dest.buffer_size];
+                float* output_buf = new float[dest.frames_per_buffer];
                 output_buffers.push_back(output_buf);
                 descriptor->connect_port(instance, port_i, output_buf);
             }
@@ -269,7 +269,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         {
             float* input_buf = input_buffers.front();
 
-            for (size_t i = 0; i < dest.buffer_size; i++)
+            for (size_t i = 0; i < dest.frames_per_buffer; i++)
             {
                 input_buf[i] = 0.0f;
 
@@ -281,7 +281,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         // input is stereo
         else if (input_buffers.size() == 2)
         {
-            for (size_t i = 0; i < dest.buffer_size; i++)
+            for (size_t i = 0; i < dest.frames_per_buffer; i++)
             {
                 input_buffers[0][i] = 0.0f;
                 input_buffers[1][i] = 0.0f;
@@ -297,19 +297,19 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         else
         {
             for (float* buf : input_buffers)
-                for (size_t i = 0; i < dest.buffer_size; i++)
+                for (size_t i = 0; i < dest.frames_per_buffer; i++)
                     buf[i] = 0.0f;
         }
     }
 
-    descriptor->run(instance, dest.buffer_size);
+    descriptor->run(instance, dest.frames_per_buffer);
 
     // write output buffers
     // mono
     if (output_buffers.size() == 1)
     {
         float* buf = output_buffers.front();
-        for (size_t i = 0; i < dest.buffer_size; i++) {
+        for (size_t i = 0; i < dest.frames_per_buffer; i++) {
             output[i * 2] = buf[i];
             output[i * 2 + 1] = buf[i];
         }
@@ -318,7 +318,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
     // stereo
     else if (output_buffers.size() == 2)
     {
-        for (size_t i = 0; i < dest.buffer_size; i++) {
+        for (size_t i = 0; i < dest.frames_per_buffer; i++) {
             output[i * 2] = output_buffers[0][i];
             output[i * 2 + 1] = output_buffers[1][i];
         }

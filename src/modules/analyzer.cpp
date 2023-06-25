@@ -5,67 +5,66 @@
 #include "analyzer.h"
 using namespace audiomod;
 
-AnalyzerModule::AnalyzerModule(DestinationModule& dest) : ModuleBase(true)
+AnalyzerModule::AnalyzerModule(DestinationModule& dest) :
+    ModuleBase(true),
+    ring_buffer(dest.sample_rate * 0.5) // hold 0.5 seconds of audio
 {
     id = "effects.analyzer";
     name = "Analyzer";
+
+    buf = new float[frames_per_window * dest.channel_count];
+    window_left[0] = new float[frames_per_window];
+    window_right[0] = new float[frames_per_window];
+    window_left[1] = new float[frames_per_window];
+    window_right[1] = new float[frames_per_window];
+    ready = false;
 }
 
 AnalyzerModule::~AnalyzerModule() {
     ready = false;
-
-    if (left_channel[0]) delete[] left_channel[0];
-    if (right_channel[0]) delete[] right_channel[0];
-    if (left_channel[1]) delete[] left_channel[1];
-    if (right_channel[1]) delete[] right_channel[1];
+    delete[] buf;
+    delete[] window_left[0];
+    delete[] window_left[1];
+    delete[] window_right[0];
+    delete[] window_right[1];
 }
 
 void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
-    // TODO instead of reallocating buffers here, make a buffer_realloc event/signal
-    if (buffer_size != this->buf_size) {
-        // tell renderer process not to render
-        ready = false;
-
-        if (left_channel[0]) delete[] left_channel[0];
-        if (right_channel[0]) delete[] right_channel[0];
-        if (left_channel[1]) delete[] left_channel[1];
-        if (right_channel[1]) delete[] right_channel[1];
-
-        buf_size = buffer_size / 2;
-        left_channel[0] = new float[buf_size];
-        right_channel[0] = new float[buf_size];
-        left_channel[1] = new float[buf_size];
-        right_channel[1] = new float[buf_size];
-    }
-
-    int buf_idx;
-    // if in use, do not swap buffers
-    if (in_use)		buf_idx = front_buf;
-    else			buf_idx = 1 - front_buf;
-    
-    float* buf_left = left_channel[buf_idx];
-    float* buf_right = right_channel[buf_idx];
-
-    size_t j = 0;
     for (size_t i = 0; i < buffer_size; i += channel_count) {
-        buf_left[j] = 0;
-        buf_right[j] = 0;
         output[i] = 0;
         output[i + 1] = 0;
 
         for (size_t k = 0; k < num_inputs; k++) {
-            buf_left[j] += inputs[k][i];
-            buf_right[j] += inputs[k][i + 1];
-
             output[i] += inputs[k][i];
             output[i + 1] += inputs[k][i + 1];
         }
-
-        j++;
     }
 
-    front_buf = buf_idx;
-    if (!ready) ready = true;
+    ring_buffer.write(output, buffer_size);
+    size_t samples_per_window = frames_per_window * 2;
+
+    // write to window
+    if (!in_use && ring_buffer.queued() > samples_per_window)
+    {
+        int buf_idx = 1 - window_front;
+        
+        float* buf_left = window_left[buf_idx];
+        float* buf_right = window_right[buf_idx];
+
+        size_t num_read = ring_buffer.read(buf, samples_per_window);
+        assert(num_read == samples_per_window);
+        
+        size_t j = 0;
+        for (size_t i = 0; i < frames_per_window * channel_count; i += channel_count) {
+            buf_left[j] = buf[i];
+            buf_right[j] = buf[i + 1];
+            j++;
+        }
+
+        if (!in_use) window_front = buf_idx;
+    }
+
+    ready = true;
 }
 
 void AnalyzerModule::_interface_proc() {
@@ -76,8 +75,8 @@ void AnalyzerModule::_interface_proc() {
 
     ImGui::PlotLines(
         "###left_samples", 
-        ready ? left_channel[front_buf] : placeholder,
-        ready ? buf_size : 2,
+        ready ? window_left[window_front] : placeholder,
+        ready ? frames_per_window : 2,
         0,
         "L",
         -range,
@@ -88,8 +87,8 @@ void AnalyzerModule::_interface_proc() {
     ImGui::SameLine();
     ImGui::PlotLines(
         "###right_samples", 
-        ready ? right_channel[front_buf] : placeholder,
-        ready ? buf_size : 2,
+        ready ? window_right[window_front] : placeholder,
+        ready ? frames_per_window : 2,
         0,
         "R",
         -range,
