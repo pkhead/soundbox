@@ -47,16 +47,27 @@ set(SOURCES
     src/audio.cpp
     src/sys.cpp
     src/audiofile.cpp
-    src/imgui_stdlib.cpp
+    src/plugins.cpp
+    src/plugin_hosts/ladspa.cpp
     
     # sources for app ui
     src/ui/ui.cpp
-    src/ui/ui_interact.cpp
+    src/ui/editor.cpp
     src/ui/change_history.cpp
+    src/ui/theme.cpp
+
+    src/ui/song_settings.cpp
+    src/ui/channel_settings.cpp
     src/ui/pattern_editor.cpp
     src/ui/track_editor.cpp
-    src/ui/editor.cpp
-    src/ui/theme.cpp
+    src/ui/fx_mixer.cpp
+
+    src/ui/plugin_list.cpp
+    src/ui/directories.cpp
+    src/ui/tunings.cpp
+    src/ui/themes_ui.cpp
+
+    src/ui/imgui_stdlib.cpp
 
     # audio modules
     src/modules/modules.cpp

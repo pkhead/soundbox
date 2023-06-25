@@ -31,7 +31,7 @@ namespace sys {
     dl_handle dl_open(const char* file_path);
     int dl_close(dl_handle handle);
     void* dl_sym(dl_handle handle, const char* symbol_name);
-    char* dl_error();
+    const char* dl_error();
 }
 
 extern bool IS_BIG_ENDIAN;

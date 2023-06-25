@@ -67,6 +67,11 @@ public:
 
 class Song;
 
+namespace plugins
+{
+    class PluginManager;
+}
+
 namespace audiomod {
     enum NoteEventKind {
         NoteOn,
@@ -114,7 +119,7 @@ namespace audiomod {
         ModuleOutputTarget* _output;
         DestinationModule* _dest = nullptr;
         bool _has_interface;
-        Song* song;
+        bool _is_released = false;
         
         float* _audio_buffer;
         size_t _audio_buffer_size;
@@ -124,11 +129,20 @@ namespace audiomod {
         bool show_interface;
         const char* id;
         std::string name;
+        Song* song = nullptr;
         const char* parent_name = nullptr; // i keep forgetting to explicity set values to nullptr!
 
         ModuleBase(const ModuleBase&) = delete;
-        ModuleBase(Song* song, bool has_interface);
+        ModuleBase(bool has_interface);
         virtual ~ModuleBase();
+
+        // mark module for deletion
+        // modules can't be deleted immediately because multithreading
+        // so only delete it when thread is done
+        void release();
+        
+        // free all modules that were marked for deletion
+        static void free_garbage_modules();
 
         // send a note event to the module
         virtual void event(const NoteEvent& event) {};
@@ -207,6 +221,9 @@ namespace audiomod {
 
         // if graph needs to be constructed on the main thread
         bool is_dirty = false;
+
+        // modules that need to be freed on free_graph
+        std::vector<ModuleBase*> garbage_modules;
 
         // construct a graph of ModuleNodes
         ModuleNode* _create_node(ModuleBase* module);
@@ -336,28 +353,10 @@ namespace audiomod {
         const char* name;
     };
 
-    enum class PluginType : uint8_t
-    {
-        Ladspa,
-        Lv2,  // TODO
-        Vst,  // TODO
-        Clap ,// TODO
-    };
-
-    struct PluginListing
-    {
-        const char* name;
-        const char* file_path;
-        PluginType plugin_type;
-        bool is_instrument;
-    };
-
     constexpr size_t NUM_EFFECTS = 3;
     constexpr size_t NUM_INSTRUMENTS = 1;
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 
-    ModuleBase* create_module(const std::string& mod_id, Song* song);
-    const std::vector<PluginListing>& get_plugins();
-    void scan_plugins();
+    ModuleBase* create_module(const std::string& mod_id, DestinationModule& audio_dest, plugins::PluginManager& editor);
 }

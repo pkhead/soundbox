@@ -2,6 +2,7 @@
 #include "audio.h"
 #include "sys.h"
 #include "song.h"
+#include "ui/editor.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +10,7 @@
 #include <sstream>
 
 /*
-Song data structure:
+Song data structure (OLD):
 
 struct note {
     float time;
@@ -74,8 +75,12 @@ static void save_module(std::ostream& out, audiomod::ModuleBase* mod)
     if (state_size > 0) out << stream.rdbuf();
 }
 
-static audiomod::ModuleBase* load_module(std::istream& input, Song* song, std::string* error_msg)
-{
+static audiomod::ModuleBase* load_module(
+    std::istream& input,
+    audiomod::DestinationModule& audio_dest,
+    plugins::PluginManager& plugin_manager,
+    std::string* error_msg
+) {
     // read mod type
     uint8_t id_size;
     pull_bytes(input, id_size);
@@ -84,7 +89,7 @@ static audiomod::ModuleBase* load_module(std::istream& input, Song* song, std::s
     inst_id[id_size] = 0;
 
     // load module based off id
-    audiomod::ModuleBase* mod = audiomod::create_module(inst_id, song);
+    audiomod::ModuleBase* mod = audiomod::create_module(inst_id, audio_dest, plugin_manager);
     if (mod == nullptr) {
         if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
         delete[] inst_id;
@@ -240,7 +245,12 @@ void Song::serialize(std::ostream& out) const {
     }
 }
 
-Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string* error_msg) {
+Song* Song::from_file(
+    std::istream& input,
+    audiomod::DestinationModule& audio_dest,
+    plugins::PluginManager& plugin_manager,
+    std::string* error_msg
+) {
     // check if the magic number is valid
     char magic_number[4];
     input.read(magic_number, 4);
@@ -287,7 +297,7 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
     pull_bytes(input, tempo);
 
     // create song
-    Song* song = new Song(num_channels, length, max_patterns, audio_out);
+    Song* song = new Song(num_channels, length, max_patterns, &audio_dest);
     strncpy(song->name, song_name, song->name_capcity);
     song->project_notes = project_notes;
     song->name[song_name_size] = 0;
@@ -433,12 +443,13 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
             for (uint8_t j = 0; j < mod_count; j++)
             {
                 // read mod type
-                audiomod::ModuleBase* mod = load_module(input, song, error_msg);
+                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;
                 }
 
+                mod->song = song;
                 mod->parent_name = bus->name;
                 bus->insert(mod);
             }
@@ -490,12 +501,13 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
         // instrument data
         {
-            audiomod::ModuleBase* mod = load_module(input, song, error_msg);
+            audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, error_msg);
             if (mod == nullptr) {
                 delete song;
                 return nullptr;
             }
 
+            mod->song = song;
             mod->parent_name = channel->name;
             channel->set_instrument(mod);
         }
@@ -507,12 +519,13 @@ Song* Song::from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_o
 
             for (uint8_t modi = 0; modi < num_mods; modi++)
             {
-                audiomod::ModuleBase* mod = load_module(input, song, error_msg);
+                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;
                 }
 
+                mod->song = song;
                 mod->parent_name = channel->name;
                 channel->effects_rack.insert(mod);
             }

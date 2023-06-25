@@ -1,14 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <cstring>
-#include <ctime>
-#include <functional>
 #include <iostream>
-#include <math.h>
 #include <imgui.h>
-#include <sstream>
-#include <unordered_map>
 #include <glad/gl.h>
 
 #include "../audio.h"
@@ -16,44 +10,6 @@
 #include "editor.h"
 
 #define IM_RGB32(R, G, B) IM_COL32(R, G, B, 255)
-
-constexpr uint8_t USERMOD_SHIFT = 1;
-constexpr uint8_t USERMOD_CTRL = 2;
-constexpr uint8_t USERMOD_ALT = 4;
-
-struct UserAction {
-    std::string name;
-    uint8_t modifiers;
-    ImGuiKey key;
-    std::function<void()> callback;
-    std::string combo;
-    bool do_repeat;
-
-    UserAction(const std::string& name, uint8_t mod, ImGuiKey key, bool repeat = false);
-    void set_keybind(uint8_t mod, ImGuiKey key);
-};
-
-struct UserActionList {
-    std::vector<UserAction> actions;
-
-    UserActionList();
-    void add_action(const std::string& action_name, uint8_t mod, ImGuiKey key, bool repeat = false);
-    void fire(const std::string& action_name) const;
-    void set_keybind(const std::string& action_name, uint8_t mod, ImGuiKey key);
-    void set_callback(const std::string& action_name, std::function<void()> callback);
-    const char* combo_str(const std::string& action_name) const;
-
-    /*
-    UserAction song_save;
-    UserAction song_save_as;
-    UserAction song_open;
-    
-    UserAction song_play_pause;
-    UserAction song_prev_bar;
-    UserAction song_next_bar;
-    UserAction quit;
-    */
-};
 
 struct Vec2 {
     float x, y;
@@ -115,11 +71,26 @@ inline ImU32 vec4_color(const ImVec4 &vec4) {
     return IM_COL32(int(vec4.x * 255), int(vec4.y * 255), int(vec4.z * 255), int(vec4.w * 255));
 }
 
-void ui_init(SongEditor& song, UserActionList& actions);
-void compute_imgui(SongEditor& song, UserActionList& actions);
+void ui_init(SongEditor& editor);
+void compute_imgui(SongEditor& editor);
 
-void render_track_editor(SongEditor& song);
-void render_pattern_editor(SongEditor& song);
+enum class FileBrowserMode
+{
+    Save, Open, Directory
+};
+
+std::string file_browser(FileBrowserMode mode, const std::string& filter_list, const std::string& default_path);
+
+void render_song_settings(SongEditor& editor);
+void render_channel_settings(SongEditor& editor);
+void render_track_editor(SongEditor& editor);
+void render_pattern_editor(SongEditor& editor);
+void render_fx_mixer(SongEditor& editor);
+
+void render_plugin_list(SongEditor& editor);
+void render_directories_window(SongEditor& editor);
+void render_tunings_window(SongEditor& editor);
+void render_themes_window(SongEditor& editor);
 
 // these functions make it so the following items
 // are slightly transparent if disabled
@@ -184,6 +155,7 @@ enum class EffectsInterfaceAction
 struct EffectsInterfaceResult
 {
     const char* module_id;
+    const char* plugin_id; // if module_id == "plugin", use this
     int target_index;
     int swap_start;
     int swap_end;    

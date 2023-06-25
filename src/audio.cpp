@@ -234,18 +234,18 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //   MODULE BASE    //
 //////////////////////
 
+static std::vector<ModuleBase*> garbage_modules;
+
 // TODO: remove audio buffers in ModuleBase, as
 // destination module is the one that now
 // creates and owns the audio buffers
-
-ModuleBase::ModuleBase(Song* song, bool has_interface) :
+ModuleBase::ModuleBase(bool has_interface) :
     _output(nullptr),
     _audio_buffer(nullptr),
     _audio_buffer_size(0),
     show_interface(false),
     _has_interface(has_interface),
     id(""),
-    song(song),
     name("Module")
 {};
 
@@ -253,6 +253,26 @@ ModuleBase::~ModuleBase() {
     remove_all_connections();
 
     if (_audio_buffer != nullptr) delete[] _audio_buffer;
+}
+
+void ModuleBase::release()
+{
+    if (_is_released) return;
+    _is_released = true;
+
+    remove_all_connections();
+    garbage_modules.push_back(this);
+}
+
+void ModuleBase::free_garbage_modules()
+{
+    if (garbage_modules.size() > 0)
+        std::cout << "free " << garbage_modules.size() << " modules\n";
+    
+    for (ModuleBase* mod : garbage_modules)
+        delete mod;
+
+    garbage_modules.clear();
 }
 
 void ModuleBase::connect(ModuleOutputTarget* dest) {
@@ -329,7 +349,12 @@ bool ModuleBase::render_interface() {
     snprintf(window_name, 128, "%s - %s###%p", name.c_str(), parent_name == nullptr ? "" : parent_name, this);
 
     if (ImGui::Begin(window_name, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
-        _interface_proc();
+        if (has_interface())
+            _interface_proc();
+        else
+        {
+            ImGui::TextDisabled("(no interface)");
+        }
     } ImGui::End();
 
     return show_interface;
@@ -378,6 +403,7 @@ void DestinationModule::prepare()
     {
         std::cout << "free\n";
         free_graph(_old_graph);
+        ModuleBase::free_garbage_modules();
         old_graph = nullptr;
     }
 
@@ -539,7 +565,7 @@ EffectsRack::~EffectsRack() {
     if (!modules.empty()) modules.back()->disconnect();
 
     for (ModuleBase* module : modules) {
-        delete module;
+        module->release();
     }
 }
 
@@ -734,7 +760,7 @@ ModuleOutputTarget* FXBus::disconnect_output()
     return old_output;
 }
 
-FXBus::ControllerModule::ControllerModule() : ModuleBase(nullptr, false) { }
+FXBus::ControllerModule::ControllerModule() : ModuleBase(false) { }
 
 void FXBus::ControllerModule::process(
     float** inputs,

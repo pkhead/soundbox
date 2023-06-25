@@ -4,18 +4,62 @@
 #include <mutex>
 #include "../song.h"
 #include "theme.h"
+#include "../plugins.h"
 #include "change_history.h"
+
+constexpr uint8_t USERMOD_SHIFT = 1;
+constexpr uint8_t USERMOD_CTRL = 2;
+constexpr uint8_t USERMOD_ALT = 4;
+
+struct UserAction {
+    std::string name;
+    uint8_t modifiers;
+    ImGuiKey key;
+    std::function<void()> callback;
+    std::string combo;
+    bool do_repeat;
+
+    UserAction(const std::string& name, uint8_t mod, ImGuiKey key, bool repeat = false);
+    void set_keybind(uint8_t mod, ImGuiKey key);
+};
+
+struct UserActionList {
+    std::vector<UserAction> actions;
+
+    UserActionList();
+    void add_action(const std::string& action_name, uint8_t mod, ImGuiKey key, bool repeat = false);
+    void fire(const std::string& action_name) const;
+    void set_keybind(const std::string& action_name, uint8_t mod, ImGuiKey key);
+    void set_callback(const std::string& action_name, std::function<void()> callback);
+    const char* combo_str(const std::string& action_name) const;
+
+    /*
+    UserAction song_save;
+    UserAction song_save_as;
+    UserAction song_open;
+    
+    UserAction song_play_pause;
+    UserAction song_prev_bar;
+    UserAction song_next_bar;
+    UserAction quit;
+    */
+};
 
 class SongEditor {
 private:
 
 public:
-    SongEditor(Song* song);
+    SongEditor(Song* song, audiomod::DestinationModule& audio_dest);
     ~SongEditor();
     Song* song;
     Theme theme;
+    UserActionList ui_actions;
+    audiomod::DestinationModule& audio_dest;
+    plugins::PluginManager plugin_manager;
     
     void reset();
+    void save_preferences() const;
+    void load_preferences();
 
     int selected_channel = 0;
     int selected_bar = 0;
@@ -27,6 +71,8 @@ public:
     
     bool show_tuning_window = false;
     bool show_themes_window = false;
+    bool show_plugin_list = false;
+    bool show_dir_window = false;
 
     std::vector<audiomod::ModuleBase*> mod_interfaces;
     std::vector<audiomod::FXBus*> fx_interfaces;

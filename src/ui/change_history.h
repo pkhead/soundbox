@@ -1,6 +1,7 @@
 #pragma once
 #include "../audio.h"
 #include "../song.h"
+#include "../plugins.h"
 #include <cstdint>
 #include <imgui.h>
 #include <vector>
@@ -45,7 +46,7 @@ namespace change
         std::string data;
 
         ModuleData(audiomod::ModuleBase* module);
-        audiomod::ModuleBase* load(Song* song) const;
+        audiomod::ModuleBase* load(SongEditor& editor) const;
     };
 
     class Action

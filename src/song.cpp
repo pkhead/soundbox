@@ -53,7 +53,7 @@ inline bool Pattern::is_empty() const {
 /*************************
 *        CHANNEL         *
 *************************/
-Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song->fx_mixer), vol_mod(song) {
+Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song->fx_mixer), vol_mod() {
     strcpy(name, "Channel");
     
     for (int i = 0; i < song_length; i++) {
@@ -64,7 +64,8 @@ Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song-
         patterns.push_back(new Pattern());
     }
 
-    synth_mod = new audiomod::WaveformSynth(song);
+    synth_mod = new audiomod::WaveformSynth();
+    synth_mod->song = song;
     synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
     effects_rack.connect_output(&vol_mod);
@@ -80,14 +81,15 @@ Channel::~Channel() {
     effects_rack.disconnect_output();
 
     fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
-    delete synth_mod;
+    synth_mod->release();
 }
 
 void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
     effects_rack.disconnect_input(synth_mod);
-    if (synth_mod != nullptr) delete synth_mod;
+    if (synth_mod != nullptr) synth_mod->release();
     
     synth_mod = new_instrument;
+    synth_mod->parent_name = name;
     effects_rack.connect_input(synth_mod);
 }
 
@@ -241,7 +243,7 @@ void Tuning::analyze()
 *         SONG           *
 *************************/
 
-Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out) : audio_out(audio_out), _length(length), _max_patterns(max_patterns) {
+Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget* audio_out) : _length(length), _max_patterns(max_patterns) {
     strcpy(name, "Untitled");
 
     // create 12edo scale
@@ -260,7 +262,7 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutpu
     audiomod::FXBus* master_bus = new audiomod::FXBus();
     strcpy(master_bus->name, "Master");
     master_bus->target_bus = 0;
-    master_bus->connect_output(&audio_out);
+    master_bus->connect_output(audio_out);
     fx_mixer.push_back(master_bus);
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {

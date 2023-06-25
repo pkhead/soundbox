@@ -205,7 +205,7 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
         mod->save_state(stream);
         mod_data = stream.str();
 
-        delete mod;
+        mod->release();
     }
     
     editor.song->mutex.unlock();
@@ -218,7 +218,8 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
 
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.song);
+    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.audio_dest, editor.plugin_manager);
+    mod->song = editor.song;
     mod->parent_name = parent_name;
     rack->insert(mod);
 
@@ -266,7 +267,7 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
         mod_state = stream.str();
 
         editor.hide_module_interface(mod);
-        delete mod;
+        mod->release();
     }
     
     editor.song->mutex.unlock();
@@ -279,7 +280,8 @@ void change::ChangeRemoveEffect::undo(SongEditor& editor) {
 
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.song);
+    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.audio_dest, editor.plugin_manager);
+    mod->song = editor.song;
     mod->parent_name = parent_name;
     rack->insert(mod, index);
 
@@ -699,9 +701,10 @@ change::ModuleData::ModuleData(audiomod::ModuleBase* module)
     data = stream.str();
 }
 
-audiomod::ModuleBase* change::ModuleData::load(Song* song) const
+audiomod::ModuleBase* change::ModuleData::load(SongEditor& editor) const
 {
-    audiomod::ModuleBase* mod = audiomod::create_module(type, song);
+    audiomod::ModuleBase* mod = audiomod::create_module(type, editor.audio_dest, editor.plugin_manager);
+    mod->song = editor.song;
     std::stringstream stream(data);
     mod->load_state(stream, data.size());
     return mod;
@@ -766,12 +769,12 @@ void change::ChangeRemoveChannel::undo(SongEditor& editor)
     channel->vol_mod.load_state(data, vol_mod_data.size());
 
     // load instrument config
-    channel->set_instrument(instrument.load(editor.song));
+    channel->set_instrument(instrument.load(editor));
 
     // load effects
     for (ModuleData& data : effects)
     {
-        channel->effects_rack.insert(data.load(editor.song));
+        channel->effects_rack.insert(data.load(editor));
     }
 }
 

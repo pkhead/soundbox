@@ -13,6 +13,7 @@
 #include <TUN_Scale.h>
 #include <Tunings.h>
 #include "audio.h"
+#include "plugins.h"
 #include <imgui.h>
 #include "modules/volume.h"
 
@@ -112,7 +113,6 @@ class Song {
 private:
     int _length;
     int _max_patterns;
-    audiomod::ModuleOutputTarget& audio_out;
 
     struct NoteData {
         int channel_i;
@@ -125,7 +125,7 @@ private:
 
 public:
     Song(const Song&) = delete; // disable copy
-    Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget& audio_out);
+    Song(int num_channels, int length, int max_patterns, audiomod::ModuleOutputTarget* audio_out);
     ~Song();
 
     std::mutex mutex;
@@ -204,5 +204,5 @@ public:
     bool load_kbm(const char* file_path, Tuning& tuning, std::string* error);
 
     void serialize(std::ostream& out) const;
-    static Song* from_file(std::istream& input, audiomod::ModuleOutputTarget& audio_out, std::string *error_msg);
+    static Song* from_file(std::istream& input, audiomod::DestinationModule& audio_dest, plugins::PluginManager& plugin_manager, std::string *error_msg);
 };

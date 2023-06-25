@@ -185,8 +185,9 @@ int main()
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
         
         // initialize song editor
-        SongEditor song_editor(new Song(4, 8, 8, destination));
-
+        SongEditor song_editor(new Song(4, 8, 8, &destination), destination);
+        song_editor.load_preferences();
+        
         // this mutex is locked by the audio thread while audio is being processed
         // and is locked by the main thread when a new song is being loaded
         std::mutex file_mutex;
@@ -251,7 +252,7 @@ int main()
             }
         };
 
-        UserActionList user_actions;
+        UserActionList& user_actions = song_editor.ui_actions;
 
         user_actions.set_callback("song_new", [&]() {
             prompt_unsaved_work = true;
@@ -263,9 +264,9 @@ int main()
                 destination.reset();
 
                 Song* old_song = song_editor.song;
-                song_editor.song = new Song(4, 8, 8, destination);
+                song_editor.song = new Song(4, 8, 8, &destination);
                 song_editor.reset();
-                ui_init(song_editor, user_actions);
+                ui_init(song_editor);
                 delete old_song;
 
                 file_mutex.unlock();
@@ -295,7 +296,7 @@ int main()
                     file_mutex.lock();
 
                     std::string error_msg = "unknown error";
-                    Song* new_song = Song::from_file(file, destination, &error_msg);
+                    Song* new_song = Song::from_file(file, song_editor.audio_dest, song_editor.plugin_manager, &error_msg);
                     file.close();
 
                     if (new_song != nullptr) {
@@ -305,7 +306,7 @@ int main()
                         song_editor.song = new_song;
                         song_editor.reset();
                         delete old_song;
-                        ui_init(song_editor, user_actions);
+                        ui_init(song_editor);
 
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
@@ -458,7 +459,7 @@ int main()
         });
 
         // actions that don't require window management/io are defined in ui.cpp
-        ui_init(song_editor, user_actions);
+        ui_init(song_editor);
 
         static const double FRAME_LENGTH = 1.0 / 240.0;
 
@@ -546,7 +547,7 @@ int main()
             // create a clone of the song
             std::stringstream song_serialized;
             song->serialize(song_serialized);
-            export_data.song = Song::from_file(song_serialized, *export_data.destination, nullptr);
+            export_data.song = Song::from_file(song_serialized, *export_data.destination, song_editor.plugin_manager, nullptr);
 
             if (export_data.song == nullptr) {
                 show_status("Error while exporting the song");
@@ -702,7 +703,7 @@ int main()
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
 
-            compute_imgui(song_editor, user_actions);
+            compute_imgui(song_editor);
 
             // show new prompt
             if (prompt_unsaved_work) {
@@ -835,9 +836,13 @@ int main()
         }
 
         sys::clear_interval(audioaux_interval);
+        song_editor.save_preferences();
     }
 
     device.stop();
     AudioDevice::_pa_stop();
+
+    audiomod::ModuleBase::free_garbage_modules();
+    
     return 0;
 }
