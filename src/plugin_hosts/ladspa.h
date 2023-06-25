@@ -13,6 +13,7 @@ namespace plugins
 
         std::vector<float*> input_buffers;
         std::vector<float*> output_buffers;
+        std::vector<float*> output_ports;
     
     public:
         LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& data);
@@ -27,5 +28,7 @@ namespace plugins
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) override;
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& istream, size_t size) override;
+
+        static const char* get_standard_paths();
     };
 } // namespace plugins

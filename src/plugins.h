@@ -48,8 +48,16 @@ namespace plugins
             float default_value;
         };
 
-        std::vector<ControlValue*> control_values;
+        struct OutputValue
+        {
+            std::string name;
+            int port_index;
+            float value;
+        };
 
+        std::vector<ControlValue*> control_values;
+        std::vector<OutputValue*> output_values;
+        
         const PluginData data;
 
         Plugin(const PluginData& data);

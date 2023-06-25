@@ -187,7 +187,7 @@ void DelayModule::_interface_proc()
     // values
     ImGui::SameLine();
     ImGui::BeginGroup();
-    ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 10.0f);
+    ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 14.0f);
 
     // dry/wet
     ImGui::SliderFloat("###mix", &mix, -1.0f, 1.0f);
@@ -246,21 +246,6 @@ void DelayModule::_interface_proc()
     this->delay_time = delay_time;
     this->stereo_offset = stereo_offset;
 }
-
-struct DelayModuleState
-{
-    uint8_t version;
-    uint8_t delay_mode;
-
-    union {
-        float delay_time;
-        uint32_t tempo_division;
-    };
-
-    float stereo_offset;
-    float feedback;
-    float mix;
-};
 
 void DelayModule::save_state(std::ostream& ostream) const
 {

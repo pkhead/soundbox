@@ -23,9 +23,11 @@ Plugin::~Plugin()
 {
     // free control values
     for (ControlValue* control_value : control_values)
-    {
         delete control_value;
-    }
+
+    // free output values
+    for (OutputValue* output_value : output_values)
+        delete output_value;
 }
 
 ///////////////////
@@ -62,63 +64,96 @@ bool PluginModule::load_state(std::istream& stream, size_t size)
 
 void PluginModule::_interface_proc()
 {
-    for (auto& control_value : _plugin->control_values)
+    int inputs_per_col = _plugin->control_values.size() / 2;
+    if (inputs_per_col < 8) inputs_per_col = 8;
+    
+    ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 14.0f);
+
+    for (int i = 0; i < _plugin->control_values.size(); i += inputs_per_col)
     {
-        ImGui::PushID(&control_value);
+        if (i > 0) ImGui::SameLine();
 
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("%s", control_value->name.c_str());
+        // write labels
+        ImGui::BeginGroup();
+
+        for (int j = i; j < _plugin->control_values.size() && j < i + inputs_per_col; j++)
+        {
+            auto& control_value = _plugin->control_values[j];
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("%s", control_value->name.c_str());
+        }
+
+        ImGui::EndGroup();
+
+        // make inputs
         ImGui::SameLine();
+        ImGui::BeginGroup();
 
-        float value = control_value->value;
-        float min = control_value->min;
-        float max = control_value->max;
-
-        ImGuiSliderFlags log_flag = (control_value->is_logarithmic ? ImGuiSliderFlags_Logarithmic : 0);
-        
-        if (control_value->is_sample_rate) {
-            value /= _dest->sample_rate;
-            min /= _dest->sample_rate;
-            max /= _dest->sample_rate;
-        }
-
-        if (control_value->is_toggle)
+        for (int j = i; j < _plugin->control_values.size() && j < i + inputs_per_col; j++)
         {
-            bool toggle = value >= 0.0f;
-            ImGui::Checkbox("##toggle", &toggle);
-            value = toggle ? 1.0f : -1.0f;
-        }
-        else if (control_value->is_integer)
-        {
-            int integer = (int)roundf(value);
-            ImGui::SliderInt("##slider", &integer, (int)roundf(min), (int)roundf(max), "%d", log_flag);
-            value = integer;
+            auto& control_value = _plugin->control_values[j];
 
-            if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
-                value = control_value->default_value;
+            ImGui::PushID(&control_value);
+
+            float value = control_value->value;
+            float min = control_value->min;
+            float max = control_value->max;
+
+            ImGuiSliderFlags log_flag = (control_value->is_logarithmic ? ImGuiSliderFlags_Logarithmic : 0);
+            
+            if (control_value->is_sample_rate) {
+                value /= _dest->sample_rate;
+                min /= _dest->sample_rate;
+                max /= _dest->sample_rate;
             }
-        }
-        else
-        {
-            ImGui::SliderFloat(
-                "##slider",
-                &value,
-                min,
-                max,
-                "%.3f",
-                ImGuiSliderFlags_NoRoundToFormat |
-                log_flag);
 
-            if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
-                value = control_value->default_value;
+            if (control_value->is_toggle)
+            {
+                bool toggle = value >= 0.0f;
+                ImGui::Checkbox("##toggle", &toggle);
+                value = toggle ? 1.0f : -1.0f;
             }
+            else if (control_value->is_integer)
+            {
+                int integer = (int)roundf(value);
+                ImGui::SliderInt("##slider", &integer, (int)roundf(min), (int)roundf(max), "%d", log_flag);
+                value = integer;
+
+                if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
+                    value = control_value->default_value;
+                }
+            }
+            else
+            {
+                ImGui::SliderFloat(
+                    "##slider",
+                    &value,
+                    min,
+                    max,
+                    "%.3f",
+                    ImGuiSliderFlags_NoRoundToFormat |
+                    log_flag);
+
+                if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
+                    value = control_value->default_value;
+                }
+            }
+
+
+            if (control_value->is_sample_rate) value *= _dest->sample_rate;
+            control_value->value = value;
+
+            ImGui::PopID();
         }
 
+        ImGui::EndGroup();
+    }
 
-        if (control_value->is_sample_rate) value *= _dest->sample_rate;
-        control_value->value = value;
+    ImGui::PopItemWidth();
 
-        ImGui::PopID();
+    for (auto& output : _plugin->output_values)
+    {
+        ImGui::Text("%s: %.3f", output->name.c_str(), output->value);
     }
 }
 
@@ -144,13 +179,7 @@ PluginManager::PluginManager()
     // get system ladspa paths
     // (read from LADSPA_PATH environment variable or use standard paths)
     {
-        const char* list_str = std::getenv("LADSPA_PATH");
-        if (list_str == nullptr)
-    #ifdef _WIN32
-            list_str = ""; // windows has no standard paths for ladspa plugins
-    #else
-            list_str = "/usr/lib/ladspa";
-    #endif
+        const char* list_str = LadspaPlugin::get_standard_paths();
         _std_ladspa = parse_path_list(list_str);
     }
 

@@ -6,6 +6,18 @@
 
 using namespace plugins;
 
+const char* LadspaPlugin::get_standard_paths()
+{
+    const char* list_str = std::getenv("LADSPA_PATH");
+        if (list_str == nullptr)
+#ifdef _WIN32
+            list_str = ""; // windows has no standard paths for ladspa plugins
+#else
+            list_str = "/usr/lib/ladspa:/usr/local/lib/ladspa";
+#endif
+    return list_str;
+}
+
 std::vector<PluginData> LadspaPlugin::get_data(const char *path)
 {
     std::vector<PluginData> output;
@@ -103,90 +115,103 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
     {
         LADSPA_PortDescriptor port = descriptor->PortDescriptors[port_i];
 
-        if (LADSPA_IS_PORT_INPUT(port) && LADSPA_IS_PORT_CONTROL(port))
+        if (LADSPA_IS_PORT_CONTROL(port))
         {
-            ControlValue* control = new ControlValue;
-            control_values.push_back(control);
-            control->name = descriptor->PortNames[port_i];
-            control->port_index = port_i;
-            
-            // use these values if unspecified
-            control->min = -10.0f;
-            control->default_value = 0.0f;
-            control->has_default = false;
-            control->max = 10.0f;
-            
-            // read hints
-            const LADSPA_PortRangeHint& range_hint = descriptor->PortRangeHints[port_i];
-            LADSPA_PortRangeHintDescriptor hint_descriptor = range_hint.HintDescriptor;
-
-            control->is_toggle = LADSPA_IS_HINT_TOGGLED(hint_descriptor);
-            control->is_logarithmic = LADSPA_IS_HINT_LOGARITHMIC(hint_descriptor);
-            control->is_integer = LADSPA_IS_HINT_INTEGER(hint_descriptor);
-            control->is_sample_rate = LADSPA_IS_HINT_SAMPLE_RATE(hint_descriptor);
-
-            if (LADSPA_IS_HINT_BOUNDED_BELOW(hint_descriptor))
-                control->min =
-                    range_hint.LowerBound *
-                    (control->is_sample_rate ? dest.sample_rate : 1) - // if control describes sample rate
-                    (control->is_integer ? -0.01f : 0.0f); // avoid floating point rounding errors
-
-            if (LADSPA_IS_HINT_BOUNDED_ABOVE(hint_descriptor))
-                control->max =
-                    range_hint.UpperBound *
-                    (control->is_sample_rate ? dest.sample_rate : 1) + // if control describes sample rate
-                    (control->is_integer ? 0.01f : 0.0f); // avoid floating point rounding errors
-
-            // default value
-            if (LADSPA_IS_HINT_HAS_DEFAULT(hint_descriptor))
+            if (LADSPA_IS_PORT_INPUT(port))
             {
-                control->has_default = true;
+                ControlValue* control = new ControlValue;
+                control_values.push_back(control);
+                control->name = descriptor->PortNames[port_i];
+                control->port_index = port_i;
+                
+                // use these values if unspecified
+                control->min = -10.0f;
+                control->default_value = 0.0f;
+                control->has_default = false;
+                control->max = 10.0f;
+                
+                // read hints
+                const LADSPA_PortRangeHint& range_hint = descriptor->PortRangeHints[port_i];
+                LADSPA_PortRangeHintDescriptor hint_descriptor = range_hint.HintDescriptor;
 
-                if (LADSPA_IS_HINT_DEFAULT_0(hint_descriptor))
-                    control->default_value = 0.0f;
+                control->is_toggle = LADSPA_IS_HINT_TOGGLED(hint_descriptor);
+                control->is_logarithmic = LADSPA_IS_HINT_LOGARITHMIC(hint_descriptor);
+                control->is_integer = LADSPA_IS_HINT_INTEGER(hint_descriptor);
+                control->is_sample_rate = LADSPA_IS_HINT_SAMPLE_RATE(hint_descriptor);
 
-                if (LADSPA_IS_HINT_DEFAULT_1(hint_descriptor))
-                    control->default_value = 1.0f;
+                if (LADSPA_IS_HINT_BOUNDED_BELOW(hint_descriptor))
+                    control->min =
+                        range_hint.LowerBound *
+                        (control->is_sample_rate ? dest.sample_rate : 1) - // if control describes sample rate
+                        (control->is_integer ? -0.01f : 0.0f); // avoid floating point rounding errors
 
-                if (LADSPA_IS_HINT_DEFAULT_100(hint_descriptor))
-                    control->default_value = 100.0f;
+                if (LADSPA_IS_HINT_BOUNDED_ABOVE(hint_descriptor))
+                    control->max =
+                        range_hint.UpperBound *
+                        (control->is_sample_rate ? dest.sample_rate : 1) + // if control describes sample rate
+                        (control->is_integer ? 0.01f : 0.0f); // avoid floating point rounding errors
 
-                if (LADSPA_IS_HINT_DEFAULT_440(hint_descriptor))
-                    control->default_value = 440.0f;
+                // default value
+                if (LADSPA_IS_HINT_HAS_DEFAULT(hint_descriptor))
+                {
+                    control->has_default = true;
 
-                if (LADSPA_IS_HINT_DEFAULT_MINIMUM(hint_descriptor))
-                    control->default_value = control->min;
+                    if (LADSPA_IS_HINT_DEFAULT_0(hint_descriptor))
+                        control->default_value = 0.0f;
 
-                if (LADSPA_IS_HINT_DEFAULT_LOW(hint_descriptor)) {
-                    if (control->is_logarithmic)
-                        control->default_value = expf(logf(control->min) * 0.75f + logf(control->max) * 0.25f);
-                    else
-                        control->default_value = control->min * 0.75f + control->max * 0.25f;
+                    else if (LADSPA_IS_HINT_DEFAULT_1(hint_descriptor))
+                        control->default_value = 1.0f;
+
+                    else if (LADSPA_IS_HINT_DEFAULT_100(hint_descriptor))
+                        control->default_value = 100.0f;
+
+                    else if (LADSPA_IS_HINT_DEFAULT_440(hint_descriptor))
+                        control->default_value = 440.0f;
+
+                    else if (LADSPA_IS_HINT_DEFAULT_MINIMUM(hint_descriptor))
+                        control->default_value = control->min;
+
+                    else if (LADSPA_IS_HINT_DEFAULT_LOW(hint_descriptor)) {
+                        if (control->is_logarithmic)
+                            control->default_value = expf(logf(control->min) * 0.75f + logf(control->max) * 0.25f);
+                        else
+                            control->default_value = control->min * 0.75f + control->max * 0.25f;
+                    }
+
+                    else if (LADSPA_IS_HINT_DEFAULT_MIDDLE(hint_descriptor)) {
+                        if (control->is_logarithmic)
+                            control->default_value = expf(0.5f * (logf(control->min) + logf(control->max)));
+                        else
+                            control->default_value = 0.5f * (control->min + control->max);
+                    }
+
+                    else if (LADSPA_IS_HINT_DEFAULT_HIGH(hint_descriptor)) {
+                        if (control->is_logarithmic)
+                            control->default_value = expf(logf(control->min) * 0.25f + logf(control->max) * 0.75f);
+                        else
+                            control->default_value = control->min * 0.25f + control->max * 0.75f;
+                    }
+
+                    else if (LADSPA_IS_HINT_DEFAULT_MAXIMUM(hint_descriptor))
+                        control->default_value = control->max;
                 }
 
-                if (LADSPA_IS_HINT_DEFAULT_MIDDLE(hint_descriptor)) {
-                    if (control->is_logarithmic)
-                        control->default_value = expf(0.5f * (logf(control->min) + logf(control->max)));
-                    else
-                        control->default_value = 0.5f * (control->min + control->max);
-                }
-
-                if (LADSPA_IS_HINT_DEFAULT_HIGH(hint_descriptor)) {
-                    if (control->is_logarithmic)
-                        control->default_value = expf(logf(control->min) * 0.25f + logf(control->max) * 0.75f);
-                    else
-                        control->default_value = control->min * 0.25f + control->max * 0.75f;
-                }
-
-                if (LADSPA_IS_HINT_DEFAULT_MAXIMUM(hint_descriptor))
-                    control->default_value = control->max;
+                control->value = control->default_value;
+                descriptor->connect_port(instance, port_i, &control->value);
             }
 
-            control->value = control->default_value;
-            descriptor->connect_port(instance, port_i, &control->value);
+            else if (LADSPA_IS_PORT_OUTPUT(port))
+            {
+                OutputValue* value = new OutputValue;
+                value->name = descriptor->PortNames[port_i];
+                value->port_index = port_i;
+                output_values.push_back(value);
+
+                descriptor->connect_port(instance, port_i, &value->value);
+            }
         }
 
-        if (LADSPA_IS_PORT_AUDIO(port))
+        else if (LADSPA_IS_PORT_AUDIO(port))
         {
             // input buffer
             if (LADSPA_IS_PORT_INPUT(port))
