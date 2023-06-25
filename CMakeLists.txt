@@ -70,6 +70,7 @@ set(SOURCES
     src/ui/imgui_stdlib.cpp
 
     # audio modules
+    src/modules/util.cpp
     src/modules/modules.cpp
     src/modules/analyzer.cpp
     src/modules/gain.cpp
