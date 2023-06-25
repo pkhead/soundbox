@@ -141,6 +141,8 @@ void SongEditor::reset()
     undo_stack.clear();
     redo_stack.clear();
     ui_values.clear();
+    mod_interfaces.clear();
+    fx_interfaces.clear();
     selected_channel = 0;
     selected_bar = 0;
 }
