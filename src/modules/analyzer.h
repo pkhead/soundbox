@@ -15,9 +15,10 @@ namespace audiomod
         const int window_margin = 512; // in frames
         float* buf;
 
-        // 0 = view samples
+        // 0 = view oscilloscope
         // 1 = view spectrogram
         int mode = 0;
+        bool align = true; // oscilloscope align
         float range = 1.0f;
 
         // use double buffering because of concurrency

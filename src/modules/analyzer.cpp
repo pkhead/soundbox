@@ -108,10 +108,15 @@ void AnalyzerModule::_interface_proc() {
         float* left = window_left[window_front];
         float* right = window_right[window_front];
 
-        // align display to nearest zero crossing from center
-        size_t frames_per_buffer = frames_per_window + window_margin * 2;
-        int offset_left = offset_zero_crossing(left, frames_per_buffer, window_margin);
-        int offset_right = offset_zero_crossing(right, frames_per_buffer, window_margin);
+        int offset_left = 0;
+        int offset_right = 0;
+
+        if (align) {
+            // align display to nearest zero crossing from center
+            size_t frames_per_buffer = frames_per_window + window_margin * 2;
+            offset_left = offset_zero_crossing(left, frames_per_buffer, window_margin);
+            offset_right = offset_zero_crossing(right, frames_per_buffer, window_margin);
+        }
 
         ImGui::PlotLines(
             "###left_samples", 
@@ -165,10 +170,22 @@ void AnalyzerModule::_interface_proc() {
     }
     
     ImGui::SameLine();
-    ImGui::VSliderFloat("###range", ImVec2(ImGui::GetTextLineHeight() * 1.5f, ImGui::GetTextLineHeight() * 10.0f), &range, 0.1f, 1.0f, "");
+    ImGui::VSliderFloat(
+        "###range",
+        ImVec2(ImGui::GetTextLineHeight() * 1.5f, ImGui::GetTextLineHeight() * 10.0f),
+        &range,
+        0.01f,
+        1.0f,
+        "",
+        ImGuiSliderFlags_Logarithmic);
     if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
         ImGui::SetTooltip("%.3f", range);
     }
 
     in_use = false;
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Align");
+    ImGui::SameLine();
+    ImGui::Checkbox("###align", &align);
 }
