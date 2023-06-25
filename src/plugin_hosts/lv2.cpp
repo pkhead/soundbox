@@ -91,8 +91,7 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
 
         const LilvPluginClass* plug_class = lilv_plugin_get_class(plug);
         const char* class_uri = lilv_node_as_uri ( lilv_plugin_class_get_uri(plug_class) );
-        data.is_instrument = strcmp(class_uri, "http://lv2plug.in/ns/lv2core#InstrumentPlugin") == 0;
-
+        data.is_instrument = strcmp(class_uri, LV2_CORE__InstrumentPlugin) == 0;
         data_out.push_back(data);
     }
 }
