@@ -2,6 +2,26 @@
 #include <atomic>
 #include <cstddef>
 
+// debug log
+#ifdef _NDEBUG
+
+#define dbg(fmt, ...)
+
+#else
+
+#include <cstdio>
+#define dbg(fmt, ...) printf(fmt, __VA_ARGS__)
+
+#endif
+
+inline int sign(float v) {
+    return v >= 0.0f ? 1 : -1; 
+}
+
+inline bool is_zero_crossing(float prev, float next) {
+    return (prev == 0.0f && next == 0.0f) || (sign(prev) != sign(next));
+}
+
 // a RingBuffer of floats
 // TODO: make audio.cpp use this so there aren't two implementations of ring buffers
 // in the same project (which is a waste!)

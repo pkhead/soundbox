@@ -12,7 +12,7 @@ namespace audiomod
         RingBuffer ring_buffer;
 
         const int frames_per_window = 1024;
-        const int window_margin = 64; // margin of frames (for alignment)
+        const int window_margin = 512; // in frames
         float* buf;
 
         // 0 = view samples

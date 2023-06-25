@@ -1,15 +1,8 @@
 #include "volume.h"
+#include "util.h"
 #include "../sys.h"
 
 using namespace audiomod;
-
-inline int sign(float v) {
-    return v >= 0.0f ? 1 : -1; 
-}
-
-inline bool is_zero_crossing(float prev, float next) {
-    return (prev == 0.0f && next == 0.0f) || (sign(prev) != sign(next));
-}
 
 VolumeModule::VolumeModule(DestinationModule& dest) : ModuleBase(false) {
     id = "effect.volume";
@@ -27,7 +20,7 @@ void VolumeModule::process(float** inputs, float* output, size_t num_inputs, siz
         // set both channels to zero
         output[i] = 0.0f;
         output[i + 1] = 0.0f;
-
+        
         if (!mute && !mute_override) {
             for (size_t j = 0; j < num_inputs; j++) {
                 if (is_zero_crossing(last_sample[0], inputs[j][i])) cur_volume[0] = volume * l_mult;
