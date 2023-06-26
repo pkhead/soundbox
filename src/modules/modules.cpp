@@ -2,6 +2,7 @@
 #include "../sys.h"
 #include "../plugins.h"
 #include "../plugin_hosts/ladspa.h"
+#include "../plugin_hosts/lv2.h"
 #include "../ui/editor.h"
 #include "modules.h"
 #include <iostream>
@@ -54,6 +55,10 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule
             {
                 case plugins::PluginType::Ladspa:
                     plugin = new plugins::LadspaPlugin(audio_dest, plugin_data);
+                    break;
+
+                case plugins::PluginType::Lv2:
+                    plugin = new plugins::Lv2Plugin(audio_dest, plugin_data);
                     break;
 
                 default:

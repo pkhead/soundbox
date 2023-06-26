@@ -107,6 +107,9 @@ void LadspaPlugin::scan_plugins(const std::vector<std::string>& ladspa_paths, st
 LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
     : Plugin(plugin_data), dest(dest)
 {
+    if (plugin_data.type != PluginType::Ladspa)
+        throw std::runtime_error("mismatched plugin types");
+    
     lib = sys::dl_open(plugin_data.file_path.c_str());
     if (lib == nullptr)
     {
