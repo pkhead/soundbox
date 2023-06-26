@@ -615,10 +615,8 @@ void Song::update(double elapsed) {
             
             channels[new_note.channel_i]->synth_mod->event({
                 audiomod::NoteEventKind::NoteOn,
-                {
-                    new_note.note.key,
-                    0.8f
-                }
+                new_note.note.key,
+                0.8f
             });
         }
     }

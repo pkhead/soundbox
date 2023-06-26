@@ -229,6 +229,51 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
     return true;
 }
 
+//////////////////////////////////////
+//   NOTE EVENT / MIDI CONVERSION   //
+//////////////////////////////////////
+
+size_t NoteEvent::to_midi(void* out_void) const
+{
+    struct midi_event_t {
+        uint8_t status;
+        uint8_t key;
+        uint8_t velocity;
+    } *midi_event;
+    midi_event = (midi_event_t*) out_void;
+
+    switch (kind) {
+        case NoteOn:
+            midi_event->status = 128;
+            midi_event->key = key;
+            midi_event->velocity = clampf(volume, 0.0f, 1.0f) * 127;
+            break;
+
+        case NoteOff:
+            midi_event->status = 129;
+            midi_event->key = key;
+            midi_event->velocity = clampf(volume, 0.0f, 1.0f) * 128;
+    }
+
+    return sizeof(uint8_t) * 3;
+}
+
+bool NoteEvent::from_midi(void *in, NoteEvent& out)
+{
+    uint8_t* status = (uint8_t*) in;
+    
+    switch (*status) {
+        case 128: // note on
+            return true;
+
+        case 129: // note off
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 
 //////////////////////
 //   MODULE BASE    //

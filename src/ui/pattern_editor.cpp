@@ -6,6 +6,8 @@
 #include "theme.h"
 #include "ui.h"
 
+constexpr float PIANO_KEY_VELOCITY = 0.8f;
+
 void render_pattern_editor(SongEditor &editor)
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -298,9 +300,8 @@ void render_pattern_editor(SongEditor &editor)
                     // turn off old note
                     selected_channel->synth_mod->event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
-                        {
-                            played_key
-                        }
+                        played_key,
+                        PIANO_KEY_VELOCITY
                     });
                 }
 
@@ -310,10 +311,8 @@ void render_pattern_editor(SongEditor &editor)
 
                 selected_channel->synth_mod->event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOn,
-                    {
-                        key,
-                        0.8f
-                    }
+                    key,
+                    PIANO_KEY_VELOCITY
                 });
             }
         }
@@ -331,19 +330,16 @@ void render_pattern_editor(SongEditor &editor)
                     // turn off old note
                     selected_channel->synth_mod->event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
-                        {
-                            played_key
-                        }
+                        played_key,
+                        PIANO_KEY_VELOCITY
                     });
 
                     // turn on new note
                     played_key = scroll - mouse_cy;
                     selected_channel->synth_mod->event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOn,
-                        {
-                            played_key,
-                            0.8f
-                        }
+                        played_key,
+                        PIANO_KEY_VELOCITY
                     });
                 }
             }
@@ -419,9 +415,8 @@ void render_pattern_editor(SongEditor &editor)
             if (prev_channel != nullptr && play_key) {
                 prev_channel->synth_mod->event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
-                    {
-                        played_key
-                    }
+                    played_key,
+                    PIANO_KEY_VELOCITY
                 });
 
                 play_key = false;
@@ -481,9 +476,8 @@ void render_pattern_editor(SongEditor &editor)
                 // turn off old note
                 selected_channel->synth_mod->event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
-                    {
-                        played_key
-                    }
+                    played_key,
+                    PIANO_KEY_VELOCITY
                 });
 
                 play_key = false;

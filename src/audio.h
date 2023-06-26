@@ -78,21 +78,13 @@ namespace audiomod {
         NoteOff
     };
 
-    struct NoteOnEvent {
-        int key;
-        float volume;
-    };
-
-    struct NoteOffEvent {
-        int key;
-    };
-
     struct NoteEvent {
         NoteEventKind kind;
-        union {
-            NoteOnEvent note_on;
-            NoteOffEvent note_off;
-        };
+        int key;
+        float volume;
+
+        size_t to_midi(void* out) const;
+        static bool from_midi(void* in, NoteEvent& out);
     };
 
     class ModuleBase;
@@ -145,7 +137,7 @@ namespace audiomod {
         static void free_garbage_modules();
 
         // send a note event to the module
-        virtual void event(const NoteEvent& event) {};
+        virtual void event(const NoteEvent event) {};
 
         // connect this module's output to a target's input
         void connect(ModuleOutputTarget* dest);

@@ -273,6 +273,12 @@ LadspaPlugin::~LadspaPlugin()
 
     for (float* buf : output_buffers)
         delete[] buf;
+
+    for (ControlInput* ctl : ctl_in)
+        delete ctl;
+
+    for (ControlOutput* ctl : ctl_out)
+        delete ctl;
     
     descriptor->cleanup(instance);
     delete[] input_combined;

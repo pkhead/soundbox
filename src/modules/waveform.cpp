@@ -142,10 +142,8 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
     }
 }
 
-void WaveformSynth::event(const NoteEvent& event) {
+void WaveformSynth::event(const NoteEvent event) {
     if (event.kind == NoteEventKind::NoteOn) {
-        NoteOnEvent event_data = event.note_on;
-        
         // create new voice in first found empty slot
         // if there are no empty slots, replace the first voice in memory
         Voice* voice = voices+0;
@@ -160,13 +158,13 @@ void WaveformSynth::event(const NoteEvent& event) {
         }
 
         float key_freq;
-        if (song->get_key_frequency(event_data.key, &key_freq))
+        if (song->get_key_frequency(event.key, &key_freq))
         {
             *voice = {
                 true,
-                event_data.key,
+                event.key,
                 key_freq,
-                event_data.volume,
+                event.volume,
                 { 0.0, 0.0, 0.0 },
                 0.0,
                 -1.0f,
@@ -175,12 +173,10 @@ void WaveformSynth::event(const NoteEvent& event) {
         }
     
     } else if (event.kind == NoteEventKind::NoteOff) {
-        NoteOffEvent event_data = event.note_off;
-        
         for (size_t i = 0; i < MAX_VOICES; i++) {
             Voice& voice = voices[i];
 
-            if (voice.active && voice.key == event_data.key && voice.release_time < 0.0f) {
+            if (voice.active && voice.key == event.key && voice.release_time < 0.0f) {
                 voice.release_time = voice.time;
 
                 // calculate envelope at release time
