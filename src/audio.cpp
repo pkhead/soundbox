@@ -233,40 +233,38 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //   NOTE EVENT / MIDI CONVERSION   //
 //////////////////////////////////////
 
-size_t NoteEvent::to_midi(void* out_void) const
+size_t NoteEvent::write_midi(MidiEvent* out) const
 {
-    struct midi_event_t {
-        uint8_t status;
-        uint8_t key;
-        uint8_t velocity;
-    } *midi_event;
-    midi_event = (midi_event_t*) out_void;
-
     switch (kind) {
         case NoteOn:
-            midi_event->status = 128;
-            midi_event->key = key;
-            midi_event->velocity = clampf(volume, 0.0f, 1.0f) * 127;
-            break;
+            out->status = 128;
+            out->note.key = key % 128;
+            out->note.velocity = clampf(volume, 0.0f, 1.0f) * 127;
+            return sizeof(MidiEvent::status) + sizeof(MidiEvent::note);
 
         case NoteOff:
-            midi_event->status = 129;
-            midi_event->key = key;
-            midi_event->velocity = clampf(volume, 0.0f, 1.0f) * 128;
+            out->status = 129;
+            out->note.key = key % 128;
+            out->note.velocity = clampf(volume, 0.0f, 1.0f) * 127;
+            return sizeof(MidiEvent::status) + sizeof(MidiEvent::note);
     }
 
-    return sizeof(uint8_t) * 3;
+    return 0;
 }
 
-bool NoteEvent::from_midi(void *in, NoteEvent& out)
+bool NoteEvent::read_midi(const MidiEvent* in)
 {
-    uint8_t* status = (uint8_t*) in;
-    
-    switch (*status) {
+    switch (in->status) {
         case 128: // note on
+            kind = NoteOn;
+            key = in->note.key;
+            volume = (float)in->note.velocity / 127;
             return true;
 
         case 129: // note off
+            kind = NoteOff;
+            key = in->note.key;
+            volume = (float)in->note.velocity / 127;
             return true;
 
         default:

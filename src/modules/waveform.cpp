@@ -142,7 +142,10 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
     }
 }
 
-void WaveformSynth::event(const NoteEvent event) {
+void WaveformSynth::event(uint64_t timestamp, const MidiEvent* midi) {
+    NoteEvent event;
+    if (!event.read_midi(midi)) return;
+    
     if (event.kind == NoteEventKind::NoteOn) {
         // create new voice in first found empty slot
         // if there are no empty slots, replace the first voice in memory
