@@ -419,7 +419,7 @@ bool ModuleBase::render_interface() {
 //////////////////////////
 
 DestinationModule::DestinationModule(int sample_rate, int num_channels, size_t buffer_size) :
-    time(0.0),
+    _frame_time(0),
     sample_rate(sample_rate),
     channel_count(num_channels),
     frames_per_buffer(buffer_size)
@@ -561,6 +561,7 @@ size_t DestinationModule::process(float** output) {
         process_node(_thread_audio_graph);
 
         *output = _thread_audio_graph->output;
+        _frame_time += frames_per_buffer;
         return _thread_audio_graph->buf_size;
     }
     else

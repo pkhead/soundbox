@@ -490,6 +490,7 @@ void Song::stop() {
         notes_playing--;
         
         channels[note_data.channel_i]->synth_mod->event({
+            audio_dest().time_in_frames(),
             audiomod::NoteEventKind::NoteOff,
             note_data.note.key
         });
@@ -592,6 +593,7 @@ void Song::update(double elapsed) {
             assert(notes_playing >= 0);
             
             channels[old_note.channel_i]->synth_mod->event({
+                audio_dest().time_in_frames(),
                 audiomod::NoteEventKind::NoteOff,
                 old_note.note.key
             });
@@ -614,6 +616,7 @@ void Song::update(double elapsed) {
             notes_playing++;
             
             channels[new_note.channel_i]->synth_mod->event({
+                audio_dest().time_in_frames(),
                 audiomod::NoteEventKind::NoteOn,
                 new_note.note.key,
                 0.8f

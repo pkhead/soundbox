@@ -79,6 +79,7 @@ namespace audiomod {
     };
 
     struct NoteEvent {
+        uint64_t frame_time;
         NoteEventKind kind;
         int key;
         float volume;
@@ -172,6 +173,8 @@ namespace audiomod {
         float* _audio_buffer;
         size_t _prev_buffer_size;
 
+        uint64_t _frame_time;
+
         // buffer filled with zeroes if audio is not yet ready
         static constexpr size_t DUMMY_BUFFER_SAMPLE_COUNT = 256;
         float dummy_buffer[DUMMY_BUFFER_SAMPLE_COUNT];
@@ -229,9 +232,10 @@ namespace audiomod {
 
         int sample_rate;
         int channel_count;
-
-        double time;
         size_t frames_per_buffer;
+
+        inline uint64_t time_in_frames() const { return _frame_time; };
+        inline double time_in_seconds() const { return (double)_frame_time / frames_per_buffer; };
 
         size_t process(float** output);
         void prepare();

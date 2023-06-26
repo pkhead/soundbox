@@ -299,6 +299,7 @@ void render_pattern_editor(SongEditor &editor)
                 if (play_key) {
                     // turn off old note
                     selected_channel->synth_mod->event(audiomod::NoteEvent {
+                        song.audio_dest().time_in_frames(),
                         audiomod::NoteEventKind::NoteOff,
                         played_key,
                         PIANO_KEY_VELOCITY
@@ -310,6 +311,7 @@ void render_pattern_editor(SongEditor &editor)
                 played_key = key;
 
                 selected_channel->synth_mod->event(audiomod::NoteEvent {
+                    song.audio_dest().time_in_frames(),
                     audiomod::NoteEventKind::NoteOn,
                     key,
                     PIANO_KEY_VELOCITY
@@ -329,6 +331,7 @@ void render_pattern_editor(SongEditor &editor)
                 if (prev_mouse_cy != mouse_cy) {
                     // turn off old note
                     selected_channel->synth_mod->event(audiomod::NoteEvent {
+                        song.audio_dest().time_in_frames(),
                         audiomod::NoteEventKind::NoteOff,
                         played_key,
                         PIANO_KEY_VELOCITY
@@ -337,6 +340,7 @@ void render_pattern_editor(SongEditor &editor)
                     // turn on new note
                     played_key = scroll - mouse_cy;
                     selected_channel->synth_mod->event(audiomod::NoteEvent {
+                        song.audio_dest().time_in_frames(),
                         audiomod::NoteEventKind::NoteOn,
                         played_key,
                         PIANO_KEY_VELOCITY
@@ -414,6 +418,7 @@ void render_pattern_editor(SongEditor &editor)
         if (selected_channel != prev_channel) {
             if (prev_channel != nullptr && play_key) {
                 prev_channel->synth_mod->event(audiomod::NoteEvent {
+                    song.audio_dest().time_in_frames(),
                     audiomod::NoteEventKind::NoteOff,
                     played_key,
                     PIANO_KEY_VELOCITY
@@ -475,6 +480,7 @@ void render_pattern_editor(SongEditor &editor)
             if (play_key) {
                 // turn off old note
                 selected_channel->synth_mod->event(audiomod::NoteEvent {
+                    song.audio_dest().time_in_frames(),
                     audiomod::NoteEventKind::NoteOff,
                     played_key,
                     PIANO_KEY_VELOCITY
