@@ -44,6 +44,9 @@ namespace plugins
             float value;
         };
 
+        std::vector<float*> audio_input_bufs;
+        std::vector<float*> audio_output_bufs;
+
         std::vector<ControlInput*> ctl_in;
         std::vector<ControlOutput*> ctl_out;
     
@@ -65,7 +68,7 @@ namespace plugins
         virtual int output_value_count() const override;
         virtual ControlValue get_control_value(int index) override;
         virtual OutputValue get_output_value(int index) override;
-        
+
         static const char* get_standard_paths();
         static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
 

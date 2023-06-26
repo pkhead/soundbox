@@ -181,6 +181,22 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             lilv_instance_connect_port(instance, i, &ctl->value);
         }
 
+        // input audio port
+        else if (lilv_port_is_a(plugin, port, lv2_AudioPort) && lilv_port_is_a(plugin, port, lv2_InputPort))
+        {
+            float* input_buf = new float[dest.frames_per_buffer * 2];
+            audio_input_bufs.push_back(input_buf);
+            lilv_instance_connect_port(instance, i, input_buf);
+        }
+
+        // output audio port
+        else if (lilv_port_is_a(plugin, port, lv2_AudioPort) && lilv_port_is_a(plugin, port, lv2_OutputPort))
+        {
+            float* output_buf = new float[dest.frames_per_buffer * 2];
+            audio_output_bufs.push_back(output_buf);
+            lilv_instance_connect_port(instance, i, output_buf);
+        }
+
         // an unsupported port type, throw an error if this port is required
         else if (!lilv_port_has_property(plugin, port, lv2_connectionOptional))
         {

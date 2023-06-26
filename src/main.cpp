@@ -834,12 +834,12 @@ int main()
 
         sys::clear_interval(audioaux_interval);
         song_editor.save_preferences();
+
+        audiomod::ModuleBase::free_garbage_modules();
     }
 
     device.stop();
     AudioDevice::_pa_stop();
-
-    audiomod::ModuleBase::free_garbage_modules();
     
     return 0;
 }
