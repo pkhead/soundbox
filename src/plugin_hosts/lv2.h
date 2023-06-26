@@ -3,6 +3,7 @@
 
 #include <lilv/lilv.h>
 #include <lv2/log/log.h>
+#include <lv2/atom/atom.h>
 
 namespace plugins
 {
@@ -51,6 +52,9 @@ namespace plugins
 
         std::vector<ControlInput*> ctl_in;
         std::vector<ControlOutput*> ctl_out;
+
+        LV2_Atom_Sequence* midi_in = nullptr;
+        LV2_Atom_Sequence* midi_out = nullptr;
 
         LV2_URID_Map map;
         LV2_Feature map_feature;

@@ -8,6 +8,7 @@
 #include "lv2/units/units.h"
 #include "lv2/urid/urid.h"
 #include "lv2/log/log.h"
+#include "lv2/atom/atom.h"
 #include "../util.h"
 
 using namespace plugins;
@@ -19,7 +20,16 @@ struct {
     LilvNode* lv2_OutputPort;
     LilvNode* lv2_AudioPort;
     LilvNode* lv2_ControlPort;
+    LilvNode* lv2_designation;
+    LilvNode* lv2_control;
     LilvNode* lv2_connectionOptional;
+
+    LilvNode* atom_AtomPort;
+    LilvNode* atom_bufferType;
+    LilvNode* atom_Double;
+    LilvNode* atom_Sequence;
+    LilvNode* atom_supports;
+
     LilvNode* units_unit;
     LilvNode* units_db;
 } static LV2_URIS;
@@ -31,7 +41,16 @@ void Lv2Plugin::lilv_init() {
     LV2_URIS.lv2_OutputPort = lilv_new_uri(LILV_WORLD, LV2_CORE__OutputPort);
     LV2_URIS.lv2_AudioPort = lilv_new_uri(LILV_WORLD, LV2_CORE__AudioPort);
     LV2_URIS.lv2_ControlPort = lilv_new_uri(LILV_WORLD, LV2_CORE__ControlPort);
+    LV2_URIS.lv2_designation = lilv_new_uri(LILV_WORLD, LV2_CORE__designation);
+    LV2_URIS.lv2_control = lilv_new_uri(LILV_WORLD, LV2_CORE__control);
     LV2_URIS.lv2_connectionOptional = lilv_new_uri(LILV_WORLD, LV2_CORE__connectionOptional);
+
+    LV2_URIS.atom_AtomPort = lilv_new_uri(LILV_WORLD, LV2_ATOM__AtomPort);
+    LV2_URIS.atom_bufferType = lilv_new_uri(LILV_WORLD, LV2_ATOM__bufferType);
+    LV2_URIS.atom_Double = lilv_new_uri(LILV_WORLD, LV2_ATOM__Double);
+    LV2_URIS.atom_Sequence = lilv_new_uri(LILV_WORLD, LV2_ATOM__Sequence);
+    LV2_URIS.atom_supports = lilv_new_uri(LILV_WORLD, LV2_ATOM__supports);
+
     LV2_URIS.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     LV2_URIS.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
 }
@@ -188,9 +207,9 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
     // init features
     map = {nullptr, uri_map};
-    map_feature = {LV2_URID_MAP_URI, &map};
+    map_feature = {LV2_URID__map, &map};
     unmap = {nullptr, uri_unmap};
-    unmap_feature = {LV2_URID_UNMAP_URI, &unmap};
+    unmap_feature = {LV2_URID__unmap, &unmap};
     log = {nullptr, log_printf, log_vprintf};
     log_feature = {LV2_LOG_URI, &log};
 
@@ -215,12 +234,17 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         const LilvPort* port = lilv_plugin_get_port_by_index(plugin, i);
         
         LilvNode* name_node = lilv_port_get_name(plugin, port);
-        const char* port_name = lilv_node_as_string(name_node);
+        const char* port_name = name_node ? lilv_node_as_string(name_node) : "[unnamed]";
+
+        bool is_input_port = lilv_port_is_a(plugin, port, LV2_URIS.lv2_InputPort);
+        bool is_output_port = lilv_port_is_a(plugin, port, LV2_URIS.lv2_OutputPort);
+
+        LilvNode* designation_n = lilv_port_get(plugin, port, LV2_URIS.lv2_designation);
 
         // input control port
         if (
             lilv_port_is_a(plugin, port, LV2_URIS.lv2_ControlPort) &&
-            lilv_port_is_a(plugin, port, LV2_URIS.lv2_InputPort)
+            is_input_port
         ) {
             ControlInput* ctl = new ControlInput;
             ctl->name = port_name;
@@ -249,7 +273,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         // output control port
         else if (
             lilv_port_is_a(plugin, port, LV2_URIS.lv2_ControlPort) &&
-            lilv_port_is_a(plugin, port, LV2_URIS.lv2_OutputPort)
+            is_output_port
         ) {
             ControlOutput* ctl = new ControlOutput;
             ctl->name = port_name;
@@ -261,7 +285,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         // input audio port
         else if (
             lilv_port_is_a(plugin, port, LV2_URIS.lv2_AudioPort) &&
-            lilv_port_is_a(plugin, port, LV2_URIS.lv2_InputPort)
+            is_input_port
         ) {
             float* input_buf = new float[dest.frames_per_buffer * 2];
             audio_input_bufs.push_back(input_buf);
@@ -271,20 +295,58 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         // output audio port
         else if (
             lilv_port_is_a(plugin, port, LV2_URIS.lv2_AudioPort) &&
-            lilv_port_is_a(plugin, port, LV2_URIS.lv2_OutputPort)
+            is_output_port
         ) {
             float* output_buf = new float[dest.frames_per_buffer * 2];
             audio_output_bufs.push_back(output_buf);
             lilv_instance_connect_port(instance, i, output_buf);
         }
 
+        // input atom port
+        else if (
+            lilv_port_is_a(plugin, port, LV2_URIS.atom_AtomPort) &&
+            is_input_port
+        ) {
+            LilvNode* buffer_type_n = lilv_port_get(plugin, port, LV2_URIS.atom_bufferType);
+
+            if (buffer_type_n) {
+                // atom:Sequence
+                if (lilv_node_equals(buffer_type_n, LV2_URIS.atom_Sequence)) {
+                    if (midi_in != nullptr)
+                        throw lv2_error("unsupported: multiple atom sequences");
+
+                    midi_in = new LV2_Atom_Sequence {
+                        { sizeof(LV2_Atom_Sequence_Body), uri_map(nullptr, LV2_ATOM__Sequence) },
+                        { 0, 0 }
+                    };
+
+                    lilv_instance_connect_port(instance, i, midi_in);
+                }
+
+                else
+                    throw lv2_error(std::string("unsupported atom type: ") + lilv_node_as_uri(buffer_type_n) );
+            } else {
+                throw lv2_error("atom port with unspecified type");
+            }
+
+            lilv_node_free(buffer_type_n);
+        }
+
         // an unsupported port type, throw an error if this port is required
         else if (!lilv_port_has_property(plugin, port, LV2_URIS.lv2_connectionOptional))
         {
+            const LilvNodes* class_nodes = lilv_port_get_classes(plugin, port);
+
+            // print node types
+            LILV_FOREACH (nodes, i, class_nodes) {
+                dbg("%s\n", lilv_node_as_string(lilv_nodes_get(class_nodes, i)));
+            }
+
             throw lv2_error("unsupported port type");
         }
 
-        lilv_node_free(name_node);
+        if (name_node)      lilv_node_free(name_node);
+        if (designation_n)  lilv_node_free(designation_n);
     }
 
     input_combined = new float[dest.frames_per_buffer * 2];
@@ -298,6 +360,21 @@ Lv2Plugin::~Lv2Plugin()
 {
     lilv_instance_free(instance);
     delete[] input_combined;
+
+    for (float* buf : audio_input_bufs)
+        delete buf;
+
+    for (float* buf : audio_output_bufs)
+        delete buf;
+
+    for (ControlInput* in : ctl_in)
+        delete in;
+
+    for (ControlOutput* out : ctl_out)
+        delete out;
+
+    if (midi_in) delete[] midi_in;
+    if (midi_out) delete[] midi_out;
 }
 
 int Lv2Plugin::control_value_count() const
