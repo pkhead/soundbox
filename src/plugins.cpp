@@ -20,23 +20,12 @@ using namespace plugins;
 Plugin::Plugin(const PluginData& data) : data(data)
 {}
 
-Plugin::~Plugin()
-{
-    // free control values
-    for (ControlValue* control_value : control_values)
-        delete control_value;
-
-    // free output values
-    for (OutputValue* output_value : output_values)
-        delete output_value;
-}
-
 ///////////////////
 // Plugin Module //
 ///////////////////
 
 PluginModule::PluginModule(Plugin* plugin)
-    : ModuleBase(plugin->control_values.size() > 0), _plugin(plugin)
+    : ModuleBase(plugin->control_value_count() > 0), _plugin(plugin)
 {
     name = _plugin->data.name;
     id = _plugin->data.id.c_str();
@@ -65,23 +54,23 @@ bool PluginModule::load_state(std::istream& stream, size_t size)
 
 void PluginModule::_interface_proc()
 {
-    int inputs_per_col = _plugin->control_values.size() / 2;
+    int inputs_per_col = _plugin->control_value_count() / 2;
     if (inputs_per_col < 8) inputs_per_col = 8;
     
     ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 14.0f);
 
-    for (int i = 0; i < _plugin->control_values.size(); i += inputs_per_col)
+    for (int i = 0; i < _plugin->control_value_count(); i += inputs_per_col)
     {
         if (i > 0) ImGui::SameLine();
 
         // write labels
         ImGui::BeginGroup();
 
-        for (int j = i; j < _plugin->control_values.size() && j < i + inputs_per_col; j++)
+        for (int j = i; j < _plugin->control_value_count() && j < i + inputs_per_col; j++)
         {
-            auto& control_value = _plugin->control_values[j];
+            auto control_value = _plugin->get_control_value(j);
             ImGui::AlignTextToFramePadding();
-            ImGui::Text("%s", control_value->name.c_str());
+            ImGui::Text("%s", control_value.name);
         }
 
         ImGui::EndGroup();
@@ -90,38 +79,38 @@ void PluginModule::_interface_proc()
         ImGui::SameLine();
         ImGui::BeginGroup();
 
-        for (int j = i; j < _plugin->control_values.size() && j < i + inputs_per_col; j++)
+        for (int j = i; j < _plugin->control_value_count() && j < i + inputs_per_col; j++)
         {
-            auto& control_value = _plugin->control_values[j];
+            auto control_value = _plugin->get_control_value(j);
 
-            ImGui::PushID(&control_value);
+            ImGui::PushID(control_value.value);
 
-            float value = control_value->value;
-            float min = control_value->min;
-            float max = control_value->max;
+            float value = *control_value.value;
+            float min = control_value.min;
+            float max = control_value.max;
 
-            ImGuiSliderFlags log_flag = (control_value->is_logarithmic ? ImGuiSliderFlags_Logarithmic : 0);
+            ImGuiSliderFlags log_flag = (control_value.is_logarithmic ? ImGuiSliderFlags_Logarithmic : 0);
             
-            if (control_value->is_sample_rate) {
+            if (control_value.is_sample_rate) {
                 value /= _dest->sample_rate;
                 min /= _dest->sample_rate;
                 max /= _dest->sample_rate;
             }
 
-            if (control_value->is_toggle)
+            if (control_value.is_toggle)
             {
                 bool toggle = value >= 0.0f;
                 ImGui::Checkbox("##toggle", &toggle);
                 value = toggle ? 1.0f : -1.0f;
             }
-            else if (control_value->is_integer)
+            else if (control_value.is_integer)
             {
                 int integer = (int)roundf(value);
                 ImGui::SliderInt("##slider", &integer, (int)roundf(min), (int)roundf(max), "%d", log_flag);
                 value = integer;
 
-                if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
-                    value = control_value->default_value;
+                if (control_value.has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
+                    value = control_value.default_value;
                 }
             }
             else
@@ -135,14 +124,14 @@ void PluginModule::_interface_proc()
                     ImGuiSliderFlags_NoRoundToFormat |
                     log_flag);
 
-                if (control_value->has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
-                    value = control_value->default_value;
+                if (control_value.has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
+                    value = control_value.default_value;
                 }
             }
 
 
-            if (control_value->is_sample_rate) value *= _dest->sample_rate;
-            control_value->value = value;
+            if (control_value.is_sample_rate) value *= _dest->sample_rate;
+            *control_value.value = value;
 
             ImGui::PopID();
         }
@@ -152,9 +141,10 @@ void PluginModule::_interface_proc()
 
     ImGui::PopItemWidth();
 
-    for (auto& output : _plugin->output_values)
+    for (int i = 0; i < _plugin->output_value_count(); i++)
     {
-        ImGui::Text("%s: %.3f", output->name.c_str(), output->value);
+        auto output_value = _plugin->get_output_value(i);
+        ImGui::Text("%s: %.3f", output_value.name, *output_value.value);
     }
 }
 

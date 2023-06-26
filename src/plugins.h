@@ -34,9 +34,9 @@ namespace plugins
     public:
         struct ControlValue
         {
-            std::string name;
+            const char* name;
             int port_index;
-            float value;
+            float* value;
 
             bool is_toggle;
             bool is_logarithmic;
@@ -50,18 +50,15 @@ namespace plugins
 
         struct OutputValue
         {
-            std::string name;
+            const char* name;
             int port_index;
-            float value;
+            float* value;
         };
 
-        std::vector<ControlValue*> control_values;
-        std::vector<OutputValue*> output_values;
-        
         const PluginData data;
 
         Plugin(const PluginData& data);
-        virtual ~Plugin();
+        virtual ~Plugin() {};
 
         virtual void start() = 0;
         virtual void stop() = 0;
@@ -69,6 +66,11 @@ namespace plugins
 
         virtual void save_state(std::ostream& ostream) const = 0;
         virtual bool load_state(std::istream& istream, size_t size) = 0;
+
+        virtual int control_value_count() const = 0;
+        virtual int output_value_count() const = 0;
+        virtual ControlValue get_control_value(int index) = 0;
+        virtual OutputValue get_output_value(int index) = 0;
     };
 
     class PluginModule : public audiomod::ModuleBase

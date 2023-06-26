@@ -14,7 +14,32 @@ namespace plugins
 
         std::vector<float*> input_buffers;
         std::vector<float*> output_buffers;
-        std::vector<float*> output_ports;
+
+        struct ControlInput
+        {
+            std::string name;
+            int port_index;
+            float value;
+
+            bool is_toggle;
+            bool is_logarithmic;
+            bool is_sample_rate;
+            bool is_integer;
+            bool has_default;
+
+            float min, max;
+            float default_value;
+        };
+
+        struct ControlOutput
+        {
+            std::string name;
+            int port_index;
+            float value;
+        };
+
+        std::vector<ControlInput*> ctl_in;
+        std::vector<ControlOutput*> ctl_out;
     
     public:
         LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& data);
@@ -30,5 +55,10 @@ namespace plugins
 
         static const char* get_standard_paths();
         static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
+
+        virtual int control_value_count() const override;
+        virtual int output_value_count() const override;
+        virtual ControlValue get_control_value(int index) override;
+        virtual OutputValue get_output_value(int index) override;
     }; // class LadspaPlugin
 } // namespace plugins

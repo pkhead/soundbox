@@ -146,8 +146,8 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
         {
             if (LADSPA_IS_PORT_INPUT(port))
             {
-                ControlValue* control = new ControlValue;
-                control_values.push_back(control);
+                ControlInput* control = new ControlInput;
+                ctl_in.push_back(control);
                 control->name = descriptor->PortNames[port_i];
                 control->port_index = port_i;
                 
@@ -229,10 +229,10 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
 
             else if (LADSPA_IS_PORT_OUTPUT(port))
             {
-                OutputValue* value = new OutputValue;
+                ControlOutput* value = new ControlOutput;
                 value->name = descriptor->PortNames[port_i];
                 value->port_index = port_i;
-                output_values.push_back(value);
+                ctl_out.push_back(value);
 
                 descriptor->connect_port(instance, port_i, &value->value);
             }
@@ -270,6 +270,46 @@ LadspaPlugin::~LadspaPlugin()
     
     descriptor->cleanup(instance);
     sys::dl_close(lib);
+}
+
+int LadspaPlugin::control_value_count() const {
+    return ctl_in.size();
+}
+
+Plugin::ControlValue LadspaPlugin::get_control_value(int index)
+{
+    ControlValue value;
+    ControlInput* impl = ctl_in[index];
+
+    value.name = impl->name.c_str();
+    value.port_index = impl->port_index;
+    value.value = &impl->value;
+    value.has_default = impl->has_default;
+    value.default_value = impl->default_value;
+    value.max = impl->max;
+    value.min = impl->min;
+    value.is_integer = impl->is_integer;
+    value.is_logarithmic = impl->is_logarithmic;
+    value.is_sample_rate = impl->is_sample_rate;
+    value.is_toggle = impl->is_toggle;
+
+    return value;
+}
+
+int LadspaPlugin::output_value_count() const {
+    return ctl_out.size();
+}
+
+Plugin::OutputValue LadspaPlugin::get_output_value(int index)
+{
+    OutputValue value;
+    ControlOutput* impl = ctl_out[index];
+
+    value.name = impl->name.c_str();
+    value.port_index = impl->port_index;
+    value.value = &impl->value;
+
+    return value;
 }
 
 void LadspaPlugin::start()
@@ -358,10 +398,10 @@ void LadspaPlugin::save_state(std::ostream& stream) const
     push_bytes<uint8_t>(stream, (uint8_t) 1);
 
     // write size of state (used for validation)
-    push_bytes<uint32_t>(stream, control_values.size() * 4);
+    push_bytes<uint32_t>(stream, ctl_in.size() * 4);
 
     // write list of control values
-    for (const ControlValue* control : control_values)
+    for (const ControlInput* control : ctl_in)
     {
         push_bytes<float>(stream, control->value);
     }
@@ -374,10 +414,10 @@ bool LadspaPlugin::load_state(std::istream& stream, size_t size)
 
     // check size of state
     uint32_t state_size = pull_bytesr<uint32_t>(stream);
-    if (control_values.size() * 4 != state_size) return false;
+    if (ctl_in.size() * 4 != state_size) return false;
 
     // read list of control values
-    for (ControlValue* control : control_values)
+    for (ControlInput* control : ctl_in)
     {
         control->value = pull_bytesr<float>(stream); 
     }
