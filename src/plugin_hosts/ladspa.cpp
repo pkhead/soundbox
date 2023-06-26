@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <cstring>
 #include <cmath>
 #include "ladspa.h"
 #include "../sys.h"
@@ -246,8 +247,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             // input buffer
             if (LADSPA_IS_PORT_INPUT(port))
             {
-                // dest.buffer_size is frames per buffer
-                float* input_buf = new float[dest.frames_per_buffer];
+                float* input_buf = new float[dest.frames_per_buffer * 2];
                 input_buffers.push_back(input_buf);
                 descriptor->connect_port(instance, port_i, input_buf);
             }
@@ -255,7 +255,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             // output buffer
             else if (LADSPA_IS_PORT_OUTPUT(port))
             {
-                float* output_buf = new float[dest.frames_per_buffer];
+                float* output_buf = new float[dest.frames_per_buffer * 2];
                 output_buffers.push_back(output_buf);
                 descriptor->connect_port(instance, port_i, output_buf);
             }
@@ -330,27 +330,52 @@ void LadspaPlugin::stop()
 void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size)
 {
     if (descriptor->run == nullptr) return;
+    bool interleave = false; // TODO add ui checkbox to toggle this
+
+    size_t sample_count;
 
     // initialize input buffers
     if (input_buffers.size() > 0)
     {
-        // input is mono
+        // send interleaved buffer
         if (input_buffers.size() == 1)
         {
-            float* input_buf = input_buffers.front();
-
-            for (size_t i = 0; i < dest.frames_per_buffer; i++)
+            if (interleave)
             {
-                input_buf[i] = 0.0f;
+                sample_count = buffer_size;
+                float* input_buf = input_buffers.front();
 
-                for (size_t j = 0; j < num_inputs; j++)
-                    input_buf[i] += inputs[j][i * 2] + inputs[j][i * 2 + 1];
+                for (size_t i = 0; i < buffer_size; i++)
+                {
+                    input_buf[i] = 0.0f;
+                    input_buf[i + 1] = 0.0f;
+
+                    for (size_t j = 0; j < num_inputs; j++) {
+                        input_buf[i] += inputs[j][i];
+                        input_buf[i + 1] += inputs[j][i + 1];
+                    }
+                }
+            }
+            else // convert to mono
+            {
+                sample_count = dest.frames_per_buffer;
+                float* input_buf = input_buffers.front();
+
+                for (size_t i = 0; i < dest.frames_per_buffer; i++)
+                {
+                    input_buf[i] = 0.0f;
+
+                    for (size_t j = 0; j < num_inputs; j++)
+                        input_buf[i] += inputs[j][i * 2] + inputs[j][i * 2 + 1];
+                }
             }
         }
 
-        // input is stereo
+        // separate each channel
         else if (input_buffers.size() == 2)
         {
+            sample_count = dest.frames_per_buffer;
+
             for (size_t i = 0; i < dest.frames_per_buffer; i++)
             {
                 input_buffers[0][i] = 0.0f;
@@ -366,22 +391,29 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         // unsupported channel count, initialize buffers to 0
         else
         {
+            sample_count = dest.frames_per_buffer;
+
             for (float* buf : input_buffers)
                 for (size_t i = 0; i < dest.frames_per_buffer; i++)
                     buf[i] = 0.0f;
         }
     }
 
-    descriptor->run(instance, dest.frames_per_buffer);
+    descriptor->run(instance, sample_count);
 
     // write output buffers
     // mono
     if (output_buffers.size() == 1)
     {
         float* buf = output_buffers.front();
-        for (size_t i = 0; i < dest.frames_per_buffer; i++) {
-            output[i * 2] = buf[i];
-            output[i * 2 + 1] = buf[i];
+
+        if (interleave) {
+            memcpy(output, buf, buffer_size);
+        } else {
+            for (size_t i = 0; i < dest.frames_per_buffer; i++) {
+                output[i * 2] = buf[i];
+                output[i * 2 + 1] = buf[i];
+            }
         }
     }
 
