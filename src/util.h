@@ -1,6 +1,7 @@
 #pragma once
-#include <atomic>
 #include <cstddef>
+#include <vector>
+#include <atomic>
 
 // debug log
 #ifdef _NDEBUG
@@ -21,6 +22,9 @@ inline int sign(float v) {
 inline bool is_zero_crossing(float prev, float next) {
     return (prev == 0.0f && next == 0.0f) || (sign(prev) != sign(next));
 }
+
+size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
+void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
 // a RingBuffer of floats
 // TODO: make audio.cpp use this so there aren't two implementations of ring buffers

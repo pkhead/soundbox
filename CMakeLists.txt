@@ -52,6 +52,7 @@ set(SOURCES
     src/sys.cpp
     src/audiofile.cpp
     src/plugins.cpp
+    src/util.cpp
 
     src/plugin_hosts/ladspa.cpp
     src/plugin_hosts/lv2.cpp
@@ -76,7 +77,6 @@ set(SOURCES
     src/ui/imgui_stdlib.cpp
 
     # audio modules
-    src/modules/util.cpp
     src/modules/modules.cpp
     src/modules/analyzer.cpp
     src/modules/gain.cpp

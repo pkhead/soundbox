@@ -4,6 +4,7 @@
 #include <cmath>
 #include "ladspa.h"
 #include "../sys.h"
+#include "../util.h"
 
 using namespace plugins;
 
@@ -261,6 +262,8 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             }
         }
     }
+
+    input_combined = new float[dest.frames_per_buffer * 2];
 }
 
 LadspaPlugin::~LadspaPlugin()
@@ -272,6 +275,7 @@ LadspaPlugin::~LadspaPlugin()
         delete[] buf;
     
     descriptor->cleanup(instance);
+    delete[] input_combined;
     sys::dl_close(lib);
 }
 
@@ -332,99 +336,35 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
     if (descriptor->run == nullptr) return;
     bool interleave = false; // TODO add ui checkbox to toggle this
 
-    size_t sample_count;
-
     // initialize input buffers
-    if (input_buffers.size() > 0)
-    {
-        // send interleaved buffer
-        if (input_buffers.size() == 1)
-        {
-            if (interleave)
-            {
-                sample_count = buffer_size;
-                float* input_buf = input_buffers.front();
+    for (size_t i = 0; i < buffer_size; i += 2) {
+        input_combined[i] = 0.0f;
+        input_combined[i + 1] = 0.0f;
 
-                for (size_t i = 0; i < buffer_size; i++)
-                {
-                    input_buf[i] = 0.0f;
-                    input_buf[i + 1] = 0.0f;
-
-                    for (size_t j = 0; j < num_inputs; j++) {
-                        input_buf[i] += inputs[j][i];
-                        input_buf[i + 1] += inputs[j][i + 1];
-                    }
-                }
-            }
-            else // convert to mono
-            {
-                sample_count = dest.frames_per_buffer;
-                float* input_buf = input_buffers.front();
-
-                for (size_t i = 0; i < dest.frames_per_buffer; i++)
-                {
-                    input_buf[i] = 0.0f;
-
-                    for (size_t j = 0; j < num_inputs; j++)
-                        input_buf[i] += inputs[j][i * 2] + inputs[j][i * 2 + 1];
-                }
-            }
-        }
-
-        // separate each channel
-        else if (input_buffers.size() == 2)
-        {
-            sample_count = dest.frames_per_buffer;
-
-            for (size_t i = 0; i < dest.frames_per_buffer; i++)
-            {
-                input_buffers[0][i] = 0.0f;
-                input_buffers[1][i] = 0.0f;
-
-                for (size_t j = 0; j < num_inputs; j++) {
-                    input_buffers[0][i] = inputs[j][i * 2];
-                    input_buffers[1][i] = inputs[j][i * 2 + 1];
-                }
-            }
-        }
-
-        // unsupported channel count, initialize buffers to 0
-        else
-        {
-            sample_count = dest.frames_per_buffer;
-
-            for (float* buf : input_buffers)
-                for (size_t i = 0; i < dest.frames_per_buffer; i++)
-                    buf[i] = 0.0f;
+        for (size_t j = 0; j < num_inputs; j++) {
+            input_combined[i] += inputs[j][i];
+            input_combined[i + 1] += inputs[j][i + 1];
         }
     }
+
+    size_t sample_count = convert_from_stereo(
+        input_combined,
+        &input_buffers.front(),
+        input_buffers.size(),
+        dest.frames_per_buffer,
+        interleave
+    );
 
     descriptor->run(instance, sample_count);
 
     // write output buffers
-    // mono
-    if (output_buffers.size() == 1)
-    {
-        float* buf = output_buffers.front();
-
-        if (interleave) {
-            memcpy(output, buf, buffer_size);
-        } else {
-            for (size_t i = 0; i < dest.frames_per_buffer; i++) {
-                output[i * 2] = buf[i];
-                output[i * 2 + 1] = buf[i];
-            }
-        }
-    }
-
-    // stereo
-    else if (output_buffers.size() == 2)
-    {
-        for (size_t i = 0; i < dest.frames_per_buffer; i++) {
-            output[i * 2] = output_buffers[0][i];
-            output[i * 2 + 1] = output_buffers[1][i];
-        }
-    }
+    convert_to_stereo(
+        &output_buffers.front(),
+        output,
+        output_buffers.size(),
+        dest.frames_per_buffer,
+        interleave
+    );
 }
 
 void LadspaPlugin::save_state(std::ostream& stream) const

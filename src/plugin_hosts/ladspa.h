@@ -12,6 +12,7 @@ namespace plugins
         LADSPA_Handle instance;
         audiomod::DestinationModule& dest;
 
+        float* input_combined;
         std::vector<float*> input_buffers;
         std::vector<float*> output_buffers;
 

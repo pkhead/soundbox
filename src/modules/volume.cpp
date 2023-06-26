@@ -1,5 +1,5 @@
 #include "volume.h"
-#include "util.h"
+#include "../util.h"
 #include "../sys.h"
 
 using namespace audiomod;

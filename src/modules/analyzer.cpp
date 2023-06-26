@@ -2,7 +2,7 @@
 //			this may require storing audio data in some sort of ring buffer
 
 #include <imgui.h>
-#include "util.h"
+#include "../util.h"
 #include "analyzer.h"
 
 using namespace audiomod;
