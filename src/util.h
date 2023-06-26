@@ -11,7 +11,14 @@
 #else
 
 #include <cstdio>
-#define dbg(fmt, ...) printf(fmt, __VA_ARGS__)
+#include <cstdarg>
+
+inline void dbg(const char* fmt, ...) {
+    va_list vl;
+    va_start(vl, fmt);
+    vprintf(fmt, vl);
+    va_end(vl);
+}
 
 #endif
 

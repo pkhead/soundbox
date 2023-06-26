@@ -316,23 +316,19 @@ const char* module_selection_popup(SongEditor& editor, bool instruments)
     const char* new_module_id = nullptr;
 
     // display built-in instruments
-    if (instruments)
+    for (auto listing : audiomod::instruments_list)
     {
-        for (auto listing : audiomod::instruments_list)
-        {
-            if ( str_search(listing.name, search_query) ) {
-                displayed++;
-                displayed_module_id = listing.id;
+        if ( str_search(listing.name, search_query) ) {
+            displayed++;
+            displayed_module_id = listing.id;
 
-                if (ImGui::Selectable(listing.name))
-                    new_module_id = listing.id;
-            }
+            if (ImGui::Selectable(listing.name))
+                new_module_id = listing.id;
         }
     }
 
     // or display built in effects
-    else
-    {
+    if (!instruments) {
         for (auto listing : audiomod::effects_list)
         {
             if ( str_search(listing.name, search_query) ) {

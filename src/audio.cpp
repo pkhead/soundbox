@@ -233,47 +233,48 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //   NOTE EVENT / MIDI CONVERSION   //
 //////////////////////////////////////
 
-size_t MidiEvent::size() const
+size_t MidiMessage::size() const
 {
     switch (status) {
-        case 128: // note on
-        case 129: // note off
+        case 0x80: // note off
+        case 0x90: // note on
             return sizeof(status) + sizeof(note);
     }
 
     return 0;
 }
 
-size_t NoteEvent::write_midi(MidiEvent* out) const
+size_t NoteEvent::write_midi(MidiMessage* out) const
 {
     switch (kind) {
+        case NoteOff:
+            out->status = 0x80;
+            out->note.key = key % 128;
+            out->note.velocity = clampf(volume, 0.0f, 1.0f) * 127;
+            break;
+        
         case NoteOn:
-            out->status = 128;
+            out->status = 0x90;
             out->note.key = key % 128;
             out->note.velocity = clampf(volume, 0.0f, 1.0f) * 127;
             break;
 
-        case NoteOff:
-            out->status = 129;
-            out->note.key = key % 128;
-            out->note.velocity = clampf(volume, 0.0f, 1.0f) * 127;
-            break;
     }
 
     return out->size();
 }
 
-bool NoteEvent::read_midi(const MidiEvent* in)
+bool NoteEvent::read_midi(const MidiMessage* in)
 {
-    switch (in->status) {
-        case 128: // note on
-            kind = NoteOn;
+    switch (in->status & 0xf0) { // the last 4 bits are for the channel number
+        case 0x80: // note off
+            kind = NoteOff;
             key = in->note.key;
             volume = (float)in->note.velocity / 127;
             return true;
-
-        case 129: // note off
-            kind = NoteOff;
+        
+        case 0x90: // note on
+            kind = NoteOn;
             key = in->note.key;
             volume = (float)in->note.velocity / 127;
             return true;
@@ -586,6 +587,16 @@ void DestinationModule::process_node(ModuleNode* node)
     for (size_t i = 0; i < node->num_inputs; i++)
     {
         process_node(node->inputs[i]);
+
+        MidiEvent midi_buf[8];
+        size_t count;
+
+        while ((count = node->inputs[i]->module->receive_events(midi_buf, 8)))
+        {
+            for (int i = 0; i < count; i++) {
+                node->module->event(midi_buf + i);
+            }
+        }
     }
 
     if (node->module)

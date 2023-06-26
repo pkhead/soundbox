@@ -78,7 +78,7 @@ namespace audiomod {
         NoteOff
     };
 
-    struct MidiEvent {
+    struct MidiMessage {
         uint8_t status;
 
         union {
@@ -91,13 +91,18 @@ namespace audiomod {
         size_t size() const;
     };
 
+    struct MidiEvent {
+        uint64_t time;
+        MidiMessage msg;
+    };
+
     struct NoteEvent {
         NoteEventKind kind;
         int key;
         float volume;
 
-        size_t write_midi(MidiEvent* out) const;
-        bool read_midi(const MidiEvent* in);
+        size_t write_midi(MidiMessage* out) const;
+        bool read_midi(const MidiMessage* in);
     };
 
     class ModuleBase;
@@ -150,11 +155,18 @@ namespace audiomod {
         static void free_garbage_modules();
 
         // send a midi event to the module
-        virtual void event(uint64_t timestamp, const MidiEvent* event) {};
+        virtual void event(const MidiEvent* event) {};
 
-        // receive midi events from this module
-        // this should also clear the queue
-        virtual std::vector<MidiEvent> receive_events() { return std::vector<MidiEvent>(); };
+        /**
+        * Receive MIDI events from a module.
+        *
+        * This will dequeue an internal MIDI sequence buffer and write it to the output.
+        * If the given buffer is not big enough, it will return. Processing
+        * will resume once the function is called again. If there are no MIDI messages,
+        * it should return 0 and the internal buffer in the implementation is clear.
+        * @returns The number of MIDI messages written to the output
+        **/
+        virtual size_t receive_events(MidiEvent* buffer, size_t capacity) { return 0; };
 
         // connect this module's output to a target's input
         void connect(ModuleOutputTarget* dest);

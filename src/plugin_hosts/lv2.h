@@ -59,6 +59,7 @@ namespace plugins
             LV2_Atom_Sequence header;
             uint8_t data[MIDI_BUFFER_CAPACITY];
         } *midi_in = nullptr, *midi_out = nullptr;
+        LV2_Atom_Event* midi_read_it; // MIDi read iterator
 
         LV2_URID_Map map;
         LV2_Feature map_feature;
@@ -88,8 +89,8 @@ namespace plugins
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& istream, size_t size) override;
 
-        virtual void event(uint64_t timestamp, const audiomod::MidiEvent* event) override;
-        virtual std::vector<audiomod::MidiEvent> receive_events() override;
+        virtual void event(const audiomod::MidiEvent* event) override;
+        virtual size_t receive_events(audiomod::MidiEvent* buffer, size_t capacity) override;
 
         virtual int control_value_count() const override;
         virtual int output_value_count() const override;

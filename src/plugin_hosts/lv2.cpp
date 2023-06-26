@@ -266,6 +266,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     float* min_values = new float[port_count];
     float* max_values = new float[port_count];
     float* default_values = new float[port_count];
+    bool unsupported = false;
     lilv_plugin_get_port_ranges_float(plugin, min_values, max_values, default_values);
 
     for (uint32_t i = 0; i < port_count; i++)
@@ -277,8 +278,14 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
         bool is_input_port = lilv_port_is_a(plugin, port, LV2_URIS.lv2_InputPort);
         bool is_output_port = lilv_port_is_a(plugin, port, LV2_URIS.lv2_OutputPort);
+        bool is_optional = lilv_port_has_property(plugin, port, LV2_URIS.lv2_connectionOptional);
 
         LilvNode* designation_n = lilv_port_get(plugin, port, LV2_URIS.lv2_designation);
+
+        /*
+        lilv_port_get_value(plugin, port, LV2_URIS.lv2_portProperty)
+        pprops:logarithmic
+        */
 
         // input control port
         if (
@@ -341,41 +348,53 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             lilv_instance_connect_port(instance, i, output_buf);
         }
 
-        // input atom port
-        else if (
-            lilv_port_is_a(plugin, port, LV2_URIS.atom_AtomPort) &&
-            is_input_port
-        ) {
-            LilvNode* buffer_type_n = lilv_port_get(plugin, port, LV2_URIS.atom_bufferType);
+        // atom port
+        else if (lilv_port_is_a(plugin, port, LV2_URIS.atom_AtomPort)) {
+            if (is_input_port || is_output_port) {
+                LilvNode* buffer_type_n = lilv_port_get(plugin, port, LV2_URIS.atom_bufferType);
 
-            if (buffer_type_n) {
                 // atom:Sequence
                 if (lilv_node_equals(buffer_type_n, LV2_URIS.atom_Sequence)) {
-                    if (midi_in != nullptr)
-                        throw lv2_error("unsupported: multiple atom sequences");
-
-                    midi_in = new MidiBuffer {
+                    MidiBuffer* midi_buf = new MidiBuffer {
                         {
                             { sizeof(LV2_Atom_Sequence_Body), uri_map(nullptr, LV2_ATOM__Sequence) },
                             { 0, 0 }
                         }
                     };
 
-                    lilv_instance_connect_port(instance, i, midi_in);
+                    if (is_input_port)
+                    {
+                        if (midi_in) throw lv2_error("unsupported: multiple input midi ports");
+                        midi_in = midi_buf;
+                    }
+                    else if (is_output_port)
+                    {
+                        if (midi_out) throw lv2_error("unsupported: multiple output midi ports");
+                        midi_out = midi_buf;
+                    }
+
+                    lilv_instance_connect_port(instance, i, midi_buf);
                 }
 
                 else
                     throw lv2_error(std::string("unsupported atom type: ") + lilv_node_as_uri(buffer_type_n) );
+
+                lilv_node_free(buffer_type_n);
             } else {
-                throw lv2_error("atom port with unspecified type");
+                unsupported = true;
             }
-
-            lilv_node_free(buffer_type_n);
         }
-
+        
         // an unsupported port type, throw an error if this port is required
         else if (!lilv_port_has_property(plugin, port, LV2_URIS.lv2_connectionOptional))
         {
+            unsupported = true;
+        }
+
+        if (name_node)      lilv_node_free(name_node);
+        if (designation_n)  lilv_node_free(designation_n);
+
+        if (unsupported) {
             const LilvNodes* class_nodes = lilv_port_get_classes(plugin, port);
 
             // print node types
@@ -385,9 +404,6 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
             throw lv2_error("unsupported port type");
         }
-
-        if (name_node)      lilv_node_free(name_node);
-        if (designation_n)  lilv_node_free(designation_n);
     }
 
     input_combined = new float[dest.frames_per_buffer * 2];
@@ -505,7 +521,13 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         interleave
     );
 
+    if (midi_out)
+        midi_out->header.atom.size = MIDI_BUFFER_CAPACITY;
+    
     lilv_instance_run(instance, sample_count);
+
+    if (midi_in)
+        lv2_atom_sequence_clear(&midi_in->header);
 
     // write output buffers
     convert_to_stereo(
@@ -517,27 +539,76 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
     );
 }
 
-void Lv2Plugin::event(uint64_t timestamp, const audiomod::MidiEvent* midi_event)
+void Lv2Plugin::event(const audiomod::MidiEvent* midi_event)
 {
     if (midi_in)
     {
         struct {
             LV2_Atom_Event header;
-            audiomod::MidiEvent midi;
+            audiomod::MidiMessage midi;
         } atom;
 
-        atom.header.time.frames = timestamp;
-        atom.header.body.size = midi_event->size();
+        const audiomod::MidiMessage& midi_msg = midi_event->msg;
+
+        atom.header.time.frames = midi_event->time;
+        atom.header.body.size = midi_msg.size();
         atom.header.body.type = uri_map(nullptr, LV2_MIDI__MidiEvent);
-        memcpy(&atom.midi, midi_event, midi_event->size());
+        memcpy(&atom.midi, &midi_msg, midi_msg.size());
 
         lv2_atom_sequence_append_event(&midi_in->header, MIDI_BUFFER_CAPACITY, &atom.header);
     }
 }
 
-std::vector<audiomod::MidiEvent> Lv2Plugin::receive_events()
+size_t Lv2Plugin::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
 {
-    return std::vector<audiomod::MidiEvent>();
+    if (midi_out)
+    {
+        LV2_Atom_Sequence& seq = midi_out->header;
+        
+        if (!lv2_atom_sequence_is_end(&seq.body, seq.atom.size, lv2_atom_sequence_begin(&seq.body))) {
+            dbg("\0");
+        }
+
+        if (midi_read_it == nullptr)
+            midi_read_it = lv2_atom_sequence_begin(&seq.body);
+
+        size_t count = 0;
+
+        while (true)
+        {
+            // ran out of buffer space, yield "coroutine"
+            if (count >= capacity)
+                break;
+
+            // reached end of sequence, "coroutine" is finished
+            if (lv2_atom_sequence_is_end(&seq.body, seq.atom.size, midi_read_it)) {
+                if (midi_read_it && count == 0) {
+                    lv2_atom_sequence_clear(&seq);
+                    midi_read_it = nullptr;
+                }
+
+                break;
+            }
+
+            LV2_Atom_Event* &ev = midi_read_it;
+
+            if (ev->body.type == uri_map(nullptr, LV2_MIDI__MidiEvent))
+            {
+                const audiomod::MidiMessage* const midi_ev = (const audiomod::MidiMessage*) (ev + 1);
+                dbg("receive a midi event\n");
+                buffer[count++] = {
+                    (uint64_t) ev->time.frames,
+                    *midi_ev
+                };
+            }
+
+            midi_read_it = lv2_atom_sequence_next(midi_read_it);
+        }
+
+        return count;
+    }
+
+    return 0;
 }
 
 // TODO

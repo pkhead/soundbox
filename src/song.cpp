@@ -490,13 +490,14 @@ void Song::stop() {
         notes_playing--;
 
         audiomod::MidiEvent midi_ev;
+        midi_ev.time = audio_dest().time_in_frames();
         (audiomod::NoteEvent {
             audiomod::NoteEventKind::NoteOff,
             note_data.note.key,
             1.0f
-        }).write_midi(&midi_ev);
+        }).write_midi(&midi_ev.msg);
         
-        channels[note_data.channel_i]->synth_mod->event(audio_dest().time_in_frames(), &midi_ev);
+        channels[note_data.channel_i]->synth_mod->event(&midi_ev);
     }
 
     assert(notes_playing == 0);
@@ -596,13 +597,14 @@ void Song::update(double elapsed) {
             assert(notes_playing >= 0);
 
             audiomod::MidiEvent midi_ev;
+            midi_ev.time = audio_dest().time_in_frames();
             (audiomod::NoteEvent {
                 audiomod::NoteEventKind::NoteOff,
                 old_note.note.key,
                 1.0f
-            }).write_midi(&midi_ev);
+            }).write_midi(&midi_ev.msg);
 
-            channels[old_note.channel_i]->synth_mod->event(audio_dest().time_in_frames(), &midi_ev);
+            channels[old_note.channel_i]->synth_mod->event(&midi_ev);
         }
     }
 
@@ -622,13 +624,14 @@ void Song::update(double elapsed) {
             notes_playing++;
             
             audiomod::MidiEvent midi_ev;
+            midi_ev.time = audio_dest().time_in_frames();
             (audiomod::NoteEvent {
                 audiomod::NoteEventKind::NoteOn,
                 new_note.note.key,
                 1.0f
-            }).write_midi(&midi_ev);
+            }).write_midi(&midi_ev.msg);
 
-            channels[new_note.channel_i]->synth_mod->event(audio_dest().time_in_frames(), &midi_ev);
+            channels[new_note.channel_i]->synth_mod->event(&midi_ev);
         }
     }
 

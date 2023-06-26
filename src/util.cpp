@@ -153,4 +153,10 @@ void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t fr
             dest[i * 2 + 1] = src[1][i];
         }
     }
+
+    // unsupported channel count, set to 0
+    else
+    {
+        memset(dest, 0, buffer_size * sizeof(float));
+    }
 }

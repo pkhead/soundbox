@@ -42,14 +42,14 @@ void PluginModule::process(float** inputs, float* output, size_t num_inputs, siz
     _plugin->process(inputs, output, num_inputs, buffer_size);
 }
 
-void PluginModule::event(uint64_t timestamp, const audiomod::MidiEvent* event)
+void PluginModule::event(const audiomod::MidiEvent* event)
 {
-    return _plugin->event(timestamp, event);
+    return _plugin->event(event);
 }
 
-std::vector<audiomod::MidiEvent> PluginModule::receive_events()
+size_t PluginModule::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
 {
-    return _plugin->receive_events();
+    return _plugin->receive_events(buffer, capacity);
 }
 
 void PluginModule::save_state(std::ostream& stream) const
