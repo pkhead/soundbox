@@ -106,7 +106,14 @@ void PluginModule::_interface_proc()
             else if (control_value.is_integer)
             {
                 int integer = (int)roundf(value);
-                ImGui::SliderInt("##slider", &integer, (int)roundf(min), (int)roundf(max), "%d", log_flag);
+                ImGui::SliderInt(
+                    "##slider",
+                    &integer,
+                    (int)roundf(min),
+                    (int)roundf(max),
+                    control_value.format,
+                    log_flag
+                );
                 value = integer;
 
                 if (control_value.has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
@@ -120,15 +127,15 @@ void PluginModule::_interface_proc()
                     &value,
                     min,
                     max,
-                    "%.3f",
+                    control_value.format,
                     ImGuiSliderFlags_NoRoundToFormat |
-                    log_flag);
+                    log_flag
+                );
 
                 if (control_value.has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
                     value = control_value.default_value;
                 }
             }
-
 
             if (control_value.is_sample_rate) value *= _dest->sample_rate;
             *control_value.value = value;

@@ -34,7 +34,8 @@ namespace plugins
     public:
         struct ControlValue
         {
-            const char* name;
+            const char* name; // name of the control
+            const char* format; // display format string
             int port_index;
             float* value;
 
@@ -51,6 +52,7 @@ namespace plugins
         struct OutputValue
         {
             const char* name;
+            const char* format; // display format string
             int port_index;
             float* value;
         };

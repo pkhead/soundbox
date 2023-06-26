@@ -5,12 +5,32 @@
 #include "lv2.h"
 #include "../util.h"
 
+#define LV2_EXT_UNITS "http://lv2plug.in/ns/extensions/units#"
+
 using namespace plugins;
 
 static LilvWorld* LILV_WORLD = nullptr;
 
+struct {
+    LilvNode* lv2_InputPort;
+    LilvNode* lv2_OutputPort;
+    LilvNode* lv2_AudioPort;
+    LilvNode* lv2_ControlPort;
+    LilvNode* lv2_connectionOptional;
+    LilvNode* units_unit;
+    LilvNode* units_db;
+} static LV2_URIS;
+
 void Lv2Plugin::lilv_init() {
     LILV_WORLD = lilv_world_new();
+
+    LV2_URIS.lv2_InputPort = lilv_new_uri(LILV_WORLD, LV2_CORE__InputPort);
+    LV2_URIS.lv2_OutputPort = lilv_new_uri(LILV_WORLD, LV2_CORE__OutputPort);
+    LV2_URIS.lv2_AudioPort = lilv_new_uri(LILV_WORLD, LV2_CORE__AudioPort);
+    LV2_URIS.lv2_ControlPort = lilv_new_uri(LILV_WORLD, LV2_CORE__ControlPort);
+    LV2_URIS.lv2_connectionOptional = lilv_new_uri(LILV_WORLD, LV2_CORE__connectionOptional);
+    LV2_URIS.units_unit = lilv_new_uri(LILV_WORLD, LV2_EXT_UNITS "unit");
+    LV2_URIS.units_db = lilv_new_uri(LILV_WORLD, LV2_EXT_UNITS "db");
 }
 
 void Lv2Plugin::lilv_fini() {
@@ -139,13 +159,6 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     float* default_values = new float[port_count];
     lilv_plugin_get_port_ranges_float(plugin, min_values, max_values, default_values);
 
-    // define uris
-    LilvNode* lv2_InputPort = lilv_new_uri(LILV_WORLD, LV2_CORE__InputPort);
-    LilvNode* lv2_OutputPort = lilv_new_uri(LILV_WORLD, LV2_CORE__OutputPort);
-    LilvNode* lv2_AudioPort = lilv_new_uri(LILV_WORLD, LV2_CORE__AudioPort);
-    LilvNode* lv2_ControlPort = lilv_new_uri(LILV_WORLD, LV2_CORE__ControlPort);
-    LilvNode* lv2_connectionOptional = lilv_new_uri(LILV_WORLD, LV2_CORE__connectionOptional);
-
     for (uint32_t i = 0; i < port_count; i++)
     {
         const LilvPort* port = lilv_plugin_get_port_by_index(plugin, i);
@@ -154,8 +167,10 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         const char* port_name = lilv_node_as_string(name_node);
 
         // input control port
-        if (lilv_port_is_a(plugin, port, lv2_ControlPort) && lilv_port_is_a(plugin, port, lv2_InputPort))
-        {
+        if (
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_ControlPort) &&
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_InputPort)
+        ) {
             ControlInput* ctl = new ControlInput;
             ctl->name = port_name;
             ctl->port_handle = port;
@@ -163,18 +178,28 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             ctl->max = max_values[i];
             ctl->default_value = default_values[i];
             ctl->value = ctl->default_value;
-            ctl->is_integer = false;
-            ctl->is_logarithmic = false;
-            ctl->is_sample_rate = false;
-            ctl->is_toggle = false;
+            ctl->unit = UnitType::None;
+
+            LilvNode* unit_n = lilv_port_get(plugin, port, LV2_URIS.units_unit);
+            
+            if (unit_n) {
+                // TODO: more units
+                if (lilv_node_equals(unit_n, LV2_URIS.units_db))
+                    ctl->unit = UnitType::dB;
+                 
+                lilv_node_free(unit_n);
+            }
+
             ctl_in.push_back(ctl);
 
             lilv_instance_connect_port(instance, i, &ctl->value);
         }
 
         // output control port
-        else if (lilv_port_is_a(plugin, port, lv2_ControlPort) && lilv_port_is_a(plugin, port, lv2_OutputPort))
-        {
+        else if (
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_ControlPort) &&
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_OutputPort)
+        ) {
             ControlOutput* ctl = new ControlOutput;
             ctl->name = port_name;
             ctl->port_handle = port;
@@ -183,23 +208,27 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         }
 
         // input audio port
-        else if (lilv_port_is_a(plugin, port, lv2_AudioPort) && lilv_port_is_a(plugin, port, lv2_InputPort))
-        {
+        else if (
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_AudioPort) &&
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_InputPort)
+        ) {
             float* input_buf = new float[dest.frames_per_buffer * 2];
             audio_input_bufs.push_back(input_buf);
             lilv_instance_connect_port(instance, i, input_buf);
         }
 
         // output audio port
-        else if (lilv_port_is_a(plugin, port, lv2_AudioPort) && lilv_port_is_a(plugin, port, lv2_OutputPort))
-        {
+        else if (
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_AudioPort) &&
+            lilv_port_is_a(plugin, port, LV2_URIS.lv2_OutputPort)
+        ) {
             float* output_buf = new float[dest.frames_per_buffer * 2];
             audio_output_bufs.push_back(output_buf);
             lilv_instance_connect_port(instance, i, output_buf);
         }
 
         // an unsupported port type, throw an error if this port is required
-        else if (!lilv_port_has_property(plugin, port, lv2_connectionOptional))
+        else if (!lilv_port_has_property(plugin, port, LV2_URIS.lv2_connectionOptional))
         {
             throw lv2_error("unsupported port type");
         }
@@ -238,15 +267,26 @@ Plugin::ControlValue Lv2Plugin::get_control_value(int index)
     value.name = impl->name.c_str();
     value.port_index = impl->port_index;
     value.value = &impl->value;
-    value.has_default = impl->has_default;
+    value.has_default = true;
     value.default_value = impl->default_value;
     value.max = impl->max;
     value.min = impl->min;
-    value.is_integer = impl->is_integer;
-    value.is_logarithmic = impl->is_logarithmic;
-    value.is_sample_rate = impl->is_sample_rate;
-    value.is_toggle = impl->is_toggle;
+    value.is_integer = false;
+    value.is_logarithmic = false;
+    value.is_sample_rate = false;
+    value.is_toggle = false;
 
+    switch (impl->unit)
+    {
+        case UnitType::dB:
+            value.format = "%.3f dB";
+            break;
+
+        default:
+            value.format = "%.3f";
+            break;
+    }
+    
     return value;
 }
 
@@ -256,6 +296,7 @@ Plugin::OutputValue Lv2Plugin::get_output_value(int index)
     ControlOutput* impl = ctl_out[index];
 
     value.name = impl->name.c_str();
+    value.format = "%.3f";
     value.port_index = impl->port_index;
     value.value = &impl->value;
 

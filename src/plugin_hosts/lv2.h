@@ -19,6 +19,12 @@ namespace plugins
         LilvInstance* instance;
         audiomod::DestinationModule& dest;
 
+        enum class UnitType
+        {
+            None,
+            dB
+        };
+
         struct ControlInput
         {
             std::string name;
@@ -26,11 +32,7 @@ namespace plugins
             const LilvPort* port_handle;
             float value;
 
-            bool is_toggle;
-            bool is_logarithmic;
-            bool is_sample_rate;
-            bool is_integer;
-            bool has_default;
+            UnitType unit;
 
             float min, max;
             float default_value;
