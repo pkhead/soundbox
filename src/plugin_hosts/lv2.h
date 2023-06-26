@@ -1,9 +1,8 @@
 #pragma once
 #include "../plugins.h"
 
-extern "C" {
 #include <lilv/lilv.h>
-}
+#include <lv2/log/log.h>
 
 namespace plugins
 {
@@ -52,6 +51,20 @@ namespace plugins
 
         std::vector<ControlInput*> ctl_in;
         std::vector<ControlOutput*> ctl_out;
+
+        LV2_URID_Map map;
+        LV2_Feature map_feature;
+        LV2_URID_Unmap unmap;
+        LV2_Feature unmap_feature;
+        LV2_Log_Log log;
+        LV2_Feature log_feature;
+
+        const LV2_Feature* features[4] {
+            &map_feature,
+            &unmap_feature,
+            &log_feature,
+            NULL
+        };
     
     public:
         Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data);

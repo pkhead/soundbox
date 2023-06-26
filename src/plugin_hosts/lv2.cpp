@@ -1,11 +1,14 @@
 #include <cassert>
 #include <cstring>
+#include <string>
 #include <iostream>
+#include <unordered_map>
 
 #include "lv2.h"
+#include "lv2/units/units.h"
+#include "lv2/urid/urid.h"
+#include "lv2/log/log.h"
 #include "../util.h"
-
-#define LV2_EXT_UNITS "http://lv2plug.in/ns/extensions/units#"
 
 using namespace plugins;
 
@@ -29,13 +32,53 @@ void Lv2Plugin::lilv_init() {
     LV2_URIS.lv2_AudioPort = lilv_new_uri(LILV_WORLD, LV2_CORE__AudioPort);
     LV2_URIS.lv2_ControlPort = lilv_new_uri(LILV_WORLD, LV2_CORE__ControlPort);
     LV2_URIS.lv2_connectionOptional = lilv_new_uri(LILV_WORLD, LV2_CORE__connectionOptional);
-    LV2_URIS.units_unit = lilv_new_uri(LILV_WORLD, LV2_EXT_UNITS "unit");
-    LV2_URIS.units_db = lilv_new_uri(LILV_WORLD, LV2_EXT_UNITS "db");
+    LV2_URIS.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
+    LV2_URIS.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
 }
 
 void Lv2Plugin::lilv_fini() {
     lilv_world_free(LILV_WORLD);
 }
+
+// URID EXTENSION //
+static std::vector<std::string> URI_MAP;
+
+static LV2_URID uri_map(LV2_URID_Map_Handle handle, const char* uri)
+{
+    LV2_URID id;
+    for (id = 0; id < URI_MAP.size(); id++) {
+        if (URI_MAP[id] == uri)
+            return id;
+    }
+
+    URI_MAP.push_back(uri);
+    return id;
+}
+
+static const char* uri_unmap(LV2_URID_Map_Handle handle, LV2_URID urid)
+{
+    if (urid >= URI_MAP.size())
+        return nullptr;
+
+    return URI_MAP[urid].c_str();
+}
+/////////////////////
+
+// LOGGING EXTENSION //
+int log_printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    int res = vprintf(fmt, va);
+    va_end(va);
+    return res;
+}
+
+int log_vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list ap)
+{
+    return vprintf(fmt, ap);
+}
+///////////////////////
 
 const char* Lv2Plugin::get_standard_paths()
 {
@@ -143,8 +186,16 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         throw lv2_error("plugin not found");
     }
 
+    // init features
+    map = {nullptr, uri_map};
+    map_feature = {LV2_URID_MAP_URI, &map};
+    unmap = {nullptr, uri_unmap};
+    unmap_feature = {LV2_URID_UNMAP_URI, &unmap};
+    log = {nullptr, log_printf, log_vprintf};
+    log_feature = {LV2_LOG_URI, &log};
+
     // instantiate plugin
-    instance = lilv_plugin_instantiate(plugin, dest.sample_rate, NULL);
+    instance = lilv_plugin_instantiate(plugin, dest.sample_rate, features);
     if (instance == nullptr) {
         std::cerr << "instantiation failed\n";
         throw lv2_error("instantiation failed");
