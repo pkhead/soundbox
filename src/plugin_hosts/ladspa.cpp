@@ -54,7 +54,7 @@ static std::vector<PluginData> get_plugin_data(const char *path)
         data.index = i;
 
         // id from file path and plugin label
-        data.id = std::string("plugins.ladspa:") + plugin_desc->Label + "@" + std::filesystem::path(path).stem().string();
+        data.id = std::string("plugin.ladspa:") + plugin_desc->Label + "@" + std::filesystem::path(path).stem().string();
         data.name = plugin_desc->Name;
         data.author = plugin_desc->Maker;
         data.copyright = plugin_desc->Copyright;

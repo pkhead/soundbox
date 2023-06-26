@@ -11,9 +11,9 @@
 using namespace audiomod;
 
 std::array<audiomod::ModuleListing, NUM_EFFECTS> audiomod::effects_list({
-    "effects.analyzer", "Analyzer",
-    "effects.gain", "Gain",
-    "effects.delay", "Echo/Delay",
+    "effect.analyzer", "Analyzer",
+    "effect.gain", "Gain",
+    "effect.delay", "Echo/Delay",
 });
 
 std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list({
@@ -31,11 +31,10 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule
     // TODO: Slicer synth?
 
     // effects
-    // TODO: should be "effect.X", not "effects.X" 
-    MAP("effects.analyzer", AnalyzerModule);
-    MAP("effects.volume", VolumeModule);
-    MAP("effects.gain", GainModule);
-    MAP("effects.delay", DelayModule);
+    MAP("effect.analyzer", AnalyzerModule);
+    MAP("effect.volume", VolumeModule);
+    MAP("effect.gain", GainModule);
+    MAP("effect.delay", DelayModule);
     // TODO: equalizer
     // TODO: distortion effect
     // TODO: bitcrusher/downsampler effect
@@ -75,6 +74,26 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule
 
     // no module found
     return nullptr;
+}
+
+bool audiomod::is_module_instrument(const std::string &mod_id, plugins::PluginManager& plugin_manager)
+{
+    size_t sep = mod_id.find_first_of(".");
+    if (mod_id.substr(0, sep) == "synth")
+        return true;
+
+    if (mod_id.substr(0, sep) == "plugin")
+    {
+        for (auto& plugin_data : plugin_manager.get_plugin_data())
+        {
+            if (mod_id == plugin_data.id)
+            {
+                if (plugin_data.is_instrument) return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 #undef MAP

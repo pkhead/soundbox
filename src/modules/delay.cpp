@@ -12,7 +12,7 @@ using namespace audiomod;
 
 DelayModule::DelayModule(DestinationModule& dest) : ModuleBase(true)
 {
-    id = "effects.delay";
+    id = "effect.delay";
     name = "Delay";
 
     delay_time = 0.25;

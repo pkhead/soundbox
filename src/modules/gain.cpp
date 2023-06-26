@@ -6,7 +6,7 @@
 using namespace audiomod;
 
 GainModule::GainModule(DestinationModule& dest) : ModuleBase(true) {
-    id = "effects.gain";
+    id = "effect.gain";
     name = "Gain";
 }
 

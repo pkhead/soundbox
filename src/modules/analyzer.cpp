@@ -11,7 +11,7 @@ AnalyzerModule::AnalyzerModule(DestinationModule& dest) :
     ModuleBase(true),
     ring_buffer(dest.sample_rate * 0.5) // hold 0.5 seconds of audio
 {
-    id = "effects.analyzer";
+    id = "effect.analyzer";
     name = "Analyzer";
 
     size_t arr_size = frames_per_window + window_margin * 2;
