@@ -118,10 +118,14 @@ void render_channel_settings(SongEditor &editor)
 
             if (mod_id)
             {
-                audiomod::ModuleBase* mod = audiomod::create_module(mod_id, editor.audio_dest, editor.plugin_manager);
-                mod->song = editor.song;
-                mod->parent_name = cur_channel->name;
-                cur_channel->set_instrument(mod);
+                try {
+                    audiomod::ModuleBase* mod = audiomod::create_module(mod_id, editor.audio_dest, editor.plugin_manager);
+                    mod->song = editor.song;
+                    mod->parent_name = cur_channel->name;
+                    cur_channel->set_instrument(mod);
+                } catch (audiomod::module_create_error& err) {
+                    show_status("Error: %s", err.what());
+                }
             }
         }
 
@@ -137,17 +141,21 @@ void render_channel_settings(SongEditor &editor)
             case EffectsInterfaceAction::Add: {
                 song.mutex.lock();
 
-                audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
-                mod->parent_name = cur_channel->name;
-                mod->song = &song;
-                cur_channel->effects_rack.insert(mod);
+                try {
+                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
+                    mod->parent_name = cur_channel->name;
+                    mod->song = &song;
+                    cur_channel->effects_rack.insert(mod);
 
-                // register change
-                editor.push_change(new change::ChangeAddEffect(
-                    editor.selected_channel,
-                    change::FXRackTargetType::TargetChannel,
-                    result.module_id
-                ));
+                    // register change
+                    editor.push_change(new change::ChangeAddEffect(
+                        editor.selected_channel,
+                        change::FXRackTargetType::TargetChannel,
+                        result.module_id
+                    ));
+                } catch (audiomod::module_create_error& err) {
+                    show_status("Error: %s", err.what());
+                }
 
                 song.mutex.unlock();
                 break;

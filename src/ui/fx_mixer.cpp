@@ -199,17 +199,22 @@ void render_fx_mixer(SongEditor &editor)
                 case EffectsInterfaceAction::Add: {
                     song.mutex.lock();
                     
-                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
-                    mod->parent_name = fx_bus->name;
-                    mod->song = &song;
-                    fx_bus->insert(mod);
+                    try {
+                        audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
 
-                    // register change
-                    editor.push_change(new change::ChangeAddEffect(
-                        i,
-                        change::FXRackTargetType::TargetFXBus,
-                        result.module_id
-                    ));
+                        mod->parent_name = fx_bus->name;
+                        mod->song = &song;
+                        fx_bus->insert(mod);
+
+                        // register change
+                        editor.push_change(new change::ChangeAddEffect(
+                            i,
+                            change::FXRackTargetType::TargetFXBus,
+                            result.module_id
+                        ));
+                    } catch (audiomod::module_create_error& err) {
+                        show_status("Error: %s", err.what());
+                    }
 
                     song.mutex.unlock();
                     break;

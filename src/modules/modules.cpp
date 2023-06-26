@@ -58,7 +58,11 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule
                     break;
 
                 case plugins::PluginType::Lv2:
+                try {
                     plugin = new plugins::Lv2Plugin(audio_dest, plugin_data);
+                } catch (plugins::lv2_error& err) {
+                    throw module_create_error(err.what());
+                }
                     break;
 
                 default:
