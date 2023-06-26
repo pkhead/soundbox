@@ -233,6 +233,17 @@ bool ModuleOutputTarget::remove_input(ModuleBase* module) {
 //   NOTE EVENT / MIDI CONVERSION   //
 //////////////////////////////////////
 
+size_t MidiEvent::size() const
+{
+    switch (status) {
+        case 128: // note on
+        case 129: // note off
+            return sizeof(status) + sizeof(note);
+    }
+
+    return 0;
+}
+
 size_t NoteEvent::write_midi(MidiEvent* out) const
 {
     switch (kind) {
@@ -240,16 +251,16 @@ size_t NoteEvent::write_midi(MidiEvent* out) const
             out->status = 128;
             out->note.key = key % 128;
             out->note.velocity = clampf(volume, 0.0f, 1.0f) * 127;
-            return sizeof(MidiEvent::status) + sizeof(MidiEvent::note);
+            break;
 
         case NoteOff:
             out->status = 129;
             out->note.key = key % 128;
             out->note.velocity = clampf(volume, 0.0f, 1.0f) * 127;
-            return sizeof(MidiEvent::status) + sizeof(MidiEvent::note);
+            break;
     }
 
-    return 0;
+    return out->size();
 }
 
 bool NoteEvent::read_midi(const MidiEvent* in)

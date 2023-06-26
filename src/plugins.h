@@ -66,6 +66,9 @@ namespace plugins
         virtual void stop() = 0;
         virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) = 0;
 
+        virtual void event(uint64_t timestamp, const audiomod::MidiEvent* event) = 0;
+        virtual std::vector<audiomod::MidiEvent> receive_events() = 0;
+
         virtual void save_state(std::ostream& ostream) const = 0;
         virtual bool load_state(std::istream& istream, size_t size) = 0;
 
@@ -96,6 +99,11 @@ namespace plugins
             int channel_count
         ) override;
 
+        // midi events
+        void event(uint64_t timestamp, const audiomod::MidiEvent* event) override;
+        std::vector<audiomod::MidiEvent> receive_events() override;
+
+        // state save/load
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& istream, size_t size) override;
     };

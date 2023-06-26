@@ -9,6 +9,7 @@
 #include "lv2/urid/urid.h"
 #include "lv2/log/log.h"
 #include "lv2/atom/atom.h"
+#include "lv2/atom/util.h"
 #include "lv2/midi/midi.h"
 #include "../util.h"
 
@@ -353,9 +354,11 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
                     if (midi_in != nullptr)
                         throw lv2_error("unsupported: multiple atom sequences");
 
-                    midi_in = new LV2_Atom_Sequence {
-                        { sizeof(LV2_Atom_Sequence_Body), uri_map(nullptr, LV2_ATOM__Sequence) },
-                        { 0, 0 }
+                    midi_in = new MidiBuffer {
+                        {
+                            { sizeof(LV2_Atom_Sequence_Body), uri_map(nullptr, LV2_ATOM__Sequence) },
+                            { 0, 0 }
+                        }
                     };
 
                     lilv_instance_connect_port(instance, i, midi_in);
@@ -479,7 +482,6 @@ void Lv2Plugin::stop()
     lilv_instance_deactivate(instance);
 }
 
-// TODO
 void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size)
 {
     bool interleave = false; // TODO add ui checkbox to toggle this
@@ -513,6 +515,29 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         dest.frames_per_buffer,
         interleave
     );
+}
+
+void Lv2Plugin::event(uint64_t timestamp, const audiomod::MidiEvent* midi_event)
+{
+    if (midi_in)
+    {
+        struct {
+            LV2_Atom_Event header;
+            audiomod::MidiEvent midi;
+        } atom;
+
+        atom.header.time.frames = timestamp;
+        atom.header.body.size = midi_event->size();
+        atom.header.body.type = uri_map(nullptr, LV2_MIDI__MidiEvent);
+        memcpy(&atom.midi, midi_event, midi_event->size());
+
+        lv2_atom_sequence_append_event(&midi_in->header, MIDI_BUFFER_CAPACITY, &atom.header);
+    }
+}
+
+std::vector<audiomod::MidiEvent> Lv2Plugin::receive_events()
+{
+    return std::vector<audiomod::MidiEvent>();
 }
 
 // TODO

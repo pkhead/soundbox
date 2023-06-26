@@ -42,6 +42,16 @@ void PluginModule::process(float** inputs, float* output, size_t num_inputs, siz
     _plugin->process(inputs, output, num_inputs, buffer_size);
 }
 
+void PluginModule::event(uint64_t timestamp, const audiomod::MidiEvent* event)
+{
+    return _plugin->event(timestamp, event);
+}
+
+std::vector<audiomod::MidiEvent> PluginModule::receive_events()
+{
+    return _plugin->receive_events();
+}
+
 void PluginModule::save_state(std::ostream& stream) const
 {
      _plugin->save_state(stream);

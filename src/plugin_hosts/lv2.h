@@ -53,8 +53,12 @@ namespace plugins
         std::vector<ControlInput*> ctl_in;
         std::vector<ControlOutput*> ctl_out;
 
-        LV2_Atom_Sequence* midi_in = nullptr;
-        LV2_Atom_Sequence* midi_out = nullptr;
+        static constexpr size_t MIDI_BUFFER_CAPACITY = 1024;
+
+        struct MidiBuffer {
+            LV2_Atom_Sequence header;
+            uint8_t data[MIDI_BUFFER_CAPACITY];
+        } *midi_in = nullptr, *midi_out = nullptr;
 
         LV2_URID_Map map;
         LV2_Feature map_feature;
@@ -83,6 +87,9 @@ namespace plugins
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) override;
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& istream, size_t size) override;
+
+        virtual void event(uint64_t timestamp, const audiomod::MidiEvent* event) override;
+        virtual std::vector<audiomod::MidiEvent> receive_events() override;
 
         virtual int control_value_count() const override;
         virtual int output_value_count() const override;

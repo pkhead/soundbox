@@ -87,6 +87,8 @@ namespace audiomod {
                 uint8_t velocity;
             } note;
         };
+
+        size_t size() const;
     };
 
     struct NoteEvent {
@@ -147,8 +149,12 @@ namespace audiomod {
         // free all modules that were marked for deletion
         static void free_garbage_modules();
 
-        // send a note event to the module
+        // send a midi event to the module
         virtual void event(uint64_t timestamp, const MidiEvent* event) {};
+
+        // receive midi events from this module
+        // this should also clear the queue
+        virtual std::vector<MidiEvent> receive_events() { return std::vector<MidiEvent>(); };
 
         // connect this module's output to a target's input
         void connect(ModuleOutputTarget* dest);
