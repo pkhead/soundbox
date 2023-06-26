@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "lv2.h"
+#include "../util.h"
 
 using namespace plugins;
 
@@ -206,6 +207,8 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         lilv_node_free(name_node);
     }
 
+    input_combined = new float[dest.frames_per_buffer * 2];
+
     delete[] min_values;
     delete[] max_values;
     delete[] default_values;
@@ -214,54 +217,95 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 Lv2Plugin::~Lv2Plugin()
 {
     lilv_instance_free(instance);
+    delete[] input_combined;
 }
 
-// TODO
 int Lv2Plugin::control_value_count() const
 {
-    return 0;
+    return ctl_in.size();
 }
 
-// TODO
 int Lv2Plugin::output_value_count() const
 {
-    return 0;
+    return ctl_out.size();
 }
 
-// TODO
 Plugin::ControlValue Lv2Plugin::get_control_value(int index)
 {
-    return {};
+    ControlValue value;
+    ControlInput* impl = ctl_in[index];
+
+    value.name = impl->name.c_str();
+    value.port_index = impl->port_index;
+    value.value = &impl->value;
+    value.has_default = impl->has_default;
+    value.default_value = impl->default_value;
+    value.max = impl->max;
+    value.min = impl->min;
+    value.is_integer = impl->is_integer;
+    value.is_logarithmic = impl->is_logarithmic;
+    value.is_sample_rate = impl->is_sample_rate;
+    value.is_toggle = impl->is_toggle;
+
+    return value;
 }
 
-// TODO
 Plugin::OutputValue Lv2Plugin::get_output_value(int index)
 {
-    return {};
+    OutputValue value;
+    ControlOutput* impl = ctl_out[index];
+
+    value.name = impl->name.c_str();
+    value.port_index = impl->port_index;
+    value.value = &impl->value;
+
+    return value;
 }
 
-// TODO
 void Lv2Plugin::start()
-{}
+{
+    lilv_instance_activate(instance);
+}
 
-// TODO
 void Lv2Plugin::stop()
-{}
+{
+    lilv_instance_deactivate(instance);
+}
 
 // TODO
 void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size)
 {
-    for (size_t i = 0; i < buffer_size; i += 2)
-    {
-        output[i] = 0.0f;
-        output[i + 1] = 0.0f;
-        
-        for (size_t j = 0; j < num_inputs; j++)
-        {
-            output[i] += inputs[j][i];
-            output[i + 1] += inputs[j][i + 1];
+    bool interleave = false; // TODO add ui checkbox to toggle this
+
+    // initialize input buffers
+    for (size_t i = 0; i < buffer_size; i += 2) {
+        input_combined[i] = 0.0f;
+        input_combined[i + 1] = 0.0f;
+
+        for (size_t j = 0; j < num_inputs; j++) {
+            input_combined[i] += inputs[j][i];
+            input_combined[i + 1] += inputs[j][i + 1];
         }
     }
+
+    size_t sample_count = convert_from_stereo(
+        input_combined,
+        &audio_input_bufs.front(),
+        audio_input_bufs.size(),
+        dest.frames_per_buffer,
+        interleave
+    );
+
+    lilv_instance_run(instance, sample_count);
+
+    // write output buffers
+    convert_to_stereo(
+        &audio_output_bufs.front(),
+        output,
+        audio_output_bufs.size(),
+        dest.frames_per_buffer,
+        interleave
+    );
 }
 
 // TODO

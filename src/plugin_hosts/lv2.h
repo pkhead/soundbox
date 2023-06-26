@@ -44,6 +44,7 @@ namespace plugins
             float value;
         };
 
+        float* input_combined;
         std::vector<float*> audio_input_bufs;
         std::vector<float*> audio_output_bufs;
 
