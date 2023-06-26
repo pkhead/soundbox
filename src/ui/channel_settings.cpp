@@ -136,7 +136,7 @@ void render_channel_settings(SongEditor &editor)
         }
 
         EffectsInterfaceResult result;
-        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, &result))
+        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, &result, true))
         {
             case EffectsInterfaceAction::Add: {
                 song.mutex.lock();
@@ -195,6 +195,10 @@ void render_channel_settings(SongEditor &editor)
                     result.swap_end
                 ));
 
+                break;
+
+            case EffectsInterfaceAction::SwapInstrument:
+                std::cout << "TODO: swap instrument\n";
                 break;
 
             case EffectsInterfaceAction::Nothing: break;

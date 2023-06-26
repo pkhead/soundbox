@@ -256,7 +256,9 @@ void render_fx_mixer(SongEditor &editor)
                     
                     break;
 
-                case EffectsInterfaceAction::Nothing: break;
+                case EffectsInterfaceAction::SwapInstrument:
+                case EffectsInterfaceAction::Nothing:
+                    break;
             }
         }
 

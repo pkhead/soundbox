@@ -30,6 +30,16 @@ inline bool is_zero_crossing(float prev, float next) {
     return (prev == 0.0f && next == 0.0f) || (sign(prev) != sign(next));
 }
 
+template <typename T>
+inline T min(T a, T b) {
+    return a < b ? a : b;
+}
+
+template <typename T>
+inline T max(T a, T b) {
+    return a > b ? a : b;
+}
+
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 

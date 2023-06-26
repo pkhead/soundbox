@@ -388,5 +388,9 @@ namespace audiomod {
         module_create_error(const std::string& what = "") : std::runtime_error(what) {};
     };
 
-    ModuleBase* create_module(const std::string& mod_id, DestinationModule& audio_dest, plugins::PluginManager& editor);
+    // define in modules/modules.cpp
+    ModuleBase* create_module(const std::string& mod_id, DestinationModule& audio_dest, plugins::PluginManager& plugin_manager);
+    
+    // if module takes in MIDI inputs or does not take in audio input
+    bool is_module_instrument(const std::string& mod_id, plugins::PluginManager& plugin_manager);
 }

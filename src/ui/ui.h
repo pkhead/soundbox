@@ -151,7 +151,7 @@ bool change_detection(SongEditor& editor, T value, T* previous_value_out, ImGuiI
 
 enum class EffectsInterfaceAction
 {
-    Nothing, Edit, Delete, Add, Swapped
+    Nothing, Edit, Delete, Add, Swapped, SwapInstrument
 };
 
 struct EffectsInterfaceResult
@@ -166,5 +166,6 @@ struct EffectsInterfaceResult
 EffectsInterfaceAction effect_rack_ui(
     SongEditor* editor,
     audiomod::EffectsRack* rack,
-    EffectsInterfaceResult* result
+    EffectsInterfaceResult* result,
+    bool has_instrument = false
 );

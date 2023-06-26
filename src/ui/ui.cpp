@@ -12,6 +12,7 @@
 #include "editor.h"
 #include "theme.h"
 #include "ui.h"
+#include "../util.h"
 
 constexpr char APP_VERSION[] = "0.1.0";
 constexpr char FILE_VERSION[] = "0001";
@@ -291,6 +292,7 @@ static bool str_search(const std::string& str, const char* query)
 const char* module_selection_popup(SongEditor& editor, bool instruments)
 {
     static char search_query[64];
+    static bool force_instruments = false;
 
     if (ImGui::IsWindowAppearing()) {
         // clear search query
@@ -311,19 +313,35 @@ const char* module_selection_popup(SongEditor& editor, bool instruments)
     int displayed = 0;
     const char* displayed_module_id = nullptr;
 
-    ImGui::SeparatorText("Built-in");
-
+    // if only showing effects, user can choose to show instrument plugins
+    // this is useful for when the user is using a module that emits
+    // MIDI output, and the synthesizer would then need to be in the
+    // effects rack
+    if (!instruments) {
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Instruments");
+        ImGui::SameLine();
+        ImGui::Checkbox("##show_instruments", &force_instruments);
+    }
     const char* new_module_id = nullptr;
 
-    // display built-in instruments
-    for (auto listing : audiomod::instruments_list)
-    {
-        if ( str_search(listing.name, search_query) ) {
-            displayed++;
-            displayed_module_id = listing.id;
+    struct selectable {
+        const char* name;
+        const char* id;
+    };
 
-            if (ImGui::Selectable(listing.name))
-                new_module_id = listing.id;
+    std::vector<selectable> builtin;
+    std::vector<selectable> plugins;
+
+    // display built-in instruments
+    if (instruments || force_instruments)
+    {
+        for (auto listing : audiomod::instruments_list)
+        {
+            if ( str_search(listing.name, search_query) ) {
+                builtin.push_back({ listing.name, listing.id });
+            }
         }
     }
 
@@ -332,37 +350,65 @@ const char* module_selection_popup(SongEditor& editor, bool instruments)
         for (auto listing : audiomod::effects_list)
         {
             if ( str_search(listing.name, search_query) ) {
-                displayed++;
-                displayed_module_id = listing.id;
-
-                if (ImGui::Selectable(listing.name))
-                    new_module_id = listing.id;
+                builtin.push_back({ listing.name, listing.id });
             }
         }
     }
 
     // display effect plugins
-    ImGui::SeparatorText("Plugins");
+    //ImGui::SeparatorText("Plugins");
 
     for (auto& plugin_data : editor.plugin_manager.get_plugin_data())
     {
         if (
             // if instruments is true, only show plugin if it is an instrument
             // otherwise, show all plugins
-            (!instruments || plugin_data.is_instrument) &&
+            (instruments == plugin_data.is_instrument || force_instruments) &&
             // search query
             ( str_search(plugin_data.name, search_query) )
         ) {
-            displayed++;
-            displayed_module_id = plugin_data.id.c_str();
-
-            if (ImGui::Selectable(plugin_data.name.c_str()))
-                new_module_id = plugin_data.id.c_str();
+            plugins.push_back({ plugin_data.name.c_str(), plugin_data.id.c_str() });
         }
     }
+
+    // calculate size of popup
+    float size_y = 
+        (builtin.size() + plugins.size()) * ImGui::GetTextLineHeightWithSpacing() +
+        ImGui::GetFrameHeightWithSpacing() * 2;
+    
+    ImGui::BeginChild("###scrollarea", ImVec2(0.0f,
+        min(size_y, ImGui::GetTextLineHeight() * 30.0f)
+    ));
+
+    ImGui::SeparatorText("Built-in");
+
+    for (auto [ name, id ] : builtin) {
+        displayed_module_id = id;
+        displayed++;
+
+        if (ImGui::Selectable(name)) {
+            new_module_id = id;
+            ImGui::CloseCurrentPopup();
+        }
+    }
+
+    ImGui::SeparatorText("Plugins");
+
+    for (auto [ name, id ] : plugins) {
+        displayed_module_id = id;
+        displayed++;
+
+        if (ImGui::Selectable(name)) {
+            new_module_id = id;
+            ImGui::CloseCurrentPopup();
+        }
+    }
+
+    ImGui::EndChild();
     
     if (enter_pressed && displayed == 1) {
         new_module_id = displayed_module_id;
+        std::cout << "aa\n";
         ImGui::CloseCurrentPopup();
     }
 
@@ -377,8 +423,12 @@ const char* module_selection_popup(SongEditor& editor, bool instruments)
 
 
 
-EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack* effects_rack, EffectsInterfaceResult* result)
-{
+EffectsInterfaceAction effect_rack_ui(
+    SongEditor* editor,
+    audiomod::EffectsRack* effects_rack,
+    EffectsInterfaceResult* result,
+    bool swap_instrument
+) {
     Song* song = editor->song;
 
     std::mutex& mutex = song->mutex;
@@ -466,12 +516,26 @@ EffectsInterfaceAction effect_rack_ui(SongEditor* editor, audiomod::EffectsRack*
             }
 
             // right click to delete
-            if (ImGui::BeginPopupContextItem()) {
-                if (ImGui::Selectable("Remove", false)) {
+            if (ImGui::BeginPopupContextItem())
+            {
+                if (ImGui::Selectable("Remove")) {
                     // defer deletion until after the loop has finished
                     result->target_index = i;
                     action = EffectsInterfaceAction::Delete;
                 }
+
+                if (swap_instrument)
+                {
+                    if (audiomod::is_module_instrument(module->id, editor->plugin_manager)) {
+                        if (ImGui::Selectable("Set as Instrument")) {
+                            result->target_index = i;
+                            action = EffectsInterfaceAction::SwapInstrument;
+                        }
+                    } else {
+                        ImGui::TextDisabled("Set as Instrument");
+                    }
+                }
+
                 ImGui::EndPopup();
             }
 
