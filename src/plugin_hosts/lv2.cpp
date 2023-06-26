@@ -9,6 +9,7 @@
 #include "lv2/urid/urid.h"
 #include "lv2/log/log.h"
 #include "lv2/atom/atom.h"
+#include "lv2/midi/midi.h"
 #include "../util.h"
 
 using namespace plugins;
@@ -30,6 +31,8 @@ struct {
     LilvNode* atom_Sequence;
     LilvNode* atom_supports;
 
+    LilvNode* midi_MidiEvent;
+
     LilvNode* units_unit;
     LilvNode* units_db;
 } static LV2_URIS;
@@ -50,6 +53,8 @@ void Lv2Plugin::lilv_init() {
     LV2_URIS.atom_Double = lilv_new_uri(LILV_WORLD, LV2_ATOM__Double);
     LV2_URIS.atom_Sequence = lilv_new_uri(LILV_WORLD, LV2_ATOM__Sequence);
     LV2_URIS.atom_supports = lilv_new_uri(LILV_WORLD, LV2_ATOM__supports);
+
+    LV2_URIS.midi_MidiEvent = lilv_new_uri(LILV_WORLD, LV2_MIDI__MidiEvent);
 
     LV2_URIS.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     LV2_URIS.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
@@ -175,6 +180,39 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
         const LilvPluginClass* plug_class = lilv_plugin_get_class(plug);
         const char* class_uri = lilv_node_as_uri ( lilv_plugin_class_get_uri(plug_class) );
         data.is_instrument = strcmp(class_uri, LV2_CORE__InstrumentPlugin) == 0;
+
+        // if it is not specified as an instrument,
+        // it is an instrument anyway if it has at least one midi port
+        // or if it has no audio inputs
+        if (!data.is_instrument) {
+            int port_count = lilv_plugin_get_num_ports(plug);
+            bool has_audio_input = false;
+
+            for (int i = 0; i < port_count; i++) {
+                const LilvPort* port = lilv_plugin_get_port_by_index(plug, i);
+
+                if (
+                    lilv_port_is_a(plug, port, LV2_URIS.lv2_InputPort) &&
+                    lilv_port_is_a(plug, port, LV2_URIS.atom_AtomPort) &&
+                    lilv_node_equals(lilv_port_get(plug, port, LV2_URIS.atom_bufferType), LV2_URIS.atom_Sequence) &&
+                    lilv_node_equals(lilv_port_get(plug, port, LV2_URIS.atom_supports), LV2_URIS.midi_MidiEvent) 
+                ) {
+                    data.is_instrument = true;
+                    break;
+                }
+
+                if (
+                    lilv_port_is_a(plug, port, LV2_URIS.lv2_InputPort) &&
+                    lilv_port_is_a(plug, port, LV2_URIS.lv2_AudioPort)
+                ) {
+                    has_audio_input = true;
+                }
+            }
+
+            if (!has_audio_input)
+                data.is_instrument = true;
+        }
+
         data_out.push_back(data);
     }
 }
