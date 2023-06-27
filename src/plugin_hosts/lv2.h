@@ -53,7 +53,7 @@ namespace plugins
         std::vector<ControlInput*> ctl_in;
         std::vector<ControlOutput*> ctl_out;
 
-        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
+        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 512;
 
         struct AtomSequenceBuffer {
             LV2_Atom_Sequence header;
