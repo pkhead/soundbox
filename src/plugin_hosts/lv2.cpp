@@ -358,28 +358,24 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
 
 Lv2Plugin::Parameter::Parameter(const char* urid, const char* label, const char* type_uri)
     : id(uri_map(urid)),
+      did_change(false),
       label(label)
 {
     if (strcmp(type_uri, LV2_ATOM__Int) == 0) {
         type = TypeInt;
         v._int = 0;
-        last_v._int = 0;
     } else if (strcmp(type_uri, LV2_ATOM__Long) == 0) {
         type = TypeLong;
         v._long = 0;
-        last_v._long = 0;
     } else if (strcmp(type_uri, LV2_ATOM__Float) == 0) {
         type = TypeFloat;
         v._float = 0;
-        last_v._float = 0;
     } else if (strcmp(type_uri, LV2_ATOM__Double) == 0) {
         type = TypeDouble;
         v._double = 0;
-        last_v._double = 0;
     } else if (strcmp(type_uri, LV2_ATOM__Bool) == 0) {
         type = TypeBool;
         v._bool = 0;
-        last_v._bool = false;
     } else if (strcmp(type_uri, LV2_ATOM__String) == 0) {
         type = TypeString;
     } else if (strcmp(type_uri, LV2_ATOM__Path) == 0) {
@@ -429,41 +425,6 @@ size_t Lv2Plugin::Parameter::size() const {
     }
 
     return 0;
-}
-
-bool Lv2Plugin::Parameter::detect_change()
-{
-    if (type == TypeString || type == TypePath)
-    {
-        bool did_change = str != last_str;
-        last_str = str;
-        return did_change;
-    }
-    else
-    {
-        switch (type)
-        {
-            case TypeFloat: {
-                bool did_change = v._float != last_v._float;
-                last_v._float = v._float;
-                return did_change;
-            }
-
-            case TypeDouble: {
-                bool did_change = v._double != last_v._double;
-                last_v._double = v._double;
-                return did_change;
-            }
-
-            default: {
-                bool did_change = memcmp(&v, &last_v, sizeof(v)) != 0;
-                memcpy(&last_v, &v, sizeof(v));
-
-                return did_change;
-            }
-
-        }
-    }
 }
 
 bool Lv2Plugin::Parameter::set(const void* value, uint32_t expected_size, uint32_t expected_type)
@@ -994,6 +955,15 @@ PluginModule::OutputValue Lv2Plugin::get_output_value(int index)
     return value;
 }
 
+void Lv2Plugin::control_value_change(int index)
+{
+    InterfaceDisplay& display = input_displays[index];
+
+    if (display.is_parameter) {
+        display.param->did_change = true;
+    }
+}
+
 void Lv2Plugin::start()
 {
     lilv_instance_activate(instance);
@@ -1045,7 +1015,9 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
 
         for (Parameter* param : parameters)
         {
-            if (param->is_writable && param->detect_change()) {
+            if (param->is_writable && param->did_change) {
+                param->did_change = false;
+                
                 // send request to write parameter
                 dbg("%s changed\n", uri_unmap(param->id));
                 
@@ -1212,8 +1184,10 @@ void Lv2Plugin::flush_events()
 {
     // read patch:Put and patch:Set events
     if (patch_out) {
+        int count = 0;
         LV2_ATOM_SEQUENCE_FOREACH (&patch_out->header, ev)
         {
+            count++;
             if (ev->body.type == uri_map(LV2_ATOM__Object))
             {
                 const LV2_Atom_Object* obj = (const LV2_Atom_Object*)&ev->body;
@@ -1240,11 +1214,8 @@ void Lv2Plugin::flush_events()
                 }
             }
         }
-    }
 
-    // clear event sequences
-    for (AtomSequenceBuffer* buf : msg_out) {
-        lv2_atom_sequence_clear(&buf->header);
+        dbg("patch out count: %i\n", count);
     }
 }
 

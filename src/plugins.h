@@ -68,6 +68,9 @@ namespace plugins
         virtual ControlValue get_control_value(int index) = 0;
         virtual OutputValue get_output_value(int index) = 0;
 
+        // tell implementation that a control value has changed
+        virtual void control_value_change(int index) {};
+
     public:
         PluginModule(audiomod::DestinationModule& audio_dest, const PluginData& data);
         virtual ~PluginModule() {};

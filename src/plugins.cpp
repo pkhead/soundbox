@@ -76,7 +76,10 @@ void PluginModule::_interface_proc()
             if (control_value.is_toggle)
             {
                 bool toggle = value >= 0.0f;
-                ImGui::Checkbox("##toggle", &toggle);
+                if (ImGui::Checkbox("##toggle", &toggle)) {
+                    control_value_change(j);
+                }
+                
                 value = toggle ? 1.0f : -1.0f;
             }
             else if (control_value.is_integer)
@@ -94,7 +97,11 @@ void PluginModule::_interface_proc()
 
                 if (control_value.has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
                     value = control_value.default_value;
+                    control_value_change(j);
                 }
+
+                if (ImGui::IsItemActive())
+                    control_value_change(j);
             }
             else
             {
@@ -110,8 +117,13 @@ void PluginModule::_interface_proc()
 
                 if (control_value.has_default && ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
                     value = control_value.default_value;
+                    control_value_change(j);
                 }
+            
+                if (ImGui::IsItemActive())
+                    control_value_change(j);
             }
+
 
             if (control_value.is_sample_rate) value *= _dest.sample_rate;
             *control_value.value = value;

@@ -60,13 +60,6 @@ namespace plugins
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& istream, size_t size) override;
 
-        // ladspa plugins cannot send or receive midi events, so these are no ops
-        virtual void event(const audiomod::MidiEvent* event) override {};
-        virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override {
-            return 0; 
-        };
-        virtual void flush_events() override {};
-
         static const char* get_standard_paths();
         static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
 

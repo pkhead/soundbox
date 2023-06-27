@@ -56,6 +56,7 @@ namespace plugins
             std::string label;
             bool is_writable;
             bool is_readable;
+            bool did_change; // set from control_value_changed
             
             enum Type {
                 TypeInt,
@@ -73,16 +74,14 @@ namespace plugins
                 float _float;
                 double _double;
                 bool _bool;
-            } v, last_v;
+            } v;
 
             std::string str;
-            std::string last_str;
 
             Parameter(const char* urid, const char* label, const char* type);
             size_t size() const;
             bool set(const void* value, uint32_t expected_size, uint32_t expected_type);
             const void* get(uint32_t* size) const;
-            bool detect_change();
 
             const char* type_uri() const;
         };
@@ -194,6 +193,7 @@ namespace plugins
         virtual int output_value_count() const override;
         virtual ControlValue get_control_value(int index) override;
         virtual OutputValue get_output_value(int index) override;
+        virtual void control_value_change(int index) override;
 
         static const char* get_standard_paths();
         static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
