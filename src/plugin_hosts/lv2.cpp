@@ -11,6 +11,7 @@
 #include "lv2/atom/atom.h"
 #include "lv2/atom/util.h"
 #include "lv2/midi/midi.h"
+#include "lv2/time/time.h"
 #include "../util.h"
 
 using namespace plugins;
@@ -34,6 +35,8 @@ struct {
 
     LilvNode* midi_MidiEvent;
 
+    LilvNode* time_Position;
+
     LilvNode* units_unit;
     LilvNode* units_db;
 } static LV2_URIS;
@@ -56,6 +59,8 @@ void Lv2Plugin::lilv_init() {
     LV2_URIS.atom_supports = lilv_new_uri(LILV_WORLD, LV2_ATOM__supports);
 
     LV2_URIS.midi_MidiEvent = lilv_new_uri(LILV_WORLD, LV2_MIDI__MidiEvent);
+
+    LV2_URIS.time_Position = lilv_new_uri(LILV_WORLD, LV2_TIME__Position);
 
     LV2_URIS.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     LV2_URIS.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
@@ -352,28 +357,47 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         else if (lilv_port_is_a(plugin, port, LV2_URIS.atom_AtomPort)) {
             if (is_input_port || is_output_port) {
                 LilvNode* buffer_type_n = lilv_port_get(plugin, port, LV2_URIS.atom_bufferType);
+                LilvNodes* supports_n = lilv_port_get_value(plugin, port, LV2_URIS.atom_supports);
+
+                bool is_main = lilv_node_equals(designation_n, LV2_URIS.lv2_control);
+                bool midi_support = lilv_nodes_contains(supports_n, LV2_URIS.midi_MidiEvent);
+                bool time_support = lilv_nodes_contains(supports_n, LV2_URIS.time_Position);
 
                 // atom:Sequence
                 if (lilv_node_equals(buffer_type_n, LV2_URIS.atom_Sequence)) {
-                    MidiBuffer* midi_buf = new MidiBuffer {
+                    AtomSequenceBuffer* seq_buf = new AtomSequenceBuffer {
                         {
                             { sizeof(LV2_Atom_Sequence_Body), uri_map(nullptr, LV2_ATOM__Sequence) },
                             { 0, 0 }
                         }
                     };
 
+                    // if control designation is not specified, plugin will
+                    // use the first midi port found
                     if (is_input_port)
                     {
-                        if (midi_in) throw lv2_error("unsupported: multiple input midi ports");
-                        midi_in = midi_buf;
+                        msg_in.push_back(seq_buf);
+
+                        if (midi_support && (midi_in == nullptr || is_main)) {
+                            midi_in = seq_buf;
+                        }
+                        
+                        if (time_support && (time_in == nullptr || is_main)) {
+                            time_in = seq_buf;
+                        } 
                     }
                     else if (is_output_port)
                     {
-                        if (midi_out) throw lv2_error("unsupported: multiple output midi ports");
-                        midi_out = midi_buf;
+                        msg_out.push_back(seq_buf);
+
+                        if (midi_support && (midi_out == nullptr || is_main)) {
+                            midi_out = seq_buf;
+                        }
+
+                        // TODO: time out?
                     }
 
-                    lilv_instance_connect_port(instance, i, midi_buf);
+                    lilv_instance_connect_port(instance, i, seq_buf);
                 }
 
                 else
@@ -430,8 +454,11 @@ Lv2Plugin::~Lv2Plugin()
     for (ControlOutput* out : ctl_out)
         delete out;
 
-    if (midi_in) delete[] midi_in;
-    if (midi_out) delete[] midi_out;
+    for (AtomSequenceBuffer* in : msg_in)
+        delete in;
+
+    for (AtomSequenceBuffer* out : msg_out)
+        delete out;
 }
 
 int Lv2Plugin::control_value_count() const
@@ -521,13 +548,15 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         interleave
     );
 
-    if (midi_out)
-        midi_out->header.atom.size = MIDI_BUFFER_CAPACITY;
-    
+    // send buffer capacity to plugins
+    for (AtomSequenceBuffer* buf : msg_out)
+        buf->header.atom.size = ATOM_SEQUENCE_CAPACITY;
+
     lilv_instance_run(instance, sample_count);
 
-    if (midi_in)
-        lv2_atom_sequence_clear(&midi_in->header);
+    // clear input message streams
+    for (AtomSequenceBuffer* buf : msg_in)
+        lv2_atom_sequence_clear(&buf->header);
 
     // write output buffers
     convert_to_stereo(
@@ -555,7 +584,7 @@ void Lv2Plugin::event(const audiomod::MidiEvent* midi_event)
         atom.header.body.type = uri_map(nullptr, LV2_MIDI__MidiEvent);
         memcpy(&atom.midi, &midi_msg, midi_msg.size());
 
-        lv2_atom_sequence_append_event(&midi_in->header, MIDI_BUFFER_CAPACITY, &atom.header);
+        lv2_atom_sequence_append_event(&midi_in->header, ATOM_SEQUENCE_CAPACITY, &atom.header);
     }
 }
 

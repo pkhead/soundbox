@@ -53,13 +53,21 @@ namespace plugins
         std::vector<ControlInput*> ctl_in;
         std::vector<ControlOutput*> ctl_out;
 
-        static constexpr size_t MIDI_BUFFER_CAPACITY = 1024;
+        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
 
-        struct MidiBuffer {
+        struct AtomSequenceBuffer {
             LV2_Atom_Sequence header;
-            uint8_t data[MIDI_BUFFER_CAPACITY];
-        } *midi_in = nullptr, *midi_out = nullptr;
-        LV2_Atom_Event* midi_read_it; // MIDi read iterator
+            uint8_t data[ATOM_SEQUENCE_CAPACITY];
+        };
+
+        std::vector<AtomSequenceBuffer*> msg_in;
+        std::vector<AtomSequenceBuffer*> msg_out;
+
+        AtomSequenceBuffer* midi_in = nullptr;
+        AtomSequenceBuffer* midi_out = nullptr;
+        AtomSequenceBuffer* time_in = nullptr;
+
+        LV2_Atom_Event* midi_read_it; // MIDI out read iterator
 
         LV2_URID_Map map;
         LV2_Feature map_feature;
