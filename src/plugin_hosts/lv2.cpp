@@ -2,7 +2,6 @@
 #include <cstring>
 #include <string>
 #include <iostream>
-#include <unordered_map>
 
 #include "lv2.h"
 #include "lv2/units/units.h"
@@ -521,8 +520,9 @@ const void* Lv2Plugin::get_port_value_callback(
 }
 
 // plugin instantiation
-Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
-    : PluginModule(dest, plugin_data)
+Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin_data, WorkScheduler& scheduler)
+    : PluginModule(dest, plugin_data),
+      work_scheduler(scheduler)
 {
     if (plugin_data.type != PluginType::Lv2)
         throw std::runtime_error("mismatched plugin types");

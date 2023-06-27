@@ -544,7 +544,12 @@ int main()
             // create a clone of the song
             std::stringstream song_serialized;
             song->serialize(song_serialized);
-            export_data.song = Song::from_file(song_serialized, *export_data.destination, song_editor.plugin_manager, nullptr);
+            export_data.song = Song::from_file(
+                song_serialized,
+                *export_data.destination, 
+                song_editor.plugin_manager,
+                nullptr
+            );
 
             if (export_data.song == nullptr) {
                 show_status("Error while exporting the song");

@@ -5,6 +5,8 @@
 #include <lv2/log/log.h>
 #include <lv2/atom/atom.h>
 #include <lv2/atom/forge.h>
+#include <lv2/worker/worker.h>
+#include "../worker.h"
 
 namespace plugins
 {
@@ -124,6 +126,8 @@ namespace plugins
         LV2_Feature unmap_feature;
         LV2_Log_Log log;
         LV2_Feature log_feature;
+        LV2_Worker_Schedule lv2_worker_schedule;
+        LV2_Feature work_schedule_feature;
 
         const LV2_Feature* features[4] {
             &map_feature,
@@ -131,6 +135,8 @@ namespace plugins
             &log_feature,
             NULL
         };
+
+        WorkScheduler& work_scheduler;
 
         // list of displayed values
         struct InterfaceDisplay {
@@ -165,7 +171,7 @@ namespace plugins
         );
 
     public:
-        Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data);
+        Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
         ~Lv2Plugin();
 
         virtual PluginType plugin_type() { return PluginType::Lv2; };
@@ -195,7 +201,7 @@ namespace plugins
         virtual void set_control_value(int index, float value) override;
         virtual ControlValue get_control_value(int index) override;
         virtual OutputValue get_output_value(int index) override;
-        
+
         virtual void control_value_change(int index) override;
 
         static const char* get_standard_paths();

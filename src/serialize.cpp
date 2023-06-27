@@ -79,6 +79,7 @@ static audiomod::ModuleBase* load_module(
     std::istream& input,
     audiomod::DestinationModule& audio_dest,
     plugins::PluginManager& plugin_manager,
+    WorkScheduler& work_scheduler,
     std::string* error_msg
 ) {
     // read mod type
@@ -89,7 +90,7 @@ static audiomod::ModuleBase* load_module(
     inst_id[id_size] = 0;
 
     // load module based off id
-    audiomod::ModuleBase* mod = audiomod::create_module(inst_id, audio_dest, plugin_manager);
+    audiomod::ModuleBase* mod = audiomod::create_module(inst_id, audio_dest, plugin_manager, work_scheduler);
     if (mod == nullptr) {
         if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
         delete[] inst_id;
@@ -304,6 +305,8 @@ Song* Song::from_file(
     song->beats_per_bar = beats_per_bar;
     song->tempo = tempo;
 
+    WorkScheduler& work_scheduler = song->work_scheduler;
+
     delete[] song_name;
 
     // tuning data
@@ -443,7 +446,7 @@ Song* Song::from_file(
             for (uint8_t j = 0; j < mod_count; j++)
             {
                 // read mod type
-                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, error_msg);
+                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, work_scheduler, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;
@@ -501,7 +504,7 @@ Song* Song::from_file(
 
         // instrument data
         {
-            audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, error_msg);
+            audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, work_scheduler, error_msg);
             if (mod == nullptr) {
                 delete song;
                 return nullptr;
@@ -519,7 +522,7 @@ Song* Song::from_file(
 
             for (uint8_t modi = 0; modi < num_mods; modi++)
             {
-                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, error_msg);
+                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, work_scheduler, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;

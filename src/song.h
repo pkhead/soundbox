@@ -16,6 +16,7 @@
 #include "plugins.h"
 #include <imgui.h>
 #include "modules/volume.h"
+#include "worker.h"
 
 struct Note {
     float time;
@@ -130,6 +131,9 @@ public:
 
     std::mutex mutex;
 
+    // scheduler for work to be done by modules
+    WorkScheduler work_scheduler;
+
     static constexpr size_t name_capcity = 128;
     char name[name_capcity];
 
@@ -208,5 +212,10 @@ public:
     bool load_kbm(const char* file_path, Tuning& tuning, std::string* error);
 
     void serialize(std::ostream& out) const;
-    static Song* from_file(std::istream& input, audiomod::DestinationModule& audio_dest, plugins::PluginManager& plugin_manager, std::string *error_msg);
+    static Song* from_file(
+        std::istream& input,
+        audiomod::DestinationModule& audio_dest,
+        plugins::PluginManager& plugin_manager,
+        std::string *error_msg
+    );
 };

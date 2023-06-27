@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <vector>
 #include <portaudio.h>
+#include "worker.h"
 
 class AudioDevice {
 private:
@@ -397,7 +398,12 @@ namespace audiomod {
     };
 
     // define in modules/modules.cpp
-    ModuleBase* create_module(const std::string& mod_id, DestinationModule& audio_dest, plugins::PluginManager& plugin_manager);
+    ModuleBase* create_module(
+        const std::string& mod_id,
+        DestinationModule& audio_dest,
+        plugins::PluginManager& plugin_manager,
+        WorkScheduler& scheduler
+    );
     
     // if module takes in MIDI inputs or does not take in audio input
     bool is_module_instrument(const std::string& mod_id, plugins::PluginManager& plugin_manager);

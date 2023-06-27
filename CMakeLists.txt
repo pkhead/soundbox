@@ -52,6 +52,7 @@ set(SOURCES
     src/sys.cpp
     src/audiofile.cpp
     src/plugins.cpp
+    src/worker.cpp
     src/util.cpp
 
     src/plugin_hosts/ladspa.cpp

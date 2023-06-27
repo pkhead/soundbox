@@ -21,7 +21,12 @@ std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list(
 });
 
 #define MAP(id, class) if (mod_id == id) return new class(audio_dest)
-ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule& audio_dest, plugins::PluginManager& plugin_manager) {
+ModuleBase* audiomod::create_module(
+    const std::string& mod_id,
+    DestinationModule& audio_dest,
+    plugins::PluginManager& plugin_manager,
+    WorkScheduler& scheduler
+) {
     // synthesizers
     MAP("synth.waveform", WaveformSynth); // TODO: add fourth oscillator and allow FM modulation
     // TODO: harmonics synth
@@ -58,7 +63,7 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule
 
                 case plugins::PluginType::Lv2:
                 try {
-                    plugin = new plugins::Lv2Plugin(audio_dest, plugin_data);
+                    plugin = new plugins::Lv2Plugin(audio_dest, plugin_data, scheduler);
                 } catch (plugins::lv2_error& err) {
                     throw module_create_error(err.what());
                 }

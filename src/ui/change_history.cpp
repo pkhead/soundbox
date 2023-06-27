@@ -218,7 +218,12 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
 
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.audio_dest, editor.plugin_manager);
+    audiomod::ModuleBase* mod = audiomod::create_module(
+        mod_type,
+        editor.audio_dest,
+        editor.plugin_manager,
+        editor.song->work_scheduler
+    );
     mod->song = editor.song;
     mod->parent_name = parent_name;
     rack->insert(mod);
@@ -280,7 +285,13 @@ void change::ChangeRemoveEffect::undo(SongEditor& editor) {
 
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(mod_type, editor.audio_dest, editor.plugin_manager);
+    audiomod::ModuleBase* mod = audiomod::create_module(
+        mod_type,
+        editor.audio_dest,
+        editor.plugin_manager,
+        editor.song->work_scheduler
+    );
+
     mod->song = editor.song;
     mod->parent_name = parent_name;
     rack->insert(mod, index);
@@ -703,7 +714,13 @@ change::ModuleData::ModuleData(audiomod::ModuleBase* module)
 
 audiomod::ModuleBase* change::ModuleData::load(SongEditor& editor) const
 {
-    audiomod::ModuleBase* mod = audiomod::create_module(type, editor.audio_dest, editor.plugin_manager);
+    audiomod::ModuleBase* mod = audiomod::create_module(
+        type,
+        editor.audio_dest,
+        editor.plugin_manager,
+        editor.song->work_scheduler
+    );
+    
     mod->song = editor.song;
     std::stringstream stream(data);
     mod->load_state(stream, data.size());

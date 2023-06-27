@@ -119,7 +119,13 @@ void render_channel_settings(SongEditor &editor)
             if (mod_id)
             {
                 try {
-                    audiomod::ModuleBase* mod = audiomod::create_module(mod_id, editor.audio_dest, editor.plugin_manager);
+                    audiomod::ModuleBase* mod = audiomod::create_module(
+                        mod_id,
+                        editor.audio_dest,
+                        editor.plugin_manager,
+                        editor.song->work_scheduler
+                    );
+
                     mod->song = editor.song;
                     mod->parent_name = cur_channel->name;
                     cur_channel->set_instrument(mod);
@@ -140,7 +146,13 @@ void render_channel_settings(SongEditor &editor)
         {
             case EffectsInterfaceAction::Add: {
                 try {
-                    audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
+                    audiomod::ModuleBase* mod = audiomod::create_module(
+                        result.module_id,
+                        editor.audio_dest,
+                        editor.plugin_manager,
+                        editor.song->work_scheduler
+                    );
+                    
                     mod->parent_name = cur_channel->name;
                     mod->song = &song;
 

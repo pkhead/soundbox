@@ -200,7 +200,12 @@ void render_fx_mixer(SongEditor &editor)
                     song.mutex.lock();
                     
                     try {
-                        audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
+                        audiomod::ModuleBase* mod = audiomod::create_module(
+                            result.module_id,
+                            editor.audio_dest,
+                            editor.plugin_manager,
+                            editor.song->work_scheduler
+                        );
 
                         mod->parent_name = fx_bus->name;
                         mod->song = &song;

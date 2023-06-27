@@ -2,10 +2,10 @@
 #include "../audio.h"
 #include <imgui.h>
 #include <mutex>
-#include "../song.h"
 #include "theme.h"
-#include "../plugins.h"
 #include "change_history.h"
+#include "../plugins.h"
+#include "../song.h"
 
 constexpr uint8_t USERMOD_SHIFT = 1;
 constexpr uint8_t USERMOD_CTRL = 2;
