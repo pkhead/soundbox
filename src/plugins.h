@@ -30,6 +30,7 @@ namespace plugins
     };
 
     // base class for plugins
+    // TODO: make PluginModule and Plugin the same class
     class Plugin {
     public:
         struct ControlValue
@@ -66,7 +67,8 @@ namespace plugins
         virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) = 0;
 
         virtual void event(const audiomod::MidiEvent* event) = 0;
-        virtual size_t receive_events(audiomod::MidiEvent* buffer, size_t capacity) = 0;
+        virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) = 0;
+        virtual void flush_events() = 0;
 
         virtual void save_state(std::ostream& ostream) const = 0;
         virtual bool load_state(std::istream& istream, size_t size) = 0;
@@ -100,7 +102,8 @@ namespace plugins
 
         // midi events
         void event(const audiomod::MidiEvent* event) override;
-        virtual size_t receive_events(audiomod::MidiEvent* buffer, size_t capacity) override;
+        virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override;
+        virtual void flush_events() override;
 
         // state save/load
         void save_state(std::ostream& ostream) const override;

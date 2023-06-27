@@ -358,50 +358,124 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
 
 Lv2Plugin::Parameter::Parameter(const char* urid, const char* label, const char* type_uri)
     : id(uri_map(urid)),
-      label(label),
-      type(uri_map(type_uri))
+      label(label)
 {
-    assert(
-        (type == uri_map(LV2_ATOM__Int)) ||
-        (type == uri_map(LV2_ATOM__Long)) ||
-        (type == uri_map(LV2_ATOM__Float)) ||
-        (type == uri_map(LV2_ATOM__Double)) ||
-        (type == uri_map(LV2_ATOM__Bool)) ||
-        (type == uri_map(LV2_ATOM__String)) ||
-        (type == uri_map(LV2_ATOM__Path))
-    );
+    if (strcmp(type_uri, LV2_ATOM__Int) == 0) {
+        type = TypeInt;
+        v._int = 0;
+        last_v._int = 0;
+    } else if (strcmp(type_uri, LV2_ATOM__Long) == 0) {
+        type = TypeLong;
+        v._long = 0;
+        last_v._long = 0;
+    } else if (strcmp(type_uri, LV2_ATOM__Float) == 0) {
+        type = TypeFloat;
+        v._float = 0;
+        last_v._float = 0;
+    } else if (strcmp(type_uri, LV2_ATOM__Double) == 0) {
+        type = TypeDouble;
+        v._double = 0;
+        last_v._double = 0;
+    } else if (strcmp(type_uri, LV2_ATOM__Bool) == 0) {
+        type = TypeBool;
+        v._bool = 0;
+        last_v._bool = false;
+    } else if (strcmp(type_uri, LV2_ATOM__String) == 0) {
+        type = TypeString;
+    } else if (strcmp(type_uri, LV2_ATOM__Path) == 0) {
+        type = TypePath;
+    } else {
+        throw lv2_error(std::string("unknown type <") + type_uri + ">");
+    }
+}
+
+const char* Lv2Plugin::Parameter::type_uri() const
+{
+    switch (type) {
+        case TypeInt:
+            return LV2_ATOM__Int;
+        case TypeLong:
+            return LV2_ATOM__Long;
+        case TypeFloat:
+            return LV2_ATOM__Float;
+        case TypeDouble:
+            return LV2_ATOM__Double;
+        case TypeBool:
+            return LV2_ATOM__Bool;
+        case TypeString:
+            return LV2_ATOM__String;
+        case TypePath:
+            return LV2_ATOM__Path;
+    }
+
+    assert(false);
 }
 
 size_t Lv2Plugin::Parameter::size() const {
-    if (type == uri_map(LV2_ATOM__Int))
-        return sizeof(int);
-    if (type == uri_map(LV2_ATOM__Long))
-        return sizeof(long);
-    if (type == uri_map(LV2_ATOM__Float))
-        return sizeof(float);
-    if (type == uri_map(LV2_ATOM__Double))
-        return sizeof(double);
-    if (type == uri_map(LV2_ATOM__Bool))
-        return sizeof(bool);
-    if (type == uri_map(LV2_ATOM__String))
-        return string_or_path.size();
-    if (type == uri_map(LV2_ATOM__Path))
-        return string_or_path.size();
+    switch (type) {
+        case TypeInt:
+            return sizeof(int);
+        case TypeLong:
+            return sizeof(long);
+        case TypeFloat:
+            return sizeof(float);
+        case TypeDouble:
+            return sizeof(double);
+        case TypeBool:
+            return sizeof(bool);
+        case TypeString:
+        case TypePath:
+            return str.size();
+    }
 
     return 0;
 }
 
+bool Lv2Plugin::Parameter::detect_change()
+{
+    if (type == TypeString || type == TypePath)
+    {
+        bool did_change = str != last_str;
+        last_str = str;
+        return did_change;
+    }
+    else
+    {
+        switch (type)
+        {
+            case TypeFloat: {
+                bool did_change = v._float != last_v._float;
+                last_v._float = v._float;
+                return did_change;
+            }
+
+            case TypeDouble: {
+                bool did_change = v._double != last_v._double;
+                last_v._double = v._double;
+                return did_change;
+            }
+
+            default: {
+                bool did_change = memcmp(&v, &last_v, sizeof(v)) != 0;
+                memcpy(&last_v, &v, sizeof(v));
+
+                return did_change;
+            }
+
+        }
+    }
+}
+
 bool Lv2Plugin::Parameter::set(const void* value, uint32_t expected_size, uint32_t expected_type)
 {
-    if (type != expected_type) return false;
+    if (uri_map(type_uri()) != expected_type) return false;
 
-    if (type == uri_map(LV2_ATOM__String) || type == uri_map(LV2_ATOM__Path)) {
-        string_or_path.resize(expected_size);
-        memcpy(string_or_path.data(), value, expected_size);
-
+    if (type == TypeString || type == TypePath) {
+        str.resize(expected_size);
+        memcpy(str.data(), value, expected_size);
     } else {
         if (size() != expected_size) return false;
-        memcpy(&_int, value, expected_size);
+        memcpy(&v, value, expected_size);
     }
 
     return true;
@@ -411,10 +485,10 @@ const void* Lv2Plugin::Parameter::get(uint32_t* size) const
 {
     *size = this->size();
 
-    if (type == uri_map(LV2_ATOM__String) || type == uri_map(LV2_ATOM__Path)) {
-        return string_or_path.c_str();
+    if (type == TypeString || type == TypePath) {
+        return str.c_str();
     } else {
-        return &_int;
+        return &v;
     }
 }
 
@@ -460,6 +534,8 @@ const void* Lv2Plugin::_get_port_value(
             return &port->value;
         }
     }
+
+    return nullptr;
 }
 
 void Lv2Plugin::set_port_value_callback(
@@ -494,6 +570,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     LilvNode_ptr plugin_uri; {
         size_t colon_sep = plugin_data.id.find_first_of(":");
         const char* uri_str = plugin_data.id.c_str() + colon_sep + 1;
+        this->plugin_uri = uri_str;
         plugin_uri = lilv_new_uri(LILV_WORLD, uri_str);
     }
 
@@ -779,6 +856,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
         if (state) {
             lilv_state_restore(state, instance, set_port_value_callback, this, 0, features);
+            
             lilv_state_free(state);
         }
     }
@@ -786,7 +864,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     // add parameters to interface
     for (Parameter* param : parameters) {
         // TODO: parameter types other than float
-        if (param->type == uri_map(LV2_ATOM__Float)) {
+        if (param->type == Parameter::TypeFloat) {
             InterfaceDisplay display;
             display.is_parameter = true;
             display.param = param;
@@ -850,7 +928,7 @@ Plugin::ControlValue Lv2Plugin::get_control_value(int index)
 
         // TODO: parameter types other than float
         value.name = param->label.c_str();
-        value.value = &param->_float;
+        value.value = &param->v._float;
         value.has_default = false;
         value.min = -10.0f;
         value.max = 10.0f;
@@ -899,7 +977,7 @@ Plugin::OutputValue Lv2Plugin::get_output_value(int index)
         // TODO: parameter types other than float
         value.name = param->label.c_str();
         value.format = "%.3f";
-        value.value = &param->_float;
+        value.value = &param->v._float;
     } else {
         ControlOutputPort* impl = display.port_out;
 
@@ -947,6 +1025,60 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
     // send buffer capacity to plugins
     for (AtomSequenceBuffer* buf : msg_out)
         buf->header.atom.size = ATOM_SEQUENCE_CAPACITY;
+
+    // set and monitor required parameters
+    if (patch_in)
+    {
+        LV2_Atom_Event* event = lv2_atom_sequence_end(&patch_in->header.body, patch_in->header.atom.size);
+        lv2_atom_forge_set_buffer(
+            &forge,
+            (uint8_t*) event,
+            ATOM_SEQUENCE_CAPACITY - ((size_t)(event) - (size_t)(patch_in->data))
+        );
+
+        LV2_Atom_Forge_Frame frame;
+
+        for (Parameter* param : parameters)
+        {
+            if (param->is_writable && param->detect_change()) {
+                // send request to write parameter
+                dbg("%s changed\n", uri_unmap(param->id));
+                
+                lv2_atom_forge_frame_time(&forge, 0);
+                lv2_atom_forge_object(&forge, &frame, 0, uri_map(LV2_PATCH__Set));
+
+                lv2_atom_forge_key(&forge, uri_map(LV2_PATCH__subject));
+                lv2_atom_forge_urid(&forge, uri_map(plugin_uri.c_str()));
+
+                lv2_atom_forge_key(&forge, uri_map(LV2_PATCH__property));
+                lv2_atom_forge_urid(&forge, param->id);
+
+                uint32_t param_size;
+                const void* param_data = param->get(&param_size);
+
+                lv2_atom_forge_key(&forge, uri_map(LV2_PATCH__value));
+                lv2_atom_forge_atom(&forge, param_size, uri_map(param->type_uri()));
+                lv2_atom_forge_write(&forge, param_data, param_size);
+
+                lv2_atom_forge_pop(&forge, &frame);
+            }
+            if (param->is_readable) {
+                // send request to read parameter
+                lv2_atom_forge_frame_time(&forge, 0);
+                lv2_atom_forge_object(&forge, &frame, 0, uri_map(LV2_PATCH__Get));
+
+                lv2_atom_forge_key(&forge, uri_map(LV2_PATCH__subject));
+                lv2_atom_forge_urid(&forge, uri_map(plugin_uri.c_str()));
+
+                lv2_atom_forge_key(&forge, uri_map(LV2_PATCH__property));
+                lv2_atom_forge_urid(&forge, param->id);
+
+                lv2_atom_forge_pop(&forge, &frame);
+            }
+        }
+
+        patch_in->header.atom.size += lv2_atom_pad_size(forge.offset);
+    }
 
     // send time and tempo information to plugin
     if (time_in) {
@@ -1026,14 +1158,16 @@ void Lv2Plugin::event(const audiomod::MidiEvent* midi_event)
     }
 }
 
-size_t Lv2Plugin::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
+size_t Lv2Plugin::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity)
 {
     if (midi_out)
     {
+        LV2_Atom_Event** it = (LV2_Atom_Event**) handle;
+
         LV2_Atom_Sequence& seq = midi_out->header;
 
-        if (midi_read_it == nullptr)
-            midi_read_it = lv2_atom_sequence_begin(&seq.body);
+        if (*it == nullptr)
+            *it = lv2_atom_sequence_begin(&seq.body);
 
         size_t count = 0;
 
@@ -1044,17 +1178,12 @@ size_t Lv2Plugin::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
                 break;
 
             // reached end of sequence, "coroutine" is finished
-            if (lv2_atom_sequence_is_end(&seq.body, seq.atom.size, midi_read_it)) {
-                if (midi_read_it && count == 0) {
-                    lv2_atom_sequence_clear(&seq);
-                    midi_read_it = nullptr;
-                }
-
+            if (lv2_atom_sequence_is_end(&seq.body, seq.atom.size, *it)) {
                 break;
             }
 
-            LV2_Atom_Event* &ev = midi_read_it;
-
+            // if event is a midi event
+            LV2_Atom_Event* &ev = *it;
             if (ev->body.type == uri_map(LV2_MIDI__MidiEvent))
             {
                 const audiomod::MidiMessage* const midi_ev = (const audiomod::MidiMessage*) (ev + 1);
@@ -1065,13 +1194,53 @@ size_t Lv2Plugin::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
                 };
             }
 
-            midi_read_it = lv2_atom_sequence_next(midi_read_it);
+            *it = lv2_atom_sequence_next(*it);
         }
 
         return count;
     }
 
     return 0;
+}
+
+void Lv2Plugin::flush_events()
+{
+    // read patch:Put and patch:Set events
+    if (patch_out) {
+        LV2_ATOM_SEQUENCE_FOREACH (&patch_out->header, ev)
+        {
+            if (ev->body.type == uri_map(LV2_ATOM__Object))
+            {
+                const LV2_Atom_Object* obj = (const LV2_Atom_Object*)&ev->body;
+
+                // return from patch:Get <property>
+                if (obj->body.otype == uri_map(LV2_PATCH__Set)) {
+                    const LV2_Atom_URID* property   = nullptr;
+                    const LV2_Atom* value           = nullptr;
+
+                    lv2_atom_object_get(obj,
+                        uri_map(LV2_PATCH__property),   (const LV2_Atom**)&property,
+                        uri_map(LV2_PATCH__value),      &value,  
+                    0);
+
+                    assert(property && property->atom.type == uri_map(LV2_ATOM__URID) && value);
+                    if (property && property->atom.type == uri_map(LV2_ATOM__URID) && value) {
+                        Parameter* param = find_parameter(property->body);
+                        assert(param);
+
+                        if (param) {
+                            param->set(value + 1, value->size, value->type);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // clear event sequences
+    for (AtomSequenceBuffer* buf : msg_out) {
+        lv2_atom_sequence_clear(&buf->header);
+    }
 }
 
 // TODO

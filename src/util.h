@@ -7,6 +7,7 @@
 #ifdef _NDEBUG
 
 #define dbg(fmt, ...)
+#define __BREAK__
 
 #else
 
@@ -20,6 +21,13 @@ inline void dbg(const char* fmt, ...) {
     vprintf(fmt, vl);
     va_end(vl);
 }
+
+#ifdef _WIN32
+#define DBGBREAK __debugbreak
+#else
+#include <signal.h>
+#define DBGBREAK raise(SIGTRAP)
+#endif
 
 #endif
 

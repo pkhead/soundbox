@@ -17,6 +17,7 @@ namespace plugins
     class Lv2Plugin : public Plugin
     {
     private:
+        std::string plugin_uri;
         LilvInstance* instance;
         audiomod::DestinationModule& dest;
 
@@ -49,28 +50,42 @@ namespace plugins
             float value;
         };
 
-        struct Parameter
+        class Parameter
         {
+        public:
             LV2_URID id;
-            LV2_URID type;
             std::string label;
             bool is_writable;
             bool is_readable;
+            
+            enum Type {
+                TypeInt,
+                TypeLong,
+                TypeFloat,
+                TypeDouble,
+                TypeBool,
+                TypePath,
+                TypeString
+            } type;
 
-            union {
+            union value {
                 int _int;
                 long _long;
                 float _float;
                 double _double;
                 bool _bool;
-            };
+            } v, last_v;
 
-            std::string string_or_path;
+            std::string str;
+            std::string last_str;
 
             Parameter(const char* urid, const char* label, const char* type);
             size_t size() const;
             bool set(const void* value, uint32_t expected_size, uint32_t expected_type);
-            const void* get(uint32_t* size) const; 
+            const void* get(uint32_t* size) const;
+            bool detect_change();
+
+            const char* type_uri() const;
         };
 
         float song_last_tempo = -1.0f;
@@ -83,6 +98,7 @@ namespace plugins
         std::vector<ControlInputPort*> ctl_in;
         std::vector<ControlOutputPort*> ctl_out;
         std::vector<Parameter*> parameters;
+        bool is_state_init = false;
 
         Parameter* find_parameter(LV2_URID id) const;
 
@@ -101,8 +117,6 @@ namespace plugins
         AtomSequenceBuffer* time_in = nullptr;
         AtomSequenceBuffer* patch_in = nullptr;
         AtomSequenceBuffer* patch_out = nullptr;
-
-        LV2_Atom_Event* midi_read_it; // MIDI out read iterator
 
         LV2_Atom_Forge forge;
 
@@ -167,7 +181,8 @@ namespace plugins
         bool load_state(std::istream& istream, size_t size) override;
 
         virtual void event(const audiomod::MidiEvent* event) override;
-        virtual size_t receive_events(audiomod::MidiEvent* buffer, size_t capacity) override;
+        virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override;
+        virtual void flush_events() override;
 
         virtual int control_value_count() const override;
         virtual int output_value_count() const override;

@@ -590,13 +590,15 @@ void DestinationModule::process_node(ModuleNode* node)
 
         MidiEvent midi_buf[8];
         size_t count;
+        void* handle = nullptr;
 
-        while ((count = node->inputs[i]->module->receive_events(midi_buf, 8)))
-        {
+        while ((count = node->inputs[i]->module->receive_events(&handle, midi_buf, 8))) {
             for (int i = 0; i < count; i++) {
                 node->module->event(midi_buf + i);
             }
         }
+
+        node->inputs[i]->module->flush_events();
     }
 
     if (node->module)

@@ -162,11 +162,19 @@ namespace audiomod {
         *
         * This will dequeue an internal MIDI sequence buffer and write it to the output.
         * If the given buffer is not big enough, it will return. Processing
-        * will resume once the function is called again. If there are no MIDI messages,
-        * it should return 0 and the internal buffer in the implementation is clear.
+        * will resume once the function is called again. If there are no MIDI messages
+        * left, it should return 0. This should be called in a loop.
+        *
+        * @param handle A handle for the iterator. When the process begin,
+        * this should point to nullptr
+        *
         * @returns The number of MIDI messages written to the output
         **/
-        virtual size_t receive_events(MidiEvent* buffer, size_t capacity) { return 0; };
+        virtual size_t receive_events(void** handle, MidiEvent* buffer, size_t capacity) { return 0; };
+        
+        // Tell the module to clear its event queue after
+        // processing is finished
+        virtual void flush_events() {};
 
         // connect this module's output to a target's input
         void connect(ModuleOutputTarget* dest);

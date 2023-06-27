@@ -48,9 +48,13 @@ void PluginModule::event(const audiomod::MidiEvent* event)
     return _plugin->event(event);
 }
 
-size_t PluginModule::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
+size_t PluginModule::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity)
 {
-    return _plugin->receive_events(buffer, capacity);
+    return _plugin->receive_events(handle, buffer, capacity);
+}
+
+void PluginModule::flush_events() {
+    return _plugin->flush_events();
 }
 
 void PluginModule::save_state(std::ostream& stream) const
