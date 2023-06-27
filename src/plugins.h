@@ -58,6 +58,7 @@ namespace plugins
         };
 
         const PluginData data;
+        const Song* song = nullptr;
 
         Plugin(const PluginData& data);
         virtual ~Plugin() {};

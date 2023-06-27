@@ -4,6 +4,7 @@
 #include <lilv/lilv.h>
 #include <lv2/log/log.h>
 #include <lv2/atom/atom.h>
+#include <lv2/atom/forge.h>
 
 namespace plugins
 {
@@ -46,6 +47,9 @@ namespace plugins
             float value;
         };
 
+        float song_last_tempo = -1.0f;
+        bool song_last_playing = false;
+
         float* input_combined;
         std::vector<float*> audio_input_bufs;
         std::vector<float*> audio_output_bufs;
@@ -68,6 +72,8 @@ namespace plugins
         AtomSequenceBuffer* time_in = nullptr;
 
         LV2_Atom_Event* midi_read_it; // MIDI out read iterator
+
+        LV2_Atom_Forge forge;
 
         LV2_URID_Map map;
         LV2_Feature map_feature;

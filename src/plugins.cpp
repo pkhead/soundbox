@@ -39,6 +39,7 @@ PluginModule::~PluginModule()
 }
 
 void PluginModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
+    _plugin->song = song;
     _plugin->process(inputs, output, num_inputs, buffer_size);
 }
 

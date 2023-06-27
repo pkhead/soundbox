@@ -9,10 +9,12 @@
 #include "lv2/urid/urid.h"
 #include "lv2/log/log.h"
 #include "lv2/atom/atom.h"
+#include "lv2/atom/forge.h"
 #include "lv2/atom/util.h"
 #include "lv2/midi/midi.h"
 #include "lv2/time/time.h"
 #include "../util.h"
+#include "../song.h"
 
 using namespace plugins;
 
@@ -432,6 +434,9 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
     input_combined = new float[dest.frames_per_buffer * 2];
 
+    // create utility atom forge
+    lv2_atom_forge_init(&forge, &map);
+
     delete[] min_values;
     delete[] max_values;
     delete[] default_values;
@@ -552,6 +557,48 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
     for (AtomSequenceBuffer* buf : msg_out)
         buf->header.atom.size = ATOM_SEQUENCE_CAPACITY;
 
+    // send time and tempo information to plugin
+    if (time_in) {
+        assert(song);
+
+        float song_tempo = song->tempo;
+        bool song_playing = song->is_playing;
+
+        if (song_last_tempo != song_tempo || song_last_playing != song_playing) {
+            song_last_tempo = song_tempo;
+            song_last_playing = song_playing;
+
+            LV2_Atom_Event* event = lv2_atom_sequence_end(&time_in->header.body, time_in->header.atom.size);
+            lv2_atom_forge_set_buffer(
+                &forge,
+                (uint8_t*) event,
+                ATOM_SEQUENCE_CAPACITY - ((size_t)(event) - (size_t)(time_in->data))
+            );
+
+            LV2_Atom_Forge_Frame frame;
+
+            // write time position data
+            lv2_atom_forge_frame_time(&forge, 0);
+            lv2_atom_forge_object(&forge, &frame, 0, uri_map(nullptr, LV2_TIME__Position));
+
+            // beat in bars
+            lv2_atom_forge_key(&forge, uri_map(nullptr, LV2_TIME__barBeat));
+            lv2_atom_forge_float(&forge, song->position);
+
+            // beats per minute
+            lv2_atom_forge_key(&forge, uri_map(nullptr, LV2_TIME__beatsPerMinute));
+            lv2_atom_forge_float(&forge, song_tempo);
+
+            // play/stop
+            lv2_atom_forge_key(&forge, uri_map(nullptr, LV2_TIME__speed));
+            lv2_atom_forge_float(&forge, song_playing ? 1.0f : 0.0f);
+
+            lv2_atom_forge_pop(&forge, &frame);
+
+            time_in->header.atom.size += lv2_atom_pad_size(forge.offset);
+        }
+    }
+
     lilv_instance_run(instance, sample_count);
 
     // clear input message streams
@@ -593,10 +640,6 @@ size_t Lv2Plugin::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
     if (midi_out)
     {
         LV2_Atom_Sequence& seq = midi_out->header;
-        
-        if (!lv2_atom_sequence_is_end(&seq.body, seq.atom.size, lv2_atom_sequence_begin(&seq.body))) {
-            dbg("\0");
-        }
 
         if (midi_read_it == nullptr)
             midi_read_it = lv2_atom_sequence_begin(&seq.body);
@@ -624,7 +667,7 @@ size_t Lv2Plugin::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
             if (ev->body.type == uri_map(nullptr, LV2_MIDI__MidiEvent))
             {
                 const audiomod::MidiMessage* const midi_ev = (const audiomod::MidiMessage*) (ev + 1);
-                dbg("receive a midi event\n");
+                
                 buffer[count++] = {
                     (uint64_t) ev->time.frames,
                     *midi_ev
