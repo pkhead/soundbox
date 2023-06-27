@@ -4,8 +4,8 @@ project(soundbox)
 set(CMAKE_CXX_STANDARD 17)
 
 # find lilv on system
-find_library(LILV_LIBRARIES lilv-0 REQUIRED)
-find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0 REQUIRED)
+find_library(LILV_LIBRARIES NAMES lilv-0 lilv REQUIRED)
+find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0 lilv REQUIRED)
 
 # send these options to glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
