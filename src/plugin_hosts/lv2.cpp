@@ -250,7 +250,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     unmap = {nullptr, uri_unmap};
     unmap_feature = {LV2_URID__unmap, &unmap};
     log = {nullptr, log_printf, log_vprintf};
-    log_feature = {LV2_LOG_URI, &log};
+    log_feature = {LV2_LOG__log, &log};
 
     // instantiate plugin
     instance = lilv_plugin_instantiate(plugin, dest.sample_rate, features);
@@ -550,7 +550,7 @@ void Lv2Plugin::event(const audiomod::MidiEvent* midi_event)
 
         const audiomod::MidiMessage& midi_msg = midi_event->msg;
 
-        atom.header.time.frames = midi_event->time;
+        atom.header.time.frames = 0;
         atom.header.body.size = midi_msg.size();
         atom.header.body.type = uri_map(nullptr, LV2_MIDI__MidiEvent);
         memcpy(&atom.midi, &midi_msg, midi_msg.size());
