@@ -181,8 +181,6 @@ static const char* uri_unmap_handle(LV2_URID_Map_Handle handle, LV2_URID urid)
 // LOGGING EXTENSION //
 int log_printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...)
 {
-    return 2;
-
     va_list va;
     va_start(va, fmt);
     int res = vprintf(fmt, va);
@@ -192,8 +190,6 @@ int log_printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...)
 
 int log_vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list ap)
 {
-    return 2;
-
     return vprintf(fmt, ap);
 }
 ///////////////////////
