@@ -185,6 +185,14 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
             lilv_node_free(author);
         }
 
+        LilvNode* license_uri_n = lilv_new_uri(LILV_WORLD, "http://usefulinc.com/ns/doap#license");
+
+        LilvNode* license_n = lilv_world_get(LILV_WORLD, uri_node, license_uri_n, NULL);
+        if (license_n) {
+            data.copyright = lilv_node_as_string(license_n);
+            lilv_node_free(license_n);
+        }
+
         const LilvPluginClass* plug_class = lilv_plugin_get_class(plug);
         const char* class_uri = lilv_node_as_uri ( lilv_plugin_class_get_uri(plug_class) );
         data.is_instrument = strcmp(class_uri, LV2_CORE__InstrumentPlugin) == 0;
