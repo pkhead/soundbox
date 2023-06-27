@@ -577,6 +577,13 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             ctl_in.push_back(ctl);
 
             lilv_instance_connect_port(instance, i, &ctl->value);
+
+            // add to interface
+            InterfaceDisplay display;
+            display.is_parameter = false;
+            display.read_only = false;
+            display.port_in = ctl;
+            input_displays.push_back(display);
         }
 
         // output control port
@@ -590,6 +597,13 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             ctl->port_handle = port;
 
             lilv_instance_connect_port(instance, i, &ctl->value);
+
+            // add to interface
+            InterfaceDisplay display;
+            display.is_parameter = false;
+            display.read_only = true;
+            display.port_out = ctl;
+            output_displays.push_back(display);
         }
 
         // input audio port
@@ -769,6 +783,25 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         }
     }
 
+    // add parameters to interface
+    for (Parameter* param : parameters) {
+        // TODO: parameter types other than float
+        if (param->type == uri_map(LV2_ATOM__Float)) {
+            InterfaceDisplay display;
+            display.is_parameter = true;
+            display.param = param;
+
+            // if parameter is read-only
+            if (!param->is_writable && param->is_readable) {
+                display.read_only = true;
+                output_displays.push_back(display);
+            } else {
+                display.read_only = false;
+                input_displays.push_back(display);
+            }
+        }
+    }
+
     input_combined = new float[dest.frames_per_buffer * 2];
 
     // create utility atom forge
@@ -799,52 +832,81 @@ Lv2Plugin::~Lv2Plugin()
 
 int Lv2Plugin::control_value_count() const
 {
-    return ctl_in.size();
+    return input_displays.size();
 }
 
 int Lv2Plugin::output_value_count() const
 {
-    return ctl_out.size();
+    return output_displays.size();
 }
 
 Plugin::ControlValue Lv2Plugin::get_control_value(int index)
 {
     ControlValue value;
-    ControlInputPort* impl = ctl_in[index];
+    InterfaceDisplay& display_info = input_displays[index];
 
-    value.name = impl->name.c_str();
-    value.value = &impl->value;
-    value.has_default = true;
-    value.default_value = impl->default_value;
-    value.max = impl->max;
-    value.min = impl->min;
-    value.is_integer = false;
-    value.is_logarithmic = false;
-    value.is_sample_rate = false;
-    value.is_toggle = false;
+    if (display_info.is_parameter) {
+        Parameter* param = display_info.param;
 
-    switch (impl->unit)
-    {
-        case UnitType::dB:
-            value.format = "%.3f dB";
-            break;
+        // TODO: parameter types other than float
+        value.name = param->label.c_str();
+        value.value = &param->_float;
+        value.has_default = false;
+        value.min = -10.0f;
+        value.max = 10.0f;
+        value.is_integer = false;
+        value.is_logarithmic = false;
+        value.is_sample_rate = false;
+        value.is_toggle = false;
+        value.format = "%.3f";
+    } else {
+        ControlInputPort* impl = display_info.port_in;
 
-        default:
-            value.format = "%.3f";
-            break;
+        value.name = impl->name.c_str();
+        value.value = &impl->value;
+        value.has_default = true;
+        value.default_value = impl->default_value;
+        value.max = impl->max;
+        value.min = impl->min;
+        value.is_integer = false;
+        value.is_logarithmic = false;
+        value.is_sample_rate = false;
+        value.is_toggle = false;
+
+        switch (impl->unit)
+        {
+            case UnitType::dB:
+                value.format = "%.3f dB";
+                break;
+
+            default:
+                value.format = "%.3f";
+                break;
+        }
     }
-    
+
     return value;
 }
 
 Plugin::OutputValue Lv2Plugin::get_output_value(int index)
 {
     OutputValue value;
-    ControlOutputPort* impl = ctl_out[index];
+    InterfaceDisplay& display = output_displays[index];
 
-    value.name = impl->name.c_str();
-    value.format = "%.3f";
-    value.value = &impl->value;
+    if (display.is_parameter) {
+        Parameter* param = display.param;
+
+        // TODO: parameter types other than float
+        value.name = param->label.c_str();
+        value.format = "%.3f";
+        value.value = &param->_float;
+    } else {
+        ControlOutputPort* impl = display.port_out;
+
+        value.name = impl->name.c_str();
+        value.format = "%.3f";
+        value.value = &impl->value;
+    }
 
     return value;
 }

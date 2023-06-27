@@ -120,6 +120,20 @@ namespace plugins
             NULL
         };
 
+        // list of displayed values
+        struct InterfaceDisplay {
+            bool is_parameter;
+            bool read_only;
+
+            union {
+                ControlInputPort* port_in;
+                ControlOutputPort* port_out;
+                Parameter* param;
+            };
+        };
+        std::vector<InterfaceDisplay> input_displays;
+        std::vector<InterfaceDisplay> output_displays;
+
         void _set_port_value(const char* port_symbol, const void* value, uint32_t size, uint32_t type);
         const void* _get_port_value(const char* port_symbol, uint32_t* size, uint32_t type);
         
