@@ -30,9 +30,11 @@ namespace plugins
     };
 
     // base class for plugins
-    // TODO: make PluginModule and Plugin the same class
-    class Plugin {
-    public:
+    class PluginModule : public audiomod::ModuleBase {
+    private:
+        void _interface_proc() override;
+    
+    protected:
         struct ControlValue
         {
             const char* name; // name of the control
@@ -56,58 +58,19 @@ namespace plugins
             float* value;
         };
 
-        const PluginData data;
-        const Song* song = nullptr;
-
-        Plugin(const PluginData& data);
-        virtual ~Plugin() {};
+        const PluginData& data;
 
         virtual void start() = 0;
         virtual void stop() = 0;
-        virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) = 0;
-
-        virtual void event(const audiomod::MidiEvent* event) = 0;
-        virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) = 0;
-        virtual void flush_events() = 0;
-
-        virtual void save_state(std::ostream& ostream) const = 0;
-        virtual bool load_state(std::istream& istream, size_t size) = 0;
 
         virtual int control_value_count() const = 0;
         virtual int output_value_count() const = 0;
         virtual ControlValue get_control_value(int index) = 0;
         virtual OutputValue get_output_value(int index) = 0;
-    };
-
-    class PluginModule : public audiomod::ModuleBase
-    {
-    private:
-        void _interface_proc() override;
-        Plugin* _plugin;
 
     public:
-        // assumes ownership of the plugin pointer
-        // meaning it will be invalidated once this class is deleted
-        PluginModule(Plugin* plugin);
-        ~PluginModule();
-
-        void process(
-            float** inputs,
-            float* output,
-            size_t num_inputs,
-            size_t buffer_size,
-            int sample_rate,
-            int channel_count
-        ) override;
-
-        // midi events
-        void event(const audiomod::MidiEvent* event) override;
-        virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override;
-        virtual void flush_events() override;
-
-        // state save/load
-        void save_state(std::ostream& ostream) const override;
-        bool load_state(std::istream& istream, size_t size) override;
+        PluginModule(audiomod::DestinationModule& audio_dest, const PluginData& data);
+        virtual ~PluginModule() {};
     };
 
     /**

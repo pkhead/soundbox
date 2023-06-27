@@ -14,12 +14,11 @@ namespace plugins
         lv2_error(const std::string& what = "lv2 error") : std::runtime_error(what) {}
     };
 
-    class Lv2Plugin : public Plugin
+    class Lv2Plugin : public PluginModule
     {
     private:
         std::string plugin_uri;
         LilvInstance* instance;
-        audiomod::DestinationModule& dest;
 
         enum class UnitType
         {
@@ -176,7 +175,14 @@ namespace plugins
 
         void start() override;
         void stop() override;
-        void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) override;
+        void process(
+            float** inputs,
+            float* output,
+            size_t num_inputs,
+            size_t buffer_size,
+            int sample_rate,
+            int channel_count
+        ) override;
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& istream, size_t size) override;
 

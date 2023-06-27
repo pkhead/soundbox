@@ -48,7 +48,7 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule
     {
         if (mod_id == plugin_data.id)
         {
-            plugins::Plugin* plugin;
+            plugins::PluginModule* plugin;
 
             switch (plugin_data.type)
             {
@@ -68,7 +68,7 @@ ModuleBase* audiomod::create_module(const std::string& mod_id, DestinationModule
                     throw std::runtime_error("invalid plugin type");
             }
 
-            return new plugins::PluginModule(plugin);
+            return plugin;
         }
     }
 

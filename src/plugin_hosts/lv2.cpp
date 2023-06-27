@@ -561,7 +561,7 @@ const void* Lv2Plugin::get_port_value_callback(
 
 // plugin instantiation
 Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
-    : Plugin(plugin_data), dest(dest)
+    : PluginModule(dest, plugin_data)
 {
     if (plugin_data.type != PluginType::Lv2)
         throw std::runtime_error("mismatched plugin types");
@@ -888,6 +888,9 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     delete[] min_values;
     delete[] max_values;
     delete[] default_values;
+
+    _has_interface = control_value_count() > 0;
+    start();
 }
 
 #define FREE_ARRAY(array) \
@@ -896,6 +899,8 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
 Lv2Plugin::~Lv2Plugin()
 {
+    stop();
+    
     lilv_instance_free(instance);
     delete[] input_combined;
 
@@ -918,7 +923,7 @@ int Lv2Plugin::output_value_count() const
     return output_displays.size();
 }
 
-Plugin::ControlValue Lv2Plugin::get_control_value(int index)
+PluginModule::ControlValue Lv2Plugin::get_control_value(int index)
 {
     ControlValue value;
     InterfaceDisplay& display_info = input_displays[index];
@@ -966,7 +971,7 @@ Plugin::ControlValue Lv2Plugin::get_control_value(int index)
     return value;
 }
 
-Plugin::OutputValue Lv2Plugin::get_output_value(int index)
+PluginModule::OutputValue Lv2Plugin::get_output_value(int index)
 {
     OutputValue value;
     InterfaceDisplay& display = output_displays[index];
@@ -999,7 +1004,7 @@ void Lv2Plugin::stop()
     lilv_instance_deactivate(instance);
 }
 
-void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size)
+void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
 {
     bool interleave = false; // TODO add ui checkbox to toggle this
 
@@ -1018,7 +1023,7 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         input_combined,
         &audio_input_bufs.front(),
         audio_input_bufs.size(),
-        dest.frames_per_buffer,
+        _dest->frames_per_buffer,
         interleave
     );
 
@@ -1133,7 +1138,7 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         &audio_output_bufs.front(),
         output,
         audio_output_bufs.size(),
-        dest.frames_per_buffer,
+        _dest->frames_per_buffer,
         interleave
     );
 }

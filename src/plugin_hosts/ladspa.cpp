@@ -107,7 +107,7 @@ void LadspaPlugin::scan_plugins(const std::vector<std::string>& ladspa_paths, st
 
 // constructor
 LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
-    : Plugin(plugin_data), dest(dest)
+    : PluginModule(dest, plugin_data)
 {
     if (plugin_data.type != PluginType::Ladspa)
         throw std::runtime_error("mismatched plugin types");
@@ -264,10 +264,15 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
     }
 
     input_combined = new float[dest.frames_per_buffer * 2];
+
+    _has_interface = control_value_count() > 0;
+    start();
 }
 
 LadspaPlugin::~LadspaPlugin()
 {
+    stop();
+    
     for (float* buf : input_buffers)
         delete[] buf;
 
@@ -289,7 +294,7 @@ int LadspaPlugin::control_value_count() const {
     return ctl_in.size();
 }
 
-Plugin::ControlValue LadspaPlugin::get_control_value(int index)
+PluginModule::ControlValue LadspaPlugin::get_control_value(int index)
 {
     ControlValue value;
     ControlInput* impl = ctl_in[index];
@@ -313,7 +318,7 @@ int LadspaPlugin::output_value_count() const {
     return ctl_out.size();
 }
 
-Plugin::OutputValue LadspaPlugin::get_output_value(int index)
+PluginModule::OutputValue LadspaPlugin::get_output_value(int index)
 {
     OutputValue value;
     ControlOutput* impl = ctl_out[index];
@@ -337,7 +342,7 @@ void LadspaPlugin::stop()
         descriptor->deactivate(instance);
 }
 
-void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size)
+void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int _sample_rate, int _channel_count)
 {
     if (descriptor->run == nullptr) return;
     bool interleave = false; // TODO add ui checkbox to toggle this
@@ -357,7 +362,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         input_combined,
         &input_buffers.front(),
         input_buffers.size(),
-        dest.frames_per_buffer,
+        _dest->frames_per_buffer,
         interleave
     );
 
@@ -368,7 +373,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         &output_buffers.front(),
         output,
         output_buffers.size(),
-        dest.frames_per_buffer,
+        _dest->frames_per_buffer,
         interleave
     );
 }

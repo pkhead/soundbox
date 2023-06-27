@@ -17,73 +17,34 @@
 
 using namespace plugins;
 
-Plugin::Plugin(const PluginData& data) : data(data)
-{}
-
 ///////////////////
 // Plugin Module //
 ///////////////////
 
-PluginModule::PluginModule(Plugin* plugin)
-    : ModuleBase(plugin->control_value_count() > 0), _plugin(plugin)
+PluginModule::PluginModule(audiomod::DestinationModule& dest, const PluginData& plugin_data)
+    : ModuleBase(false), data(plugin_data)
 {
-    name = _plugin->data.name;
-    id = _plugin->data.id.c_str();
-    _plugin->start();
-}
-
-PluginModule::~PluginModule()
-{
-    _plugin->stop();
-    delete _plugin;
-}
-
-void PluginModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
-    _plugin->song = song;
-    _plugin->process(inputs, output, num_inputs, buffer_size);
-}
-
-void PluginModule::event(const audiomod::MidiEvent* event)
-{
-    return _plugin->event(event);
-}
-
-size_t PluginModule::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity)
-{
-    return _plugin->receive_events(handle, buffer, capacity);
-}
-
-void PluginModule::flush_events() {
-    return _plugin->flush_events();
-}
-
-void PluginModule::save_state(std::ostream& stream) const
-{
-     _plugin->save_state(stream);
-}
-
-bool PluginModule::load_state(std::istream& stream, size_t size)
-{
-    return _plugin->load_state(stream, size);
+    name = plugin_data.name;
+    id = plugin_data.id.c_str();
 }
 
 void PluginModule::_interface_proc()
 {
-    int inputs_per_col = _plugin->control_value_count() / 2;
+    int inputs_per_col = control_value_count() / 2;
     if (inputs_per_col < 8) inputs_per_col = 8;
     
     ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 14.0f);
 
-    for (int i = 0; i < _plugin->control_value_count(); i += inputs_per_col)
+    for (int i = 0; i < control_value_count(); i += inputs_per_col)
     {
         if (i > 0) ImGui::SameLine();
 
         // write labels
         ImGui::BeginGroup();
 
-        for (int j = i; j < _plugin->control_value_count() && j < i + inputs_per_col; j++)
+        for (int j = i; j < control_value_count() && j < i + inputs_per_col; j++)
         {
-            auto control_value = _plugin->get_control_value(j);
+            auto control_value = get_control_value(j);
             ImGui::AlignTextToFramePadding();
             ImGui::Text("%s", control_value.name);
         }
@@ -94,9 +55,9 @@ void PluginModule::_interface_proc()
         ImGui::SameLine();
         ImGui::BeginGroup();
 
-        for (int j = i; j < _plugin->control_value_count() && j < i + inputs_per_col; j++)
+        for (int j = i; j < control_value_count() && j < i + inputs_per_col; j++)
         {
-            auto control_value = _plugin->get_control_value(j);
+            auto control_value = get_control_value(j);
 
             ImGui::PushID(control_value.value);
 
@@ -163,9 +124,9 @@ void PluginModule::_interface_proc()
 
     ImGui::PopItemWidth();
 
-    for (int i = 0; i < _plugin->output_value_count(); i++)
+    for (int i = 0; i < output_value_count(); i++)
     {
-        auto output_value = _plugin->get_output_value(i);
+        auto output_value = get_output_value(i);
         ImGui::Text("%s: %.3f", output_value.name, *output_value.value);
     }
 }

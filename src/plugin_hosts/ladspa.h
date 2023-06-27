@@ -4,13 +4,12 @@
 
 namespace plugins
 {
-    class LadspaPlugin : public Plugin
+    class LadspaPlugin : public PluginModule
     {
     private:
         sys::dl_handle lib;
         const LADSPA_Descriptor* descriptor;
         LADSPA_Handle instance;
-        audiomod::DestinationModule& dest;
 
         float* input_combined;
         std::vector<float*> input_buffers;
@@ -50,7 +49,14 @@ namespace plugins
 
         void start() override;
         void stop() override;
-        void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size) override;
+        void process(
+            float** inputs,
+            float* output,
+            size_t num_inputs,
+            size_t buffer_size,
+            int sample_rate,
+            int channel_count
+        ) override;
         void save_state(std::ostream& ostream) const override;
         bool load_state(std::istream& istream, size_t size) override;
 
