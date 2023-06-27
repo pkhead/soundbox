@@ -29,6 +29,7 @@ namespace plugins
         struct ControlInputPort
         {
             std::string name;
+            std::string symbol;
             int port_index;
             const LilvPort* port_handle;
             float value;
@@ -42,6 +43,7 @@ namespace plugins
         struct ControlOutputPort
         {
             std::string name;
+            std::string symbol;
             int port_index;
             const LilvPort* port_handle;
             float value;
@@ -66,6 +68,9 @@ namespace plugins
             std::string string_or_path;
 
             Parameter(const char* urid, const char* label, const char* type);
+            size_t size() const;
+            bool set(const void* value, uint32_t expected_size, uint32_t expected_type);
+            const void* get(uint32_t* size) const; 
         };
 
         float song_last_tempo = -1.0f;
@@ -114,7 +119,25 @@ namespace plugins
             &log_feature,
             NULL
         };
-    
+
+        void _set_port_value(const char* port_symbol, const void* value, uint32_t size, uint32_t type);
+        const void* _get_port_value(const char* port_symbol, uint32_t* size, uint32_t type);
+        
+        static void set_port_value_callback(
+            const char* port_symbol,
+            void* user_data,
+            const void* value,
+            uint32_t size,
+            uint32_t type
+        );
+
+        static const void* get_port_value_callback(
+            const char* port_symbol,
+            void* user_data,
+            uint32_t* size,
+            uint32_t type
+        );
+
     public:
         Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data);
         ~Lv2Plugin();

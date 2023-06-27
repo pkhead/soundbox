@@ -14,6 +14,7 @@
 #include "lv2/midi/midi.h"
 #include "lv2/time/time.h"
 #include "lv2/patch/patch.h"
+#include "lv2/state/state.h"
 #include "../util.h"
 #include "../song.h"
 
@@ -48,6 +49,9 @@ struct {
     LilvNode* patch_Message;
     LilvNode* patch_writable;
     LilvNode* patch_readable;
+
+    LilvNode* state_interface;
+    LilvNode* state_loadDefaultState;
 
     LilvNode* units_unit;
     LilvNode* units_db;
@@ -84,6 +88,9 @@ void Lv2Plugin::lilv_init() {
     URI.patch_Message = lilv_new_uri(LILV_WORLD, LV2_PATCH__Message);
     URI.patch_writable = lilv_new_uri(LILV_WORLD, LV2_PATCH__writable);
     URI.patch_readable = lilv_new_uri(LILV_WORLD, LV2_PATCH__readable);
+
+    URI.state_interface = lilv_new_uri(LILV_WORLD, LV2_STATE__interface);
+    URI.state_loadDefaultState = lilv_new_uri(LILV_WORLD, LV2_STATE__loadDefaultState);
 
     URI.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     URI.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
@@ -365,6 +372,52 @@ Lv2Plugin::Parameter::Parameter(const char* urid, const char* label, const char*
     );
 }
 
+size_t Lv2Plugin::Parameter::size() const {
+    if (type == uri_map(LV2_ATOM__Int))
+        return sizeof(int);
+    if (type == uri_map(LV2_ATOM__Long))
+        return sizeof(long);
+    if (type == uri_map(LV2_ATOM__Float))
+        return sizeof(float);
+    if (type == uri_map(LV2_ATOM__Double))
+        return sizeof(double);
+    if (type == uri_map(LV2_ATOM__Bool))
+        return sizeof(bool);
+    if (type == uri_map(LV2_ATOM__String))
+        return string_or_path.size();
+    if (type == uri_map(LV2_ATOM__Path))
+        return string_or_path.size();
+
+    return 0;
+}
+
+bool Lv2Plugin::Parameter::set(const void* value, uint32_t expected_size, uint32_t expected_type)
+{
+    if (type != expected_type) return false;
+
+    if (type == uri_map(LV2_ATOM__String) || type == uri_map(LV2_ATOM__Path)) {
+        string_or_path.resize(expected_size);
+        memcpy(string_or_path.data(), value, expected_size);
+
+    } else {
+        if (size() != expected_size) return false;
+        memcpy(&_int, value, expected_size);
+    }
+
+    return true;
+}
+
+const void* Lv2Plugin::Parameter::get(uint32_t* size) const
+{
+    *size = this->size();
+
+    if (type == uri_map(LV2_ATOM__String) || type == uri_map(LV2_ATOM__Path)) {
+        return string_or_path.c_str();
+    } else {
+        return &_int;
+    }
+}
+
 Lv2Plugin::Parameter* Lv2Plugin::find_parameter(LV2_URID id) const
 {
     for (Parameter* param : parameters) {
@@ -375,6 +428,62 @@ Lv2Plugin::Parameter* Lv2Plugin::find_parameter(LV2_URID id) const
     return nullptr;
 }
 
+// for use in lilv_state_restore and lilv_state_new_from_instance
+void Lv2Plugin::_set_port_value(
+    const char* port_symbol,
+    const void* value,
+    uint32_t size,
+    uint32_t type
+) {
+    // TODO support for types other than float?
+    // also check correct type
+
+    for (ControlInputPort* port : ctl_in) {
+        if (port->symbol == port_symbol) {
+            memcpy(&port->value, value, size);
+            break;
+        }
+    }
+}
+
+const void* Lv2Plugin::_get_port_value(
+    const char* port_symbol,
+    uint32_t* size,
+    uint32_t type
+) {
+    // TODO support for types other than float?
+    // also check correct type
+
+    for (ControlInputPort* port : ctl_in) {
+        if (port->symbol == port_symbol) {
+            *size = sizeof(float);
+            return &port->value;
+        }
+    }
+}
+
+void Lv2Plugin::set_port_value_callback(
+    const char* port_symbol,
+    void* user_data,
+    const void* value,
+    uint32_t size,
+    uint32_t type
+) {
+    Lv2Plugin* plug = (Lv2Plugin*) user_data;
+    plug->_set_port_value(port_symbol, value, size, type);
+}
+
+const void* Lv2Plugin::get_port_value_callback(
+    const char* port_symbol,
+    void* user_data,
+    uint32_t* size,
+    uint32_t type
+) {
+    Lv2Plugin* plug = (Lv2Plugin*) user_data;
+    return plug->_get_port_value(port_symbol, size, type);
+}
+
+// plugin instantiation
 Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
     : Plugin(plugin_data), dest(dest)
 {
@@ -426,7 +535,9 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         const LilvPort* port = lilv_plugin_get_port_by_index(plugin, i);
         
         LilvNode_ptr name_node = lilv_port_get_name(plugin, port);
+        const LilvNode* symbol_n = lilv_port_get_symbol(plugin, port);
         const char* port_name = name_node ? lilv_node_as_string(name_node) : "[unnamed]";
+        const char* port_symbol = lilv_node_as_string(symbol_n);
 
         bool is_input_port = lilv_port_is_a(plugin, port, URI.lv2_InputPort);
         bool is_output_port = lilv_port_is_a(plugin, port, URI.lv2_OutputPort);
@@ -447,6 +558,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         ) {
             ControlInputPort* ctl = new ControlInputPort;
             ctl->name = port_name;
+            ctl->symbol = port_symbol;
             ctl->port_handle = port;
             ctl->min = min_values[i];
             ctl->max = max_values[i];
@@ -474,6 +586,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         ) {
             ControlOutputPort* ctl = new ControlOutputPort;
             ctl->name = port_name;
+            ctl->symbol = port_symbol;
             ctl->port_handle = port;
 
             lilv_instance_connect_port(instance, i, &ctl->value);
@@ -645,6 +758,16 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
     lilv_nodes_free(patch_writable_n);
     lilv_nodes_free(patch_readable_n);
+
+    // load default state
+    if (lilv_plugin_has_feature(plugin, URI.state_loadDefaultState)) {
+        LilvState* state = lilv_state_new_from_world(LILV_WORLD, &map, plugin_uri);
+
+        if (state) {
+            lilv_state_restore(state, instance, set_port_value_callback, this, 0, features);
+            lilv_state_free(state);
+        }
+    }
 
     input_combined = new float[dest.frames_per_buffer * 2];
 
