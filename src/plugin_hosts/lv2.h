@@ -54,6 +54,18 @@ namespace plugins
             std::string label;
             bool is_writable;
             bool is_readable;
+
+            union {
+                int _int;
+                long _long;
+                float _float;
+                double _double;
+                bool _bool;
+            };
+
+            std::string string_or_path;
+
+            Parameter(const char* urid, const char* label, const char* type);
         };
 
         float song_last_tempo = -1.0f;
@@ -65,7 +77,9 @@ namespace plugins
         std::vector<float*> audio_output_bufs;
         std::vector<ControlInputPort*> ctl_in;
         std::vector<ControlOutputPort*> ctl_out;
-        std::vector<Parameter> parameters;
+        std::vector<Parameter*> parameters;
+
+        Parameter* find_parameter(LV2_URID id) const;
 
         static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
 

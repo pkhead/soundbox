@@ -22,7 +22,7 @@ using namespace plugins;
 static LilvWorld* LILV_WORLD = nullptr;
 
 struct {
-    LilvNode* rdfs_type;
+    LilvNode* a;
     LilvNode* rdfs_label;
     LilvNode* rdfs_range;
 
@@ -58,7 +58,7 @@ struct {
 void Lv2Plugin::lilv_init() {
     LILV_WORLD = lilv_world_new();
 
-    URI.rdfs_type = lilv_new_uri(LILV_WORLD, RDFS_PREFIX "type");
+    URI.a = lilv_new_uri(LILV_WORLD, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
     URI.rdfs_label = lilv_new_uri(LILV_WORLD, RDFS_PREFIX "label");
     URI.rdfs_range = lilv_new_uri(LILV_WORLD, RDFS_PREFIX "range");
 
@@ -187,6 +187,28 @@ int log_vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list a
 }
 ///////////////////////
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////
+// Plugin discovery //
+//////////////////////
+
 const char* Lv2Plugin::get_standard_paths()
 {
     const char* list_str = std::getenv("LV2_PATH");
@@ -304,7 +326,55 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
     }
 }
 
-// plugin instances
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////
+// Plugin instantiation //
+//////////////////////////
+
+Lv2Plugin::Parameter::Parameter(const char* urid, const char* label, const char* type_uri)
+    : id(uri_map(urid)),
+      label(label),
+      type(uri_map(type_uri))
+{
+    assert(
+        (type == uri_map(LV2_ATOM__Int)) ||
+        (type == uri_map(LV2_ATOM__Long)) ||
+        (type == uri_map(LV2_ATOM__Float)) ||
+        (type == uri_map(LV2_ATOM__Double)) ||
+        (type == uri_map(LV2_ATOM__Bool)) ||
+        (type == uri_map(LV2_ATOM__String)) ||
+        (type == uri_map(LV2_ATOM__Path))
+    );
+}
+
+Lv2Plugin::Parameter* Lv2Plugin::find_parameter(LV2_URID id) const
+{
+    for (Parameter* param : parameters) {
+        if (param->id == id)
+            return param;
+    }
+
+    return nullptr;
+}
+
 Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
     : Plugin(plugin_data), dest(dest)
 {
@@ -511,27 +581,70 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
     }
 
-    // read writable parameters
-    LilvNodes* patch_writable_n = lilv_world_find_nodes(LILV_WORLD, plugin_uri, URI.patch_writable, NULL);
+    // scan writable parameters
+    LilvNodes* patch_writable_n = lilv_world_find_nodes(
+        LILV_WORLD,
+        plugin_uri,
+        URI.patch_writable,
+        NULL
+    );
 
     LILV_FOREACH (nodes, iter, patch_writable_n) {
-        const LilvNode* node = lilv_nodes_get(patch_writable_n, iter);
-        dbg("writable %s\n", lilv_node_as_uri(node));
+        const LilvNode* property = lilv_nodes_get(patch_writable_n, iter);
+        dbg("writable %s\n", lilv_node_as_uri(property));
         
-        if (lilv_world_ask(LILV_WORLD, node, URI.rdfs_type, URI.lv2_Parameter)) {
-            LilvNode_ptr label_n = lilv_world_get(LILV_WORLD, node, URI.rdfs_label, NULL);
+        assert(lilv_world_ask(LILV_WORLD, property, URI.a, NULL));
+        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_range, NULL));
+        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_label, NULL));
 
-            if (label_n) {
-                dbg("\tlabel: %s\n", lilv_node_as_uri(label_n));
-            } else {
-                dbg("\tunknown label\n");
-            }
-        } else {
-            dbg("\t[ unknown ]\n");
+        LilvNode_ptr label_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_label, NULL);
+        LilvNode_ptr type_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_range, NULL);
+
+        Parameter* param = new Parameter(
+            lilv_node_as_uri(property),
+            lilv_node_as_string(label_n),
+            lilv_node_as_uri(type_n)
+        );
+
+        param->is_writable = true;
+        param->is_readable = false;
+        parameters.push_back(param);
+    }
+
+    // scan readable parameters
+    LilvNodes* patch_readable_n = lilv_world_find_nodes(
+        LILV_WORLD,
+        plugin_uri,
+        URI.patch_readable,
+        NULL
+    );
+
+    LILV_FOREACH (nodes, iter, patch_readable_n) {
+        const LilvNode* property = lilv_nodes_get(patch_readable_n, iter);
+        dbg("readable %s\n", lilv_node_as_uri(property));
+        
+        assert(lilv_world_ask(LILV_WORLD, property, URI.a, URI.lv2_Parameter));
+        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_range, NULL));
+        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_label, NULL));
+
+        LilvNode_ptr label_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_label, NULL);
+        LilvNode_ptr type_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_range, NULL);
+
+        Parameter* param = find_parameter( uri_map(lilv_node_as_uri(property)) );
+        if (param == nullptr) {
+            param = new Parameter(
+                lilv_node_as_uri(property),
+                lilv_node_as_string(label_n),
+                lilv_node_as_uri(type_n)
+            );
+            parameters.push_back(param);
         }
+
+        param->is_readable = true;
     }
 
     lilv_nodes_free(patch_writable_n);
+    lilv_nodes_free(patch_readable_n);
 
     input_combined = new float[dest.frames_per_buffer * 2];
 
@@ -543,28 +656,22 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     delete[] default_values;
 }
 
+#define FREE_ARRAY(array) \
+    for (auto val : array) \
+        delete val;
+
 Lv2Plugin::~Lv2Plugin()
 {
     lilv_instance_free(instance);
     delete[] input_combined;
 
-    for (float* buf : audio_input_bufs)
-        delete buf;
-
-    for (float* buf : audio_output_bufs)
-        delete buf;
-
-    for (ControlInputPort* in : ctl_in)
-        delete in;
-
-    for (ControlOutputPort* out : ctl_out)
-        delete out;
-
-    for (AtomSequenceBuffer* in : msg_in)
-        delete in;
-
-    for (AtomSequenceBuffer* out : msg_out)
-        delete out;
+    FREE_ARRAY(audio_input_bufs);
+    FREE_ARRAY(audio_output_bufs);
+    FREE_ARRAY(ctl_in);
+    FREE_ARRAY(ctl_out);
+    FREE_ARRAY(msg_in);
+    FREE_ARRAY(msg_out);
+    FREE_ARRAY(parameters);
 }
 
 int Lv2Plugin::control_value_count() const
