@@ -13,6 +13,7 @@
 #include "lv2/atom/util.h"
 #include "lv2/midi/midi.h"
 #include "lv2/time/time.h"
+#include "lv2/patch/patch.h"
 #include "../util.h"
 #include "../song.h"
 
@@ -21,6 +22,10 @@ using namespace plugins;
 static LilvWorld* LILV_WORLD = nullptr;
 
 struct {
+    LilvNode* rdfs_type;
+    LilvNode* rdfs_label;
+    LilvNode* rdfs_range;
+
     LilvNode* lv2_InputPort;
     LilvNode* lv2_OutputPort;
     LilvNode* lv2_AudioPort;
@@ -28,6 +33,7 @@ struct {
     LilvNode* lv2_designation;
     LilvNode* lv2_control;
     LilvNode* lv2_connectionOptional;
+    LilvNode* lv2_Parameter;
 
     LilvNode* atom_AtomPort;
     LilvNode* atom_bufferType;
@@ -39,12 +45,22 @@ struct {
 
     LilvNode* time_Position;
 
+    LilvNode* patch_Message;
+    LilvNode* patch_writable;
+    LilvNode* patch_readable;
+
     LilvNode* units_unit;
     LilvNode* units_db;
 } static URI;
 
+#define RDFS_PREFIX "http://www.w3.org/2000/01/rdf-schema#"
+
 void Lv2Plugin::lilv_init() {
     LILV_WORLD = lilv_world_new();
+
+    URI.rdfs_type = lilv_new_uri(LILV_WORLD, RDFS_PREFIX "type");
+    URI.rdfs_label = lilv_new_uri(LILV_WORLD, RDFS_PREFIX "label");
+    URI.rdfs_range = lilv_new_uri(LILV_WORLD, RDFS_PREFIX "range");
 
     URI.lv2_InputPort = lilv_new_uri(LILV_WORLD, LV2_CORE__InputPort);
     URI.lv2_OutputPort = lilv_new_uri(LILV_WORLD, LV2_CORE__OutputPort);
@@ -53,6 +69,7 @@ void Lv2Plugin::lilv_init() {
     URI.lv2_designation = lilv_new_uri(LILV_WORLD, LV2_CORE__designation);
     URI.lv2_control = lilv_new_uri(LILV_WORLD, LV2_CORE__control);
     URI.lv2_connectionOptional = lilv_new_uri(LILV_WORLD, LV2_CORE__connectionOptional);
+    URI.lv2_Parameter = lilv_new_uri(LILV_WORLD, LV2_CORE_PREFIX "Parameter");
 
     URI.atom_AtomPort = lilv_new_uri(LILV_WORLD, LV2_ATOM__AtomPort);
     URI.atom_bufferType = lilv_new_uri(LILV_WORLD, LV2_ATOM__bufferType);
@@ -64,6 +81,10 @@ void Lv2Plugin::lilv_init() {
 
     URI.time_Position = lilv_new_uri(LILV_WORLD, LV2_TIME__Position);
 
+    URI.patch_Message = lilv_new_uri(LILV_WORLD, LV2_PATCH__Message);
+    URI.patch_writable = lilv_new_uri(LILV_WORLD, LV2_PATCH__writable);
+    URI.patch_readable = lilv_new_uri(LILV_WORLD, LV2_PATCH__readable);
+
     URI.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     URI.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
 }
@@ -72,10 +93,44 @@ void Lv2Plugin::lilv_fini() {
     lilv_world_free(LILV_WORLD);
 }
 
+/**
+* A wrapper around a LilvNode* that is
+* automatically freed when it goes out of scope
+**/
+struct LilvNode_ptr
+{
+private:
+    LilvNode* node;
+public:
+    LilvNode_ptr() : node(nullptr) {};
+    LilvNode_ptr(LilvNode* node) : node(node) {};
+    ~LilvNode_ptr() {
+        if (node)
+            lilv_node_free(node);
+    }
+
+    inline LilvNode* operator->() const noexcept {
+        return node;
+    }
+
+    inline operator LilvNode*() const noexcept {
+        return node;
+    }
+
+    inline operator bool() const noexcept {
+        return node;
+    }
+
+    inline LilvNode* operator=(LilvNode* new_node) noexcept {
+        node = new_node;
+        return node;
+    }
+};
+
 // URID EXTENSION //
 static std::vector<std::string> URI_MAP;
 
-static LV2_URID uri_map(LV2_URID_Map_Handle handle, const char* uri)
+static LV2_URID uri_map(const char* uri)
 {
     LV2_URID id;
     for (id = 0; id < URI_MAP.size(); id++) {
@@ -87,7 +142,27 @@ static LV2_URID uri_map(LV2_URID_Map_Handle handle, const char* uri)
     return id;
 }
 
-static const char* uri_unmap(LV2_URID_Map_Handle handle, LV2_URID urid)
+static const char* uri_unmap(LV2_URID urid)
+{
+    if (urid >= URI_MAP.size())
+        return nullptr;
+
+    return URI_MAP[urid].c_str();
+}
+
+static LV2_URID uri_map_handle(LV2_URID_Map_Handle handle, const char* uri)
+{
+    LV2_URID id;
+    for (id = 0; id < URI_MAP.size(); id++) {
+        if (URI_MAP[id] == uri)
+            return id;
+    }
+
+    URI_MAP.push_back(uri);
+    return id;
+}
+
+static const char* uri_unmap_handle(LV2_URID_Map_Handle handle, LV2_URID urid)
 {
     if (urid >= URI_MAP.size())
         return nullptr;
@@ -147,9 +222,8 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
         path_str += paths[i];
     }
 
-    LilvNode* lv2_path = lilv_new_file_uri(LILV_WORLD, NULL, "/usr/lib/lv2");
+    LilvNode_ptr lv2_path = lilv_new_file_uri(LILV_WORLD, NULL, "/usr/lib/lv2");
     lilv_world_set_option(LILV_WORLD, LILV_OPTION_LV2_PATH, lv2_path);
-    lilv_node_free(lv2_path);
 
     lilv_world_load_all(LILV_WORLD);
 
@@ -171,26 +245,23 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
         char* file_path = lilv_node_get_path(lib_uri, NULL);
         data.file_path = file_path;
 
-        LilvNode* name = lilv_plugin_get_name(plug);
+        LilvNode_ptr name = lilv_plugin_get_name(plug);
         if (name) {
             data.name = lilv_node_as_string(name);
-            lilv_node_free(name);
         } else {
             data.name = lilv_node_as_uri(uri_node);
         }
         
-        LilvNode* author = lilv_plugin_get_author_name(plug);
+        LilvNode_ptr author = lilv_plugin_get_author_name(plug);
         if (author) {
             data.author = lilv_node_as_string(author);
-            lilv_node_free(author);
         }
 
-        LilvNode* license_uri_n = lilv_new_uri(LILV_WORLD, "http://usefulinc.com/ns/doap#license");
+        LilvNode_ptr license_uri_n = lilv_new_uri(LILV_WORLD, "http://usefulinc.com/ns/doap#license");
 
-        LilvNode* license_n = lilv_world_get(LILV_WORLD, uri_node, license_uri_n, NULL);
+        LilvNode_ptr license_n = lilv_world_get(LILV_WORLD, uri_node, license_uri_n, NULL);
         if (license_n) {
             data.copyright = lilv_node_as_string(license_n);
-            lilv_node_free(license_n);
         }
 
         const LilvPluginClass* plug_class = lilv_plugin_get_class(plug);
@@ -233,9 +304,6 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
     }
 }
 
-
-
-
 // plugin instances
 Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
     : Plugin(plugin_data), dest(dest)
@@ -244,7 +312,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         throw std::runtime_error("mismatched plugin types");
 
     // get plugin uri
-    LilvNode* plugin_uri; {
+    LilvNode_ptr plugin_uri; {
         size_t colon_sep = plugin_data.id.find_first_of(":");
         const char* uri_str = plugin_data.id.c_str() + colon_sep + 1;
         plugin_uri = lilv_new_uri(LILV_WORLD, uri_str);
@@ -253,16 +321,15 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     // get plugin
     const LilvPlugins* plugins = lilv_world_get_all_plugins(LILV_WORLD);
     const LilvPlugin* plugin = lilv_plugins_get_by_uri(plugins, plugin_uri);
-    lilv_node_free(plugin_uri);
 
     if (plugin == nullptr) {
         throw lv2_error("plugin not found");
     }
 
     // init features
-    map = {nullptr, uri_map};
+    map = {nullptr, uri_map_handle};
     map_feature = {LV2_URID__map, &map};
-    unmap = {nullptr, uri_unmap};
+    unmap = {nullptr, uri_unmap_handle};
     unmap_feature = {LV2_URID__unmap, &unmap};
     log = {nullptr, log_printf, log_vprintf};
     log_feature = {LV2_LOG__log, &log};
@@ -288,16 +355,17 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     {
         const LilvPort* port = lilv_plugin_get_port_by_index(plugin, i);
         
-        LilvNode* name_node = lilv_port_get_name(plugin, port);
+        LilvNode_ptr name_node = lilv_port_get_name(plugin, port);
         const char* port_name = name_node ? lilv_node_as_string(name_node) : "[unnamed]";
 
         bool is_input_port = lilv_port_is_a(plugin, port, URI.lv2_InputPort);
         bool is_output_port = lilv_port_is_a(plugin, port, URI.lv2_OutputPort);
         bool is_optional = lilv_port_has_property(plugin, port, URI.lv2_connectionOptional);
 
-        LilvNode* designation_n = lilv_port_get(plugin, port, URI.lv2_designation);
+        LilvNode_ptr designation_n = lilv_port_get(plugin, port, URI.lv2_designation);
 
         /*
+        TODO
         lilv_port_get_value(plugin, port, URI.lv2_portProperty)
         pprops:logarithmic
         */
@@ -307,7 +375,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             lilv_port_is_a(plugin, port, URI.lv2_ControlPort) &&
             is_input_port
         ) {
-            ControlInput* ctl = new ControlInput;
+            ControlInputPort* ctl = new ControlInputPort;
             ctl->name = port_name;
             ctl->port_handle = port;
             ctl->min = min_values[i];
@@ -316,14 +384,12 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             ctl->value = ctl->default_value;
             ctl->unit = UnitType::None;
 
-            LilvNode* unit_n = lilv_port_get(plugin, port, URI.units_unit);
+            LilvNode_ptr unit_n = lilv_port_get(plugin, port, URI.units_unit);
             
             if (unit_n) {
                 // TODO: more units
                 if (lilv_node_equals(unit_n, URI.units_db))
                     ctl->unit = UnitType::dB;
-                 
-                lilv_node_free(unit_n);
             }
 
             ctl_in.push_back(ctl);
@@ -336,7 +402,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             lilv_port_is_a(plugin, port, URI.lv2_ControlPort) &&
             is_output_port
         ) {
-            ControlOutput* ctl = new ControlOutput;
+            ControlOutputPort* ctl = new ControlOutputPort;
             ctl->name = port_name;
             ctl->port_handle = port;
 
@@ -366,18 +432,19 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         // atom port
         else if (lilv_port_is_a(plugin, port, URI.atom_AtomPort)) {
             if (is_input_port || is_output_port) {
-                LilvNode* buffer_type_n = lilv_port_get(plugin, port, URI.atom_bufferType);
+                LilvNode_ptr buffer_type_n = lilv_port_get(plugin, port, URI.atom_bufferType);
                 LilvNodes* supports_n = lilv_port_get_value(plugin, port, URI.atom_supports);
 
                 bool is_main = lilv_node_equals(designation_n, URI.lv2_control);
                 bool midi_support = lilv_nodes_contains(supports_n, URI.midi_MidiEvent);
+                bool patch_support = lilv_nodes_contains(supports_n, URI.patch_Message);
                 bool time_support = lilv_nodes_contains(supports_n, URI.time_Position);
 
                 // atom:Sequence
                 if (lilv_node_equals(buffer_type_n, URI.atom_Sequence)) {
                     AtomSequenceBuffer* seq_buf = new AtomSequenceBuffer {
                         {
-                            { sizeof(LV2_Atom_Sequence_Body), uri_map(nullptr, LV2_ATOM__Sequence) },
+                            { sizeof(LV2_Atom_Sequence_Body), uri_map(LV2_ATOM__Sequence) },
                             { 0, 0 }
                         }
                     };
@@ -394,7 +461,11 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
                         
                         if (time_support && (time_in == nullptr || is_main)) {
                             time_in = seq_buf;
-                        } 
+                        }
+
+                        if (patch_support && (patch_in == nullptr || is_main)) {
+                            patch_in = seq_buf;
+                        }
                     }
                     else if (is_output_port)
                     {
@@ -405,6 +476,10 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
                         }
 
                         // TODO: time out?
+
+                        if (patch_support && (patch_out == nullptr || is_main)) {
+                            patch_out = seq_buf;
+                        }
                     }
 
                     lilv_instance_connect_port(instance, i, seq_buf);
@@ -412,8 +487,6 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
                 else
                     throw lv2_error(std::string("unsupported atom type: ") + lilv_node_as_uri(buffer_type_n) );
-
-                lilv_node_free(buffer_type_n);
             } else {
                 unsupported = true;
             }
@@ -425,9 +498,6 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
             unsupported = true;
         }
 
-        if (name_node)      lilv_node_free(name_node);
-        if (designation_n)  lilv_node_free(designation_n);
-
         if (unsupported) {
             const LilvNodes* class_nodes = lilv_port_get_classes(plugin, port);
 
@@ -438,7 +508,30 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
             throw lv2_error("unsupported port type");
         }
+
     }
+
+    // read writable parameters
+    LilvNodes* patch_writable_n = lilv_world_find_nodes(LILV_WORLD, plugin_uri, URI.patch_writable, NULL);
+
+    LILV_FOREACH (nodes, iter, patch_writable_n) {
+        const LilvNode* node = lilv_nodes_get(patch_writable_n, iter);
+        dbg("writable %s\n", lilv_node_as_uri(node));
+        
+        if (lilv_world_ask(LILV_WORLD, node, URI.rdfs_type, URI.lv2_Parameter)) {
+            LilvNode_ptr label_n = lilv_world_get(LILV_WORLD, node, URI.rdfs_label, NULL);
+
+            if (label_n) {
+                dbg("\tlabel: %s\n", lilv_node_as_uri(label_n));
+            } else {
+                dbg("\tunknown label\n");
+            }
+        } else {
+            dbg("\t[ unknown ]\n");
+        }
+    }
+
+    lilv_nodes_free(patch_writable_n);
 
     input_combined = new float[dest.frames_per_buffer * 2];
 
@@ -461,10 +554,10 @@ Lv2Plugin::~Lv2Plugin()
     for (float* buf : audio_output_bufs)
         delete buf;
 
-    for (ControlInput* in : ctl_in)
+    for (ControlInputPort* in : ctl_in)
         delete in;
 
-    for (ControlOutput* out : ctl_out)
+    for (ControlOutputPort* out : ctl_out)
         delete out;
 
     for (AtomSequenceBuffer* in : msg_in)
@@ -487,10 +580,9 @@ int Lv2Plugin::output_value_count() const
 Plugin::ControlValue Lv2Plugin::get_control_value(int index)
 {
     ControlValue value;
-    ControlInput* impl = ctl_in[index];
+    ControlInputPort* impl = ctl_in[index];
 
     value.name = impl->name.c_str();
-    value.port_index = impl->port_index;
     value.value = &impl->value;
     value.has_default = true;
     value.default_value = impl->default_value;
@@ -518,11 +610,10 @@ Plugin::ControlValue Lv2Plugin::get_control_value(int index)
 Plugin::OutputValue Lv2Plugin::get_output_value(int index)
 {
     OutputValue value;
-    ControlOutput* impl = ctl_out[index];
+    ControlOutputPort* impl = ctl_out[index];
 
     value.name = impl->name.c_str();
     value.format = "%.3f";
-    value.port_index = impl->port_index;
     value.value = &impl->value;
 
     return value;
@@ -587,18 +678,18 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
 
             // write time position data
             lv2_atom_forge_frame_time(&forge, 0);
-            lv2_atom_forge_object(&forge, &frame, 0, uri_map(nullptr, LV2_TIME__Position));
+            lv2_atom_forge_object(&forge, &frame, 0, uri_map(LV2_TIME__Position));
 
             // beat in bars
-            lv2_atom_forge_key(&forge, uri_map(nullptr, LV2_TIME__barBeat));
+            lv2_atom_forge_key(&forge, uri_map(LV2_TIME__barBeat));
             lv2_atom_forge_float(&forge, song->position);
 
             // beats per minute
-            lv2_atom_forge_key(&forge, uri_map(nullptr, LV2_TIME__beatsPerMinute));
+            lv2_atom_forge_key(&forge, uri_map(LV2_TIME__beatsPerMinute));
             lv2_atom_forge_float(&forge, song_tempo);
 
             // play/stop
-            lv2_atom_forge_key(&forge, uri_map(nullptr, LV2_TIME__speed));
+            lv2_atom_forge_key(&forge, uri_map(LV2_TIME__speed));
             lv2_atom_forge_float(&forge, song_playing ? 1.0f : 0.0f);
 
             lv2_atom_forge_pop(&forge, &frame);
@@ -636,7 +727,7 @@ void Lv2Plugin::event(const audiomod::MidiEvent* midi_event)
 
         atom.header.time.frames = 0;
         atom.header.body.size = midi_msg.size();
-        atom.header.body.type = uri_map(nullptr, LV2_MIDI__MidiEvent);
+        atom.header.body.type = uri_map(LV2_MIDI__MidiEvent);
         memcpy(&atom.midi, &midi_msg, midi_msg.size());
 
         lv2_atom_sequence_append_event(&midi_in->header, ATOM_SEQUENCE_CAPACITY, &atom.header);
@@ -672,7 +763,7 @@ size_t Lv2Plugin::receive_events(audiomod::MidiEvent* buffer, size_t capacity)
 
             LV2_Atom_Event* &ev = midi_read_it;
 
-            if (ev->body.type == uri_map(nullptr, LV2_MIDI__MidiEvent))
+            if (ev->body.type == uri_map(LV2_MIDI__MidiEvent))
             {
                 const audiomod::MidiMessage* const midi_ev = (const audiomod::MidiMessage*) (ev + 1);
                 

@@ -296,7 +296,6 @@ Plugin::ControlValue LadspaPlugin::get_control_value(int index)
 
     value.name = impl->name.c_str();
     value.format = impl->is_integer ? "%d" : "%.3f";
-    value.port_index = impl->port_index;
     value.value = &impl->value;
     value.has_default = impl->has_default;
     value.default_value = impl->default_value;
@@ -321,7 +320,6 @@ Plugin::OutputValue LadspaPlugin::get_output_value(int index)
 
     value.name = impl->name.c_str();
     value.format = "%.3f";
-    value.port_index = impl->port_index;
     value.value = &impl->value;
 
     return value;

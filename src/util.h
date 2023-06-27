@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdarg>
 
+__attribute__((__format__(__printf__, 1, 2)))
 inline void dbg(const char* fmt, ...) {
     va_list vl;
     va_start(vl, fmt);

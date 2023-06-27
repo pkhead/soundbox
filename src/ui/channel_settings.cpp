@@ -139,13 +139,15 @@ void render_channel_settings(SongEditor &editor)
         switch (effect_rack_ui(&editor, &cur_channel->effects_rack, &result, true))
         {
             case EffectsInterfaceAction::Add: {
-                song.mutex.lock();
-
                 try {
                     audiomod::ModuleBase* mod = audiomod::create_module(result.module_id, editor.audio_dest, editor.plugin_manager);
                     mod->parent_name = cur_channel->name;
                     mod->song = &song;
-                    cur_channel->effects_rack.insert(mod);
+
+                    {
+                        const std::lock_guard<std::mutex> lock(song.mutex);
+                        cur_channel->effects_rack.insert(mod);
+                    }
 
                     // register change
                     editor.push_change(new change::ChangeAddEffect(
@@ -156,8 +158,7 @@ void render_channel_settings(SongEditor &editor)
                 } catch (audiomod::module_create_error& err) {
                     show_status("Error: %s", err.what());
                 }
-
-                song.mutex.unlock();
+                
                 break;
             }
 

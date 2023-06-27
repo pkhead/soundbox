@@ -26,7 +26,7 @@ namespace plugins
             dB
         };
 
-        struct ControlInput
+        struct ControlInputPort
         {
             std::string name;
             int port_index;
@@ -39,7 +39,7 @@ namespace plugins
             float default_value;
         };
 
-        struct ControlOutput
+        struct ControlOutputPort
         {
             std::string name;
             int port_index;
@@ -47,17 +47,27 @@ namespace plugins
             float value;
         };
 
+        struct Parameter
+        {
+            LV2_URID id;
+            LV2_URID type;
+            std::string label;
+            bool is_writable;
+            bool is_readable;
+        };
+
         float song_last_tempo = -1.0f;
         bool song_last_playing = false;
 
         float* input_combined;
+
         std::vector<float*> audio_input_bufs;
         std::vector<float*> audio_output_bufs;
+        std::vector<ControlInputPort*> ctl_in;
+        std::vector<ControlOutputPort*> ctl_out;
+        std::vector<Parameter> parameters;
 
-        std::vector<ControlInput*> ctl_in;
-        std::vector<ControlOutput*> ctl_out;
-
-        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 512;
+        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
 
         struct AtomSequenceBuffer {
             LV2_Atom_Sequence header;
@@ -70,6 +80,8 @@ namespace plugins
         AtomSequenceBuffer* midi_in = nullptr;
         AtomSequenceBuffer* midi_out = nullptr;
         AtomSequenceBuffer* time_in = nullptr;
+        AtomSequenceBuffer* patch_in = nullptr;
+        AtomSequenceBuffer* patch_out = nullptr;
 
         LV2_Atom_Event* midi_read_it; // MIDI out read iterator
 

@@ -36,7 +36,6 @@ namespace plugins
         {
             const char* name; // name of the control
             const char* format; // display format string
-            int port_index;
             float* value;
 
             bool is_toggle;
@@ -53,7 +52,6 @@ namespace plugins
         {
             const char* name;
             const char* format; // display format string
-            int port_index;
             float* value;
         };
 
