@@ -294,8 +294,9 @@ static std::vector<ModuleBase*> garbage_modules;
 // TODO: remove audio buffers in ModuleBase, as
 // destination module is the one that now
 // creates and owns the audio buffers
-ModuleBase::ModuleBase(bool has_interface) :
+ModuleBase::ModuleBase(DestinationModule& dest, bool has_interface) :
     _output(nullptr),
+    _dest(dest),
     _audio_buffer(nullptr),
     _audio_buffer_size(0),
     show_interface(false),
@@ -335,14 +336,14 @@ void ModuleBase::connect(ModuleOutputTarget* dest) {
     dest->add_input(this);
     _output = dest;
 
-    if (_dest) _dest->make_dirty();
+    _dest.make_dirty();
 }
 
 void ModuleBase::disconnect() {
     if (_output != nullptr) _output->remove_input(this);
     _output = nullptr;
 
-    if (_dest) _dest->make_dirty();
+    _dest.make_dirty();
 }
 
 void ModuleBase::remove_all_connections() {
@@ -356,11 +357,6 @@ void ModuleBase::remove_all_connections() {
 // allocate buffers, not called by audio thread
 void ModuleBase::prepare_audio(DestinationModule* dest)
 {
-    if (_dest != dest)
-        dest->make_dirty();
-
-    _dest = dest;
-
     // audio buffer array to correct size
     size_t desired_size = dest->frames_per_buffer * dest->channel_count;
     if (_audio_buffer == nullptr || _audio_buffer_size != desired_size) {
@@ -385,9 +381,9 @@ float* ModuleBase::get_audio() {
         num_inputs > 0 ? &_input_arrays.front() : nullptr, // float input[][]
         _audio_buffer, // float output[]
         num_inputs, // num inputs
-        _dest->frames_per_buffer * _dest->channel_count, // number of samples
-        _dest->sample_rate, // sample rate
-        _dest->channel_count // channel count
+        _dest.frames_per_buffer * _dest.channel_count, // number of samples
+        _dest.sample_rate, // sample rate
+        _dest.channel_count // channel count
     );
 
     return _audio_buffer;
@@ -812,7 +808,7 @@ void EffectsRack::disconnect_all_inputs()
 //////////////////////
 //   EFFECTS BUS    //
 //////////////////////
-FXBus::FXBus()
+FXBus::FXBus(audiomod::DestinationModule& dest) : controller(dest)
 {
     strcpy(name, "FX Bus");
     rack.connect_output(&controller);
@@ -833,7 +829,7 @@ ModuleOutputTarget* FXBus::disconnect_output()
     return old_output;
 }
 
-FXBus::ControllerModule::ControllerModule() : ModuleBase(false) { }
+FXBus::ControllerModule::ControllerModule(audiomod::DestinationModule& dest) : ModuleBase(dest, false) { }
 
 void FXBus::ControllerModule::process(
     float** inputs,

@@ -8,7 +8,7 @@
 using namespace audiomod;
 
 AnalyzerModule::AnalyzerModule(DestinationModule& dest) :
-    ModuleBase(true),
+    ModuleBase(dest, true),
     ring_buffer(dest.sample_rate * 0.5) // hold 0.5 seconds of audio
 {
     id = "effect.analyzer";

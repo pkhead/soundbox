@@ -10,7 +10,7 @@
 
 using namespace audiomod;
 
-DelayModule::DelayModule(DestinationModule& dest) : ModuleBase(true)
+DelayModule::DelayModule(DestinationModule& dest) : ModuleBase(dest, true)
 {
     id = "effect.delay";
     name = "Delay";

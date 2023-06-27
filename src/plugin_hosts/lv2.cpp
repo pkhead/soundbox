@@ -900,7 +900,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 Lv2Plugin::~Lv2Plugin()
 {
     stop();
-    
+
     lilv_instance_free(instance);
     delete[] input_combined;
 
@@ -1023,7 +1023,7 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         input_combined,
         &audio_input_bufs.front(),
         audio_input_bufs.size(),
-        _dest->frames_per_buffer,
+        _dest.frames_per_buffer,
         interleave
     );
 
@@ -1138,7 +1138,7 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         &audio_output_bufs.front(),
         output,
         audio_output_bufs.size(),
-        _dest->frames_per_buffer,
+        _dest.frames_per_buffer,
         interleave
     );
 }

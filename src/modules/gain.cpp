@@ -5,7 +5,7 @@
 #include "gain.h"
 using namespace audiomod;
 
-GainModule::GainModule(DestinationModule& dest) : ModuleBase(true) {
+GainModule::GainModule(DestinationModule& dest) : ModuleBase(dest, true) {
     id = "effect.gain";
     name = "Gain";
 }

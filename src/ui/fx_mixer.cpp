@@ -82,7 +82,7 @@ void render_fx_mixer(SongEditor &editor)
         {
             song.mutex.lock();
 
-            audiomod::FXBus* bus = new audiomod::FXBus;
+            audiomod::FXBus* bus = new audiomod::FXBus(editor.audio_dest);
             song.fx_mixer[0]->connect_input(&bus->controller);
             song.fx_mixer.push_back(bus);
 

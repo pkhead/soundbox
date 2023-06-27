@@ -411,7 +411,7 @@ Song* Song::from_file(
             if (i == 0)
                 bus = song->fx_mixer[0];
             else {
-                bus = new audiomod::FXBus;
+                bus = new audiomod::FXBus(audio_dest);
                 song->fx_mixer.push_back(bus);
             }
 

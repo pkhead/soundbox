@@ -261,7 +261,7 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::Destination
     tuning->analyze();
     tunings.push_back(tuning);
 
-    audiomod::FXBus* master_bus = new audiomod::FXBus();
+    audiomod::FXBus* master_bus = new audiomod::FXBus(audio_out);
     strcpy(master_bus->name, "Master");
     master_bus->target_bus = 0;
     master_bus->connect_output(&audio_out);

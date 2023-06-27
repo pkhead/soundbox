@@ -22,7 +22,7 @@ using namespace plugins;
 ///////////////////
 
 PluginModule::PluginModule(audiomod::DestinationModule& dest, const PluginData& plugin_data)
-    : ModuleBase(false), data(plugin_data)
+    : ModuleBase(dest, false), data(plugin_data)
 {
     name = plugin_data.name;
     id = plugin_data.id.c_str();
@@ -68,9 +68,9 @@ void PluginModule::_interface_proc()
             ImGuiSliderFlags log_flag = (control_value.is_logarithmic ? ImGuiSliderFlags_Logarithmic : 0);
             
             if (control_value.is_sample_rate) {
-                value /= _dest->sample_rate;
-                min /= _dest->sample_rate;
-                max /= _dest->sample_rate;
+                value /= _dest.sample_rate;
+                min /= _dest.sample_rate;
+                max /= _dest.sample_rate;
             }
 
             if (control_value.is_toggle)
@@ -113,7 +113,7 @@ void PluginModule::_interface_proc()
                 }
             }
 
-            if (control_value.is_sample_rate) value *= _dest->sample_rate;
+            if (control_value.is_sample_rate) value *= _dest.sample_rate;
             *control_value.value = value;
 
             ImGui::PopID();

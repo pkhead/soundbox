@@ -127,7 +127,7 @@ namespace audiomod {
     class ModuleBase : public ModuleOutputTarget {
     protected:
         ModuleOutputTarget* _output;
-        DestinationModule* _dest = nullptr;
+        DestinationModule& _dest;
         bool _has_interface;
         bool _is_released = false;
         
@@ -143,7 +143,7 @@ namespace audiomod {
         const char* parent_name = nullptr; // i keep forgetting to explicity set values to nullptr!
 
         ModuleBase(const ModuleBase&) = delete;
-        ModuleBase(bool has_interface);
+        ModuleBase(DestinationModule& dest, bool has_interface);
         virtual ~ModuleBase();
 
         // mark module for deletion
@@ -327,7 +327,7 @@ namespace audiomod {
     class FXBus
     {
     public:
-        FXBus();
+        FXBus(audiomod::DestinationModule& dest);
 
         EffectsRack rack;
 
@@ -346,7 +346,7 @@ namespace audiomod {
             bool mute = false;
             bool mute_override = false;
 
-            ControllerModule();
+            ControllerModule(audiomod::DestinationModule& dest);
         } controller;
 
         inline const std::vector<ModuleBase*> get_modules() const

@@ -272,7 +272,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
 LadspaPlugin::~LadspaPlugin()
 {
     stop();
-    
+
     for (float* buf : input_buffers)
         delete[] buf;
 
@@ -362,7 +362,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         input_combined,
         &input_buffers.front(),
         input_buffers.size(),
-        _dest->frames_per_buffer,
+        _dest.frames_per_buffer,
         interleave
     );
 
@@ -373,7 +373,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         &output_buffers.front(),
         output,
         output_buffers.size(),
-        _dest->frames_per_buffer,
+        _dest.frames_per_buffer,
         interleave
     );
 }
