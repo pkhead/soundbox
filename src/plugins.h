@@ -39,7 +39,7 @@ namespace plugins
         {
             const char* name; // name of the control
             const char* format; // display format string
-            float* value;
+            float value;
 
             bool is_toggle;
             bool is_logarithmic;
@@ -54,8 +54,7 @@ namespace plugins
         struct OutputValue
         {
             const char* name;
-            const char* format; // display format string
-            float* value;
+            const char* value;
         };
 
         const PluginData& data;
@@ -65,7 +64,10 @@ namespace plugins
 
         virtual int control_value_count() const = 0;
         virtual int output_value_count() const = 0;
+
         virtual ControlValue get_control_value(int index) = 0;
+        virtual void set_control_value(int index, float value) = 0;
+
         virtual OutputValue get_output_value(int index) = 0;
 
         // tell implementation that a control value has changed

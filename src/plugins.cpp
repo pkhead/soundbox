@@ -59,9 +59,9 @@ void PluginModule::_interface_proc()
         {
             auto control_value = get_control_value(j);
 
-            ImGui::PushID(control_value.value);
+            ImGui::PushID(j);
 
-            float value = *control_value.value;
+            float value = control_value.value;
             float min = control_value.min;
             float max = control_value.max;
 
@@ -79,7 +79,7 @@ void PluginModule::_interface_proc()
                 if (ImGui::Checkbox("##toggle", &toggle)) {
                     control_value_change(j);
                 }
-                
+
                 value = toggle ? 1.0f : -1.0f;
             }
             else if (control_value.is_integer)
@@ -126,7 +126,9 @@ void PluginModule::_interface_proc()
 
 
             if (control_value.is_sample_rate) value *= _dest.sample_rate;
-            *control_value.value = value;
+
+            if (control_value.value != value)
+                set_control_value(j, value);
 
             ImGui::PopID();
         }
@@ -139,7 +141,7 @@ void PluginModule::_interface_proc()
     for (int i = 0; i < output_value_count(); i++)
     {
         auto output_value = get_output_value(i);
-        ImGui::Text("%s: %.3f", output_value.name, *output_value.value);
+        ImGui::Text("%s: %s", output_value.name, output_value.value);
     }
 }
 

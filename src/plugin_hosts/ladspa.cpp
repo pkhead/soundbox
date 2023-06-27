@@ -301,7 +301,7 @@ PluginModule::ControlValue LadspaPlugin::get_control_value(int index)
 
     value.name = impl->name.c_str();
     value.format = impl->is_integer ? "%d" : "%.3f";
-    value.value = &impl->value;
+    value.value = impl->value;
     value.has_default = impl->has_default;
     value.default_value = impl->default_value;
     value.max = impl->max;
@@ -314,6 +314,12 @@ PluginModule::ControlValue LadspaPlugin::get_control_value(int index)
     return value;
 }
 
+void LadspaPlugin::set_control_value(int index, float value)
+{
+    ControlInput* impl = ctl_in[index];
+    impl->value = value;
+}
+
 int LadspaPlugin::output_value_count() const {
     return ctl_out.size();
 }
@@ -323,9 +329,10 @@ PluginModule::OutputValue LadspaPlugin::get_output_value(int index)
     OutputValue value;
     ControlOutput* impl = ctl_out[index];
 
+    static char display_str[64];
+    snprintf(display_str, 64, "%f", impl->value);
     value.name = impl->name.c_str();
-    value.format = "%.3f";
-    value.value = &impl->value;
+    value.value = display_str;
 
     return value;
 }

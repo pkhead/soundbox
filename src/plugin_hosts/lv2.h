@@ -191,8 +191,11 @@ namespace plugins
 
         virtual int control_value_count() const override;
         virtual int output_value_count() const override;
+
+        virtual void set_control_value(int index, float value) override;
         virtual ControlValue get_control_value(int index) override;
         virtual OutputValue get_output_value(int index) override;
+        
         virtual void control_value_change(int index) override;
 
         static const char* get_standard_paths();

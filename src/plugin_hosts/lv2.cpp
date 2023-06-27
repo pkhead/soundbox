@@ -181,6 +181,8 @@ static const char* uri_unmap_handle(LV2_URID_Map_Handle handle, LV2_URID urid)
 // LOGGING EXTENSION //
 int log_printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...)
 {
+    return 2;
+
     va_list va;
     va_start(va, fmt);
     int res = vprintf(fmt, va);
@@ -190,6 +192,8 @@ int log_printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...)
 
 int log_vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list ap)
 {
+    return 2;
+
     return vprintf(fmt, ap);
 }
 ///////////////////////
@@ -824,8 +828,8 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
 
     // add parameters to interface
     for (Parameter* param : parameters) {
-        // TODO: parameter types other than float
-        if (param->type == Parameter::TypeFloat) {
+        // TODO: string/path parameters
+        if (param->type != Parameter::TypeString && param->type != Parameter::TypePath) {
             InterfaceDisplay display;
             display.is_parameter = true;
             display.param = param;
@@ -892,22 +896,51 @@ PluginModule::ControlValue Lv2Plugin::get_control_value(int index)
     if (display_info.is_parameter) {
         Parameter* param = display_info.param;
 
-        // TODO: parameter types other than float
         value.name = param->label.c_str();
-        value.value = &param->v._float;
+        value.is_integer = param->type == Parameter::TypeInt || param->type == Parameter::TypeLong;
+        value.is_logarithmic = false;
+        value.is_sample_rate = false;
+        value.is_toggle = param->type == Parameter::TypeBool;
+
+        // todo: find min and max
         value.has_default = false;
         value.min = -10.0f;
         value.max = 10.0f;
-        value.is_integer = false;
-        value.is_logarithmic = false;
-        value.is_sample_rate = false;
-        value.is_toggle = false;
-        value.format = "%.3f";
+
+        switch (param->type) {
+            case Parameter::TypeFloat:
+                value.value = param->v._float;
+                value.format = "%.3f";
+                break;
+            
+            case Parameter::TypeDouble:
+                value.value = param->v._double;
+                value.format = "%.3f";
+                break;
+
+            case Parameter::TypeInt:
+                value.value = param->v._int;
+                value.format = "%i";
+                break;
+
+            case Parameter::TypeLong:
+                value.value = param->v._long;
+                value.format = "%li";
+                break;
+
+            case Parameter::TypeBool:
+                value.value = param->v._bool ? 1.0f : -1.0f;
+                break;
+
+            default:
+                DBGBREAK;
+
+        }
     } else {
         ControlInputPort* impl = display_info.port_in;
 
         value.name = impl->name.c_str();
-        value.value = &impl->value;
+        value.value = impl->value;
         value.has_default = true;
         value.default_value = impl->default_value;
         value.max = impl->max;
@@ -932,25 +965,87 @@ PluginModule::ControlValue Lv2Plugin::get_control_value(int index)
     return value;
 }
 
+void Lv2Plugin::set_control_value(int index, float value)
+{
+    InterfaceDisplay& display_info = input_displays[index];
+
+    if (display_info.is_parameter) {
+        Parameter* param = display_info.param;
+
+        switch (param->type) {
+            case Parameter::TypeFloat:
+                param->v._float = value;
+                break;
+            
+            case Parameter::TypeDouble:
+                param->v._double = value;
+                break;
+
+            case Parameter::TypeInt:
+                param->v._int = roundf(value);
+                break;
+
+            case Parameter::TypeLong:
+                param->v._long = roundf(value);
+                break;
+
+            case Parameter::TypeBool:
+                param->v._bool = value >= 0.0f;
+                break;
+
+            default:
+                DBGBREAK;
+
+        }
+    } else {
+        ControlInputPort* impl = display_info.port_in;
+        impl->value = value;
+    }
+}
+
 PluginModule::OutputValue Lv2Plugin::get_output_value(int index)
 {
     OutputValue value;
     InterfaceDisplay& display = output_displays[index];
 
+    static char display_str[64];
+
     if (display.is_parameter) {
         Parameter* param = display.param;
 
         // TODO: parameter types other than float
+        switch (param->type) {
+            case Parameter::TypeFloat:
+                snprintf(display_str, 64, "%f", param->v._float);
+                break;
+            
+            case Parameter::TypeDouble:
+                snprintf(display_str, 64, "%f", param->v._double);
+                break;
+
+            case Parameter::TypeInt:
+                snprintf(display_str, 64, "%i", param->v._int);
+                break;
+
+            case Parameter::TypeLong:
+                snprintf(display_str, 64, "%li", param->v._long);
+                break;
+
+            case Parameter::TypeBool:
+                snprintf(display_str, 64, "%s", param->v._bool ? "yes": "no");
+                break;
+
+            default:
+                DBGBREAK;
+        }
+
         value.name = param->label.c_str();
-        value.format = "%.3f";
-        value.value = &param->v._float;
     } else {
         ControlOutputPort* impl = display.port_out;
-
         value.name = impl->name.c_str();
-        value.format = "%.3f";
-        value.value = &impl->value;
     }
+
+    value.value = display_str;
 
     return value;
 }
@@ -1184,10 +1279,8 @@ void Lv2Plugin::flush_events()
 {
     // read patch:Put and patch:Set events
     if (patch_out) {
-        int count = 0;
         LV2_ATOM_SEQUENCE_FOREACH (&patch_out->header, ev)
         {
-            count++;
             if (ev->body.type == uri_map(LV2_ATOM__Object))
             {
                 const LV2_Atom_Object* obj = (const LV2_Atom_Object*)&ev->body;
@@ -1214,8 +1307,6 @@ void Lv2Plugin::flush_events()
                 }
             }
         }
-
-        dbg("patch out count: %i\n", count);
     }
 }
 
