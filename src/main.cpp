@@ -510,6 +510,7 @@ int main()
 
                 float* buf;
                 size_t buf_size = export_data.destination->process(&buf);
+                export_data.song->work_scheduler.run();
 
                 writer.write_block(buf, buf_size);
 
@@ -826,13 +827,14 @@ int main()
                     ImGui::End();
                 }
             }
+
+            // run worker scheduler
+            song->work_scheduler.run();
             
             ImGui::Render();
-
-            glfwSwapBuffers(window);
-
             glViewport(0, 0, display_w, display_h);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            glfwSwapBuffers(window);
 
             prev_time = glfwGetTime();
         }

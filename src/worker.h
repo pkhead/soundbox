@@ -8,13 +8,14 @@
 #error std::atomic<bool> is not lock free
 #endif
 
-typedef void* (*WorkProcedure)(void* userdata, size_t data_size);
+typedef void (*WorkProcedure)(void* userdata, size_t data_size);
 
 class WorkScheduler
 {
 public:
 
     static constexpr size_t DATA_CAPACITY = 128;
+    static constexpr size_t QUEUE_CAPACITY = 8;
 
     /**
     * Schedule a procedure to be called in a non-realtime thread
@@ -28,8 +29,6 @@ public:
     void run();
 
 private:
-    static constexpr size_t QUEUE_CAPACITY = 8;
-
     struct ScheduleCall {
         WorkProcedure proc;
         uint8_t data[DATA_CAPACITY];

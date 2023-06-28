@@ -193,6 +193,73 @@ int log_vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list a
 }
 ///////////////////////
 
+// WORKER FEATURE //
+LV2_Worker_Status Lv2Plugin::_schedule_work(LV2_Worker_Schedule_Handle handle, uint32_t size, const void* userdata)
+{
+    Lv2Plugin* self = (Lv2Plugin*) handle;
+
+    if (self->worker_interface == nullptr) {
+        DBGBREAK;
+        return LV2_WORKER_ERR_UNKNOWN;
+    }
+
+    work_data_payload_t data;
+
+    data.self = self;
+
+    if (userdata && size)
+        memcpy(&data.userdata, userdata, size);
+
+    if (self->work_scheduler.schedule(_work_proc, &data, size + sizeof(Lv2Plugin*)))
+        return LV2_WORKER_SUCCESS;
+    else
+        return LV2_WORKER_ERR_NO_SPACE;
+}
+
+void Lv2Plugin::_work_proc(void* data, size_t size)
+{
+    work_data_payload_t* payload = (work_data_payload_t*) data;
+    Lv2Plugin* self = payload->self;
+
+    self->worker_interface->work(
+        lilv_instance_get_handle(self->instance),
+        _worker_respond,
+        self,
+        size,
+        data
+    );
+}
+
+LV2_Worker_Status Lv2Plugin::_worker_respond(
+    LV2_Worker_Respond_Handle handle,
+    uint32_t size,
+    const void* data
+) {
+    Lv2Plugin* self = (Lv2Plugin*) handle;
+
+    if (self->worker_interface == nullptr) {
+        DBGBREAK;
+        return LV2_WORKER_ERR_UNKNOWN;
+    }
+
+    for (int i = 0; i < RESPONSE_QUEUE_CAPACITY; i++)
+    {
+        WorkerResponse& response = self->worker_responses[i];
+        if (response.active) continue;
+
+        response.size = size;
+        if (data && response.size) {
+            memcpy(response.data, data, size);
+            return LV2_WORKER_SUCCESS;
+        }
+
+        response.active = true;
+    }
+
+    return LV2_WORKER_ERR_NO_SPACE;
+}
+////////////////////
+
 
 
 
@@ -550,6 +617,8 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     unmap_feature = {LV2_URID__unmap, &unmap};
     log = {nullptr, log_printf, log_vprintf};
     log_feature = {LV2_LOG__log, &log};
+    lv2_worker_schedule = {this, _schedule_work};
+    work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
 
     // instantiate plugin
     instance = lilv_plugin_instantiate(plugin, dest.sample_rate, features);
@@ -557,6 +626,8 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         std::cerr << "instantiation failed\n";
         throw lv2_error("instantiation failed");
     }
+
+    worker_interface = (LV2_Worker_Interface*) lilv_instance_get_extension_data(instance, LV2_WORKER__interface);
 
     // create and connect ports
     const uint32_t port_count = lilv_plugin_get_num_ports(plugin);
@@ -1190,7 +1261,28 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
         }
     }
 
+    // process worker responses
+    if (worker_interface)
+    {
+        for (int i = 0; i < RESPONSE_QUEUE_CAPACITY; i++)
+        {
+            WorkerResponse& response = worker_responses[i];
+            if (!response.active) continue;
+
+            worker_interface->work_response(
+                lilv_instance_get_handle(instance),
+                response.size,
+                response.data
+            );
+
+            response.active = false;
+        }
+    }
+
     lilv_instance_run(instance, sample_count);
+
+    if (worker_interface && worker_interface->end_run)
+        worker_interface->end_run(lilv_instance_get_handle(instance));
 
     // clear input message streams
     for (AtomSequenceBuffer* buf : msg_in)

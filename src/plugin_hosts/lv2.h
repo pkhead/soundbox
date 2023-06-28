@@ -129,14 +129,43 @@ namespace plugins
         LV2_Worker_Schedule lv2_worker_schedule;
         LV2_Feature work_schedule_feature;
 
-        const LV2_Feature* features[4] {
+        const LV2_Feature* features[5] {
             &map_feature,
             &unmap_feature,
             &log_feature,
+            &work_schedule_feature,
             NULL
         };
 
         WorkScheduler& work_scheduler;
+        LV2_Worker_Interface* worker_interface;
+        static LV2_Worker_Status _schedule_work(
+            LV2_Worker_Schedule_Handle handle,
+            uint32_t size, const void* data
+        );
+
+        static void _work_proc(void* data, size_t size);
+        static LV2_Worker_Status _worker_respond(
+            LV2_Worker_Respond_Handle handle,
+            uint32_t size,
+            const void* data
+        );
+
+        // a payload will contain a pointer to this class at the start
+        static constexpr size_t USERDATA_CAPACITY = WorkScheduler::DATA_CAPACITY - sizeof(Lv2Plugin*);
+        static constexpr size_t RESPONSE_QUEUE_CAPACITY = WorkScheduler::QUEUE_CAPACITY * 4;
+        
+        struct work_data_payload_t
+        {
+            Lv2Plugin* self;
+            uint8_t userdata[USERDATA_CAPACITY];
+        };
+
+        struct WorkerResponse {
+            std::atomic<bool> active = false;
+            size_t size;
+            uint8_t data[USERDATA_CAPACITY];
+        } worker_responses[RESPONSE_QUEUE_CAPACITY];
 
         // list of displayed values
         struct InterfaceDisplay {
