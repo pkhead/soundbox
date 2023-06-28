@@ -11,6 +11,10 @@
 
 #define RDFS_PREFIX "http://www.w3.org/2000/01/rdf-schema#"
 
+namespace plugins {
+    class Lv2Plugin;
+}
+
 namespace lv2 {
     extern LilvWorld* LILV_WORLD;
 
@@ -151,10 +155,14 @@ namespace lv2 {
     class UIHost
     {
     private:
-        const LilvPlugin* plugin = nullptr;
+        plugins::Lv2Plugin* plugin_ctl = nullptr;
         SuilHost* suil_host = nullptr;
+        SuilInstance* suil_instance = nullptr;
     
     public:
-        void init(const LilvPlugin* plugin);
+        UIHost();
+        ~UIHost();
+
+        void init(plugins::Lv2Plugin* plugin);
     };
 } // namespace lv2

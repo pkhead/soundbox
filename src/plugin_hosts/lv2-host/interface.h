@@ -15,9 +15,6 @@ namespace plugins
     class Lv2Plugin : public PluginModule
     {
     private:
-        std::string plugin_uri;
-        LilvInstance* instance;
-
         enum class UnitType
         {
             None,
@@ -91,28 +88,9 @@ namespace plugins
 
         std::vector<float*> audio_input_bufs;
         std::vector<float*> audio_output_bufs;
-        std::vector<ControlInputPort*> ctl_in;
-        std::vector<ControlOutputPort*> ctl_out;
+
         std::vector<Parameter*> parameters;
         bool is_state_init = false;
-
-        Parameter* find_parameter(LV2_URID id) const;
-
-        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
-
-        struct AtomSequenceBuffer {
-            LV2_Atom_Sequence header;
-            uint8_t data[ATOM_SEQUENCE_CAPACITY];
-        };
-
-        std::vector<AtomSequenceBuffer*> msg_in;
-        std::vector<AtomSequenceBuffer*> msg_out;
-
-        AtomSequenceBuffer* midi_in = nullptr;
-        AtomSequenceBuffer* midi_out = nullptr;
-        AtomSequenceBuffer* time_in = nullptr;
-        AtomSequenceBuffer* patch_in = nullptr;
-        AtomSequenceBuffer* patch_out = nullptr;
 
         LV2_Atom_Forge forge;
 
@@ -172,6 +150,31 @@ namespace plugins
     public:
         Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
         ~Lv2Plugin();
+
+        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
+
+        struct AtomSequenceBuffer {
+            LV2_Atom_Sequence header;
+            uint8_t data[ATOM_SEQUENCE_CAPACITY];
+        };
+
+        std::vector<ControlInputPort*> ctl_in;
+        std::vector<ControlOutputPort*> ctl_out;
+
+        std::vector<AtomSequenceBuffer*> msg_in;
+        std::vector<AtomSequenceBuffer*> msg_out;
+
+        AtomSequenceBuffer* midi_in = nullptr;
+        AtomSequenceBuffer* midi_out = nullptr;
+        AtomSequenceBuffer* time_in = nullptr;
+        AtomSequenceBuffer* patch_in = nullptr;
+        AtomSequenceBuffer* patch_out = nullptr;
+
+        std::string plugin_uri;
+        LilvInstance* instance;
+        const LilvPlugin* lv2_plugin_data;
+
+        Parameter* find_parameter(LV2_URID id) const;
 
         virtual PluginType plugin_type() { return PluginType::Lv2; };
 

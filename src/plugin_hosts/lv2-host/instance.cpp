@@ -43,6 +43,8 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
         throw lv2_error("plugin not found");
     }
 
+    lv2_plugin_data = plugin;
+
     // init features
     map = {nullptr, uri::map_callback};
     map_feature = {LV2_URID__map, &map};
@@ -355,7 +357,7 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     delete[] default_values;
 
     // find ui host
-    ui_host.init(plugin);
+    ui_host.init(this);
 
     _has_interface = control_value_count() > 0;
     start();
