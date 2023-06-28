@@ -177,13 +177,6 @@ PluginManager::PluginManager()
 
     ladspa_paths = _std_ladspa;
     lv2_paths = _std_lv2;
-
-    Lv2Plugin::lilv_init();
-}
-
-PluginManager::~PluginManager()
-{
-    Lv2Plugin::lilv_fini();
 }
 
 void PluginManager::add_path(PluginType type, const std::string& path)

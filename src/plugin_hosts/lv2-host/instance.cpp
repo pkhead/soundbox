@@ -354,6 +354,9 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     delete[] max_values;
     delete[] default_values;
 
+    // find ui host
+    ui_host.init(plugin);
+
     _has_interface = control_value_count() > 0;
     start();
 }

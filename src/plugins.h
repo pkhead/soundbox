@@ -94,7 +94,6 @@ namespace plugins
         std::vector<std::string> lv2_paths;
         
         PluginManager();
-        ~PluginManager();
 
         void add_path(PluginType type, const std::string& path);
         inline const std::vector<PluginData>& get_plugin_data() { return plugin_data; };

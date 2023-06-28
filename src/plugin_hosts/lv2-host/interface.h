@@ -134,6 +134,7 @@ namespace plugins
         };
 
         lv2::WorkerHost worker_host;
+        lv2::UIHost ui_host;
 
         // list of displayed values
         struct InterfaceDisplay {
@@ -205,7 +206,7 @@ namespace plugins
         static const char* get_standard_paths();
         static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
 
-        static void lilv_init();
-        static void lilv_fini();
+        static void lv2_init(int* argc, char*** argv);
+        static void lv2_fini();
     }; // class LadspaPlugin
 } // namespace plugins

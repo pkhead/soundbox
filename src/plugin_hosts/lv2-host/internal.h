@@ -4,6 +4,7 @@
 #include <lv2/atom/atom.h>
 #include <lv2/atom/forge.h>
 #include <lv2/worker/worker.h>
+#include <suil/suil.h>
 #include <vector>
 #include <string>
 #include "../../worker.h"
@@ -46,6 +47,9 @@ namespace lv2 {
 
         LilvNode* units_unit;
         LilvNode* units_db;
+
+        LilvNode* ui_X11UI;
+        LilvNode* ui_WindowsUI;
     } extern URI;
 
     /**
@@ -88,16 +92,18 @@ namespace lv2 {
         LV2_URID map(const char* uri);
         const char* unmap(LV2_URID urid);
 
-        // support for lv2 urid feature
+        // lv2 urid feature
         LV2_URID map_callback(LV2_URID_Map_Handle handle, const char* uri);
         const char* unmap_callback(LV2_URID_Map_Handle handle, LV2_URID urid);
     }
 
+    // logging feature
     namespace log {
         int printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...);
         int vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list ap);
     }
 
+    // worker feature
     class WorkerHost
     {
     private:
@@ -139,5 +145,16 @@ namespace lv2 {
 
         void process_responses();
         void end_run();
+    };
+
+    // ui feature
+    class UIHost
+    {
+    private:
+        const LilvPlugin* plugin = nullptr;
+        SuilHost* suil_host = nullptr;
+    
+    public:
+        void init(const LilvPlugin* plugin);
     };
 } // namespace lv2

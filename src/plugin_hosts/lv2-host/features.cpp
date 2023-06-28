@@ -15,6 +15,7 @@
 #include <lv2/patch/patch.h>
 #include <lv2/state/state.h>
 #include <lv2/ui/ui.h>
+#include <suil/suil.h>
 #include "interface.h"
 #include "internal.h"
 #include "../../util.h"
@@ -26,8 +27,11 @@ using namespace lv2;
 LilvWorld* lv2::LILV_WORLD;
 LilvNodeUriList lv2::URI;
 
-void Lv2Plugin::lilv_init() {
+void Lv2Plugin::lv2_init(int* argc, char*** argv) {
     LILV_WORLD = lilv_world_new();
+
+    // TODO: pass in arguments from main
+    suil_init(argc, argv, SUIL_ARG_NONE);
 
     URI.a = lilv_new_uri(LILV_WORLD, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
     URI.rdfs_label = lilv_new_uri(LILV_WORLD, RDFS_PREFIX "label");
@@ -59,11 +63,14 @@ void Lv2Plugin::lilv_init() {
     URI.state_interface = lilv_new_uri(LILV_WORLD, LV2_STATE__interface);
     URI.state_loadDefaultState = lilv_new_uri(LILV_WORLD, LV2_STATE__loadDefaultState);
 
+    URI.ui_X11UI = lilv_new_uri(LILV_WORLD, LV2_UI__X11UI);
+    URI.ui_WindowsUI = lilv_new_uri(LILV_WORLD, LV2_UI__WindowsUI);
+
     URI.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     URI.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
 }
 
-void Lv2Plugin::lilv_fini() {
+void Lv2Plugin::lv2_fini() {
     lilv_world_free(LILV_WORLD);
 }
 

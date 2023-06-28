@@ -37,6 +37,7 @@
 #include "ui/editor.h"
 #include "audio.h"
 #include "sys.h"
+#include "plugin_hosts/lv2-host/interface.h"
 
 bool IS_BIG_ENDIAN;
 
@@ -56,7 +57,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nC
 }
 #endif
 
-int main()
+int main(int argc, char** argv)
 {
     { // record endianness
         union {
@@ -103,6 +104,9 @@ int main()
 
     float screen_xscale, screen_yscale;
     glfwGetWindowContentScale(window, &screen_xscale, &screen_yscale);
+
+    // setup LV2 plugin host
+    plugins::Lv2Plugin::lv2_init(&argc, &argv);
 
     // setup dear imgui
     IMGUI_CHECKVERSION();
@@ -847,6 +851,7 @@ int main()
 
     device.stop();
     AudioDevice::_pa_stop();
-    
+    plugins::Lv2Plugin::lv2_fini();
+
     return 0;
 }
