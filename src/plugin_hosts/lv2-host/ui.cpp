@@ -27,44 +27,69 @@
 
 using namespace lv2;
 
-static uint32_t suil_port_index_func(SuilController controller, const char* port_symbol)
+uint32_t UIHost::suil_port_index_func(SuilController controller, const char* port_symbol)
 {
-    abort();
+    UIHost* self = (UIHost*) controller;
+
+    for (ControlInputPort* in_port : self->plugin_ctl->ctl_in)
+    {
+        if (in_port->symbol == port_symbol)
+            return in_port->port_index;
+    }
+
+    for (ControlOutputPort* out_port : self->plugin_ctl->ctl_out)
+    {
+        if (out_port->symbol == port_symbol)
+            return out_port->port_index;
+    }
 }
 
-static uint32_t suil_port_subscribe_func(
+uint32_t UIHost::suil_port_subscribe_func(
     SuilController controller,
     uint32_t port_index,
     uint32_t protocol,
     const LV2_Feature* const* features
 ) {
-    abort();
+    dbg("called suil_port_subscribe_func\n");
+    return 1;
 }
 
-static uint32_t suil_port_unsubscribe_func(
+uint32_t UIHost::suil_port_unsubscribe_func(
     SuilController controller,
     uint32_t port_index,
     uint32_t protocol,
     const LV2_Feature* const* features
 ) {
-    abort();
+    dbg("called suil_port_unsubscribe_func\n");
+    return 1;
 }
 
-static void suil_port_write_func(
+void UIHost::suil_port_write_func(
     SuilController controller,
     uint32_t port_index,
     uint32_t buffer_size,
     uint32_t protocol,
     void const* buffer
 ) {
-    abort();
+    dbg("called suil_port_write_func\n");
+    // TODO: i just assume it's a float
+    UIHost* self = (UIHost*) controller;
+
+    for (ControlInputPort* in_port : self->plugin_ctl->ctl_in)
+    {
+        if (in_port->port_index == port_index) {
+            in_port->value = *((float*) buffer);
+            break;
+        }
+    }
 }
 
-void suil_touch_func(
+void UIHost::suil_touch_func(
     SuilController controller,
     uint32_t port_index,
     bool grabbed
 ) {
+    dbg("called suil_touch_func");
     abort();
 }
 
@@ -148,6 +173,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
             glfwWindowHint(GLFW_VISIBLE, false);
             glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
             glfwWindowHint(GLFW_RESIZABLE, false);
+            glfwWindowHint(GLFW_FLOATING, true);
             
             // this will be resized to the child window later
             parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);

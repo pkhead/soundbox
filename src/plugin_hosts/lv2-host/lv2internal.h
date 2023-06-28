@@ -360,6 +360,40 @@ namespace lv2 {
         GLFWwindow* ui_window = nullptr;
         bool _has_custom_ui = false;
         LV2UI_Idle_Interface* idle_interface;
+
+        // libsuil instance callbacks
+        static uint32_t suil_port_index_func(
+            SuilController controller,
+            const char* port_symbol
+        );
+
+        static uint32_t suil_port_subscribe_func(
+            SuilController controller,
+            uint32_t port_index,
+            uint32_t protocol,
+            const LV2_Feature* const* features
+        );
+
+        static uint32_t suil_port_unsubscribe_func(
+            SuilController controller,
+            uint32_t port_index,
+            uint32_t protocol,
+            const LV2_Feature* const* features
+        );
+
+        static void suil_port_write_func(
+            SuilController controller,
+            uint32_t port_index,
+            uint32_t buffer_size,
+            uint32_t protocol,
+            void const* buffer
+        );
+
+        void suil_touch_func(
+            SuilController controller,
+            uint32_t port_index,
+            bool grabbed
+        );
         
     public:
         UIHost(Lv2PluginHost* host);

@@ -6,7 +6,7 @@
 // debug log
 #ifdef _NDEBUG
 
-#define dbg(fmt, ...)
+#define dbg(...)
 #define __BREAK__
 
 #else
@@ -14,8 +14,12 @@
 #include <cstdio>
 #include <cstdarg>
 
-__attribute__((__format__(__printf__, 1, 2)))
-inline void dbg(const char* fmt, ...) {
+#define dbg(...) __dbg(__FILE__, __LINE__, __VA_ARGS__)
+
+__attribute__((__format__(__printf__, 3, 4)))
+inline void __dbg(const char* file, int line, const char* fmt, ...) {
+    printf("%s:%i: ", file, line);
+
     va_list vl;
     va_start(vl, fmt);
     vprintf(fmt, vl);

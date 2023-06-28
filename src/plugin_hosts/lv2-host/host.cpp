@@ -104,6 +104,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             ControlInputPort* ctl = new ControlInputPort;
             ctl->name = port_name;
             ctl->symbol = port_symbol;
+            ctl->port_index = i;
             ctl->port_handle = port;
             ctl->min = min_values[i];
             ctl->max = max_values[i];
@@ -138,6 +139,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
         ) {
             ControlOutputPort* ctl = new ControlOutputPort;
             ctl->name = port_name;
+            ctl->port_index = i;
             ctl->symbol = port_symbol;
             ctl->port_handle = port;
 
