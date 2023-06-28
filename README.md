@@ -25,12 +25,13 @@ Most features aren't implemented as this is still fairly early into development.
 ## Building
 Dependencies:
 - [lilv](http://drobilla.net/software/lilv.html) for LV2 support
+- [suil](http://drobilla.net/software/suil.html) for LV2 UI support
 
 ### Linux
 Install dependencies:
 ```bash
 # ubuntu
-apt install cmake liblilv-dev 
+apt install cmake liblilv-dev libsuil-dev
 ```
 
 Clone repository and build the project
