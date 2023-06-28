@@ -819,6 +819,27 @@ void Lv2Plugin::flush_events()
     }
 }
 
+bool Lv2Plugin::show_interface() {
+    bool status;
+    if ((status = PluginModule::show_interface())) {
+        ui_host.show();
+    }
+    return status;
+}
+
+void Lv2Plugin::hide_interface() {
+    ui_host.hide();
+}
+
+void Lv2Plugin::_interface_proc()
+{
+    if (ui_host.has_custom_ui()) {
+        ui_host.render();
+    } else {
+        PluginModule::_interface_proc();
+    }
+}
+
 // TODO
 void Lv2Plugin::save_state(std::ostream& ostream) const
 {

@@ -31,10 +31,9 @@ namespace plugins
 
     // base class for plugins
     class PluginModule : public audiomod::ModuleBase {
-    private:
-        void _interface_proc() override;
-    
     protected:
+        virtual void _interface_proc() override;
+        
         struct ControlValue
         {
             const char* name; // name of the control

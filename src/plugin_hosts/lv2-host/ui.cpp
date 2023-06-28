@@ -5,6 +5,8 @@
 #include <suil/suil.h>
 #include <lv2/instance-access/instance-access.h>
 #include <cstdlib>
+#include <imgui.h>
+#include <chrono>
 
 #ifdef UI_X11
 #include <X11/Xlib.h>
@@ -137,20 +139,22 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
             const char* container_type_uri = lilv_node_as_uri(host_type);
             const char* plugin_uri = lilv_node_as_uri(plugin_uri_n);
             const char* ui_uri = lilv_node_as_uri(ui_uri_n);
-
-#ifdef UI_X11
             const char* plugin_name =
                 lilv_node_as_string(lilv_plugin_get_name(plugin_ctl->lv2_plugin_data));
+
+#ifdef UI_X11
             // create parent window
             // TODO: embed plugin window
             Display* xdisplay = glfwGetX11Display();
+            
 
             glfwWindowHint(GLFW_VISIBLE, false);
             glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
             glfwWindowHint(GLFW_RESIZABLE, false);
-            GLFWwindow* glfw_parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
-            void* parent_window = 
-                (void*) glfwGetX11Window(glfw_parent_window);
+            GLFWwindow* parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
+            //GLFWwindow* parent_window = glfwGetCurrentContext();
+            void* parent_window_handle = 
+                (void*) glfwGetX11Window(parent_window);
 #endif
 
             // create features list
@@ -180,7 +184,7 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
 
             LV2_Feature parent_feature = {
                 LV2_UI__parent,
-                parent_window
+                parent_window_handle
             };
 
             const LV2_Feature* features[] = {
@@ -215,22 +219,74 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
                 
                 SuilWidget widget = suil_instance_get_widget(suil_instance);
                 assert(widget);
-
+                _has_custom_ui = true;
 #ifdef UI_X11
-                window_handle = glfw_parent_window;
+                window_handle = parent_window;
                 Window child_window = (Window) widget;
 
                 XWindowAttributes attributes;
-                XGetWindowAttributes(glfwGetX11Display(), child_window, &attributes);
-                glfwSetWindowSize(glfw_parent_window, attributes.width, attributes.height);
-                glfwShowWindow(glfw_parent_window);
+                XGetWindowAttributes(xdisplay, child_window, &attributes);
+                glfwSetWindowSize(parent_window, attributes.width, attributes.height);
+
+                {
+                    Window w = (Window) parent_window_handle;
+                    XReparentWindow(xdisplay, w, glfwGetX11Window(glfwGetCurrentContext()), 40, 40);
+
+                    XEvent ev;
+                    memset(&ev, 0, sizeof(ev));
+                    ev.xclient.type = ClientMessage;
+                    ev.xclient.window = w;
+                    ev.xclient.message_type = XInternAtom( xdisplay, "_XEMBED", False );
+                    ev.xclient.format = 32;
+                    ev.xclient.data.l[0] = CurrentTime;
+                    ev.xclient.data.l[1] = 0;
+                    ev.xclient.data.l[2] = 0;
+                    ev.xclient.data.l[3] = 0;
+                    ev.xclient.data.l[4] = 0;
+                    XSendEvent(xdisplay, w, False, NoEventMask, &ev);
+                    XSync(xdisplay, False);
+                }
+
+                //XCompositeRedirectWindow(xdisplay, child_window, CompositeRedirectAutomatic);
+                //pixmap = XCompositeNameWindowPixmap(xdisplay, child_window);
+
+                //glfwSetWindowSize(parent_window, window_width, window_height);
+                //XCompositeRedirectWindow(xdisplay, (Window) parent_window_handle, CompositeRedirectAutomatic);
+                //XMapWindow(xdisplay, (Window) parent_window_handle);
+                //pixmap = XCompositeNameWindowPixmap(xdisplay, (Window) parent_window_handle);
+
+                /*
+                view_tex_data = new uint8_t[window_width * window_height * 4];
+                
+                // generate texture
+                glGenTextures(1, &view_texture);
+                glBindTexture(GL_TEXTURE_2D, view_texture);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+#ifdef GL_UNPACK_ROW_LENGTH
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+
+                glTexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    GL_RGBA,
+                    window_width,
+                    window_height,
+                    0,
+                    GL_RGBA,
+                    GL_UNSIGNED_BYTE,
+                    nullptr
+                );*/
 #elif defined(UI_WINDOWS)
                 HWND hWnd = (HWND) widget;
                 ShowWindow(hWnd, SW_SHOW);
 #endif
             } else {
                 dbg("ERROR: could not instantiate ui\n");
-                glfwSetWindowShouldClose(glfw_parent_window, true);
             }
 
 
@@ -249,7 +305,11 @@ UIHost::~UIHost()
 
 #ifdef UI_X11
     if (window_handle) {
-        glfwDestroyWindow((GLFWwindow*) window_handle);
+        Display* xdisplay = glfwGetX11Display();
+        Window xwindow = glfwGetX11Window((GLFWwindow*) window_handle);
+        
+        //glDeleteTextures(1, &view_texture);
+        delete[] view_tex_data;
     }
 #elif defined(UI_WINDOWS)
     // TODO: delete window
@@ -262,4 +322,71 @@ UIHost::~UIHost()
     if (suil_host) {
         suil_host_free(suil_host);
     }
+}
+
+void UIHost::show() {
+    if (!window_handle) return;
+
+    Display* xdisplay = glfwGetX11Display();
+    GLFWwindow* glfw_window = (GLFWwindow*) window_handle;
+    XMapWindow(xdisplay, glfwGetX11Window(glfw_window));
+}
+
+void UIHost::hide() {
+    if (!window_handle) return;
+    
+    Display* xdisplay = glfwGetX11Display();
+    GLFWwindow* glfw_window = (GLFWwindow*) window_handle;
+    XUnmapWindow(xdisplay, glfwGetX11Window(glfw_window));
+}
+
+void UIHost::render()
+{
+#ifdef UI_X11
+    if (!window_handle) return;
+
+    Display* xdisplay = glfwGetX11Display();
+    Window xwindow = glfwGetX11Window( (GLFWwindow*) window_handle );
+    XWindowAttributes attributes;
+    XGetWindowAttributes(xdisplay, xwindow, &attributes);
+
+    /*
+    auto prev = std::chrono::high_resolution_clock::now();
+
+    XImage* image = XGetImage(xdisplay, pixmap, 0, 0, attributes.width, attributes.height, AllPlanes, ZPixmap);
+    assert(image);
+    
+    // todo: read directly from image data
+    int k = 0;
+    for (int i = 0; i < attributes.height; i++) {
+        for (int j = 0; j < attributes.width; j++) {
+            auto pixel = XGetPixel(image, j, i);
+            view_tex_data[k++] = pixel & image->red_mask >> 16;
+            view_tex_data[k++] = (pixel & image->green_mask) >> 8;
+            view_tex_data[k++] = (pixel & image->blue_mask);
+            view_tex_data[k++] = 255;
+        }
+    }
+
+    XFree(image);
+
+    auto now = std::chrono::high_resolution_clock::now();
+    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(now - prev);
+    dbg("ms: %li\n", t.count());
+    
+    glBindTexture(GL_TEXTURE_2D, view_texture);
+    glTexSubImage2D(
+        GL_TEXTURE_2D,
+        0,
+        0,
+        0,
+        attributes.width,
+        attributes.height,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        view_tex_data
+    );
+
+    ImGui::Image((void*)(intptr_t)view_texture, ImVec2(attributes.width, attributes.height));*/
+#endif
 }

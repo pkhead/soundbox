@@ -7,7 +7,8 @@
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - metronome
 - mp3 exports
-- Plugin support (VST, LV2, CLAP)
+- Plugin support (VST, CLAP)
+    - make lv2 support optional at compile-time
 - Automation
 - Channel for playing audio clips
 - Song change markers (time signature or tuning)

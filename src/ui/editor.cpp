@@ -170,6 +170,7 @@ bool SongEditor::redo()
 void SongEditor::hide_module_interface(audiomod::ModuleBase* mod) {
     for (auto it = mod_interfaces.begin(); it != mod_interfaces.end(); it++) {
         if (*it == mod) {
+            mod->hide_interface();
             mod_interfaces.erase(it);
             break;
         }
@@ -177,10 +178,8 @@ void SongEditor::hide_module_interface(audiomod::ModuleBase* mod) {
 }
 
 void SongEditor::toggle_module_interface(audiomod::ModuleBase* mod) {
-    mod->show_interface = !mod->show_interface;
-    
     // if want to show interface, add module to interfaces list
-    if (mod->show_interface) {
+    if (mod->show_interface()) {
         mod_interfaces.push_back(mod);
 
     // if want to hide interface, remove module from interfaces list

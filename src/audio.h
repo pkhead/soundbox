@@ -131,13 +131,13 @@ namespace audiomod {
         DestinationModule& _dest;
         bool _has_interface;
         bool _is_released = false;
+        bool _interface_shown = false;
         
         float* _audio_buffer;
         size_t _audio_buffer_size;
 
         virtual void _interface_proc() {};
     public:
-        bool show_interface;
         const char* id;
         std::string name;
         Song* song = nullptr;
@@ -193,6 +193,10 @@ namespace audiomod {
         
         // render the ImGui interface
         bool render_interface();
+
+        virtual bool show_interface();
+        virtual void hide_interface();
+        bool interface_shown() const { return _interface_shown; };
 
         // write the serialized state of the module to a stream
         virtual void save_state(std::ostream& ostream) const { return; };

@@ -299,7 +299,7 @@ ModuleBase::ModuleBase(DestinationModule& dest, bool has_interface) :
     _dest(dest),
     _audio_buffer(nullptr),
     _audio_buffer_size(0),
-    show_interface(false),
+    _interface_shown(false),
     _has_interface(has_interface),
     id(""),
     name("Module")
@@ -393,13 +393,22 @@ bool ModuleBase::has_interface() const {
     return _has_interface;
 }
 
+bool ModuleBase::show_interface() {
+    if (!_has_interface) return false;
+    return _interface_shown = true;
+}
+
+void ModuleBase::hide_interface() {
+    _interface_shown = false;
+}
+
 bool ModuleBase::render_interface() {
-    if (!show_interface) return false;
+    if (!_interface_shown) return false;
 
     char window_name[128];
     snprintf(window_name, 128, "%s - %s###%p", name.c_str(), parent_name == nullptr ? "" : parent_name, this);
 
-    if (ImGui::Begin(window_name, &show_interface, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::Begin(window_name, &_interface_shown, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
         if (has_interface())
             _interface_proc();
         else
@@ -408,7 +417,7 @@ bool ModuleBase::render_interface() {
         }
     } ImGui::End();
 
-    return show_interface;
+    return _interface_shown;
 }
 
 

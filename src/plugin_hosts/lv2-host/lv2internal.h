@@ -5,6 +5,7 @@
 #include <lv2/atom/forge.h>
 #include <lv2/worker/worker.h>
 #include <suil/suil.h>
+#include <glad/gl.h>
 #include <vector>
 #include <string>
 #include "../../worker.h"
@@ -166,11 +167,23 @@ namespace lv2 {
         SuilInstance* suil_instance = nullptr;
 
         WindowHandle window_handle = nullptr;
+        GLuint view_texture = 0;
+        uint8_t* view_tex_data = nullptr;
+        unsigned long pixmap;
+        
+        bool _has_custom_ui = false;
         
     public:
         UIHost();
         ~UIHost();
 
         void init(plugins::Lv2Plugin* plugin);
+        void show();
+        void hide();
+        void render();
+
+        inline bool has_custom_ui() const {
+            return _has_custom_ui;
+        };
     };
 } // namespace lv2

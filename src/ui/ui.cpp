@@ -476,7 +476,7 @@ EffectsInterfaceAction effect_rack_ui(
         for (audiomod::ModuleBase* module : effects_rack->modules) {
             ImGui::PushID(module);
             
-            ImGui::Selectable(module->name.c_str(), module->show_interface);
+            ImGui::Selectable(module->name.c_str(), module->interface_shown());
 
             // record swaps
             if (ImGui::IsItemActivated())
