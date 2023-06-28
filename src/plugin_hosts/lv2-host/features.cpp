@@ -27,7 +27,7 @@ using namespace lv2;
 LilvWorld* lv2::LILV_WORLD;
 LilvNodeUriList lv2::URI;
 
-void Lv2Plugin::lv2_init(int* argc, char*** argv) {
+void lv2::lv2_init(int* argc, char*** argv) {
     LILV_WORLD = lilv_world_new();
 
     // TODO: pass in arguments from main
@@ -71,7 +71,7 @@ void Lv2Plugin::lv2_init(int* argc, char*** argv) {
     URI.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);
 }
 
-void Lv2Plugin::lv2_fini() {
+void lv2::lv2_fini() {
     lilv_world_free(LILV_WORLD);
 }
 
@@ -407,7 +407,7 @@ void WorkerHost::end_run()
 // LV2 state feature //
 ///////////////////////
 
-Lv2Plugin::Parameter::Parameter(const char* urid, const char* label, const char* type_uri)
+Parameter::Parameter(const char* urid, const char* label, const char* type_uri)
     : id(uri::map(urid)),
       did_change(false),
       label(label)
@@ -436,7 +436,7 @@ Lv2Plugin::Parameter::Parameter(const char* urid, const char* label, const char*
     }
 }
 
-const char* Lv2Plugin::Parameter::type_uri() const
+const char* Parameter::type_uri() const
 {
     switch (type) {
         case TypeInt:
@@ -458,7 +458,7 @@ const char* Lv2Plugin::Parameter::type_uri() const
     assert(false);
 }
 
-size_t Lv2Plugin::Parameter::size() const {
+size_t Parameter::size() const {
     switch (type) {
         case TypeInt:
             return sizeof(int);
@@ -478,7 +478,7 @@ size_t Lv2Plugin::Parameter::size() const {
     return 0;
 }
 
-bool Lv2Plugin::Parameter::set(const void* value, uint32_t expected_size, uint32_t expected_type)
+bool Parameter::set(const void* value, uint32_t expected_size, uint32_t expected_type)
 {
     if (uri::map(type_uri()) != expected_type) return false;
 
@@ -493,7 +493,7 @@ bool Lv2Plugin::Parameter::set(const void* value, uint32_t expected_size, uint32
     return true;
 }
 
-const void* Lv2Plugin::Parameter::get(uint32_t* size) const
+const void* Parameter::get(uint32_t* size) const
 {
     *size = this->size();
 
@@ -504,7 +504,7 @@ const void* Lv2Plugin::Parameter::get(uint32_t* size) const
     }
 }
 
-Lv2Plugin::Parameter* Lv2Plugin::find_parameter(LV2_URID id) const
+Parameter* Lv2PluginHost::find_parameter(LV2_URID id) const
 {
     for (Parameter* param : parameters) {
         if (param->id == id)
@@ -515,7 +515,7 @@ Lv2Plugin::Parameter* Lv2Plugin::find_parameter(LV2_URID id) const
 }
 
 // for use in lilv_state_restore and lilv_state_new_from_instance
-void Lv2Plugin::_set_port_value(
+void Lv2PluginHost::_set_port_value(
     const char* port_symbol,
     const void* value,
     uint32_t size,
@@ -532,7 +532,7 @@ void Lv2Plugin::_set_port_value(
     }
 }
 
-const void* Lv2Plugin::_get_port_value(
+const void* Lv2PluginHost::_get_port_value(
     const char* port_symbol,
     uint32_t* size,
     uint32_t type
@@ -550,23 +550,23 @@ const void* Lv2Plugin::_get_port_value(
     return nullptr;
 }
 
-void Lv2Plugin::set_port_value_callback(
+void Lv2PluginHost::set_port_value_callback(
     const char* port_symbol,
     void* user_data,
     const void* value,
     uint32_t size,
     uint32_t type
 ) {
-    Lv2Plugin* plug = (Lv2Plugin*) user_data;
+    Lv2PluginHost* plug = (Lv2PluginHost*) user_data;
     plug->_set_port_value(port_symbol, value, size, type);
 }
 
-const void* Lv2Plugin::get_port_value_callback(
+const void* Lv2PluginHost::get_port_value_callback(
     const char* port_symbol,
     void* user_data,
     uint32_t* size,
     uint32_t type
 ) {
-    Lv2Plugin* plug = (Lv2Plugin*) user_data;
+    Lv2PluginHost* plug = (Lv2PluginHost*) user_data;
     return plug->_get_port_value(port_symbol, size, type);
 }

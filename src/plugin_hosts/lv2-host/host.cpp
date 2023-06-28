@@ -20,9 +20,10 @@
 using namespace plugins;
 using namespace lv2;
 
-Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin_data, WorkScheduler& scheduler)
-    : PluginModule(dest, plugin_data),
-      worker_host(scheduler)
+Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData& plugin_data, WorkScheduler& scheduler)
+    : plugin_data(plugin_data),
+      worker_host(scheduler),
+      _dest(dest)
 {
     if (plugin_data.type != PluginType::Lv2)
         throw std::runtime_error("mismatched plugin types");
@@ -355,21 +356,17 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     delete[] min_values;
     delete[] max_values;
     delete[] default_values;
-
-    // find ui host
-    ui_host.init(this);
-
-    _has_interface = control_value_count() > 0;
-    start();
 }
 
 #define FREE_ARRAY(array, operator) \
     for (auto val : array) \
         operator val;
 
-Lv2Plugin::~Lv2Plugin()
+Lv2PluginHost::~Lv2PluginHost()
 {
     stop();
+
+    dbg("free LV2 plugin host\n");
 
     lilv_instance_free(instance);
     delete[] input_combined;
@@ -383,198 +380,17 @@ Lv2Plugin::~Lv2Plugin()
     FREE_ARRAY(parameters, delete);
 }
 
-int Lv2Plugin::control_value_count() const
-{
-    return input_displays.size();
-}
-
-int Lv2Plugin::output_value_count() const
-{
-    return output_displays.size();
-}
-
-PluginModule::ControlValue Lv2Plugin::get_control_value(int index)
-{
-    ControlValue value;
-    InterfaceDisplay& display_info = input_displays[index];
-
-    if (display_info.is_parameter) {
-        Parameter* param = display_info.param;
-
-        value.name = param->label.c_str();
-        value.is_integer = param->type == Parameter::TypeInt || param->type == Parameter::TypeLong;
-        value.is_logarithmic = false;
-        value.is_sample_rate = false;
-        value.is_toggle = param->type == Parameter::TypeBool;
-
-        // todo: find min and max
-        value.has_default = false;
-        value.min = -10.0f;
-        value.max = 10.0f;
-
-        switch (param->type) {
-            case Parameter::TypeFloat:
-                value.value = param->v._float;
-                value.format = "%.3f";
-                break;
-            
-            case Parameter::TypeDouble:
-                value.value = param->v._double;
-                value.format = "%.3f";
-                break;
-
-            case Parameter::TypeInt:
-                value.value = param->v._int;
-                value.format = "%i";
-                break;
-
-            case Parameter::TypeLong:
-                value.value = param->v._long;
-                value.format = "%li";
-                break;
-
-            case Parameter::TypeBool:
-                value.value = param->v._bool ? 1.0f : -1.0f;
-                break;
-
-            default:
-                DBGBREAK;
-
-        }
-    } else {
-        ControlInputPort* impl = display_info.port_in;
-
-        value.name = impl->name.c_str();
-        value.value = impl->value;
-        value.has_default = true;
-        value.default_value = impl->default_value;
-        value.max = impl->max;
-        value.min = impl->min;
-        value.is_integer = false;
-        value.is_logarithmic = false;
-        value.is_sample_rate = false;
-        value.is_toggle = false;
-
-        switch (impl->unit)
-        {
-            case UnitType::dB:
-                value.format = "%.3f dB";
-                break;
-
-            default:
-                value.format = "%.3f";
-                break;
-        }
-    }
-
-    return value;
-}
-
-void Lv2Plugin::set_control_value(int index, float value)
-{
-    InterfaceDisplay& display_info = input_displays[index];
-
-    if (display_info.is_parameter) {
-        Parameter* param = display_info.param;
-
-        switch (param->type) {
-            case Parameter::TypeFloat:
-                param->v._float = value;
-                break;
-            
-            case Parameter::TypeDouble:
-                param->v._double = value;
-                break;
-
-            case Parameter::TypeInt:
-                param->v._int = roundf(value);
-                break;
-
-            case Parameter::TypeLong:
-                param->v._long = roundf(value);
-                break;
-
-            case Parameter::TypeBool:
-                param->v._bool = value >= 0.0f;
-                break;
-
-            default:
-                DBGBREAK;
-
-        }
-    } else {
-        ControlInputPort* impl = display_info.port_in;
-        impl->value = value;
-    }
-}
-
-PluginModule::OutputValue Lv2Plugin::get_output_value(int index)
-{
-    OutputValue value;
-    InterfaceDisplay& display = output_displays[index];
-
-    static char display_str[64];
-
-    if (display.is_parameter) {
-        Parameter* param = display.param;
-
-        // TODO: parameter types other than float
-        switch (param->type) {
-            case Parameter::TypeFloat:
-                snprintf(display_str, 64, "%f", param->v._float);
-                break;
-            
-            case Parameter::TypeDouble:
-                snprintf(display_str, 64, "%f", param->v._double);
-                break;
-
-            case Parameter::TypeInt:
-                snprintf(display_str, 64, "%i", param->v._int);
-                break;
-
-            case Parameter::TypeLong:
-                snprintf(display_str, 64, "%li", param->v._long);
-                break;
-
-            case Parameter::TypeBool:
-                snprintf(display_str, 64, "%s", param->v._bool ? "yes": "no");
-                break;
-
-            default:
-                DBGBREAK;
-        }
-
-        value.name = param->label.c_str();
-    } else {
-        ControlOutputPort* impl = display.port_out;
-        value.name = impl->name.c_str();
-    }
-
-    value.value = display_str;
-
-    return value;
-}
-
-void Lv2Plugin::control_value_change(int index)
-{
-    InterfaceDisplay& display = input_displays[index];
-
-    if (display.is_parameter) {
-        display.param->did_change = true;
-    }
-}
-
-void Lv2Plugin::start()
+void Lv2PluginHost::start()
 {
     lilv_instance_activate(instance);
 }
 
-void Lv2Plugin::stop()
+void Lv2PluginHost::stop()
 {
     lilv_instance_deactivate(instance);
 }
 
-void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
+void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
 {
     bool interleave = false; // TODO add ui checkbox to toggle this
 
@@ -719,7 +535,7 @@ void Lv2Plugin::process(float** inputs, float* output, size_t num_inputs, size_t
     );
 }
 
-void Lv2Plugin::event(const audiomod::MidiEvent* midi_event)
+void Lv2PluginHost::event(const audiomod::MidiEvent* midi_event)
 {
     if (midi_in)
     {
@@ -739,7 +555,7 @@ void Lv2Plugin::event(const audiomod::MidiEvent* midi_event)
     }
 }
 
-size_t Lv2Plugin::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity)
+size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity)
 {
     if (midi_out)
     {
@@ -784,7 +600,7 @@ size_t Lv2Plugin::receive_events(void** handle, audiomod::MidiEvent* buffer, siz
     return 0;
 }
 
-void Lv2Plugin::flush_events()
+void Lv2PluginHost::flush_events()
 {
     // read patch:Put and patch:Set events
     if (patch_out) {
@@ -819,39 +635,14 @@ void Lv2Plugin::flush_events()
     }
 }
 
-bool Lv2Plugin::show_interface() {
-    bool status;
-    if ((status = PluginModule::show_interface())) {
-        ui_host.show();
-    }
-    return status;
-}
-
-void Lv2Plugin::hide_interface() {
-    _interface_shown = false;
-    ui_host.hide();
-}
-
-// override render_interface to not show an ImGui window
-// if it is showing a non-embedded plugin ui
-bool Lv2Plugin::render_interface() {
-    if (!_interface_shown) return false;
-
-    if (ui_host.has_custom_ui()) {
-        return ui_host.render();
-    } else {
-        return PluginModule::render_interface();
-    }
-}
-
 // TODO
-void Lv2Plugin::save_state(std::ostream& ostream) const
+void Lv2PluginHost::save_state(std::ostream& ostream) const
 {
     return;
 }
 
 // TODO
-bool Lv2Plugin::load_state(std::istream& istream, size_t size)
+bool Lv2PluginHost::load_state(std::istream& istream, size_t size)
 {
     return false;
 }

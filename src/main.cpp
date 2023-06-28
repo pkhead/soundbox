@@ -107,7 +107,7 @@ int main(int argc, char** argv)
     glfwGetWindowContentScale(window, &screen_xscale, &screen_yscale);
 
     // setup LV2 plugin host
-    plugins::Lv2Plugin::lv2_init(&argc, &argv);
+    lv2::lv2_init(&argc, &argv);
 
     // setup dear imgui
     IMGUI_CHECKVERSION();
@@ -852,7 +852,7 @@ int main(int argc, char** argv)
 
     device.stop();
     AudioDevice::_pa_stop();
-    plugins::Lv2Plugin::lv2_fini();
+    lv2::lv2_fini();
 
     return 0;
 }

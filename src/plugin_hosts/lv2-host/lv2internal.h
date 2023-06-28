@@ -10,15 +10,18 @@
 #include <vector>
 #include <string>
 #include "../../worker.h"
+#include "../../audio.h"
+#include "../../plugins.h"
 
 #define RDFS_PREFIX "http://www.w3.org/2000/01/rdf-schema#"
 
-namespace plugins {
-    class Lv2Plugin;
-}
+using namespace plugins;
 
 namespace lv2 {
     extern LilvWorld* LILV_WORLD;
+
+    void lv2_init(int* argc, char*** argv);
+    void lv2_fini();
 
     // don't want to include Xlib in a header
     // (because it sucks)
@@ -160,11 +163,198 @@ namespace lv2 {
         void end_run();
     };
 
+    enum class UnitType
+    {
+        None,
+        dB
+    };
+
+    struct ControlInputPort
+    {
+        std::string name;
+        std::string symbol;
+        int port_index;
+        const LilvPort* port_handle;
+        float value;
+
+        UnitType unit;
+
+        float min, max;
+        float default_value;
+    };
+
+    struct ControlOutputPort
+    {
+        std::string name;
+        std::string symbol;
+        int port_index;
+        const LilvPort* port_handle;
+        float value;
+    };
+
+    class Parameter
+    {
+    public:
+        LV2_URID id;
+        std::string label;
+        bool is_writable;
+        bool is_readable;
+        bool did_change; // set from control_value_changed
+        
+        enum Type {
+            TypeInt,
+            TypeLong,
+            TypeFloat,
+            TypeDouble,
+            TypeBool,
+            TypePath,
+            TypeString
+        } type;
+
+        union value {
+            int _int;
+            long _long;
+            float _float;
+            double _double;
+            bool _bool;
+        } v;
+
+        std::string str;
+
+        Parameter(const char* urid, const char* label, const char* type);
+        size_t size() const;
+        bool set(const void* value, uint32_t expected_size, uint32_t expected_type);
+        const void* get(uint32_t* size) const;
+
+        const char* type_uri() const;
+    };
+
+    struct InterfaceDisplay {
+        bool is_parameter;
+        bool read_only;
+
+        union {
+            ControlInputPort* port_in;
+            ControlOutputPort* port_out;
+            Parameter* param;
+        };
+    };
+
+    class Lv2PluginHost
+    {
+    private:
+        audiomod::DestinationModule& _dest;
+
+        float song_last_tempo = -1.0f;
+        bool song_last_playing = false;
+
+        float* input_combined;
+
+        std::vector<float*> audio_input_bufs;
+        std::vector<float*> audio_output_bufs;
+
+        std::vector<Parameter*> parameters;
+        bool is_state_init = false;
+
+        LV2_Atom_Forge forge;
+
+        LV2_URID_Map map;
+        LV2_Feature map_feature;
+        LV2_URID_Unmap unmap;
+        LV2_Feature unmap_feature;
+        LV2_Log_Log log;
+        LV2_Feature log_feature;
+        LV2_Worker_Schedule lv2_worker_schedule;
+        LV2_Feature work_schedule_feature;
+
+        const LV2_Feature* features[5] {
+            &map_feature,
+            &unmap_feature,
+            &log_feature,
+            &work_schedule_feature,
+            NULL
+        };
+
+        lv2::WorkerHost worker_host;
+
+        void _set_port_value(const char* port_symbol, const void* value, uint32_t size, uint32_t type);
+        const void* _get_port_value(const char* port_symbol, uint32_t* size, uint32_t type);
+        
+        static void set_port_value_callback(
+            const char* port_symbol,
+            void* user_data,
+            const void* value,
+            uint32_t size,
+            uint32_t type
+        );
+
+        static const void* get_port_value_callback(
+            const char* port_symbol,
+            void* user_data,
+            uint32_t* size,
+            uint32_t type
+        );
+
+    public:
+        Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
+        ~Lv2PluginHost();
+
+        Song* song;
+
+        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
+
+        struct AtomSequenceBuffer {
+            LV2_Atom_Sequence header;
+            uint8_t data[ATOM_SEQUENCE_CAPACITY];
+        };
+
+        std::vector<ControlInputPort*> ctl_in;
+        std::vector<ControlOutputPort*> ctl_out;
+
+        std::vector<AtomSequenceBuffer*> msg_in;
+        std::vector<AtomSequenceBuffer*> msg_out;
+
+        AtomSequenceBuffer* midi_in = nullptr;
+        AtomSequenceBuffer* midi_out = nullptr;
+        AtomSequenceBuffer* time_in = nullptr;
+        AtomSequenceBuffer* patch_in = nullptr;
+        AtomSequenceBuffer* patch_out = nullptr;
+
+        std::string plugin_uri;
+        LilvInstance* instance;
+        const PluginData& plugin_data;
+        const LilvPlugin* lv2_plugin_data;
+
+        // list of displayed values        
+        std::vector<InterfaceDisplay> input_displays;
+        std::vector<InterfaceDisplay> output_displays;
+
+        Parameter* find_parameter(LV2_URID id) const;
+
+        void start();
+        void stop();
+        void process(
+            float** inputs,
+            float* output,
+            size_t num_inputs,
+            size_t buffer_size,
+            int sample_rate,
+            int channel_count
+        );
+        void event(const audiomod::MidiEvent* event);
+        size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity);
+        void flush_events();
+        void save_state(std::ostream& ostream) const;
+        bool load_state(std::istream& istream, size_t size);
+
+        void imgui_interface();
+    }; // class Lv2PluginController
+
     // ui feature
     class UIHost
     {
     private:
-        plugins::Lv2Plugin* plugin_ctl = nullptr;
+        Lv2PluginHost* plugin_ctl = nullptr;
         SuilHost* suil_host = nullptr;
         SuilInstance* suil_instance = nullptr;
         GLFWwindow* ui_window = nullptr;
@@ -172,11 +362,9 @@ namespace lv2 {
         LV2UI_Idle_Interface* idle_interface;
         
     public:
-        UIHost();
+        UIHost(Lv2PluginHost* host);
         ~UIHost();
 
-        void init(plugins::Lv2Plugin* plugin);
-        void free();
         void show();
         void hide();
         bool render();

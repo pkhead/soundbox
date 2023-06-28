@@ -59,9 +59,11 @@ set(SOURCES
     src/worker.cpp
     src/util.cpp
 
+    # lv2 plugins
     src/plugin_hosts/ladspa.cpp
     src/plugin_hosts/lv2-host/features.cpp
-    src/plugin_hosts/lv2-host/instance.cpp
+    src/plugin_hosts/lv2-host/host.cpp
+    src/plugin_hosts/lv2-host/interface.cpp
     src/plugin_hosts/lv2-host/ui.cpp
     
     # sources for app ui

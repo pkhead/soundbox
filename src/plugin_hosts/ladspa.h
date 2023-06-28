@@ -47,8 +47,6 @@ namespace plugins
 
         virtual PluginType plugin_type() { return PluginType::Ladspa; };
 
-        void start() override;
-        void stop() override;
         void process(
             float** inputs,
             float* output,

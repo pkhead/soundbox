@@ -58,9 +58,6 @@ namespace plugins
 
         const PluginData& data;
 
-        virtual void start() = 0;
-        virtual void stop() = 0;
-
         virtual int control_value_count() const = 0;
         virtual int output_value_count() const = 0;
 

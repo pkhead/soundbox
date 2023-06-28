@@ -72,9 +72,7 @@ void __touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed) {
     dbg("touch\n");
 }
 
-UIHost::UIHost() {}
-
-void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
+UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 {
     const LilvNode* host_type =
     #ifdef UI_WINDOWS
@@ -253,7 +251,7 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
 UIHost::~UIHost()
 {
     if (suil_instance) {
-        dbg("free UI\n");
+        dbg("free LV2 UI host\n");
         suil_instance_free(suil_instance);
     }
 

@@ -266,12 +266,15 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
     input_combined = new float[dest.frames_per_buffer * 2];
 
     _has_interface = control_value_count() > 0;
-    start();
+    
+    if (descriptor->activate != nullptr)
+        descriptor->activate(instance);
 }
 
 LadspaPlugin::~LadspaPlugin()
 {
-    stop();
+    if (descriptor->deactivate != nullptr)
+        descriptor->deactivate(instance);
 
     for (float* buf : input_buffers)
         delete[] buf;
@@ -335,18 +338,6 @@ PluginModule::OutputValue LadspaPlugin::get_output_value(int index)
     value.value = display_str;
 
     return value;
-}
-
-void LadspaPlugin::start()
-{
-    if (descriptor->activate != nullptr)
-        descriptor->activate(instance);
-}
-
-void LadspaPlugin::stop()
-{
-    if (descriptor->deactivate != nullptr)
-        descriptor->deactivate(instance);
 }
 
 void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int _sample_rate, int _channel_count)
