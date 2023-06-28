@@ -65,6 +65,7 @@ void Lv2Plugin::lv2_init(int* argc, char*** argv) {
 
     URI.ui_X11UI = lilv_new_uri(LILV_WORLD, LV2_UI__X11UI);
     URI.ui_WindowsUI = lilv_new_uri(LILV_WORLD, LV2_UI__WindowsUI);
+    URI.ui_parent = lilv_new_uri(LILV_WORLD, LV2_UI__parent);
 
     URI.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     URI.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);

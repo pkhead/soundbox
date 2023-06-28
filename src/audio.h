@@ -192,7 +192,7 @@ namespace audiomod {
         bool has_interface() const;
         
         // render the ImGui interface
-        bool render_interface();
+        virtual bool render_interface();
 
         virtual bool show_interface();
         virtual void hide_interface();

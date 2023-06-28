@@ -10,6 +10,7 @@
 
 #ifdef UI_X11
 #include <X11/Xlib.h>
+#include <X11/extensions/Xcomposite.h>
 #undef None // ...
 #elif defined(UI_WINDOWS)
 #include <windows.h>
@@ -142,21 +143,22 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
             const char* plugin_name =
                 lilv_node_as_string(lilv_plugin_get_name(plugin_ctl->lv2_plugin_data));
 
-#ifdef UI_X11
-            // create parent window
-            // TODO: embed plugin window
-            Display* xdisplay = glfwGetX11Display();
-            
+            GLFWwindow* parent_window = nullptr;
+            void* parent_window_handle = nullptr;
 
+            // create parent window
             glfwWindowHint(GLFW_VISIBLE, false);
             glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
             glfwWindowHint(GLFW_RESIZABLE, false);
-            GLFWwindow* parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
-            //GLFWwindow* parent_window = glfwGetCurrentContext();
-            void* parent_window_handle = 
-                (void*) glfwGetX11Window(parent_window);
+            
+            // this will be resized to the child window later
+            parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
+#ifdef UI_X11
+            parent_window_handle = (void*) glfwGetX11Window(parent_window);
+#elif defined(UI_WINDOWS)
+            parent_window_handle = (void*) glfwGetWin32Window(parent_window);
 #endif
-
+            
             // create features list
             LV2_Feature instance_access = {
                 LV2_INSTANCE_ACCESS_URI,
@@ -184,7 +186,7 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
 
             LV2_Feature parent_feature = {
                 LV2_UI__parent,
-                parent_window_handle
+                (void*)parent_window_handle
             };
 
             const LV2_Feature* features[] = {
@@ -193,7 +195,6 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
                 &no_user_resize_feature,
                 &parent_feature,
                 nullptr,
-                nullptr
             };
 
             suil_instance = suil_instance_new(
@@ -210,81 +211,30 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
 
 
             if (suil_instance) {
-                LV2UI_Idle_Interface* idle_interface =
+                idle_interface =
                     (LV2UI_Idle_Interface*) suil_instance_extension_data(suil_instance, LV2_UI__idleInterface);
-                    
-                if (idle_interface) {
-                    //idle_interface->idle( suil_instance_get_handle(suil_instance) );
-                }
                 
-                SuilWidget widget = suil_instance_get_widget(suil_instance);
-                assert(widget);
+                ui_window = parent_window;
                 _has_custom_ui = true;
+
+                SuilWidget child_window = suil_instance_get_widget(suil_instance);
+
+                // set size of parent to child window
+                int window_width, window_height;
 #ifdef UI_X11
-                window_handle = parent_window;
-                Window child_window = (Window) widget;
-
-                XWindowAttributes attributes;
-                XGetWindowAttributes(xdisplay, child_window, &attributes);
-                glfwSetWindowSize(parent_window, attributes.width, attributes.height);
-
                 {
-                    Window w = (Window) parent_window_handle;
-                    XReparentWindow(xdisplay, w, glfwGetX11Window(glfwGetCurrentContext()), 40, 40);
-
-                    XEvent ev;
-                    memset(&ev, 0, sizeof(ev));
-                    ev.xclient.type = ClientMessage;
-                    ev.xclient.window = w;
-                    ev.xclient.message_type = XInternAtom( xdisplay, "_XEMBED", False );
-                    ev.xclient.format = 32;
-                    ev.xclient.data.l[0] = CurrentTime;
-                    ev.xclient.data.l[1] = 0;
-                    ev.xclient.data.l[2] = 0;
-                    ev.xclient.data.l[3] = 0;
-                    ev.xclient.data.l[4] = 0;
-                    XSendEvent(xdisplay, w, False, NoEventMask, &ev);
-                    XSync(xdisplay, False);
+                    XWindowAttributes attrib;
+                    XGetWindowAttributes(glfwGetX11Display(), (Window) child_window, &attrib);
+                    window_width = attrib.width;
+                    window_height = attrib.height;
                 }
-
-                //XCompositeRedirectWindow(xdisplay, child_window, CompositeRedirectAutomatic);
-                //pixmap = XCompositeNameWindowPixmap(xdisplay, child_window);
-
-                //glfwSetWindowSize(parent_window, window_width, window_height);
-                //XCompositeRedirectWindow(xdisplay, (Window) parent_window_handle, CompositeRedirectAutomatic);
-                //XMapWindow(xdisplay, (Window) parent_window_handle);
-                //pixmap = XCompositeNameWindowPixmap(xdisplay, (Window) parent_window_handle);
-
-                /*
-                view_tex_data = new uint8_t[window_width * window_height * 4];
-                
-                // generate texture
-                glGenTextures(1, &view_texture);
-                glBindTexture(GL_TEXTURE_2D, view_texture);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-#ifdef GL_UNPACK_ROW_LENGTH
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#elif def(UI_WINDOWS)
+                {
+                    abort(); // TODO
+                }
 #endif
-
-                glTexImage2D(
-                    GL_TEXTURE_2D,
-                    0,
-                    GL_RGBA,
-                    window_width,
-                    window_height,
-                    0,
-                    GL_RGBA,
-                    GL_UNSIGNED_BYTE,
-                    nullptr
-                );*/
-#elif defined(UI_WINDOWS)
-                HWND hWnd = (HWND) widget;
-                ShowWindow(hWnd, SW_SHOW);
-#endif
+                glfwSetWindowSize(parent_window, window_width, window_height);
+                dbg("successfully instantiate custom plugin UI\n");
             } else {
                 dbg("ERROR: could not instantiate ui\n");
             }
@@ -302,91 +252,45 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
 
 UIHost::~UIHost()
 {
-
-#ifdef UI_X11
-    if (window_handle) {
-        Display* xdisplay = glfwGetX11Display();
-        Window xwindow = glfwGetX11Window((GLFWwindow*) window_handle);
-        
-        //glDeleteTextures(1, &view_texture);
-        delete[] view_tex_data;
-    }
-#elif defined(UI_WINDOWS)
-    // TODO: delete window
-#endif
-
     if (suil_instance) {
+        dbg("free UI\n");
         suil_instance_free(suil_instance);
     }
 
     if (suil_host) {
         suil_host_free(suil_host);
     }
+
+    if (ui_window) {
+        glfwDestroyWindow(ui_window);
+    }
 }
 
 void UIHost::show() {
-    if (!window_handle) return;
-
-    Display* xdisplay = glfwGetX11Display();
-    GLFWwindow* glfw_window = (GLFWwindow*) window_handle;
-    XMapWindow(xdisplay, glfwGetX11Window(glfw_window));
+    if (!ui_window) return;
+    glfwShowWindow(ui_window);
 }
 
 void UIHost::hide() {
-    if (!window_handle) return;
-    
-    Display* xdisplay = glfwGetX11Display();
-    GLFWwindow* glfw_window = (GLFWwindow*) window_handle;
-    XUnmapWindow(xdisplay, glfwGetX11Window(glfw_window));
+    if (!ui_window) return;
+    glfwHideWindow(ui_window);
 }
 
-void UIHost::render()
+bool UIHost::render()
 {
-#ifdef UI_X11
-    if (!window_handle) return;
+    // TODO: is embedding possible
+    if (glfwWindowShouldClose(ui_window)) {
+        glfwSetWindowShouldClose(ui_window, false);
+        return false;
+    }
 
-    Display* xdisplay = glfwGetX11Display();
-    Window xwindow = glfwGetX11Window( (GLFWwindow*) window_handle );
-    XWindowAttributes attributes;
-    XGetWindowAttributes(xdisplay, xwindow, &attributes);
-
-    /*
-    auto prev = std::chrono::high_resolution_clock::now();
-
-    XImage* image = XGetImage(xdisplay, pixmap, 0, 0, attributes.width, attributes.height, AllPlanes, ZPixmap);
-    assert(image);
-    
-    // todo: read directly from image data
-    int k = 0;
-    for (int i = 0; i < attributes.height; i++) {
-        for (int j = 0; j < attributes.width; j++) {
-            auto pixel = XGetPixel(image, j, i);
-            view_tex_data[k++] = pixel & image->red_mask >> 16;
-            view_tex_data[k++] = (pixel & image->green_mask) >> 8;
-            view_tex_data[k++] = (pixel & image->blue_mask);
-            view_tex_data[k++] = 255;
+    if (idle_interface) {
+        LV2_Handle handle = suil_instance_get_handle(suil_instance);
+        assert(handle);
+        if (idle_interface->idle(handle)) {
+            return false;
         }
     }
 
-    XFree(image);
-
-    auto now = std::chrono::high_resolution_clock::now();
-    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(now - prev);
-    dbg("ms: %li\n", t.count());
-    
-    glBindTexture(GL_TEXTURE_2D, view_texture);
-    glTexSubImage2D(
-        GL_TEXTURE_2D,
-        0,
-        0,
-        0,
-        attributes.width,
-        attributes.height,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        view_tex_data
-    );
-
-    ImGui::Image((void*)(intptr_t)view_texture, ImVec2(attributes.width, attributes.height));*/
-#endif
+    return true;
 }

@@ -4,8 +4,9 @@
 #include <lv2/atom/atom.h>
 #include <lv2/atom/forge.h>
 #include <lv2/worker/worker.h>
+#include <lv2/ui/ui.h>
 #include <suil/suil.h>
-#include <glad/gl.h>
+#include <GLFW/glfw3.h>
 #include <vector>
 #include <string>
 #include "../../worker.h"
@@ -61,6 +62,7 @@ namespace lv2 {
 
         LilvNode* ui_X11UI;
         LilvNode* ui_WindowsUI;
+        LilvNode* ui_parent;
     } extern URI;
 
     /**
@@ -165,22 +167,19 @@ namespace lv2 {
         plugins::Lv2Plugin* plugin_ctl = nullptr;
         SuilHost* suil_host = nullptr;
         SuilInstance* suil_instance = nullptr;
-
-        WindowHandle window_handle = nullptr;
-        GLuint view_texture = 0;
-        uint8_t* view_tex_data = nullptr;
-        unsigned long pixmap;
-        
+        GLFWwindow* ui_window = nullptr;
         bool _has_custom_ui = false;
+        LV2UI_Idle_Interface* idle_interface;
         
     public:
         UIHost();
         ~UIHost();
 
         void init(plugins::Lv2Plugin* plugin);
+        void free();
         void show();
         void hide();
-        void render();
+        bool render();
 
         inline bool has_custom_ui() const {
             return _has_custom_ui;

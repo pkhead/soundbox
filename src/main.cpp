@@ -8,9 +8,9 @@
 #include <mutex>
 #include <sstream>
 
+#include <glad/gl.h>
 #include "plugin_hosts/lv2-host/lv2interface.h"
 #include <imgui.h>
-#include <glad/gl.h>
 #include "ui/theme.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>

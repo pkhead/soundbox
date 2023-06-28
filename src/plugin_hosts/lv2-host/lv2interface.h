@@ -147,9 +147,6 @@ namespace plugins
             uint32_t type
         );
 
-    protected:
-        void _interface_proc() override;
-
     public:
         Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
         ~Lv2Plugin();
@@ -197,6 +194,7 @@ namespace plugins
         bool load_state(std::istream& istream, size_t size) override;
 
         bool show_interface() override;
+        bool render_interface() override;
         void hide_interface() override;
 
         virtual void event(const audiomod::MidiEvent* event) override;

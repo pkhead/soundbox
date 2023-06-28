@@ -363,9 +363,9 @@ Lv2Plugin::Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& plugin
     start();
 }
 
-#define FREE_ARRAY(array) \
+#define FREE_ARRAY(array, operator) \
     for (auto val : array) \
-        delete val;
+        operator val;
 
 Lv2Plugin::~Lv2Plugin()
 {
@@ -374,13 +374,13 @@ Lv2Plugin::~Lv2Plugin()
     lilv_instance_free(instance);
     delete[] input_combined;
 
-    FREE_ARRAY(audio_input_bufs);
-    FREE_ARRAY(audio_output_bufs);
-    FREE_ARRAY(ctl_in);
-    FREE_ARRAY(ctl_out);
-    FREE_ARRAY(msg_in);
-    FREE_ARRAY(msg_out);
-    FREE_ARRAY(parameters);
+    FREE_ARRAY(audio_input_bufs, delete[]);
+    FREE_ARRAY(audio_output_bufs, delete[]);
+    FREE_ARRAY(ctl_in, delete);
+    FREE_ARRAY(ctl_out, delete);
+    FREE_ARRAY(msg_in, delete);
+    FREE_ARRAY(msg_out, delete);
+    FREE_ARRAY(parameters, delete);
 }
 
 int Lv2Plugin::control_value_count() const
@@ -828,15 +828,19 @@ bool Lv2Plugin::show_interface() {
 }
 
 void Lv2Plugin::hide_interface() {
+    _interface_shown = false;
     ui_host.hide();
 }
 
-void Lv2Plugin::_interface_proc()
-{
+// override render_interface to not show an ImGui window
+// if it is showing a non-embedded plugin ui
+bool Lv2Plugin::render_interface() {
+    if (!_interface_shown) return false;
+
     if (ui_host.has_custom_ui()) {
-        ui_host.render();
+        return ui_host.render();
     } else {
-        PluginModule::_interface_proc();
+        return PluginModule::render_interface();
     }
 }
 

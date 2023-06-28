@@ -698,6 +698,7 @@ void compute_imgui(SongEditor& editor) {
         
         if (mod->render_interface()) i++;
         else {
+            mod->hide_interface();
             editor.mod_interfaces.erase(editor.mod_interfaces.begin() + i);
         }
     }

@@ -179,7 +179,7 @@ void SongEditor::hide_module_interface(audiomod::ModuleBase* mod) {
 
 void SongEditor::toggle_module_interface(audiomod::ModuleBase* mod) {
     // if want to show interface, add module to interfaces list
-    if (mod->show_interface()) {
+    if (!mod->interface_shown() && mod->show_interface()) {
         mod_interfaces.push_back(mod);
 
     // if want to hide interface, remove module from interfaces list
