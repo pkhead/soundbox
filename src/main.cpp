@@ -8,6 +8,7 @@
 #include <mutex>
 #include <sstream>
 
+#include "plugin_hosts/lv2-host/lv2interface.h"
 #include <imgui.h>
 #include <glad/gl.h>
 #include "ui/theme.h"
@@ -37,7 +38,7 @@
 #include "ui/editor.h"
 #include "audio.h"
 #include "sys.h"
-#include "plugin_hosts/lv2-host/interface.h"
+
 
 bool IS_BIG_ENDIAN;
 

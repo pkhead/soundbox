@@ -1,5 +1,5 @@
-#include "interface.h"
-#include "internal.h"
+#include "lv2interface.h"
+#include "lv2internal.h"
 #include "../../util.h"
 #include <lv2/ui/ui.h>
 #include <suil/suil.h>
@@ -8,6 +8,12 @@
 
 #ifdef UI_X11
 #include <X11/Xlib.h>
+#undef None // ...
+#elif defined(UI_WINDOWS)
+#include <windows.h>
+#endif
+
+#ifdef UI_X11
 #define GLFW_EXPOSE_NATIVE_X11
 #elif defined(UI_WINDOWS)
 #include <windows.h>
@@ -57,6 +63,10 @@ void suil_touch_func(
     bool grabbed
 ) {
     abort();
+}
+
+void __touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed) {
+    dbg("touch\n");
 }
 
 UIHost::UIHost() {}
@@ -128,13 +138,57 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
             const char* plugin_uri = lilv_node_as_uri(plugin_uri_n);
             const char* ui_uri = lilv_node_as_uri(ui_uri_n);
 
+#ifdef UI_X11
+            const char* plugin_name =
+                lilv_node_as_string(lilv_plugin_get_name(plugin_ctl->lv2_plugin_data));
+            // create parent window
+            // TODO: embed plugin window
+            Display* xdisplay = glfwGetX11Display();
+
+            glfwWindowHint(GLFW_VISIBLE, false);
+            glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
+            glfwWindowHint(GLFW_RESIZABLE, false);
+            GLFWwindow* glfw_parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
+            void* parent_window = 
+                (void*) glfwGetX11Window(glfw_parent_window);
+#endif
+
+            // create features list
             LV2_Feature instance_access = {
                 LV2_INSTANCE_ACCESS_URI,
                 lilv_instance_get_handle(plugin_ctl->instance)
             };
 
-            const LV2_Feature* features[2] = {
+            LV2_Feature idle_interface_feature = {
+                LV2_UI__idleInterface,
+                NULL
+            };
+
+            LV2_Feature no_user_resize_feature = {
+                LV2_UI__noUserResize,
+                NULL
+            };
+
+            LV2UI_Touch touch;
+            touch.handle = nullptr;
+            touch.touch = __touch;
+
+            LV2_Feature touch_feature = {
+                LV2_UI__touch,
+                &touch
+            };
+
+            LV2_Feature parent_feature = {
+                LV2_UI__parent,
+                parent_window
+            };
+
+            const LV2_Feature* features[] = {
                 &instance_access,
+                &idle_interface_feature,
+                &no_user_resize_feature,
+                &parent_feature,
+                nullptr,
                 nullptr
             };
 
@@ -150,21 +204,33 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
                 features
             );
 
+
             if (suil_instance) {
+                LV2UI_Idle_Interface* idle_interface =
+                    (LV2UI_Idle_Interface*) suil_instance_extension_data(suil_instance, LV2_UI__idleInterface);
+                    
+                if (idle_interface) {
+                    //idle_interface->idle( suil_instance_get_handle(suil_instance) );
+                }
+                
                 SuilWidget widget = suil_instance_get_widget(suil_instance);
                 assert(widget);
 
 #ifdef UI_X11
-                Window window_id = (Window) widget;
+                window_handle = glfw_parent_window;
+                Window child_window = (Window) widget;
 
-                Display* d = glfwGetX11Display();
-                XMapWindow(d, window_id);
+                XWindowAttributes attributes;
+                XGetWindowAttributes(glfwGetX11Display(), child_window, &attributes);
+                glfwSetWindowSize(glfw_parent_window, attributes.width, attributes.height);
+                glfwShowWindow(glfw_parent_window);
 #elif defined(UI_WINDOWS)
                 HWND hWnd = (HWND) widget;
                 ShowWindow(hWnd, SW_SHOW);
 #endif
             } else {
                 dbg("ERROR: could not instantiate ui\n");
+                glfwSetWindowShouldClose(glfw_parent_window, true);
             }
 
 
@@ -180,6 +246,15 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
 
 UIHost::~UIHost()
 {
+
+#ifdef UI_X11
+    if (window_handle) {
+        glfwDestroyWindow((GLFWwindow*) window_handle);
+    }
+#elif defined(UI_WINDOWS)
+    // TODO: delete window
+#endif
+
     if (suil_instance) {
         suil_instance_free(suil_instance);
     }

@@ -1,5 +1,5 @@
 #pragma once
-#include "internal.h"
+#include "lv2internal.h"
 
 #include "../../plugins.h"
 #include "../../worker.h"

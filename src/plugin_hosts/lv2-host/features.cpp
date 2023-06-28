@@ -16,8 +16,8 @@
 #include <lv2/state/state.h>
 #include <lv2/ui/ui.h>
 #include <suil/suil.h>
-#include "interface.h"
-#include "internal.h"
+#include "lv2interface.h"
+#include "lv2internal.h"
 #include "../../util.h"
 #include "../../song.h"
 

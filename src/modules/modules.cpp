@@ -2,7 +2,7 @@
 #include "../sys.h"
 #include "../plugins.h"
 #include "../plugin_hosts/ladspa.h"
-#include "../plugin_hosts/lv2-host/interface.h"
+#include "../plugin_hosts/lv2-host/lv2interface.h"
 #include "../ui/editor.h"
 #include "modules.h"
 #include <iostream>

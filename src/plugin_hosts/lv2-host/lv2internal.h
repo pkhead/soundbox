@@ -18,6 +18,12 @@ namespace plugins {
 namespace lv2 {
     extern LilvWorld* LILV_WORLD;
 
+    // don't want to include Xlib in a header
+    // (because it sucks)
+    // (why are there classes named Window and Display without a prefix)
+    // (why are there macros simply titled "None")
+    typedef void* WindowHandle;
+
     struct LilvNodeUriList {
         LilvNode* a;
         LilvNode* rdfs_label;
@@ -158,7 +164,9 @@ namespace lv2 {
         plugins::Lv2Plugin* plugin_ctl = nullptr;
         SuilHost* suil_host = nullptr;
         SuilInstance* suil_instance = nullptr;
-    
+
+        WindowHandle window_handle = nullptr;
+        
     public:
         UIHost();
         ~UIHost();
