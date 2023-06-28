@@ -6,6 +6,16 @@
 #include <lv2/instance-access/instance-access.h>
 #include <cstdlib>
 
+#ifdef UI_X11
+#include <X11/Xlib.h>
+#define GLFW_EXPOSE_NATIVE_X11
+#elif defined(UI_WINDOWS)
+#include <windows.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#endif
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
 using namespace lv2;
 
 static uint32_t suil_port_index_func(SuilController controller, const char* port_symbol)
@@ -139,6 +149,25 @@ void UIHost::init(plugins::Lv2Plugin* __plugin_controller)
                 ui_binary_path,
                 features
             );
+
+            if (suil_instance) {
+                SuilWidget widget = suil_instance_get_widget(suil_instance);
+                assert(widget);
+
+#ifdef UI_X11
+                Window window_id = (Window) widget;
+
+                Display* d = glfwGetX11Display();
+                XMapWindow(d, window_id);
+#elif defined(UI_WINDOWS)
+                HWND hWnd = (HWND) widget;
+                ShowWindow(hWnd, SW_SHOW);
+#endif
+            } else {
+                dbg("ERROR: could not instantiate ui\n");
+            }
+
+
         } else {
             dbg("ui not supported\n");
         }
