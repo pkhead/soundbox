@@ -12,7 +12,7 @@
 #include "audio.h"
 #include "plugins.h"
 #include "plugin_hosts/ladspa.h"
-#include "plugin_hosts/lv2.h"
+#include "plugin_hosts/lv2-host/interface.h"
 #include "sys.h"
 
 using namespace plugins;

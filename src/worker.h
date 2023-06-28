@@ -34,5 +34,5 @@ private:
         uint8_t data[DATA_CAPACITY];
         size_t data_size;        
     } schedule_queue[QUEUE_CAPACITY];
-    size_t num_queued;
+    size_t num_queued = 0;
 };
