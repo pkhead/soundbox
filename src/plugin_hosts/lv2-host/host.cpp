@@ -53,7 +53,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
     unmap_feature = {LV2_URID__unmap, &unmap};
     log = {nullptr, log::printf, log::vprintf};
     log_feature = {LV2_LOG__log, &log};
-    lv2_worker_schedule = {this, WorkerHost::_schedule_work};
+    lv2_worker_schedule = {&worker_host, WorkerHost::_schedule_work};
     work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
 
     // instantiate plugin
@@ -63,7 +63,9 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
         throw lv2_error("instantiation failed");
     }
 
+    // init worker feature
     worker_host.worker_interface = (LV2_Worker_Interface*) lilv_instance_get_extension_data(instance, LV2_WORKER__interface);
+    worker_host.instance = lilv_instance_get_handle(instance);
 
     // create and connect ports
     const uint32_t port_count = lilv_plugin_get_num_ports(plugin);
@@ -158,7 +160,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             port_data.is_output = true;
             port_data.type = PortData::Control;
             port_data.ctl_out = ctl;
-            
+
             ctl_out.push_back(ctl);
             ports.push_back(port_data);
 

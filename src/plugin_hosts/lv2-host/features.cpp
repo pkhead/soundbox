@@ -335,7 +335,7 @@ LV2_Worker_Status WorkerHost::_schedule_work(LV2_Worker_Schedule_Handle handle, 
     if (userdata && size)
         memcpy(&data.userdata, userdata, size);
 
-    if (self->work_scheduler.schedule(_work_proc, &data, size + sizeof(Lv2Plugin*)))
+    if (self->work_scheduler.schedule(_work_proc, &data, size + sizeof(WorkerHost*)))
         return LV2_WORKER_SUCCESS;
     else
         return LV2_WORKER_ERR_NO_SPACE;
@@ -350,8 +350,8 @@ void WorkerHost::_work_proc(void* data, size_t size)
         self->instance,
         _worker_respond,
         self,
-        size,
-        data
+        size - sizeof(WorkerHost*),
+        payload->userdata
     );
 }
 
@@ -375,10 +375,10 @@ LV2_Worker_Status WorkerHost::_worker_respond(
         response.size = size;
         if (data && response.size) {
             memcpy(response.data, data, size);
-            return LV2_WORKER_SUCCESS;
         }
 
         response.active = true;
+        return LV2_WORKER_SUCCESS;
     }
 
     return LV2_WORKER_ERR_NO_SPACE;
