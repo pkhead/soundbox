@@ -3,14 +3,35 @@ project(soundbox)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# find lilv on system
-find_library(LILV_LIBRARIES lilv-0 REQUIRED)
-find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0 REQUIRED)
-# find suil (lv2 ui library) on system
-find_library(SUIL_LIBRARIES suil-0 REQUIRED)
-find_path(SUIL_INCLUDE suil/suil.h PATH_SUFFIXES suil-0 REQUIRED)
+# set default build type
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release")
+endif()
 
-find_package(GTK2 REQUIRED)
+# find packages required for lv2 support on system
+find_library(LILV_LIBRARIES lilv-0)
+find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0)
+find_library(SUIL_LIBRARIES suil-0)
+find_path(SUIL_INCLUDE suil/suil.h PATH_SUFFIXES suil-0)
+
+if (
+    (LILV_LIBRARIES STREQUAL "LILV_LIBRARIES-NOTFOUND") OR
+    (LILV_INCLUDE STREQUAL "LILV_INCLUDE-NOTFOUND") OR
+    (SUIL_LIBRARIES STREQUAL "SUIL_LIBRARIES-NOTFOUND") OR
+    (SUIL_INCLUDE STREQUAL "SUIL_INCLUDE-NOTFOUND")
+)
+    set(STATUS_LV2 "No")
+else()
+    set(STATUS_LV2 "Yes")
+    set(LV2_FOUND 1)
+endif()
+
+# gtk2 for certain plugin uis
+option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" OFF)
+
+if(NOT SBOX_DISABLE_GTK2)
+    find_package(GTK2)
+endif()
 
 # send these options to glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -103,7 +124,7 @@ set(LIBRARIES
     ${GTK2_LIBRARIES}
 )
 
-include_directories(
+set(INCLUDES
     deps
     deps/gl
     deps/AnaMark-Tuning-Library
@@ -112,10 +133,19 @@ include_directories(
     deps/portaudio-19.7.0/include
     deps/nativefiledialog/src/include
     deps/tuning-library/include
-    ${LILV_INCLUDE}
-    ${SUIL_INCLUDE}
-    ${GTK2_INCLUDE_DIRS}
 )
+
+set(COMPILE_FLAGS "")
+
+if (LV2_FOUND)
+    set(INCLUDES ${INCLUDES} ${LILV_INCLUDE} ${SUIL_INCLUDE})
+    set(COMPILE_FLAGS ${COMPILE_FLAGS} ENABLE_LV2)
+endif()
+    
+if (GTK2_FOUND)
+    set(INCLUDES ${INCLUDES} ${GTK2_INCLUDE_DIRS})
+    set(COMPILE_FLAGS ${COMPILE_FLAGS} ENABLE_GTK2)
+endif()
 
 # Windows
 if (WIN32)
@@ -138,7 +168,7 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
-    target_compile_definitions(soundbox PUBLIC UI_WINDOWS)
+    target_compile_definitions(soundbox PUBLIC UI_WINDOWS ${COMPILE_FLAGS})
     target_link_libraries(soundbox dwmapi comctl32.lib ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
 
 # Linux
@@ -161,9 +191,11 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    target_compile_definitions(soundbox PUBLIC UI_X11 ENABLE_GTK2)
+    target_compile_definitions(soundbox PUBLIC UI_X11 ${COMPILE_FLAGS})
     target_link_libraries(soundbox ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
 endif()
+
+target_include_directories(soundbox PUBLIC ${INCLUDES})
 
 # add debug macro
 target_compile_definitions(soundbox PUBLIC "$<$<CONFIG:DEBUG>:DEBUG>")
@@ -173,3 +205,18 @@ file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/styles DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/imgui.ini DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/logo.png DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+# print build status
+if(GTK2_FOUND)
+    set(STATUS_GTK2 "Yes")
+else()
+    set(STATUS_GTK2 "No")
+endif()
+
+message("\n"
+    "Configuration:\n"
+    " - Build Type                  ${CMAKE_BUILD_TYPE}\n"
+    " - LV2 plugins (lilv, suil)    ${STATUS_LV2}\n"
+    " - GTK2 plugin UIs             ${STATUS_GTK2}\n"
+    "\n"
+)

@@ -367,12 +367,16 @@ namespace lv2 {
         LV2UI_Idle_Interface* idle_interface;
 
         bool use_gtk = false;
+
+#ifdef ENABLE_GTK2
         union {
             GLFWwindow* ui_window = nullptr;
             GtkWidget* gtk_window;
         };
         bool gtk_close_window = false;
-
+#else
+        GLFWwindow* ui_window = nullptr;
+#endif
         // libsuil instance callbacks
         static uint32_t suil_port_index_func(
             SuilController controller,

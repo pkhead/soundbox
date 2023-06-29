@@ -33,8 +33,11 @@ LilvNodeUriList lv2::URI;
 
 void lv2::lv2_init(int* argc, char*** argv) {
     LILV_WORLD = lilv_world_new();
-    
+
+#ifdef ENABLE_GTK2    
     gtk_init(argc, argv);
+#endif
+
     suil_init(argc, argv, SUIL_ARG_NONE);
 
     URI.a = lilv_new_uri(LILV_WORLD, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type");

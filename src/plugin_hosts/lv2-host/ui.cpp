@@ -448,10 +448,12 @@ bool UIHost::render()
         return false;
     }
 
+#ifdef ENABLE_GTK2
     if (gtk_close_window) {
         gtk_close_window = false;
         return false;
     }
+#endif
 
     if (idle_interface) {
         LV2_Handle handle = suil_instance_get_handle(suil_instance);
@@ -464,8 +466,10 @@ bool UIHost::render()
     return true;
 }
 
+#ifdef ENABLE_GTK2
 void lv2::gtk_process()
 {
     while (gtk_events_pending())
         gtk_main_iteration();
 }
+#endif
