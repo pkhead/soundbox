@@ -21,6 +21,10 @@
 #include "../../util.h"
 #include "../../song.h"
 
+#ifdef ENABLE_GTK2
+#include <gtk/gtk.h>
+#endif
+
 using namespace plugins;
 using namespace lv2;
 
@@ -29,8 +33,8 @@ LilvNodeUriList lv2::URI;
 
 void lv2::lv2_init(int* argc, char*** argv) {
     LILV_WORLD = lilv_world_new();
-
-    // TODO: pass in arguments from main
+    
+    gtk_init(argc, argv);
     suil_init(argc, argv, SUIL_ARG_NONE);
 
     URI.a = lilv_new_uri(LILV_WORLD, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
@@ -65,6 +69,7 @@ void lv2::lv2_init(int* argc, char*** argv) {
 
     URI.ui_X11UI = lilv_new_uri(LILV_WORLD, LV2_UI__X11UI);
     URI.ui_WindowsUI = lilv_new_uri(LILV_WORLD, LV2_UI__WindowsUI);
+    URI.ui_GtkUI = lilv_new_uri(LILV_WORLD, LV2_UI__GtkUI);
     URI.ui_parent = lilv_new_uri(LILV_WORLD, LV2_UI__parent);
 
     URI.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);

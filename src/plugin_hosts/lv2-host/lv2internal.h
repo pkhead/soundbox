@@ -9,9 +9,14 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 #include <string>
+#include <thread>
 #include "../../worker.h"
 #include "../../audio.h"
 #include "../../plugins.h"
+
+#ifdef ENABLE_GTK2
+#include <gtk/gtk.h>
+#endif
 
 #define RDFS_PREFIX "http://www.w3.org/2000/01/rdf-schema#"
 
@@ -65,6 +70,7 @@ namespace lv2 {
 
         LilvNode* ui_X11UI;
         LilvNode* ui_WindowsUI;
+        LilvNode* ui_GtkUI;
         LilvNode* ui_parent;
     } extern URI;
 
@@ -357,9 +363,15 @@ namespace lv2 {
         Lv2PluginHost* plugin_ctl = nullptr;
         SuilHost* suil_host = nullptr;
         SuilInstance* suil_instance = nullptr;
-        GLFWwindow* ui_window = nullptr;
         bool _has_custom_ui = false;
         LV2UI_Idle_Interface* idle_interface;
+
+        bool use_gtk = false;
+        union {
+            GLFWwindow* ui_window = nullptr;
+            GtkWidget* gtk_window;
+        };
+        std::thread gtk_thread;
 
         // libsuil instance callbacks
         static uint32_t suil_port_index_func(

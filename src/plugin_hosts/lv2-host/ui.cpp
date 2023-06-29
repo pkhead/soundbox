@@ -7,6 +7,12 @@
 #include <cstdlib>
 #include <imgui.h>
 #include <chrono>
+#include <functional>
+
+#ifdef ENABLE_GTK2
+// gtk 2.0 support
+#include <gtk/gtk.h>
+#endif
 
 #ifdef UI_X11
 #include <X11/Xlib.h>
@@ -106,6 +112,8 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
         URI.ui_X11UI;
     #endif
 
+    const LilvNode* gtk_host_type = URI.ui_GtkUI;
+
     plugin_ctl = __plugin_controller;
 
     LilvUIs* uis = lilv_plugin_get_uis(plugin_ctl->lv2_plugin_data);
@@ -121,22 +129,37 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
         {
             const LilvUI* ui_n = lilv_uis_get(uis, i);
 
+            const LilvNode* x11_ui_type_n;
+            const LilvNode* gtk_ui_type_n;
             const LilvNode* ui_type_n;
+            unsigned support;
 
-            unsigned support = lilv_ui_is_supported(ui_n, suil_ui_supported, host_type, &ui_type_n);
+            bool is_gtk = false;
+
+            unsigned x11_support =
+                lilv_ui_is_supported(ui_n, suil_ui_supported, host_type, &x11_ui_type_n);
+
+            unsigned gtk_support =
+                lilv_ui_is_supported(ui_n, suil_ui_supported, gtk_host_type, &gtk_ui_type_n);
+
+            if (x11_support != 0 && x11_support <= gtk_support) {
+                support = x11_support;
+                ui_type_n = x11_ui_type_n;
+                is_gtk = false;
+            } else {
+                support = gtk_support;
+                ui_type_n = gtk_ui_type_n;
+                is_gtk = true;
+            }
 
             if (support == 0) continue;
-            if (support == 1) {
+            if (support < min_support) {
+                min_support = support;
                 target_ui_n = ui_n;
                 target_ui_type = lilv_node_as_uri(ui_type_n);
-                min_support = 1;
-                break;
-            } else {
-                if (support < min_support) {
-                    min_support = support;
-                    target_ui_n = ui_n;
-                    target_ui_type = lilv_node_as_uri(ui_type_n);
-                }
+                use_gtk = is_gtk;
+
+                if (support == 1) break;
             }
         }
 
@@ -160,7 +183,6 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
             const char* ui_bundle_path = lilv_node_get_path(ui_bundle_n, NULL);
             const char* ui_binary_path = lilv_node_get_path(ui_binary_n, NULL);
-            const char* container_type_uri = lilv_node_as_uri(host_type);
             const char* plugin_uri = lilv_node_as_uri(plugin_uri_n);
             const char* ui_uri = lilv_node_as_uri(ui_uri_n);
             const char* plugin_name =
@@ -169,101 +191,192 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
             GLFWwindow* parent_window = nullptr;
             void* parent_window_handle = nullptr;
 
-            // create parent window
-            glfwWindowHint(GLFW_VISIBLE, false);
-            glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
-            glfwWindowHint(GLFW_RESIZABLE, false);
-            glfwWindowHint(GLFW_FLOATING, true);
-            
-            // this will be resized to the child window later
-            parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
-#ifdef UI_X11
-            parent_window_handle = (void*) glfwGetX11Window(parent_window);
-#elif defined(UI_WINDOWS)
-            parent_window_handle = (void*) glfwGetWin32Window(parent_window);
-#endif
-            
-            // create features list
-            LV2_Feature instance_access = {
-                LV2_INSTANCE_ACCESS_URI,
-                lilv_instance_get_handle(plugin_ctl->instance)
-            };
+            LV2_URID_Map map = {nullptr, uri::map_callback};
+            LV2_Feature map_feature = {LV2_URID__map, &map};
+            LV2_URID_Unmap unmap = {nullptr, uri::unmap_callback};
+            LV2_Feature unmap_feature = {LV2_URID__unmap, &unmap};
+            LV2_Log_Log log = {nullptr, log::printf, log::vprintf};
+            LV2_Feature log_feature = {LV2_LOG__log, &log};
+            LV2_Worker_Schedule lv2_worker_schedule = {this, WorkerHost::_schedule_work};
+            LV2_Feature work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
 
-            LV2_Feature idle_interface_feature = {
-                LV2_UI__idleInterface,
-                NULL
-            };
+            if (use_gtk)
+            {
+                const char* container_type_uri = lilv_node_as_uri(gtk_host_type);
 
-            LV2_Feature no_user_resize_feature = {
-                LV2_UI__noUserResize,
-                NULL
-            };
+                // create features list
+                LV2_Feature instance_access = {
+                    LV2_INSTANCE_ACCESS_URI,
+                    lilv_instance_get_handle(plugin_ctl->instance)
+                };
 
-            LV2UI_Touch touch;
-            touch.handle = nullptr;
-            touch.touch = __touch;
+                LV2_Feature idle_interface_feature = {
+                    LV2_UI__idleInterface,
+                    NULL
+                };
 
-            LV2_Feature touch_feature = {
-                LV2_UI__touch,
-                &touch
-            };
+                LV2_Feature no_user_resize_feature = {
+                    LV2_UI__noUserResize,
+                    NULL
+                };
 
-            LV2_Feature parent_feature = {
-                LV2_UI__parent,
-                (void*)parent_window_handle
-            };
+                LV2UI_Touch touch;
+                touch.handle = nullptr;
+                touch.touch = __touch;
 
-            const LV2_Feature* features[] = {
-                &instance_access,
-                &idle_interface_feature,
-                &no_user_resize_feature,
-                &parent_feature,
-                nullptr,
-            };
+                LV2_Feature touch_feature = {
+                    LV2_UI__touch,
+                    &touch
+                };
 
-            suil_instance = suil_instance_new(
-                suil_host,
-                (void*) this,
-                container_type_uri,
-                plugin_uri,
-                ui_uri,
-                target_ui_type,
-                ui_bundle_path,
-                ui_binary_path,
-                features
-            );
+                const LV2_Feature* features[] = {
+                    &instance_access,
+                    &idle_interface_feature,
+                    &no_user_resize_feature,
+                    &map_feature,
+                    &unmap_feature,
+                    &log_feature,
+                    nullptr,
+                };
 
+                suil_instance = suil_instance_new(
+                    suil_host,
+                    (void*) this,
+                    container_type_uri,
+                    plugin_uri,
+                    ui_uri,
+                    target_ui_type,
+                    ui_bundle_path,
+                    ui_binary_path,
+                    features
+                );
 
-            if (suil_instance) {
-                idle_interface =
-                    (LV2UI_Idle_Interface*) suil_instance_extension_data(suil_instance, LV2_UI__idleInterface);
-                
-                ui_window = parent_window;
-                _has_custom_ui = true;
+                if (suil_instance) {
+                    idle_interface =
+                        (LV2UI_Idle_Interface*) suil_instance_extension_data(suil_instance, LV2_UI__idleInterface);
+                    
+                    _has_custom_ui = true;
 
-                SuilWidget child_window = suil_instance_get_widget(suil_instance);
+                    void (*destroy_callback)(GtkWidget* widget, gpointer* data) = [](GtkWidget* widget, gpointer* data) {
+                        gtk_main_quit();
+                    };
 
-                // set size of parent to child window
-                int window_width, window_height;
-#ifdef UI_X11
-                {
-                    XWindowAttributes attrib;
-                    XGetWindowAttributes(glfwGetX11Display(), (Window) child_window, &attrib);
-                    window_width = attrib.width;
-                    window_height = attrib.height;
+                    GtkWidget* widget = (GtkWidget*) suil_instance_get_widget(suil_instance);
+                    assert(widget);
+
+                    gtk_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+                    gtk_signal_connect(GTK_OBJECT(gtk_window), "destroy", GTK_SIGNAL_FUNC(destroy_callback), NULL);
+                    gtk_container_border_width(GTK_CONTAINER(gtk_window), 10);
+                    gtk_container_add(GTK_CONTAINER(gtk_window), widget);
+
+                    gtk_widget_show_all(gtk_window);
+
+                    gtk_thread = std::thread([]() {
+                        gtk_main();
+                    });
+
+                    dbg("successfully instantiate custom plugin UI\n");
+                } else {
+                    dbg("ERROR: could not instantiate ui\n");
                 }
-#elif def(UI_WINDOWS)
-                {
-                    abort(); // TODO
-                }
-#endif
-                glfwSetWindowSize(parent_window, window_width, window_height);
-                dbg("successfully instantiate custom plugin UI\n");
-            } else {
-                dbg("ERROR: could not instantiate ui\n");
             }
+            else
+            {
+                const char* container_type_uri = lilv_node_as_uri(host_type);
 
+                // create native parent window
+                glfwWindowHint(GLFW_VISIBLE, false);
+                glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
+                glfwWindowHint(GLFW_RESIZABLE, false);
+                glfwWindowHint(GLFW_FLOATING, true);
+                
+                // this will be resized to the child window later
+                parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
+    #ifdef UI_X11
+                parent_window_handle = (void*) glfwGetX11Window(parent_window);
+    #elif defined(UI_WINDOWS)
+                parent_window_handle = (void*) glfwGetWin32Window(parent_window);
+    #endif
+                
+                // create features list
+                LV2_Feature instance_access = {
+                    LV2_INSTANCE_ACCESS_URI,
+                    lilv_instance_get_handle(plugin_ctl->instance)
+                };
 
+                LV2_Feature idle_interface_feature = {
+                    LV2_UI__idleInterface,
+                    NULL
+                };
+
+                LV2_Feature no_user_resize_feature = {
+                    LV2_UI__noUserResize,
+                    NULL
+                };
+
+                LV2UI_Touch touch;
+                touch.handle = nullptr;
+                touch.touch = __touch;
+
+                LV2_Feature touch_feature = {
+                    LV2_UI__touch,
+                    &touch
+                };
+
+                LV2_Feature parent_feature = {
+                    LV2_UI__parent,
+                    (void*)parent_window_handle
+                };
+
+                const LV2_Feature* features[] = {
+                    &instance_access,
+                    &idle_interface_feature,
+                    &no_user_resize_feature,
+                    &parent_feature,
+                    nullptr,
+                };
+
+                suil_instance = suil_instance_new(
+                    suil_host,
+                    (void*) this,
+                    container_type_uri,
+                    plugin_uri,
+                    ui_uri,
+                    target_ui_type,
+                    ui_bundle_path,
+                    ui_binary_path,
+                    features
+                );
+
+                if (suil_instance) {
+                    idle_interface =
+                        (LV2UI_Idle_Interface*) suil_instance_extension_data(suil_instance, LV2_UI__idleInterface);
+                    
+                    ui_window = parent_window;
+                    _has_custom_ui = true;
+
+                    SuilWidget child_window = suil_instance_get_widget(suil_instance);
+
+                    // set size of parent to child window
+                    int window_width, window_height;
+#ifdef UI_X11
+                    {
+                        XWindowAttributes attrib;
+                        XGetWindowAttributes(glfwGetX11Display(), (Window) child_window, &attrib);
+                        window_width = attrib.width;
+                        window_height = attrib.height;
+                    }
+#elif def(UI_WINDOWS)
+                    {
+                        abort(); // TODO
+                    }
+#endif
+                    glfwSetWindowSize(parent_window, window_width, window_height);
+                    dbg("successfully instantiate custom plugin UI\n");
+                } else {
+                    dbg("ERROR: could not instantiate ui\n");
+                }
+            }
         } else {
             dbg("ui not supported\n");
         }

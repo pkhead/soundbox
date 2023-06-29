@@ -7,9 +7,10 @@ set(CMAKE_CXX_STANDARD 17)
 find_library(LILV_LIBRARIES lilv-0 REQUIRED)
 find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0 REQUIRED)
 # find suil (lv2 ui library) on system
-
 find_library(SUIL_LIBRARIES suil-0 REQUIRED)
 find_path(SUIL_INCLUDE suil/suil.h PATH_SUFFIXES suil-0 REQUIRED)
+
+find_package(GTK2 REQUIRED)
 
 # send these options to glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -99,6 +100,7 @@ set(LIBRARIES
     portaudio_static
     ${LILV_LIBRARIES}
     ${SUIL_LIBRARIES}
+    ${GTK2_LIBRARIES}
 )
 
 include_directories(
@@ -112,6 +114,7 @@ include_directories(
     deps/tuning-library/include
     ${LILV_INCLUDE}
     ${SUIL_INCLUDE}
+    ${GTK2_INCLUDE_DIRS}
 )
 
 # Windows
@@ -158,7 +161,7 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    target_compile_definitions(soundbox PUBLIC UI_X11)
+    target_compile_definitions(soundbox PUBLIC UI_X11 ENABLE_GTK2)
     target_link_libraries(soundbox ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
 endif()
 
