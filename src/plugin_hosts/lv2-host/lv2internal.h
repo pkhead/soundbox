@@ -109,7 +109,7 @@ namespace lv2 {
     };
 
     namespace uri {
-        static std::vector<std::string> URI_MAP;
+        extern std::vector<std::string> URI_MAP;
 
         LV2_URID map(const char* uri);
         const char* unmap(LV2_URID urid);
@@ -246,6 +246,27 @@ namespace lv2 {
         };
     };
 
+    static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
+
+        struct AtomSequenceBuffer {
+            LV2_Atom_Sequence header;
+            uint8_t data[ATOM_SEQUENCE_CAPACITY];
+        };
+
+    struct PortData {
+        enum Type {
+            Control,
+            AtomSequence
+        } type;
+        bool is_output;
+
+        union {
+            ControlInputPort* ctl_in;
+            ControlOutputPort* ctl_out;
+            AtomSequenceBuffer* sequence;
+        };
+    };
+
     class Lv2PluginHost
     {
     private:
@@ -307,13 +328,6 @@ namespace lv2 {
 
         Song* song;
 
-        static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
-
-        struct AtomSequenceBuffer {
-            LV2_Atom_Sequence header;
-            uint8_t data[ATOM_SEQUENCE_CAPACITY];
-        };
-
         std::vector<ControlInputPort*> ctl_in;
         std::vector<ControlOutputPort*> ctl_out;
 
@@ -325,6 +339,8 @@ namespace lv2 {
         AtomSequenceBuffer* time_in = nullptr;
         AtomSequenceBuffer* patch_in = nullptr;
         AtomSequenceBuffer* patch_out = nullptr;
+        
+        std::vector<PortData> ports;
 
         std::string plugin_uri;
         LilvInstance* instance;

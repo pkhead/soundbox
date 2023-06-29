@@ -260,24 +260,26 @@ int log::vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list 
 // URI mapping //
 /////////////////
 
+std::vector<std::string> uri::URI_MAP;
+
 LV2_URID uri::map(const char* uri)
 {
     LV2_URID id;
     for (id = 0; id < URI_MAP.size(); id++) {
         if (URI_MAP[id] == uri)
-            return id;
+            return id + 1;
     }
 
     URI_MAP.push_back(uri);
-    return id;
+    return id + 1;
 }
 
 const char* uri::unmap(LV2_URID urid)
 {
-    if (urid >= URI_MAP.size())
+    if (urid > URI_MAP.size())
         return nullptr;
 
-    return URI_MAP[urid].c_str();
+    return URI_MAP[urid - 1].c_str();
 }
 
 // support for lv2 urid feature

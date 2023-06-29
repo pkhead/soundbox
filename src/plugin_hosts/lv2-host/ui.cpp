@@ -73,20 +73,48 @@ uint32_t UIHost::suil_port_unsubscribe_func(
 void UIHost::suil_port_write_func(
     SuilController controller,
     uint32_t port_index,
-    uint32_t buffer_size,
+    uint32_t data_size,
     uint32_t protocol,
-    void const* buffer
+    void const* data
 ) {
-    dbg("called suil_port_write_func\n");
-    // TODO: i just assume it's a float
     UIHost* self = (UIHost*) controller;
+    PortData& port = self->plugin_ctl->ports[port_index];
+    if (port.is_output) return;
 
-    for (ControlInputPort* in_port : self->plugin_ctl->ctl_in)
-    {
-        if (in_port->port_index == port_index) {
-            in_port->value = *((float*) buffer);
-            break;
+    // input float
+    if (protocol == 0) {
+        if (port.type == PortData::Control) {
+            port.ctl_in->value = *((float*) data);
         }
+    }
+
+    else if (protocol == uri::map(LV2_ATOM__eventTransfer))
+    {
+        if (port.type == PortData::AtomSequence) {
+            if (data_size < 128) {
+                struct {
+                    int64_t time;
+                    uint8_t data[128];
+                } payload;
+
+                payload.time = 0;
+                memcpy(&payload.data, data, data_size);
+
+                LV2_Atom_Event* __test__ = (LV2_Atom_Event*) &payload;
+
+                lv2_atom_sequence_append_event(
+                    &port.sequence->header,
+                    ATOM_SEQUENCE_CAPACITY,
+                    (LV2_Atom_Event*) &payload
+                );
+            }
+        }
+    }
+
+    // unknown type
+    else {
+        const char* str = uri::unmap(protocol);
+        dbg("WARNING: unknown protocol %s\n", str ? str : "(null)");
     }
 }
 
@@ -197,50 +225,36 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
             LV2_URID_Map map = {nullptr, uri::map_callback};
             LV2_Feature map_feature = {LV2_URID__map, &map};
+
             LV2_URID_Unmap unmap = {nullptr, uri::unmap_callback};
             LV2_Feature unmap_feature = {LV2_URID__unmap, &unmap};
+
             LV2_Log_Log log = {nullptr, log::printf, log::vprintf};
             LV2_Feature log_feature = {LV2_LOG__log, &log};
+
             LV2_Worker_Schedule lv2_worker_schedule = {this, WorkerHost::_schedule_work};
             LV2_Feature work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
 
+            LV2UI_Touch touch = {nullptr, __touch};
+            LV2_Feature touch_feature = {LV2_UI__touch, &touch};
+
+            LV2_Feature idle_interface_feature = {LV2_UI__idleInterface, NULL};
+            LV2_Feature no_user_resize_feature = {LV2_UI__noUserResize, NULL};
+            LV2_Feature instance_access = {LV2_INSTANCE_ACCESS_URI, lilv_instance_get_handle(plugin_ctl->instance)};
+            
             if (use_gtk)
             {
 #ifdef ENABLE_GTK2
                 const char* container_type_uri = lilv_node_as_uri(gtk_host_type);
 
-                // create features list
-                LV2_Feature instance_access = {
-                    LV2_INSTANCE_ACCESS_URI,
-                    lilv_instance_get_handle(plugin_ctl->instance)
-                };
-
-                LV2_Feature idle_interface_feature = {
-                    LV2_UI__idleInterface,
-                    NULL
-                };
-
-                LV2_Feature no_user_resize_feature = {
-                    LV2_UI__noUserResize,
-                    NULL
-                };
-
-                LV2UI_Touch touch;
-                touch.handle = nullptr;
-                touch.touch = __touch;
-
-                LV2_Feature touch_feature = {
-                    LV2_UI__touch,
-                    &touch
-                };
-
                 const LV2_Feature* features[] = {
-                    &instance_access,
-                    &idle_interface_feature,
-                    &no_user_resize_feature,
                     &map_feature,
                     &unmap_feature,
                     &log_feature,
+                    &work_schedule_feature,
+                    &idle_interface_feature,
+                    &no_user_resize_feature,
+                    &instance_access,
                     nullptr,
                 };
 
@@ -306,39 +320,19 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
     #endif
                 
                 // create features list
-                LV2_Feature instance_access = {
-                    LV2_INSTANCE_ACCESS_URI,
-                    lilv_instance_get_handle(plugin_ctl->instance)
-                };
-
-                LV2_Feature idle_interface_feature = {
-                    LV2_UI__idleInterface,
-                    NULL
-                };
-
-                LV2_Feature no_user_resize_feature = {
-                    LV2_UI__noUserResize,
-                    NULL
-                };
-
-                LV2UI_Touch touch;
-                touch.handle = nullptr;
-                touch.touch = __touch;
-
-                LV2_Feature touch_feature = {
-                    LV2_UI__touch,
-                    &touch
-                };
-
                 LV2_Feature parent_feature = {
                     LV2_UI__parent,
                     (void*)parent_window_handle
                 };
 
                 const LV2_Feature* features[] = {
-                    &instance_access,
+                    &map_feature,
+                    &unmap_feature,
+                    &log_feature,
+                    &work_schedule_feature,
                     &idle_interface_feature,
                     &no_user_resize_feature,
+                    &instance_access,
                     &parent_feature,
                     nullptr,
                 };
@@ -366,18 +360,18 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
                     // set size of parent to child window
                     int window_width, window_height;
-#ifdef UI_X11
+                    
                     {
+#ifdef UI_X11
                         XWindowAttributes attrib;
                         XGetWindowAttributes(glfwGetX11Display(), (Window) child_window, &attrib);
                         window_width = attrib.width;
                         window_height = attrib.height;
-                    }
 #elif def(UI_WINDOWS)
-                    {
                         abort(); // TODO
-                    }
 #endif
+                    }
+
                     glfwSetWindowSize(parent_window, window_width, window_height);
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {

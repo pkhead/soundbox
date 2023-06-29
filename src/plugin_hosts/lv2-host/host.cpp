@@ -120,9 +120,17 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
                     ctl->unit = UnitType::dB;
             }
 
-            ctl_in.push_back(ctl);
-
+            // connect port
             lilv_instance_connect_port(instance, i, &ctl->value);
+
+            // save port data
+            PortData port_data;
+            port_data.is_output = false;
+            port_data.type = PortData::Control;
+            port_data.ctl_in = ctl;
+
+            ctl_in.push_back(ctl);
+            ports.push_back(port_data);
 
             // add to interface
             InterfaceDisplay display;
@@ -144,6 +152,15 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             ctl->port_handle = port;
 
             lilv_instance_connect_port(instance, i, &ctl->value);
+
+            // save port data
+            PortData port_data;
+            port_data.is_output = true;
+            port_data.type = PortData::Control;
+            port_data.ctl_out = ctl;
+            
+            ctl_out.push_back(ctl);
+            ports.push_back(port_data);
 
             // add to interface
             InterfaceDisplay display;
@@ -227,6 +244,12 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
                     }
 
                     lilv_instance_connect_port(instance, i, seq_buf);
+
+                    PortData port_data;
+                    port_data.is_output = is_output_port;
+                    port_data.type = PortData::AtomSequence;
+                    port_data.sequence = seq_buf;
+                    ports.push_back(port_data);
                 }
 
                 else
