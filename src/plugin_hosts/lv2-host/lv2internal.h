@@ -371,7 +371,7 @@ namespace lv2 {
             GLFWwindow* ui_window = nullptr;
             GtkWidget* gtk_window;
         };
-        std::thread gtk_thread;
+        bool gtk_close_window = false;
 
         // libsuil instance callbacks
         static uint32_t suil_port_index_func(
@@ -419,4 +419,8 @@ namespace lv2 {
             return _has_custom_ui;
         };
     };
+
+#ifdef ENABLE_GTK2
+    void gtk_process();
+#endif
 } // namespace lv2

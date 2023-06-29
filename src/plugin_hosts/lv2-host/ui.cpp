@@ -139,9 +139,13 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
             unsigned x11_support =
                 lilv_ui_is_supported(ui_n, suil_ui_supported, host_type, &x11_ui_type_n);
 
+#ifdef ENABLE_GTK2
             unsigned gtk_support =
                 lilv_ui_is_supported(ui_n, suil_ui_supported, gtk_host_type, &gtk_ui_type_n);
-
+#else
+            // make sure gtk is never chosen
+            unsigned gtk_support = 99999999;
+#endif
             if (x11_support != 0 && x11_support <= gtk_support) {
                 support = x11_support;
                 ui_type_n = x11_ui_type_n;
@@ -202,6 +206,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
             if (use_gtk)
             {
+#ifdef ENABLE_GTK2
                 const char* container_type_uri = lilv_node_as_uri(gtk_host_type);
 
                 // create features list
@@ -257,28 +262,30 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                     
                     _has_custom_ui = true;
 
-                    void (*destroy_callback)(GtkWidget* widget, gpointer* data) = [](GtkWidget* widget, gpointer* data) {
-                        gtk_main_quit();
+                    gboolean (*close_callback)(GtkWidget* widget, GdkEvent* event, gpointer data) =
+                        [](GtkWidget* widget, GdkEvent* event, gpointer data) -> gboolean
+                    {
+                        UIHost* self = (UIHost*) data;
+                        self->gtk_close_window = true;
+                        return true;
                     };
 
                     GtkWidget* widget = (GtkWidget*) suil_instance_get_widget(suil_instance);
                     assert(widget);
 
                     gtk_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-                    gtk_signal_connect(GTK_OBJECT(gtk_window), "destroy", GTK_SIGNAL_FUNC(destroy_callback), NULL);
-                    gtk_container_border_width(GTK_CONTAINER(gtk_window), 10);
+                    gtk_window_set_title(GTK_WINDOW(gtk_window), plugin_name);
+                    g_signal_connect(GTK_OBJECT(gtk_window), "delete-event", G_CALLBACK(close_callback), (gpointer)this);
+                    gtk_container_border_width(GTK_CONTAINER(gtk_window), 0);
                     gtk_container_add(GTK_CONTAINER(gtk_window), widget);
-
-                    gtk_widget_show_all(gtk_window);
-
-                    gtk_thread = std::thread([]() {
-                        gtk_main();
-                    });
-
+                    
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {
                     dbg("ERROR: could not instantiate ui\n");
                 }
+#else
+                dbg("ERROR: Attempt to load unsupported GTK2 UI");
+#endif
             }
             else
             {
@@ -398,6 +405,11 @@ UIHost::~UIHost()
         suil_host_free(suil_host);
     }
 
+#ifdef ENABLE_GTK2
+    if (use_gtk) {
+        gtk_widget_destroy(gtk_window);
+    } else
+#endif
     if (ui_window) {
         glfwDestroyWindow(ui_window);
     }
@@ -405,19 +417,39 @@ UIHost::~UIHost()
 
 void UIHost::show() {
     if (!ui_window) return;
+
+#ifdef ENABLE_GTK2
+    if (use_gtk) {
+        gtk_widget_show_all(gtk_window);
+        gtk_window_set_keep_above(GTK_WINDOW(gtk_window), true);
+        return;
+    }
+#endif
     glfwShowWindow(ui_window);
 }
 
 void UIHost::hide() {
     if (!ui_window) return;
+
+#ifdef ENABLE_GTK2
+    if (use_gtk) {
+        gtk_widget_hide_all(gtk_window);
+        return;
+    }
+#endif
     glfwHideWindow(ui_window);
 }
 
 bool UIHost::render()
 {
     // TODO: is embedding possible
-    if (glfwWindowShouldClose(ui_window)) {
+    if (!use_gtk && glfwWindowShouldClose(ui_window)) {
         glfwSetWindowShouldClose(ui_window, false);
+        return false;
+    }
+
+    if (gtk_close_window) {
+        gtk_close_window = false;
         return false;
     }
 
@@ -430,4 +462,10 @@ bool UIHost::render()
     }
 
     return true;
+}
+
+void lv2::gtk_process()
+{
+    while (gtk_events_pending())
+        gtk_main_iteration();
 }

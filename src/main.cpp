@@ -660,6 +660,10 @@ int main(int argc, char** argv)
             
             glfwPollEvents();
 
+#ifdef ENABLE_GTK2
+            lv2::gtk_process();
+#endif
+
             // key input
             if (!io.WantTextInput) {
                 if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
