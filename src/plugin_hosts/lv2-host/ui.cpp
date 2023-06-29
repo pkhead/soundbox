@@ -37,17 +37,14 @@ uint32_t UIHost::suil_port_index_func(SuilController controller, const char* por
 {
     UIHost* self = (UIHost*) controller;
 
-    for (ControlInputPort* in_port : self->plugin_ctl->ctl_in)
+    for (auto& [ index, port_data ] : self->plugin_ctl->ports)
     {
-        if (in_port->symbol == port_symbol)
-            return in_port->port_index;
+        if (strcmp(port_data.symbol, port_symbol) == 0)
+            return index;
     }
 
-    for (ControlOutputPort* out_port : self->plugin_ctl->ctl_out)
-    {
-        if (out_port->symbol == port_symbol)
-            return out_port->port_index;
-    }
+    dbg("WARNING: could not find index of port %s\n", port_symbol);
+    return LV2UI_INVALID_PORT_INDEX;
 }
 
 uint32_t UIHost::suil_port_subscribe_func(
@@ -78,7 +75,13 @@ void UIHost::suil_port_write_func(
     void const* data
 ) {
     UIHost* self = (UIHost*) controller;
-    PortData& port = self->plugin_ctl->ports[port_index];
+    auto it = self->plugin_ctl->ports.find(port_index);
+
+    // if port does not exist
+    if (it == self->plugin_ctl->ports.end())
+        return;
+    
+    auto& [ index, port ] = *it;
     if (port.is_output) return;
 
     // input float
@@ -100,13 +103,13 @@ void UIHost::suil_port_write_func(
                 payload.time = 0;
                 memcpy(&payload.data, data, data_size);
 
-                LV2_Atom_Event* __test__ = (LV2_Atom_Event*) &payload;
-
                 lv2_atom_sequence_append_event(
                     &port.sequence->header,
                     ATOM_SEQUENCE_CAPACITY,
                     (LV2_Atom_Event*) &payload
                 );
+            } else {
+                dbg("WARNING: Needed %i bytes for event transfer, but can only hold 128\n", data_size);
             }
         }
     }
@@ -127,7 +130,7 @@ void UIHost::suil_touch_func(
     abort();
 }
 
-void __touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed) {
+void UIHost::__touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed) {
     dbg("touch\n");
 }
 
@@ -223,31 +226,16 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
             GLFWwindow* parent_window = nullptr;
             void* parent_window_handle = nullptr;
 
-            LV2_URID_Map map = {nullptr, uri::map_callback};
-            LV2_Feature map_feature = {LV2_URID__map, &map};
-
-            LV2_URID_Unmap unmap = {nullptr, uri::unmap_callback};
-            LV2_Feature unmap_feature = {LV2_URID__unmap, &unmap};
-
-            LV2_Log_Log log = {nullptr, log::printf, log::vprintf};
-            LV2_Feature log_feature = {LV2_LOG__log, &log};
-
-            LV2_Worker_Schedule lv2_worker_schedule = {this, WorkerHost::_schedule_work};
-            LV2_Feature work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
-
-            LV2UI_Touch touch = {nullptr, __touch};
-            LV2_Feature touch_feature = {LV2_UI__touch, &touch};
-
-            LV2_Feature idle_interface_feature = {LV2_UI__idleInterface, NULL};
-            LV2_Feature no_user_resize_feature = {LV2_UI__noUserResize, NULL};
-            LV2_Feature instance_access = {LV2_INSTANCE_ACCESS_URI, lilv_instance_get_handle(plugin_ctl->instance)};
+            lv2_worker_schedule = {this, WorkerHost::_schedule_work};
+            work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
+            instance_access = {LV2_INSTANCE_ACCESS_URI, lilv_instance_get_handle(plugin_ctl->instance)};
             
             if (use_gtk)
             {
 #ifdef ENABLE_GTK2
                 const char* container_type_uri = lilv_node_as_uri(gtk_host_type);
 
-                const LV2_Feature* features[] = {
+                features = new LV2_Feature*[] {
                     &map_feature,
                     &unmap_feature,
                     &log_feature,
@@ -320,12 +308,12 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
     #endif
                 
                 // create features list
-                LV2_Feature parent_feature = {
+                parent_feature = {
                     LV2_UI__parent,
                     (void*)parent_window_handle
                 };
 
-                const LV2_Feature* features[] = {
+                features = new LV2_Feature*[] {
                     &map_feature,
                     &unmap_feature,
                     &log_feature,
@@ -378,6 +366,80 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                     dbg("ERROR: could not instantiate ui\n");
                 }
             }
+
+            // if instantiation was successful,
+            // read portNotifications
+            if (suil_instance)
+            {
+                LilvNodes* port_notifications = lilv_world_find_nodes(
+                    LILV_WORLD,
+                    ui_uri_n,
+                    URI.ui_portNotification,
+                    nullptr
+                );
+
+                if (port_notifications) {
+                    LILV_FOREACH (nodes, iter, port_notifications) {
+                        const LilvNode* notif_data = lilv_nodes_get(port_notifications, iter);
+                        
+                        // plugin to monitor
+                        LilvNode_ptr plugin_n =
+                            lilv_world_get(LILV_WORLD, notif_data, URI.ui_plugin, nullptr);
+
+                        // symbol to monitor
+                        LilvNode_ptr symbol_n =
+                            lilv_world_get(LILV_WORLD, notif_data, URI.lv2_symbol, nullptr);
+
+                        // or, index
+                        LilvNode_ptr index_n =
+                            lilv_world_get(LILV_WORLD, notif_data, URI.ui_portIndex, nullptr);
+
+                        // notify type
+                        LilvNode_ptr notify_type_n =
+                            lilv_world_get(LILV_WORLD, notif_data, URI.ui_notifyType, nullptr);
+
+                        if (plugin_n && (symbol_n || index_n)) {
+                            if (lilv_node_equals(plugin_n, plugin_uri_n))
+                            {
+                                // get port index
+                                int index;
+
+                                if (index_n) {
+                                    index = lilv_node_as_int(index_n);
+
+                                // index not specified, get index from port symbol instead
+                                } else {
+                                    int index = suil_port_index_func(this, lilv_node_as_string(symbol_n));
+                                    if (index == LV2UI_INVALID_PORT_INDEX) 
+                                        continue;   
+                                }
+
+                                // subscribe to the port
+                                PortEventCallback callback = [this](
+                                    uint32_t port_index,
+                                    uint32_t buffer_size,
+                                    uint32_t format,
+                                    const void* buffer
+                                ) {
+                                    suil_instance_port_event(
+                                        suil_instance,
+                                        port_index,
+                                        buffer_size,
+                                        format,
+                                        buffer
+                                    );
+                                };
+
+                                dbg("subscribe to port %i\n", index);
+
+                                plugin_ctl->port_subscribe(index, (uint32_t)-1, callback);
+                            }
+                        }
+                    }
+                }
+
+                lilv_nodes_free(port_notifications);
+            }
         } else {
             dbg("ui not supported\n");
         }
@@ -390,6 +452,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
 UIHost::~UIHost()
 {
+
     if (suil_instance) {
         dbg("free LV2 UI host\n");
         suil_instance_free(suil_instance);
@@ -398,6 +461,8 @@ UIHost::~UIHost()
     if (suil_host) {
         suil_host_free(suil_host);
     }
+
+    delete[] features;
 
 #ifdef ENABLE_GTK2
     if (use_gtk) {
@@ -416,6 +481,7 @@ void UIHost::show() {
     if (use_gtk) {
         gtk_widget_show_all(gtk_window);
         gtk_window_set_keep_above(GTK_WINDOW(gtk_window), true);
+        gtk_widget_queue_draw(GTK_WIDGET(gtk_window));
         return;
     }
 #endif

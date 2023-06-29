@@ -52,6 +52,7 @@ void lv2::lv2_init(int* argc, char*** argv) {
     URI.lv2_control = lilv_new_uri(LILV_WORLD, LV2_CORE__control);
     URI.lv2_connectionOptional = lilv_new_uri(LILV_WORLD, LV2_CORE__connectionOptional);
     URI.lv2_Parameter = lilv_new_uri(LILV_WORLD, LV2_CORE_PREFIX "Parameter");
+    URI.lv2_symbol = lilv_new_uri(LILV_WORLD, LV2_CORE__symbol);
 
     URI.atom_AtomPort = lilv_new_uri(LILV_WORLD, LV2_ATOM__AtomPort);
     URI.atom_bufferType = lilv_new_uri(LILV_WORLD, LV2_ATOM__bufferType);
@@ -74,6 +75,10 @@ void lv2::lv2_init(int* argc, char*** argv) {
     URI.ui_WindowsUI = lilv_new_uri(LILV_WORLD, LV2_UI__WindowsUI);
     URI.ui_GtkUI = lilv_new_uri(LILV_WORLD, LV2_UI__GtkUI);
     URI.ui_parent = lilv_new_uri(LILV_WORLD, LV2_UI__parent);
+    URI.ui_plugin = lilv_new_uri(LILV_WORLD, LV2_UI__plugin);
+    URI.ui_portNotification = lilv_new_uri(LILV_WORLD, LV2_UI__portNotification);
+    URI.ui_notifyType = lilv_new_uri(LILV_WORLD, LV2_UI__notifyType);
+    URI.ui_portIndex = lilv_new_uri(LILV_WORLD, LV2_UI__portIndex);
 
     URI.units_unit = lilv_new_uri(LILV_WORLD, LV2_UNITS__unit);
     URI.units_db = lilv_new_uri(LILV_WORLD, LV2_UNITS__db);

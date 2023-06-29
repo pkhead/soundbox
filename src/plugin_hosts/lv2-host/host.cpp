@@ -129,10 +129,11 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             PortData port_data;
             port_data.is_output = false;
             port_data.type = PortData::Control;
+            port_data.symbol = ctl->symbol.c_str();
             port_data.ctl_in = ctl;
 
             ctl_in.push_back(ctl);
-            ports.push_back(port_data);
+            ports[i] = port_data;
 
             // add to interface
             InterfaceDisplay display;
@@ -159,11 +160,12 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             PortData port_data;
             port_data.is_output = true;
             port_data.type = PortData::Control;
+            port_data.symbol = ctl->symbol.c_str();
             port_data.ctl_out = ctl;
 
             ctl_out.push_back(ctl);
-            ports.push_back(port_data);
-
+            ports[i] = port_data;
+            
             // add to interface
             InterfaceDisplay display;
             display.is_parameter = false;
@@ -206,6 +208,8 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
                 // atom:Sequence
                 if (lilv_node_equals(buffer_type_n, URI.atom_Sequence)) {
                     AtomSequenceBuffer* seq_buf = new AtomSequenceBuffer {
+                        port, port_symbol,
+
                         {
                             { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
                             { 0, 0 }
@@ -245,13 +249,14 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
                         }
                     }
 
-                    lilv_instance_connect_port(instance, i, seq_buf);
+                    lilv_instance_connect_port(instance, i, &seq_buf->header);
 
                     PortData port_data;
                     port_data.is_output = is_output_port;
                     port_data.type = PortData::AtomSequence;
                     port_data.sequence = seq_buf;
-                    ports.push_back(port_data);
+                    port_data.symbol = seq_buf->symbol.c_str();
+                    ports[i] = port_data;
                 }
 
                 else
@@ -542,10 +547,9 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
         }
     }
 
-    worker_host.process_responses();
-
     lilv_instance_run(instance, sample_count);
-
+    
+    worker_host.process_responses();
     worker_host.end_run();
 
     // clear input message streams
@@ -629,6 +633,44 @@ size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer,
 
 void Lv2PluginHost::flush_events()
 {
+    // port notifications
+    const int event_transfer = uri::map(LV2_ATOM__eventTransfer);
+
+    for (auto& [ index, callback ] : port_event_callbacks)
+    {
+        const PortData& port_data = ports[index];
+
+        switch (port_data.type) {
+            case PortData::Control: {
+                callback(
+                    index,
+                    sizeof(float),
+                    0,
+                    port_data.is_output ? &port_data.ctl_out->value : &port_data.ctl_in->value
+                );
+
+                break;
+            }
+
+            case PortData::AtomSequence: {
+                LV2_ATOM_SEQUENCE_FOREACH (&port_data.sequence->header, ev)
+                {
+                    dbg("CALLBACK\n");
+
+                    callback(
+                        index,
+                        ev->body.size + sizeof(ev->body),
+                        event_transfer,
+                        &ev->body
+                    );
+
+                    break;
+                }
+                break;
+            }
+        }
+    }
+
     // read patch:Put and patch:Set events
     if (patch_out) {
         LV2_ATOM_SEQUENCE_FOREACH (&patch_out->header, ev)
@@ -660,6 +702,31 @@ void Lv2PluginHost::flush_events()
             }
         }
     }
+}
+
+bool Lv2PluginHost::port_subscribe(uint32_t port_index, uint32_t protocol, PortEventCallback callback)
+{
+    auto it = ports.find(port_index);
+    if (it == ports.end()) return true;
+    auto& [ index, port_data ] = *it;
+    assert(index == port_index);
+
+    uint32_t required_protocol;
+
+    if (port_data.type == PortData::Control && !port_data.is_output) {
+        required_protocol = 0;
+    }
+    else if (port_data.type == PortData::AtomSequence) {
+        required_protocol = uri::map(LV2_ATOM__eventTransfer);
+    }
+
+    // error if protocol and required_protocol don't match
+    // if protocol == -1, it is fine
+    if (protocol != (uint32_t)-1 && protocol != required_protocol)
+        return true;
+
+    port_event_callbacks[index] = callback;
+    return false;
 }
 
 // TODO

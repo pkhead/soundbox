@@ -10,6 +10,9 @@
 #include <vector>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <functional>
+
 #include "../../worker.h"
 #include "../../audio.h"
 #include "../../plugins.h"
@@ -47,6 +50,7 @@ namespace lv2 {
         LilvNode* lv2_control;
         LilvNode* lv2_connectionOptional;
         LilvNode* lv2_Parameter;
+        LilvNode* lv2_symbol;
 
         LilvNode* atom_AtomPort;
         LilvNode* atom_bufferType;
@@ -72,6 +76,10 @@ namespace lv2 {
         LilvNode* ui_WindowsUI;
         LilvNode* ui_GtkUI;
         LilvNode* ui_parent;
+        LilvNode* ui_plugin;
+        LilvNode* ui_portNotification;
+        LilvNode* ui_notifyType;
+        LilvNode* ui_portIndex;
     } extern URI;
 
     /**
@@ -248,10 +256,17 @@ namespace lv2 {
 
     static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
 
-        struct AtomSequenceBuffer {
-            LV2_Atom_Sequence header;
-            uint8_t data[ATOM_SEQUENCE_CAPACITY];
-        };
+    struct AtomSequenceBuffer {
+        const LilvPort* port_handle;
+        const std::string symbol;
+
+        LV2_Atom_Sequence header;
+        uint8_t data[ATOM_SEQUENCE_CAPACITY];
+    };
+
+    typedef
+        std::function<void(uint32_t, uint32_t, uint32_t, const void* buffer)> 
+        PortEventCallback;
 
     struct PortData {
         enum Type {
@@ -259,6 +274,7 @@ namespace lv2 {
             AtomSequence
         } type;
         bool is_output;
+        const char* symbol; // this is owned by the underlying port struture
 
         union {
             ControlInputPort* ctl_in;
@@ -266,6 +282,7 @@ namespace lv2 {
             AtomSequenceBuffer* sequence;
         };
     };
+
 
     class Lv2PluginHost
     {
@@ -322,25 +339,25 @@ namespace lv2 {
             uint32_t type
         );
 
+        std::unordered_map<int, PortEventCallback> port_event_callbacks;
+
     public:
         Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
         ~Lv2PluginHost();
 
         Song* song;
 
+        std::unordered_map<uint32_t, PortData> ports;
+        
         std::vector<ControlInputPort*> ctl_in;
         std::vector<ControlOutputPort*> ctl_out;
-
         std::vector<AtomSequenceBuffer*> msg_in;
         std::vector<AtomSequenceBuffer*> msg_out;
-
         AtomSequenceBuffer* midi_in = nullptr;
         AtomSequenceBuffer* midi_out = nullptr;
         AtomSequenceBuffer* time_in = nullptr;
         AtomSequenceBuffer* patch_in = nullptr;
         AtomSequenceBuffer* patch_out = nullptr;
-        
-        std::vector<PortData> ports;
 
         std::string plugin_uri;
         LilvInstance* instance;
@@ -352,6 +369,19 @@ namespace lv2 {
         std::vector<InterfaceDisplay> output_displays;
 
         Parameter* find_parameter(LV2_URID id) const;
+        
+        // returns false on success
+        bool port_subscribe(
+            uint32_t port_index,
+            uint32_t protocol,
+            PortEventCallback callback
+        );
+
+        // returns false on success
+        bool port_unsubscribe(
+            uint32_t port_index,
+            uint32_t protocol
+        );
 
         void start();
         void stop();
@@ -426,6 +456,32 @@ namespace lv2 {
             uint32_t port_index,
             bool grabbed
         );
+
+        static void __touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed);
+
+        // features
+        LV2_URID_Map map = {nullptr, uri::map_callback};
+        LV2_Feature map_feature = {LV2_URID__map, &map};
+
+        LV2_URID_Unmap unmap = {nullptr, uri::unmap_callback};
+        LV2_Feature unmap_feature = {LV2_URID__unmap, &unmap};
+
+        LV2_Log_Log log = {nullptr, log::printf, log::vprintf};
+        LV2_Feature log_feature = {LV2_LOG__log, &log};
+
+        LV2UI_Touch touch = {nullptr, UIHost::__touch};
+        LV2_Feature touch_feature = {LV2_UI__touch, &touch};
+
+        LV2_Feature idle_interface_feature = {LV2_UI__idleInterface, NULL};
+        LV2_Feature no_user_resize_feature = {LV2_UI__noUserResize, NULL};
+
+        LV2_Worker_Schedule lv2_worker_schedule;
+        LV2_Feature work_schedule_feature;
+        LV2_Feature instance_access;
+        LV2_Feature parent_feature;
+
+        // dynamically allocated because of parent feature
+        LV2_Feature** features;
         
     public:
         UIHost(Lv2PluginHost* host);
