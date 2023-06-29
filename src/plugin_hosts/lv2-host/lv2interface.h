@@ -28,7 +28,7 @@ namespace plugins
         bool render_interface() override;
         void hide_interface() override;
 
-        virtual void event(const audiomod::MidiEvent* event) override;
+        virtual void event(const audiomod::MidiEvent& event) override;
         virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override;
         virtual void flush_events() override;
 

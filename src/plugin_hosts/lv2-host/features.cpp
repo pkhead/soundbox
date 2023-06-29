@@ -53,6 +53,8 @@ void lv2::lv2_init(int* argc, char*** argv) {
     URI.lv2_connectionOptional = lilv_new_uri(LILV_WORLD, LV2_CORE__connectionOptional);
     URI.lv2_Parameter = lilv_new_uri(LILV_WORLD, LV2_CORE_PREFIX "Parameter");
     URI.lv2_symbol = lilv_new_uri(LILV_WORLD, LV2_CORE__symbol);
+    URI.lv2_requiredFeature = lilv_new_uri(LILV_WORLD, LV2_CORE__requiredFeature);
+    URI.lv2_optionalFeature = lilv_new_uri(LILV_WORLD, LV2_CORE__optionalFeature);
 
     URI.atom_AtomPort = lilv_new_uri(LILV_WORLD, LV2_ATOM__AtomPort);
     URI.atom_bufferType = lilv_new_uri(LILV_WORLD, LV2_ATOM__bufferType);
@@ -127,7 +129,7 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
         path_str += paths[i];
     }
 
-    LilvNode_ptr lv2_path = lilv_new_file_uri(LILV_WORLD, NULL, "/usr/lib/lv2");
+    Lilv_ptr lv2_path = lilv_new_file_uri(LILV_WORLD, NULL, "/usr/lib/lv2");
     lilv_world_set_option(LILV_WORLD, LILV_OPTION_LV2_PATH, lv2_path);
 
     lilv_world_load_all(LILV_WORLD);
@@ -150,21 +152,21 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
         char* file_path = lilv_node_get_path(lib_uri, NULL);
         data.file_path = file_path;
 
-        LilvNode_ptr name = lilv_plugin_get_name(plug);
+        Lilv_ptr name = lilv_plugin_get_name(plug);
         if (name) {
             data.name = lilv_node_as_string(name);
         } else {
             data.name = lilv_node_as_uri(uri_node);
         }
         
-        LilvNode_ptr author = lilv_plugin_get_author_name(plug);
+        Lilv_ptr author = lilv_plugin_get_author_name(plug);
         if (author) {
             data.author = lilv_node_as_string(author);
         }
 
-        LilvNode_ptr license_uri_n = lilv_new_uri(LILV_WORLD, "http://usefulinc.com/ns/doap#license");
+        Lilv_ptr license_uri_n = lilv_new_uri(LILV_WORLD, "http://usefulinc.com/ns/doap#license");
 
-        LilvNode_ptr license_n = lilv_world_get(LILV_WORLD, uri_node, license_uri_n, NULL);
+        Lilv_ptr license_n = lilv_world_get(LILV_WORLD, uri_node, license_uri_n, NULL);
         if (license_n) {
             data.copyright = lilv_node_as_string(license_n);
         }

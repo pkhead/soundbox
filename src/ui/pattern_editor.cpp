@@ -306,7 +306,7 @@ void render_pattern_editor(SongEditor &editor)
                         PIANO_KEY_VELOCITY
                     }).write_midi(&midi_ev.msg);
 
-                    selected_channel->synth_mod->event(&midi_ev);
+                    selected_channel->synth_mod->event(midi_ev);
                 }
 
                 play_key = true;
@@ -321,7 +321,7 @@ void render_pattern_editor(SongEditor &editor)
                     PIANO_KEY_VELOCITY
                 }).write_midi(&midi_ev.msg);
 
-                selected_channel->synth_mod->event(&midi_ev);
+                selected_channel->synth_mod->event(midi_ev);
             }
         }
 
@@ -345,7 +345,7 @@ void render_pattern_editor(SongEditor &editor)
                         PIANO_KEY_VELOCITY
                     }).write_midi(&midi_ev.msg);
 
-                    selected_channel->synth_mod->event(&midi_ev);
+                    selected_channel->synth_mod->event(midi_ev);
 
                     // turn on new note
                     played_key = scroll - mouse_cy;
@@ -355,7 +355,7 @@ void render_pattern_editor(SongEditor &editor)
                         PIANO_KEY_VELOCITY
                     }).write_midi(&midi_ev.msg);
 
-                    selected_channel->synth_mod->event(&midi_ev);
+                    selected_channel->synth_mod->event(midi_ev);
                 }
             }
 
@@ -437,7 +437,7 @@ void render_pattern_editor(SongEditor &editor)
                     PIANO_KEY_VELOCITY
                 }).write_midi(&midi_ev.msg);
 
-                prev_channel->synth_mod->event(&midi_ev);
+                prev_channel->synth_mod->event(midi_ev);
 
                 play_key = false;
             }
@@ -503,7 +503,7 @@ void render_pattern_editor(SongEditor &editor)
                     PIANO_KEY_VELOCITY
                 }).write_midi(&midi_ev.msg);
 
-                selected_channel->synth_mod->event(&midi_ev);
+                selected_channel->synth_mod->event(midi_ev);
 
                 play_key = false;
             }

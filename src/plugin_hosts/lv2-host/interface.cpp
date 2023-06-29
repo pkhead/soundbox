@@ -227,7 +227,7 @@ bool Lv2Plugin::render_interface() {
     }
 }
 
-void Lv2Plugin::event(const audiomod::MidiEvent* event) {
+void Lv2Plugin::event(const audiomod::MidiEvent& event) {
     return host.event(event);
 }
 

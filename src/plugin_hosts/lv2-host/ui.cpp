@@ -87,7 +87,10 @@ void UIHost::suil_port_write_func(
     // input float
     if (protocol == 0) {
         if (port.type == PortData::Control) {
-            port.ctl_in->value = *((float*) data);
+            if (data_size == sizeof(float))
+                port.ctl_in->value = *((float*) data);
+            else
+                dbg("WARNING: UI attempted to write port with protocol 0, but data_size != sizeof(float)\n");
         }
     }
 
@@ -147,7 +150,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
     plugin_ctl = __plugin_controller;
 
-    LilvUIs* uis = lilv_plugin_get_uis(plugin_ctl->lv2_plugin_data);
+    Lilv_ptr uis = lilv_plugin_get_uis(plugin_ctl->lv2_plugin_data);
     
     if (uis)
     {
@@ -229,13 +232,18 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
             lv2_worker_schedule = {this, WorkerHost::_schedule_work};
             work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
             instance_access = {LV2_INSTANCE_ACCESS_URI, lilv_instance_get_handle(plugin_ctl->instance)};
+
+            // check if it has the parent feature
+            bool needs_parent =
+                lilv_world_ask(LILV_WORLD, ui_uri_n, URI.lv2_requiredFeature, URI.ui_parent) ||
+                lilv_world_ask(LILV_WORLD, ui_uri_n, URI.lv2_optionalFeature, URI.ui_parent);
             
             if (use_gtk)
             {
 #ifdef ENABLE_GTK2
                 const char* container_type_uri = lilv_node_as_uri(gtk_host_type);
 
-                features = new LV2_Feature*[] {
+                features = {
                     &map_feature,
                     &unmap_feature,
                     &log_feature,
@@ -255,7 +263,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                     target_ui_type,
                     ui_bundle_path,
                     ui_binary_path,
-                    features
+                    features.data()
                 );
 
                 if (suil_instance) {
@@ -276,11 +284,11 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                     assert(widget);
 
                     gtk_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-                    gtk_window_set_title(GTK_WINDOW(gtk_window), plugin_name);
-                    g_signal_connect(GTK_OBJECT(gtk_window), "delete-event", G_CALLBACK(close_callback), (gpointer)this);
                     gtk_container_border_width(GTK_CONTAINER(gtk_window), 0);
                     gtk_container_add(GTK_CONTAINER(gtk_window), widget);
-                    
+                    gtk_window_set_title(GTK_WINDOW(gtk_window), plugin_name);
+                    g_signal_connect(GTK_OBJECT(gtk_window), "delete-event", G_CALLBACK(close_callback), (gpointer)this);
+
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {
                     dbg("ERROR: could not instantiate ui\n");
@@ -313,7 +321,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                     (void*)parent_window_handle
                 };
 
-                features = new LV2_Feature*[] {
+                features = {
                     &map_feature,
                     &unmap_feature,
                     &log_feature,
@@ -334,7 +342,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                     target_ui_type,
                     ui_bundle_path,
                     ui_binary_path,
-                    features
+                    features.data()
                 );
 
                 if (suil_instance) {
@@ -371,7 +379,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
             // read portNotifications
             if (suil_instance)
             {
-                LilvNodes* port_notifications = lilv_world_find_nodes(
+                Lilv_ptr port_notifications = lilv_world_find_nodes(
                     LILV_WORLD,
                     ui_uri_n,
                     URI.ui_portNotification,
@@ -383,68 +391,67 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                         const LilvNode* notif_data = lilv_nodes_get(port_notifications, iter);
                         
                         // plugin to monitor
-                        LilvNode_ptr plugin_n =
+                        Lilv_ptr plugin_n =
                             lilv_world_get(LILV_WORLD, notif_data, URI.ui_plugin, nullptr);
 
+                        // make sure it is the current plugin
+                        if (!(plugin_n && lilv_node_equals(plugin_n, plugin_uri_n)))
+                            continue;
+                        
                         // symbol to monitor
-                        LilvNode_ptr symbol_n =
+                        Lilv_ptr symbol_n =
                             lilv_world_get(LILV_WORLD, notif_data, URI.lv2_symbol, nullptr);
 
                         // or, index
-                        LilvNode_ptr index_n =
+                        Lilv_ptr index_n =
                             lilv_world_get(LILV_WORLD, notif_data, URI.ui_portIndex, nullptr);
 
                         // notify type
-                        LilvNode_ptr notify_type_n =
+                        Lilv_ptr notify_type_n =
                             lilv_world_get(LILV_WORLD, notif_data, URI.ui_notifyType, nullptr);
 
-                        if (plugin_n && (symbol_n || index_n)) {
-                            if (lilv_node_equals(plugin_n, plugin_uri_n))
-                            {
-                                // get port index
-                                int index;
+                        if (symbol_n || index_n) {
+                            // get port index
+                            int index;
 
-                                if (index_n) {
-                                    index = lilv_node_as_int(index_n);
+                            if (index_n) {
+                                index = lilv_node_as_int(index_n);
 
-                                // index not specified, get index from port symbol instead
-                                } else {
-                                    int index = suil_port_index_func(this, lilv_node_as_string(symbol_n));
-                                    if (index == LV2UI_INVALID_PORT_INDEX) 
-                                        continue;   
-                                }
-
-                                // subscribe to the port
-                                PortEventCallback callback = [this](
-                                    uint32_t port_index,
-                                    uint32_t buffer_size,
-                                    uint32_t format,
-                                    const void* buffer
-                                ) {
-                                    suil_instance_port_event(
-                                        suil_instance,
-                                        port_index,
-                                        buffer_size,
-                                        format,
-                                        buffer
-                                    );
-                                };
-
-                                dbg("subscribe to port %i\n", index);
-
-                                plugin_ctl->port_subscribe(index, (uint32_t)-1, callback);
+                            // index not specified, get index from port symbol instead
+                            } else {
+                                int index = suil_port_index_func(this, lilv_node_as_string(symbol_n));
+                                if (index == LV2UI_INVALID_PORT_INDEX) 
+                                    continue;   
                             }
+
+                            // subscribe to the port
+                            PortEventCallback callback = [this](
+                                uint32_t port_index,
+                                uint32_t buffer_size,
+                                uint32_t format,
+                                const void* buffer
+                            ) {
+                                suil_instance_port_event(
+                                    suil_instance,
+                                    port_index,
+                                    buffer_size,
+                                    format,
+                                    buffer
+                                );
+                            };
+
+                            dbg("subscribe to port %i\n", index);
+
+                            plugin_ctl->port_subscribe(index, (uint32_t)-1, callback);
+                        } else {
+                            dbg("WARNING: port notification connection but portIndex or symbol is not specified");
                         }
                     }
                 }
-
-                lilv_nodes_free(port_notifications);
             }
         } else {
             dbg("ui not supported\n");
         }
-
-        lilv_uis_free(uis);
     } else {
         dbg("plugin has no uis\n");
     }
@@ -461,8 +468,6 @@ UIHost::~UIHost()
     if (suil_host) {
         suil_host_free(suil_host);
     }
-
-    delete[] features;
 
 #ifdef ENABLE_GTK2
     if (use_gtk) {
@@ -481,7 +486,6 @@ void UIHost::show() {
     if (use_gtk) {
         gtk_widget_show_all(gtk_window);
         gtk_window_set_keep_above(GTK_WINDOW(gtk_window), true);
-        gtk_widget_queue_draw(GTK_WIDGET(gtk_window));
         return;
     }
 #endif
@@ -493,7 +497,7 @@ void UIHost::hide() {
 
 #ifdef ENABLE_GTK2
     if (use_gtk) {
-        gtk_widget_hide_all(gtk_window);
+        gtk_widget_hide(gtk_window);
         return;
     }
 #endif

@@ -12,6 +12,7 @@
 #include <thread>
 #include <unordered_map>
 #include <functional>
+#include <memory>
 
 #include "../../worker.h"
 #include "../../audio.h"
@@ -20,6 +21,8 @@
 #ifdef ENABLE_GTK2
 #include <gtk/gtk.h>
 #endif
+
+#include <iostream>
 
 #define RDFS_PREFIX "http://www.w3.org/2000/01/rdf-schema#"
 
@@ -51,6 +54,8 @@ namespace lv2 {
         LilvNode* lv2_connectionOptional;
         LilvNode* lv2_Parameter;
         LilvNode* lv2_symbol;
+        LilvNode* lv2_requiredFeature;
+        LilvNode* lv2_optionalFeature;
 
         LilvNode* atom_AtomPort;
         LilvNode* atom_bufferType;
@@ -86,35 +91,56 @@ namespace lv2 {
     * A wrapper around a LilvNode* that is
     * automatically freed when it goes out of scope
     **/
-    struct LilvNode_ptr
+    template <class T>
+    struct Lilv_ptr
     {
+        // check that it is a pointer to a Lilv struct
+        static_assert(
+            std::is_same<LilvNode, T>::value ||
+            std::is_same<LilvState, T>::value ||
+            std::is_same<LilvNodes, T>::value ||
+            std::is_same<LilvUIs, T>::value
+        );
+
     private:
-        LilvNode* node;
+        T* node;
     public:
-        LilvNode_ptr() : node(nullptr) {};
-        LilvNode_ptr(LilvNode* node) : node(node) {};
-        ~LilvNode_ptr() {
-            if (node)
-                lilv_node_free(node);
-        }
+        constexpr inline Lilv_ptr() : node(nullptr) {};
+        constexpr inline Lilv_ptr(T* node) : node(node) {};
+        ~Lilv_ptr();
 
-        inline LilvNode* operator->() const noexcept {
+        inline constexpr T* operator->() const noexcept {
             return node;
         }
 
-        inline operator LilvNode*() const noexcept {
+        inline constexpr operator T*() const noexcept {
             return node;
         }
 
-        inline operator bool() const noexcept {
+        inline constexpr operator bool() const noexcept {
             return node;
         }
 
-        inline LilvNode* operator=(LilvNode* new_node) noexcept {
+        inline constexpr T* operator=(T* new_node) noexcept {
             node = new_node;
             return node;
         }
     };
+
+    template<>
+    inline Lilv_ptr<LilvNode>::~Lilv_ptr() {
+        if (node) lilv_node_free(node);
+    }
+
+    template<>
+    inline Lilv_ptr<LilvNodes>::~Lilv_ptr() {
+        if (node) lilv_nodes_free(node);
+    }
+
+    template<>
+    inline Lilv_ptr<LilvState>::~Lilv_ptr() {
+        if (node) lilv_state_free(node);
+    }
 
     namespace uri {
         extern std::vector<std::string> URI_MAP;
@@ -393,7 +419,7 @@ namespace lv2 {
             int sample_rate,
             int channel_count
         );
-        void event(const audiomod::MidiEvent* event);
+        void event(const audiomod::MidiEvent& event);
         size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity);
         void flush_events();
         void save_state(std::ostream& ostream) const;
@@ -481,7 +507,7 @@ namespace lv2 {
         LV2_Feature parent_feature;
 
         // dynamically allocated because of parent feature
-        LV2_Feature** features;
+        std::vector<LV2_Feature*> features;
         
     public:
         UIHost(Lv2PluginHost* host);

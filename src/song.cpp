@@ -497,7 +497,7 @@ void Song::stop() {
             1.0f
         }).write_midi(&midi_ev.msg);
         
-        channels[note_data.channel_i]->synth_mod->event(&midi_ev);
+        channels[note_data.channel_i]->synth_mod->event(midi_ev);
     }
 
     assert(notes_playing == 0);
@@ -604,7 +604,7 @@ void Song::update(double elapsed) {
                 1.0f
             }).write_midi(&midi_ev.msg);
 
-            channels[old_note.channel_i]->synth_mod->event(&midi_ev);
+            channels[old_note.channel_i]->synth_mod->event(midi_ev);
         }
     }
 
@@ -631,7 +631,7 @@ void Song::update(double elapsed) {
                 1.0f
             }).write_midi(&midi_ev.msg);
 
-            channels[new_note.channel_i]->synth_mod->event(&midi_ev);
+            channels[new_note.channel_i]->synth_mod->event(midi_ev);
         }
     }
 

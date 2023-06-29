@@ -43,7 +43,7 @@ namespace audiomod {
         float sustain = 1.0f;
         float release = 0.0f;
 
-        void event(const MidiEvent* event) override;
+        void event(const MidiEvent& event) override;
         void save_state(std::ostream& output) const override;
         bool load_state(std::istream& input, size_t size) override;
     };

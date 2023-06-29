@@ -599,7 +599,7 @@ void DestinationModule::process_node(ModuleNode* node)
 
         while ((count = node->inputs[i]->module->receive_events(&handle, midi_buf, 8))) {
             for (int i = 0; i < count; i++) {
-                node->module->event(midi_buf + i);
+                node->module->event(midi_buf[i]);
             }
         }
 

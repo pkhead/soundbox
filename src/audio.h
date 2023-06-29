@@ -156,7 +156,7 @@ namespace audiomod {
         static void free_garbage_modules();
 
         // send a midi event to the module
-        virtual void event(const MidiEvent* event) {};
+        virtual void event(const MidiEvent& event) {};
 
         /**
         * Receive MIDI events from a module.

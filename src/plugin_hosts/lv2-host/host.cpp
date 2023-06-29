@@ -29,7 +29,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
         throw std::runtime_error("mismatched plugin types");
 
     // get plugin uri
-    LilvNode_ptr plugin_uri; {
+    Lilv_ptr<LilvNode> plugin_uri; {
         size_t colon_sep = plugin_data.id.find_first_of(":");
         const char* uri_str = plugin_data.id.c_str() + colon_sep + 1;
         this->plugin_uri = uri_str;
@@ -59,7 +59,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
     // instantiate plugin
     instance = lilv_plugin_instantiate(plugin, dest.sample_rate, features);
     if (instance == nullptr) {
-        std::cerr << "instantiation failed\n";
+        dbg("ERROR: plugin instantiation failed!\n");
         throw lv2_error("instantiation failed");
     }
 
@@ -71,17 +71,24 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
     const uint32_t port_count = lilv_plugin_get_num_ports(plugin);
 
     // get port ranges
-    float* min_values = new float[port_count];
-    float* max_values = new float[port_count];
-    float* default_values = new float[port_count];
+    std::vector<float> min_values, max_values, default_values;
+    min_values.reserve(port_count);
+    max_values.reserve(port_count);
+    default_values.reserve(port_count);
+    
     bool unsupported = false;
-    lilv_plugin_get_port_ranges_float(plugin, min_values, max_values, default_values);
+    lilv_plugin_get_port_ranges_float(
+        plugin,
+        min_values.data(),
+        max_values.data(),
+        default_values.data()
+    );
 
     for (uint32_t i = 0; i < port_count; i++)
     {
         const LilvPort* port = lilv_plugin_get_port_by_index(plugin, i);
         
-        LilvNode_ptr name_node = lilv_port_get_name(plugin, port);
+        Lilv_ptr name_node = lilv_port_get_name(plugin, port);
         const LilvNode* symbol_n = lilv_port_get_symbol(plugin, port);
         const char* port_name = name_node ? lilv_node_as_string(name_node) : "[unnamed]";
         const char* port_symbol = lilv_node_as_string(symbol_n);
@@ -90,7 +97,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
         bool is_output_port = lilv_port_is_a(plugin, port, URI.lv2_OutputPort);
         bool is_optional = lilv_port_has_property(plugin, port, URI.lv2_connectionOptional);
 
-        LilvNode_ptr designation_n = lilv_port_get(plugin, port, URI.lv2_designation);
+        Lilv_ptr designation_n = lilv_port_get(plugin, port, URI.lv2_designation);
 
         /*
         TODO
@@ -114,7 +121,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             ctl->value = ctl->default_value;
             ctl->unit = UnitType::None;
 
-            LilvNode_ptr unit_n = lilv_port_get(plugin, port, URI.units_unit);
+            Lilv_ptr unit_n = lilv_port_get(plugin, port, URI.units_unit);
             
             if (unit_n) {
                 // TODO: more units
@@ -197,7 +204,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
         // atom port
         else if (lilv_port_is_a(plugin, port, URI.atom_AtomPort)) {
             if (is_input_port || is_output_port) {
-                LilvNode_ptr buffer_type_n = lilv_port_get(plugin, port, URI.atom_bufferType);
+                Lilv_ptr buffer_type_n = lilv_port_get(plugin, port, URI.atom_bufferType);
                 LilvNodes* supports_n = lilv_port_get_value(plugin, port, URI.atom_supports);
 
                 bool is_main = lilv_node_equals(designation_n, URI.lv2_control);
@@ -286,7 +293,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
     }
 
     // scan writable parameters
-    LilvNodes* patch_writable_n = lilv_world_find_nodes(
+    Lilv_ptr patch_writable_n = lilv_world_find_nodes(
         LILV_WORLD,
         plugin_uri,
         URI.patch_writable,
@@ -295,28 +302,27 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
 
     LILV_FOREACH (nodes, iter, patch_writable_n) {
         const LilvNode* property = lilv_nodes_get(patch_writable_n, iter);
-        dbg("writable %s\n", lilv_node_as_uri(property));
         
-        assert(lilv_world_ask(LILV_WORLD, property, URI.a, NULL));
-        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_range, NULL));
-        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_label, NULL));
+        Lilv_ptr label_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_label, NULL);
+        Lilv_ptr type_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_range, NULL);
 
-        LilvNode_ptr label_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_label, NULL);
-        LilvNode_ptr type_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_range, NULL);
+        if (label_n && type_n) {
+            Parameter* param = new Parameter(
+                lilv_node_as_uri(property),
+                lilv_node_as_string(label_n),
+                lilv_node_as_uri(type_n)
+            );
 
-        Parameter* param = new Parameter(
-            lilv_node_as_uri(property),
-            lilv_node_as_string(label_n),
-            lilv_node_as_uri(type_n)
-        );
-
-        param->is_writable = true;
-        param->is_readable = false;
-        parameters.push_back(param);
+            param->is_writable = true;
+            param->is_readable = false;
+            parameters.push_back(param);
+        } else {
+            dbg("WARNING: parameter %s has no label or type", lilv_node_as_string(property));
+        }
     }
 
     // scan readable parameters
-    LilvNodes* patch_readable_n = lilv_world_find_nodes(
+    Lilv_ptr patch_readable_n = lilv_world_find_nodes(
         LILV_WORLD,
         plugin_uri,
         URI.patch_readable,
@@ -325,39 +331,33 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
 
     LILV_FOREACH (nodes, iter, patch_readable_n) {
         const LilvNode* property = lilv_nodes_get(patch_readable_n, iter);
-        dbg("readable %s\n", lilv_node_as_uri(property));
         
-        assert(lilv_world_ask(LILV_WORLD, property, URI.a, URI.lv2_Parameter));
-        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_range, NULL));
-        assert(lilv_world_ask(LILV_WORLD, property, URI.rdfs_label, NULL));
+        Lilv_ptr label_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_label, NULL);
+        Lilv_ptr type_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_range, NULL);
 
-        LilvNode_ptr label_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_label, NULL);
-        LilvNode_ptr type_n = lilv_world_get(LILV_WORLD, property, URI.rdfs_range, NULL);
+        if (label_n && type_n) {
+            Parameter* param = find_parameter( uri::map(lilv_node_as_uri(property)) );
+            if (param == nullptr) {
+                param = new Parameter(
+                    lilv_node_as_uri(property),
+                    lilv_node_as_string(label_n),
+                    lilv_node_as_uri(type_n)
+                );
+                parameters.push_back(param);
+            }
 
-        Parameter* param = find_parameter( uri::map(lilv_node_as_uri(property)) );
-        if (param == nullptr) {
-            param = new Parameter(
-                lilv_node_as_uri(property),
-                lilv_node_as_string(label_n),
-                lilv_node_as_uri(type_n)
-            );
-            parameters.push_back(param);
+            param->is_readable = true;
+        } else {
+            dbg("WARNING: parameter %s has no label or type", lilv_node_as_string(property));
         }
-
-        param->is_readable = true;
     }
-
-    lilv_nodes_free(patch_writable_n);
-    lilv_nodes_free(patch_readable_n);
 
     // load default state
     if (lilv_plugin_has_feature(plugin, URI.state_loadDefaultState)) {
-        LilvState* state = lilv_state_new_from_world(LILV_WORLD, &map, plugin_uri);
-
+        Lilv_ptr state = lilv_state_new_from_world(LILV_WORLD, &map, plugin_uri);
+        
         if (state) {
             lilv_state_restore(state, instance, set_port_value_callback, this, 0, features);
-            
-            lilv_state_free(state);
         }
     }
 
@@ -384,10 +384,6 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
 
     // create utility atom forge
     lv2_atom_forge_init(&forge, &map);
-
-    delete[] min_values;
-    delete[] max_values;
-    delete[] default_values;
 }
 
 #define FREE_ARRAY(array, operator) \
@@ -566,7 +562,7 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
     );
 }
 
-void Lv2PluginHost::event(const audiomod::MidiEvent* midi_event)
+void Lv2PluginHost::event(const audiomod::MidiEvent& midi_event)
 {
     if (midi_in)
     {
@@ -575,7 +571,7 @@ void Lv2PluginHost::event(const audiomod::MidiEvent* midi_event)
             audiomod::MidiMessage midi;
         } atom;
 
-        const audiomod::MidiMessage& midi_msg = midi_event->msg;
+        const audiomod::MidiMessage& midi_msg = midi_event.msg;
 
         atom.header.time.frames = 0;
         atom.header.body.size = midi_msg.size();
