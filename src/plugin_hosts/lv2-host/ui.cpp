@@ -12,6 +12,7 @@
 #ifdef ENABLE_GTK2
 // gtk 2.0 support
 #include <gtk/gtk.h>
+#include <gdk/gdkx.h>
 #endif
 
 #ifdef UI_X11
@@ -305,12 +306,18 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                 glfwWindowHint(GLFW_VISIBLE, false);
                 glfwWindowHint(GLFW_SCALE_TO_MONITOR, true);
                 glfwWindowHint(GLFW_RESIZABLE, false);
-                glfwWindowHint(GLFW_FLOATING, true);
                 
                 // this will be resized to the child window later
                 parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
     #ifdef UI_X11
                 parent_window_handle = (void*) glfwGetX11Window(parent_window);
+
+                // make child window float above parent window
+                XSetTransientForHint(
+                    glfwGetX11Display(),
+                    (Window) parent_window_handle,
+                    glfwGetX11Window( glfwGetCurrentContext() )
+                );
     #elif defined(UI_WINDOWS)
                 parent_window_handle = (void*) glfwGetWin32Window(parent_window);
     #endif
@@ -419,7 +426,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
                             // index not specified, get index from port symbol instead
                             } else {
-                                int index = suil_port_index_func(this, lilv_node_as_string(symbol_n));
+                                index = suil_port_index_func(this, lilv_node_as_string(symbol_n));
                                 if (index == LV2UI_INVALID_PORT_INDEX) 
                                     continue;   
                             }
@@ -442,7 +449,8 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
                             dbg("subscribe to port %i\n", index);
 
-                            plugin_ctl->port_subscribe(index, (uint32_t)-1, callback);
+                            bool res = plugin_ctl->port_subscribe(index, (uint32_t)-1, callback);
+                            assert(!res);
                         } else {
                             dbg("WARNING: port notification connection but portIndex or symbol is not specified");
                         }
@@ -485,7 +493,11 @@ void UIHost::show() {
 #ifdef ENABLE_GTK2
     if (use_gtk) {
         gtk_widget_show_all(gtk_window);
-        gtk_window_set_keep_above(GTK_WINDOW(gtk_window), true);
+
+        // set transfient for parent glfw window
+        Window wid = (Window) glfwGetX11Window(glfwGetCurrentContext());
+        Window child = gdk_x11_drawable_get_xid(gtk_widget_get_window(GTK_WIDGET(gtk_window)));
+        XSetTransientForHint(glfwGetX11Display(), child, wid);
         return;
     }
 #endif
