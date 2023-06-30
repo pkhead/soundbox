@@ -18,6 +18,7 @@
 #ifdef UI_X11
 #include <X11/Xlib.h>
 #include <X11/extensions/Xcomposite.h>
+#include <X11/extensions/XTest.h>
 #elif defined(UI_WINDOWS)
 #include <windows.h>
 #endif
@@ -33,13 +34,6 @@
 #include <GLFW/glfw3native.h>
 #include <GL/glx.h>
 #include <GL/glext.h>
-
-typedef void (*t_glx_bind)(Display *, GLXDrawable, int , const int *);
-typedef void (*t_glx_release)(Display *, GLXDrawable, int);
-
-// manually bind to this function
-t_glx_bind glXBindTexImageEXT = 0;
-t_glx_release glXReleaseTexImageEXT = 0;
 
 using namespace lv2;
 
@@ -146,38 +140,6 @@ void UIHost::suil_touch_func(
 
 void UIHost::__touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed) {
     dbg("touch\n");
-}
-
-static bool XCOMPOSITE_ENABLED = false;
-
-// at startup, check compatibility with the GL extension required
-// for embedding windows
-void UIHost::check_compatibility()
-{
-    // use x11 composite extension to embed plugin UIs
-    // (XEmbed doesn't work well)
-    Display* xdisplay = glfwGetX11Display();
-
-    int ext_major, ext_minor;
-    if (XCompositeQueryExtension(xdisplay, &ext_major, &ext_minor))
-    {
-        int major_version, minor_version;
-        XCOMPOSITE_ENABLED = XCompositeQueryVersion(xdisplay, &major_version, &minor_version)
-            && (major_version > 0 || minor_version >= 2);
-    }
-    else
-    {
-        dbg("NOTICE: Xcomposite query extension is not enabled, fallback to external plugin windows\n");
-    }
-
-    // bind to functions
-    glXBindTexImageEXT = (t_glx_bind) glXGetProcAddress((const GLubyte*)"glXBindTexImageEXT");
-    glXReleaseTexImageEXT = (t_glx_release) glXGetProcAddress((const GLubyte*)"glXReleaseTexImageEXT");
-
-    if (!glXReleaseTexImageEXT || !glXReleaseTexImageEXT) {
-        dbg("NOTICE: Could not find required functions to support Xcomposite, fall back to external plugin windows\n");
-        XCOMPOSITE_ENABLED = false;
-    }
 }
 
 UIHost::UIHost(Lv2PluginHost* __plugin_controller)
@@ -420,8 +382,8 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                             glfwGetX11Display(),
                             (Window) parent_window_handle,
                             glfwGetX11Window(glfwGetCurrentContext()),
-                            -window_width,
-                            -window_height
+                            -window_width + 300,
+                            -window_height + 300
                         );
 #elif def(UI_WINDOWS)
                         abort(); // TODO
@@ -560,7 +522,7 @@ UIHost::~UIHost()
 #endif
     if (ui_window) {
 #ifdef UI_X11
-        if (XCOMPOSITE_ENABLED) {
+        /*if (XCOMPOSITE_ENABLED) {
             Display* xdisplay = glfwGetX11Display();
             
             if (texture_id) glDeleteTextures(1, &texture_id);
@@ -569,7 +531,7 @@ UIHost::~UIHost()
                 glXReleaseTexImageEXT(xdisplay, glx_pixmap, GLX_FRONT_EXT);
             }
             if (pixmap) XFreePixmap(xdisplay, pixmap);
-        }
+        }*/
 #endif
         glfwDestroyWindow(ui_window);
     }
@@ -592,7 +554,7 @@ void UIHost::show() {
     glfwShowWindow(ui_window);
 
 #ifdef UI_X11
-    if (XCOMPOSITE_ENABLED) {
+    /*if (XCOMPOSITE_ENABLED) {
         Display* display = glfwGetX11Display();
         Window wid = glfwGetX11Window(ui_window);
 
@@ -610,7 +572,7 @@ void UIHost::show() {
             GLX_BIND_TO_TEXTURE_RGB_EXT, True,
             GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
             GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
-            /*GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,*/
+            //GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,
             GLX_BUFFER_SIZE, 24,
             GLX_RED_SIZE, 8,
             GLX_GREEN_SIZE, 8,
@@ -622,7 +584,7 @@ void UIHost::show() {
         const int pixmap_attribs[] = {
             GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
             GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
-            /*GLX_MIPMAP_TEXTURE_EXT, True,*/
+            //GLX_MIPMAP_TEXTURE_EXT, True,
             0
         };
 
@@ -696,15 +658,16 @@ void UIHost::show() {
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
         glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     
-        /*
-        float fLargest = 0.0f;
-        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
-        */
+        
+        //float fLargest = 0.0f;
+        //glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
+        //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
+        
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
         XFree(configs);
+        XIconifyWindow(display, wid, 0);
         _is_embedded = true;
         return;
 
@@ -714,7 +677,7 @@ void UIHost::show() {
         if(glx_pixmap_bound)    glXReleaseTexImageEXT(display, glx_pixmap, GLX_FRONT_EXT);
         if(pixmap)              XFreePixmap(display, pixmap);
         if(configs)             XFree(configs);
-    }
+    }*/
 #endif
 }
 
@@ -812,9 +775,76 @@ bool UIHost::render()
 #ifdef UI_X11
     if (_is_embedded)
     {
+        Display* xdisplay = glfwGetX11Display();
+        Window wid = glfwGetX11Window(ui_window);
+
         int win_width, win_height;
         glfwGetWindowSize(ui_window, &win_width, &win_height);
+
+        ImVec2 cursor = ImGui::GetCursorPos();
+        ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
+        XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);
+
         ImGui::Image((void*)(size_t)texture_id, ImVec2(win_width, win_height));
+        ImGui::SetCursorPos(cursor);
+        ImGui::InvisibleButton("test", ImVec2(win_width, win_height));
+
+        // get mouse position on window
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+        static int last_mouse_x = -1;
+        static int last_mouse_y = -1;
+
+        int mouse_x = mouse_pos.x - cursor_screen.x;
+        int mouse_y = mouse_pos.y - cursor_screen.y;
+
+        
+        /*
+        if (ImGui::IsItemHovered() && (mouse_x != last_mouse_x || mouse_y != last_mouse_y)) {
+            dbg("mouse move %i %i\n", mouse_x, mouse_y);
+
+            XSetInputFocus(xdisplay, wid, RevertToParent, CurrentTime);
+            int status;
+
+            Window root_return, child_return;
+            int root_x_return, root_y_return;
+            int win_x_return, win_y_return;
+            unsigned int mask_return;
+
+            status = XQueryPointer(
+                xdisplay, wid,
+                &root_return, &child_return,
+                &root_x_return, &root_y_return,
+                &win_x_return, &win_y_return,
+                &mask_return);
+            assert(status != BadWindow);
+            
+            XEvent event = {};
+            event.xmotion.type = MotionNotify;
+            event.xmotion.display = xdisplay;
+            event.xmotion.window = wid;
+            event.xmotion.root = root_return;
+            event.xmotion.subwindow = child_return;
+            event.xmotion.time = (Time)(glfwGetTime() * 1000);
+            event.xmotion.x = mouse_x;
+            event.xmotion.y = mouse_y;
+            event.xmotion.x_root = root_x_return;
+            event.xmotion.y_root = root_y_return;
+            event.xmotion.state = mask_return;
+            event.xmotion.is_hint = NotifyNormal;
+            event.xmotion.same_screen = true;
+            status = XSendEvent(xdisplay, wid, False, PointerMotionMask | PointerMotionHintMask, &event);
+            XFlush(xdisplay);
+
+            if (status == 0) {
+                dbg("ERROR: SendEvent error\n");
+            }
+        }
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false)) {
+            
+        }*/
+
+        last_mouse_x = mouse_x;
+        last_mouse_y = mouse_y;
     }
 #endif
 

@@ -44,7 +44,6 @@ void lv2::lv2_init(int* argc, char*** argv) {
     gtk_init(argc, argv);
 #endif
 
-    UIHost::check_compatibility();
     suil_init(argc, argv, SUIL_ARG_NONE);
 
     URI.a = lilv_new_uri(LILV_WORLD, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type");

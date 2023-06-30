@@ -17,6 +17,7 @@
 #include <GLFW/glfw3.h>
 #include <math.h>
 #include <nfd.h>
+#include "sys.h"
 
 #ifdef _WIN32
 // i want the title bar to match light/dark theme in windows
@@ -24,6 +25,10 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #include <dwmapi.h>
+
+#ifndef INCLUDE_GLFW_NATIVE
+#define INCLUDE_GLFW_NATIVE
+#endif
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
@@ -38,7 +43,8 @@
 #include "ui/editor.h"
 #include "audio.h"
 #include "sys.h"
-
+#include "util.h"
+#include "winmgr.h"
 
 bool IS_BIG_ENDIAN;
 
@@ -57,6 +63,8 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nC
     return main();
 }
 #endif
+
+bool COMPOSITE_ENABLED = false;
 
 int main(int argc, char** argv)
 {
@@ -82,19 +90,17 @@ int main(int argc, char** argv)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    // create window w/ graphics context
-    glfwWindowHint(GLFW_VISIBLE, 0); // hide first, show later when everything is ready
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, 1);
-    GLFWwindow *window = glfwCreateWindow(1280, 720, "soundbox", nullptr, nullptr);
-    if (window == nullptr)
-        return 1;
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // enable vsync
+    // create root window
+    WindowManager window_manager(1280, 720, "soundbox");
+    // vsync is automatically enabled by winmgr
+    GLFWwindow* root_window = window_manager.root_window();
+    GLFWwindow* draw_window = window_manager.draw_window();
+    glfwMakeContextCurrent(draw_window);
 
 #ifdef _WIN32
     // match titlebar with user's theme
     {
-        HWND win = glfwGetWin32Window(window);
+        HWND win = glfwGetWin32Window(root_window);
         BOOL value = true;
         DwmSetWindowAttribute(win, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
     }
@@ -104,7 +110,7 @@ int main(int argc, char** argv)
     gladLoadGL(glfwGetProcAddress);
 
     float screen_xscale, screen_yscale;
-    glfwGetWindowContentScale(window, &screen_xscale, &screen_yscale);
+    glfwGetWindowContentScale(draw_window, &screen_xscale, &screen_yscale);
 
     // setup LV2 plugin host
     lv2::lv2_init(&argc, &argv);
@@ -125,7 +131,7 @@ int main(int argc, char** argv)
     if (screen_yscale == 1.0f)  io.FontDefault = font_proggy;
     else                        io.FontDefault = font_inconsolata;
 
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplGlfw_InitForOpenGL(draw_window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     ImGui::StyleColorsClassic();
@@ -456,8 +462,8 @@ int main(int argc, char** argv)
         });
 
         // application quit
-        user_actions.set_callback("quit", [&window]() {
-            glfwSetWindowShouldClose(window, 1);
+        user_actions.set_callback("quit", [&root_window]() {
+            glfwSetWindowShouldClose(root_window, 1);
         });
 
         // actions that don't require window management/io are defined in ui.cpp
@@ -641,13 +647,13 @@ int main(int argc, char** argv)
         // TODO: run all application logic in another thread (renderer)
         // so that window doesn't freeze when it is being dragged.
         // use glfwWaitEvents(false) on main thread and poll on renderer thread
-        glfwShowWindow(window);
+        glfwShowWindow(root_window);
         while (run_app)
         {
             Song*& song = song_editor.song;
 
-            if (glfwWindowShouldClose(window)) {
-                glfwSetWindowShouldClose(window, 0);
+            if (glfwWindowShouldClose(root_window)) {
+                glfwSetWindowShouldClose(root_window, 0);
                 prompt_unsaved_work = true;
                 unsaved_work_callback = [&]() {
                     run_app = false;
@@ -710,7 +716,7 @@ int main(int argc, char** argv)
             }
 
             int display_w, display_h;
-            glfwGetFramebufferSize(window, &display_w, &display_h);
+            glfwGetFramebufferSize(draw_window, &display_w, &display_h);
             
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -843,7 +849,8 @@ int main(int argc, char** argv)
             ImGui::Render();
             glViewport(0, 0, display_w, display_h);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-            glfwSwapBuffers(window);
+            glfwSwapBuffers(draw_window);
+            glfwSwapBuffers(root_window);
 
             prev_time = glfwGetTime();
         }

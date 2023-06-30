@@ -21,6 +21,8 @@
 #include <istream>
 #include <functional>
 
+extern bool COMPOSITE_ENABLED;
+
 namespace sys {
     struct interval_t;
     typedef void* dl_handle;
