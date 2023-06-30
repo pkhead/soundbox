@@ -386,6 +386,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                     }
 
                     glfwSetWindowSize(parent_window, window_width, window_height);
+
                     _is_embedded = window_manager.can_composite();
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {
@@ -649,22 +650,26 @@ bool UIHost::render()
 
         ImVec2 cursor = ImGui::GetCursorPos();
         ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
+        ImVec2 mouse_pos = ImGui::GetMousePos();
 
+        ImGuiStyle& style = ImGui::GetStyle();
+        ImGui::SetCursorPos(ImVec2(0.0f, ImGui::GetFrameHeight()));
         ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(win_width, win_height));
-        ImGui::SetCursorPos(cursor);
-        ImGui::InvisibleButton("UI", ImVec2(win_width, win_height));
-
-        // if button is hovered, activate the plugin window
-        // by having it under the mouse cursor
-        if (ImGui::IsItemHovered())
+        
+        // if window is hovered over, the plugin window is active
+        // can't use InvisibleButton and ImGui::IsItemHovered(), because
+        // it only returns true if the root window is in focus
+        if (window_manager.is_window_hovered()) {
+            dbg("%i\n", glfwGetMouseButton(ui_window, GLFW_MOUSE_BUTTON_LEFT));
             XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);
+        }
 
         // not hovered, move it off-screen
         else
             XMoveWindow(xdisplay, wid, -win_width, -win_height);
         
         // get mouse position on window
-        ImVec2 mouse_pos = ImGui::GetMousePos();
+        /*ImVec2 mouse_pos = ImGui::GetMousePos();
         static int last_mouse_x = -1;
         static int last_mouse_y = -1;
 
@@ -672,7 +677,7 @@ bool UIHost::render()
         int mouse_y = mouse_pos.y - cursor_screen.y;
 
         last_mouse_x = mouse_x;
-        last_mouse_y = mouse_y;
+        last_mouse_y = mouse_y;*/
     }
 #endif
 

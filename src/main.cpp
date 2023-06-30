@@ -850,6 +850,7 @@ int main(int argc, char** argv)
 
             // run worker scheduler
             song->work_scheduler.run();
+
             ImGui::Render();
 
             glfwMakeContextCurrent(draw_window);

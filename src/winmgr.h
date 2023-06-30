@@ -9,6 +9,8 @@
 #include <GL/glext.h>
 #endif
 
+#include <vector>
+
 class WindowTexture
 {
 private:
@@ -41,13 +43,14 @@ private:
     // inbetween root_window and draw_window are the actual plugin windows
 
     static void _glfw_resize_callback(GLFWwindow* win, int w, int h);
-    
+
 public:
     WindowManager(int width, int height, const char* name);
     ~WindowManager();
 
     inline bool can_composite() const { return _can_composite; };
 
+    bool is_window_hovered() const;
     GLFWwindow* root_window() const;
     GLFWwindow* draw_window() const;
 } extern WindowCompositor;

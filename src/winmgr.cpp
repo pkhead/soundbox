@@ -14,6 +14,8 @@
 #include <GLFW/glfw3native.h>
 #endif
 
+#include <imgui.h>
+#include <imgui_internal.h>
 #include "winmgr.h"
 
 typedef void (*t_glx_bind)(Display *, GLXDrawable, int , const int *);
@@ -92,6 +94,7 @@ WindowManager::WindowManager(int _w, int _h, const char* name) : _can_composite(
     // make draw window click-through
     XRectangle rect;
     XserverRegion region = XFixesCreateRegion(xdisplay, &rect, 1);
+    
     XFixesSetWindowShapeRegion(xdisplay, glfwGetX11Window(_draw_window), ShapeInput, 0, 0, region);
     XFixesDestroyRegion(xdisplay, region);
 #endif
@@ -114,6 +117,26 @@ GLFWwindow* WindowManager::draw_window() const {
         return _draw_window;
 }
 
+bool WindowManager::is_window_hovered() const
+{
+    ImGuiContext& g = *GImGui;
+
+    double xpos, ypos;
+    glfwGetCursorPos(_root_window, &xpos, &ypos);
+
+    for (int i = g.Windows.Size - 1; i >= 0; i--) {
+        ImGuiWindow* win = g.Windows[i];
+        
+        if (
+            xpos > win->Pos.x && xpos < win->Pos.x + win->Size.x &&
+            ypos > win->Pos.y && ypos < win->Pos.y + win->Size.y 
+        ) {
+            return win == g.CurrentWindow;
+        }
+    }
+    
+    return false;
+}
 
 WindowTexture::WindowTexture(GLFWwindow* window)
 :   _window(window)

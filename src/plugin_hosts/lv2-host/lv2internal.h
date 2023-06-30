@@ -594,6 +594,7 @@ namespace lv2 {
         // use x11 composite to get opengl texture
         std::unique_ptr<WindowTexture> window_texture;
         bool _is_embedded = false;
+        int _buttons = 0; // number of mouse buttons down on the window
 
         WindowManager& window_manager;
         
