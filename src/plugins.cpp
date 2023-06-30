@@ -168,7 +168,7 @@ static std::vector<std::string> parse_path_list(const std::string list_string)
     return list;
 }
 
-PluginManager::PluginManager(const WindowManager& win_manager) : window_manager(win_manager)
+PluginManager::PluginManager(WindowManager& win_manager) : window_manager(win_manager)
 {
     // get standard paths for plugin standards
     _std_ladspa = parse_path_list( LadspaPlugin::get_standard_paths() );

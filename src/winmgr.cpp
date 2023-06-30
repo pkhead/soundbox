@@ -1,9 +1,9 @@
 #include <stdexcept>
 
-#include "winmgr.h"
 #include "util.h"
 
 #ifdef UI_X11
+#include <glad/glad.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xfixes.h>
@@ -12,6 +12,8 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #endif
+
+#include "winmgr.h"
 
 typedef void (*t_glx_bind)(Display *, GLXDrawable, int , const int *);
 typedef void (*t_glx_release)(Display *, GLXDrawable, int);
@@ -103,4 +105,144 @@ GLFWwindow* WindowManager::draw_window() const {
     else
      
         return _draw_window;
+}
+
+
+WindowTexture::WindowTexture(GLFWwindow* window)
+:   _window(window)
+{
+    Display* display = glfwGetX11Display();
+    Window wid = glfwGetX11Window(window);
+
+    // adapted from https://git.dec05eba.com/window-texture/tree/window_texture.c
+    int result = 0;
+    GLXFBConfig *configs = NULL;
+    _pixmap = 0;
+    _glx_pixmap = 0;
+    _texture_id = 0;
+    int glx_pixmap_bound = 0;
+
+    XCompositeRedirectWindow(display, wid, CompositeRedirectAutomatic);
+
+    const int pixmap_config[] = {
+        GLX_BIND_TO_TEXTURE_RGB_EXT, True,
+        GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
+        GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
+        //GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,
+        GLX_BUFFER_SIZE, 24,
+        GLX_RED_SIZE, 8,
+        GLX_GREEN_SIZE, 8,
+        GLX_BLUE_SIZE, 8,
+        GLX_ALPHA_SIZE, 0,
+        0
+    };
+
+    const int pixmap_attribs[] = {
+        GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
+        GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
+        //GLX_MIPMAP_TEXTURE_EXT, True,
+        0
+    };
+
+    XWindowAttributes attr;
+    if (!XGetWindowAttributes(display, wid, &attr)) {
+        dbg("ERROR: Failed to get X window attributes\n");
+        return;
+    }
+
+    GLXFBConfig config;
+    int c;
+
+    // TODO: get proper screen?
+    configs = glXChooseFBConfig(display, 0, pixmap_config, &c);
+    if (!configs) {
+        dbg("ERROR: Failed to choose FB config\n");
+        return;
+    }
+    
+    int found = 0;
+    for (int i = 0; i < c; i++) {
+        config = configs[i];
+        XVisualInfo *visual = glXGetVisualFromFBConfig(display, config);
+        if (!visual)
+            continue;
+
+        if (attr.depth != visual->depth) {
+            XFree(visual);
+            continue;
+        }
+
+        XFree(visual);
+        found = 1;
+        break;
+    }
+
+    if(!found) {
+        dbg("ERROR: No matching fb config found\n");
+        result = 1;
+        goto cleanup;
+    }
+
+    _pixmap = XCompositeNameWindowPixmap(display, wid);
+    if(!_pixmap) {
+        result = 2;
+        goto cleanup;
+    }
+
+    _glx_pixmap = glXCreatePixmap(display, config, _pixmap, pixmap_attribs);
+    if(!_glx_pixmap) {
+        result = 3;
+        goto cleanup;
+    }
+
+    if(_texture_id == 0) {
+        glGenTextures(1, &_texture_id);
+        if(_texture_id == 0) {
+            result = 4;
+            goto cleanup;
+        }
+        glBindTexture(GL_TEXTURE_2D, _texture_id);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, _texture_id);
+    }
+
+    glXBindTexImageEXT(display, _glx_pixmap, GLX_FRONT_EXT, NULL);
+    glx_pixmap_bound = 1;
+
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+
+    
+    //float fLargest = 0.0f;
+    //glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
+    //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
+    
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    XFree(configs);
+    _success = true;
+    return;
+
+    cleanup:
+    if (_texture_id != 0)    glDeleteTextures(1, &_texture_id);
+    if (_glx_pixmap)         glXDestroyPixmap(display, _glx_pixmap);
+    if (glx_pixmap_bound)    glXReleaseTexImageEXT(display, _glx_pixmap, GLX_FRONT_EXT);
+    if (_pixmap)             XFreePixmap(display, _pixmap);
+    if (configs)             XFree(configs);
+}
+
+WindowTexture::~WindowTexture() {
+    Display* xdisplay = glfwGetX11Display();
+    Window wid = glfwGetX11Window(_window);
+
+    XCompositeUnredirectWindow(xdisplay, wid, CompositeRedirectAutomatic);
+            
+    if (_texture_id) glDeleteTextures(1, &_texture_id);
+    if (_glx_pixmap) {
+        glXDestroyPixmap(xdisplay, _glx_pixmap);
+        glXReleaseTexImageEXT(xdisplay, _glx_pixmap, GLX_FRONT_EXT);
+    }
 }

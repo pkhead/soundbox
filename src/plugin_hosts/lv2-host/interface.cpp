@@ -10,7 +10,7 @@ Lv2Plugin::Lv2Plugin(
     audiomod::DestinationModule& dest,
     const PluginData& data,
     WorkScheduler& scheduler,
-    const WindowManager& window_manager
+    WindowManager& window_manager
 ) : PluginModule(dest, data), host(dest, data, scheduler), ui_host(&host, window_manager)
 {
     _has_interface = control_value_count() > 0 || ui_host.has_custom_ui();

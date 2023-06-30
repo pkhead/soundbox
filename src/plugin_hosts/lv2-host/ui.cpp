@@ -142,7 +142,7 @@ void UIHost::__touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grab
     dbg("touch\n");
 }
 
-UIHost::UIHost(Lv2PluginHost* __plugin_controller, const WindowManager& _win_manager) : window_manager(_win_manager)
+UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) : window_manager(_win_manager)
 {
     const LilvNode* host_type =
     #ifdef UI_WINDOWS
@@ -373,17 +373,12 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, const WindowManager& _win_man
                         XGetWindowAttributes(glfwGetX11Display(), (Window) child_window, &attrib);
                         window_width = attrib.width;
                         window_height = attrib.height;
-
-                        // this is in order to have the window not visible
-                        // but still mapped. by having it clipped in a region
-                        // that's always offscreen. a bit of a hack, but i
-                        // couldn't find a way to properly do this.
+                        
                         XReparentWindow(
                             glfwGetX11Display(),
                             (Window) parent_window_handle,
-                            glfwGetX11Window(glfwGetCurrentContext()),
-                            -window_width + 300,
-                            -window_height + 300
+                            glfwGetX11Window(window_manager.root_window()),
+                            0, 0
                         );
 #elif def(UI_WINDOWS)
                         abort(); // TODO
@@ -391,6 +386,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, const WindowManager& _win_man
                     }
 
                     glfwSetWindowSize(parent_window, window_width, window_height);
+                    _is_embedded = window_manager.can_composite();
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {
                     dbg("ERROR: could not instantiate ui\n");
@@ -522,16 +518,7 @@ UIHost::~UIHost()
 #endif
     if (ui_window) {
 #ifdef UI_X11
-        /*if (XCOMPOSITE_ENABLED) {
-            Display* xdisplay = glfwGetX11Display();
-            
-            if (texture_id) glDeleteTextures(1, &texture_id);
-            if (glx_pixmap) {
-                glXDestroyPixmap(xdisplay, glx_pixmap);
-                glXReleaseTexImageEXT(xdisplay, glx_pixmap, GLX_FRONT_EXT);
-            }
-            if (pixmap) XFreePixmap(xdisplay, pixmap);
-        }*/
+        window_texture = nullptr;
 #endif
         glfwDestroyWindow(ui_window);
     }
@@ -554,130 +541,11 @@ void UIHost::show() {
     glfwShowWindow(ui_window);
 
 #ifdef UI_X11
-    /*if (XCOMPOSITE_ENABLED) {
-        Display* display = glfwGetX11Display();
-        Window wid = glfwGetX11Window(ui_window);
-
-        // adapted from https://git.dec05eba.com/window-texture/tree/window_texture.c
-        int result = 0;
-        GLXFBConfig *configs = NULL;
-        pixmap = 0;
-        glx_pixmap = 0;
-        texture_id = 0;
-        int glx_pixmap_bound = 0;
-
-        XCompositeRedirectWindow(display, wid, CompositeRedirectAutomatic);
-
-        const int pixmap_config[] = {
-            GLX_BIND_TO_TEXTURE_RGB_EXT, True,
-            GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
-            GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
-            //GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,
-            GLX_BUFFER_SIZE, 24,
-            GLX_RED_SIZE, 8,
-            GLX_GREEN_SIZE, 8,
-            GLX_BLUE_SIZE, 8,
-            GLX_ALPHA_SIZE, 0,
-            0
-        };
-
-        const int pixmap_attribs[] = {
-            GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
-            GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
-            //GLX_MIPMAP_TEXTURE_EXT, True,
-            0
-        };
-
-        XWindowAttributes attr;
-        if (!XGetWindowAttributes(display, wid, &attr)) {
-            dbg("ERROR: Failed to get X window attributes\n");
-            return;
-        }
-
-        GLXFBConfig config;
-        int c;
-
-        // TODO: get proper screen?
-        configs = glXChooseFBConfig(display, 0, pixmap_config, &c);
-        if (!configs) {
-            dbg("ERROR: Failed to choose FB config\n");
-            return;
-        }
-        
-        int found = 0;
-        for (int i = 0; i < c; i++) {
-            config = configs[i];
-            XVisualInfo *visual = glXGetVisualFromFBConfig(display, config);
-            if (!visual)
-                continue;
-
-            if (attr.depth != visual->depth) {
-                XFree(visual);
-                continue;
-            }
-
-            XFree(visual);
-            found = 1;
-            break;
-        }
-
-        if(!found) {
-            dbg("ERROR: No matching fb config found\n");
-            result = 1;
-            goto cleanup;
-        }
-
-        pixmap = XCompositeNameWindowPixmap(display, wid);
-        if(!pixmap) {
-            result = 2;
-            goto cleanup;
-        }
-
-        glx_pixmap = glXCreatePixmap(display, config, pixmap, pixmap_attribs);
-        if(!glx_pixmap) {
-            result = 3;
-            goto cleanup;
-        }
-
-        if(texture_id == 0) {
-            glGenTextures(1, &texture_id);
-            if(texture_id == 0) {
-                result = 4;
-                goto cleanup;
-            }
-            glBindTexture(GL_TEXTURE_2D, texture_id);
-        } else {
-            glBindTexture(GL_TEXTURE_2D, texture_id);
-        }
-
-        glXBindTexImageEXT(display, glx_pixmap, GLX_FRONT_EXT, NULL);
-        glx_pixmap_bound = 1;
-
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-    
-        
-        //float fLargest = 0.0f;
-        //glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
-        //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
-        
-
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        XFree(configs);
-        XIconifyWindow(display, wid, 0);
-        _is_embedded = true;
-        return;
-
-        cleanup:
-        if(texture_id != 0)     glDeleteTextures(1, &texture_id);
-        if(glx_pixmap)          glXDestroyPixmap(display, glx_pixmap);
-        if(glx_pixmap_bound)    glXReleaseTexImageEXT(display, glx_pixmap, GLX_FRONT_EXT);
-        if(pixmap)              XFreePixmap(display, pixmap);
-        if(configs)             XFree(configs);
-    }*/
+    if (window_manager.can_composite()) {
+        window_texture = std::make_unique<WindowTexture>(ui_window);
+        if (!window_texture->is_loaded()) window_texture = nullptr;
+        XLowerWindow(glfwGetX11Display(), glfwGetX11Window(ui_window));
+    }
 #endif
 }
 
@@ -692,9 +560,7 @@ void UIHost::hide() {
 #endif
 
 #ifdef UI_X11
-    Display* xdisplay = glfwGetX11Display();
-    Window wid = glfwGetX11Window(ui_window);
-    XCompositeUnredirectWindow(xdisplay, wid, CompositeRedirectAutomatic);
+    window_texture = nullptr;
 #endif
     glfwHideWindow(ui_window);
 }
@@ -773,7 +639,7 @@ bool UIHost::render()
     }
 
 #ifdef UI_X11
-    if (_is_embedded)
+    if (window_texture)
     {
         Display* xdisplay = glfwGetX11Display();
         Window wid = glfwGetX11Window(ui_window);
@@ -785,7 +651,7 @@ bool UIHost::render()
         ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
         XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);
 
-        ImGui::Image((void*)(size_t)texture_id, ImVec2(win_width, win_height));
+        ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(win_width, win_height));
         ImGui::SetCursorPos(cursor);
         ImGui::InvisibleButton("test", ImVec2(win_width, win_height));
 

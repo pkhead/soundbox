@@ -9,6 +9,25 @@
 #include <GL/glext.h>
 #endif
 
+class WindowTexture
+{
+private:
+    Pixmap _pixmap = 0;
+    GLXPixmap _glx_pixmap = 0;
+    GLuint _texture_id = 0;
+    GLFWwindow* _window;
+    int _width = 0;
+    int _height = 0;
+    bool _success = false;
+public:
+    WindowTexture(GLFWwindow* window);
+    ~WindowTexture();
+
+    inline bool is_loaded() const { return _success; };
+    inline GLFWwindow* window() const { return _window; };
+    inline GLuint texture_id() const { return _texture_id; };
+};
+
 class WindowManager
 {
 private:

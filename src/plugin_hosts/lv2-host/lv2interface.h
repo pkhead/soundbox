@@ -22,7 +22,7 @@ namespace plugins
         void _interface_proc() override;
     
     public:
-        Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler, const WindowManager& winmgr);
+        Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler, WindowManager& winmgr);
         ~Lv2Plugin();
 
         virtual PluginType plugin_type() { return PluginType::Lv2; };

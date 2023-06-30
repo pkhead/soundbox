@@ -94,12 +94,12 @@ namespace plugins
         std::vector<std::string> _std_lv2;
         std::vector<std::string> _std_dummy; // empty vector
 
-        const WindowManager& window_manager;
+        WindowManager& window_manager;
     public:
         std::vector<std::string> ladspa_paths;
         std::vector<std::string> lv2_paths;
         
-        PluginManager(const WindowManager& window_manager);
+        PluginManager(WindowManager& window_manager);
 
         PluginModule* instantiate_plugin(
             const PluginData& plugin_data,

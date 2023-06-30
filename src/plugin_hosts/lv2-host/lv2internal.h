@@ -592,15 +592,13 @@ namespace lv2 {
         std::vector<LV2_Feature*> features;
 
         // use x11 composite to get opengl texture
-        Pixmap pixmap = 0;
-        GLXPixmap glx_pixmap = 0;
-        GLuint texture_id = 0;
+        std::unique_ptr<WindowTexture> window_texture;
         bool _is_embedded = false;
 
-        const WindowManager& window_manager;
+        WindowManager& window_manager;
         
     public:
-        UIHost(Lv2PluginHost* host, const WindowManager& window_manager);
+        UIHost(Lv2PluginHost* host, WindowManager& window_manager);
         ~UIHost();
 
         void show();
