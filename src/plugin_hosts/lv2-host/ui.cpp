@@ -142,7 +142,7 @@ void UIHost::__touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grab
     dbg("touch\n");
 }
 
-UIHost::UIHost(Lv2PluginHost* __plugin_controller)
+UIHost::UIHost(Lv2PluginHost* __plugin_controller, const WindowManager& _win_manager) : window_manager(_win_manager)
 {
     const LilvNode* host_type =
     #ifdef UI_WINDOWS

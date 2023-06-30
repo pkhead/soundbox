@@ -110,8 +110,8 @@ const char* UserActionList::combo_str(const std::string& action_name) const {
 // SongEditor singleton //
 //////////////////////////
 
-SongEditor::SongEditor(Song* song, audiomod::DestinationModule& audio_dest) :
-    song(song), audio_dest(audio_dest)
+SongEditor::SongEditor(Song* song, audiomod::DestinationModule& audio_dest, WindowManager& win_mgr) :
+    song(song), audio_dest(audio_dest), plugin_manager(win_mgr)
 {
     const char* theme_name = "Soundbox Dark";
 

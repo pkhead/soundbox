@@ -25,12 +25,6 @@
 #include <gtk/gtk.h>
 #endif
 
-#ifdef UI_X11
-#include <X11/extensions/Xcomposite.h>
-#define GLFW_EXPOSE_NATIVE_X11
-#include <GLFW/glfw3native.h>
-#endif
-
 using namespace plugins;
 using namespace lv2;
 

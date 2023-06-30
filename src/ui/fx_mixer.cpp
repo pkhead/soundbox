@@ -217,7 +217,7 @@ void render_fx_mixer(SongEditor &editor)
                             change::FXRackTargetType::TargetFXBus,
                             result.module_id
                         ));
-                    } catch (audiomod::module_create_error& err) {
+                    } catch (plugins::module_create_error& err) {
                         show_status("Error: %s", err.what());
                     }
 

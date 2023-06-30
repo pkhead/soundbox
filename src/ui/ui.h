@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <iostream>
 #include <imgui.h>
-#include <glad/gl.h>
 
 #include "../audio.h"
 #include "../song.h"

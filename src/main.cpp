@@ -193,7 +193,10 @@ int main(int argc, char** argv)
         audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
         
         // initialize song editor
-        SongEditor song_editor(new Song(4, 8, 8, destination), destination);
+        SongEditor song_editor(
+            new Song(4, 8, 8, destination),
+            destination, window_manager
+        );
         song_editor.load_preferences();
         
         // this mutex is locked by the audio thread while audio is being processed

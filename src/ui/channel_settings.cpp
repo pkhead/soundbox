@@ -129,7 +129,7 @@ void render_channel_settings(SongEditor &editor)
                     mod->song = editor.song;
                     mod->parent_name = cur_channel->name;
                     cur_channel->set_instrument(mod);
-                } catch (audiomod::module_create_error& err) {
+                } catch (plugins::module_create_error& err) {
                     show_status("Error: %s", err.what());
                 }
             }
@@ -167,7 +167,7 @@ void render_channel_settings(SongEditor &editor)
                         change::FXRackTargetType::TargetChannel,
                         result.module_id
                     ));
-                } catch (audiomod::module_create_error& err) {
+                } catch (plugins::module_create_error& err) {
                     show_status("Error: %s", err.what());
                 }
                 

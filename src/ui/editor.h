@@ -49,7 +49,7 @@ class SongEditor {
 private:
 
 public:
-    SongEditor(Song* song, audiomod::DestinationModule& audio_dest);
+    SongEditor(Song* song, audiomod::DestinationModule& audio_dest, WindowManager& winmgr);
     ~SongEditor();
     Song* song;
     Theme theme;

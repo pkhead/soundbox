@@ -1,8 +1,6 @@
 #include "../audio.h"
 #include "../sys.h"
 #include "../plugins.h"
-#include "../plugin_hosts/ladspa.h"
-#include "../plugin_hosts/lv2-host/lv2interface.h"
 #include "../ui/editor.h"
 #include "modules.h"
 #include <iostream>
@@ -52,29 +50,7 @@ ModuleBase* audiomod::create_module(
     for (auto& plugin_data : plugin_manager.get_plugin_data())
     {
         if (mod_id == plugin_data.id)
-        {
-            plugins::PluginModule* plugin;
-
-            switch (plugin_data.type)
-            {
-                case plugins::PluginType::Ladspa:
-                    plugin = new plugins::LadspaPlugin(audio_dest, plugin_data);
-                    break;
-
-                case plugins::PluginType::Lv2:
-                try {
-                    plugin = new plugins::Lv2Plugin(audio_dest, plugin_data, scheduler);
-                } catch (plugins::lv2_error& err) {
-                    throw module_create_error(err.what());
-                }
-                    break;
-
-                default:
-                    throw std::runtime_error("invalid plugin type");
-            }
-
-            return plugin;
-        }
+            return plugin_manager.instantiate_plugin(plugin_data, audio_dest, scheduler);
     }
 
     // no module found

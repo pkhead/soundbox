@@ -4,9 +4,17 @@
 #include "sys.h"
 #include "audio.h"
 #include "sys.h"
+#include "winmgr.h"
+#include "worker.h"
 
 namespace plugins
 {
+    class module_create_error : public std::runtime_error
+    {
+    public:
+        module_create_error(const std::string& what = "") : std::runtime_error(what) {};
+    };
+
     enum class PluginType : uint8_t
     {
         Ladspa,
@@ -85,11 +93,19 @@ namespace plugins
         std::vector<std::string> _std_ladspa;
         std::vector<std::string> _std_lv2;
         std::vector<std::string> _std_dummy; // empty vector
+
+        const WindowManager& window_manager;
     public:
         std::vector<std::string> ladspa_paths;
         std::vector<std::string> lv2_paths;
         
-        PluginManager();
+        PluginManager(const WindowManager& window_manager);
+
+        PluginModule* instantiate_plugin(
+            const PluginData& plugin_data,
+            audiomod::DestinationModule& audio_dest,
+            WorkScheduler& work_scheduler
+        );
 
         void add_path(PluginType type, const std::string& path);
         inline const std::vector<PluginData>& get_plugin_data() { return plugin_data; };

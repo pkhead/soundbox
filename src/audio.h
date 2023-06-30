@@ -395,18 +395,12 @@ namespace audiomod {
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 
-    class module_create_error : public std::runtime_error
-    {
-    public:
-        module_create_error(const std::string& what = "") : std::runtime_error(what) {};
-    };
-
     // define in modules/modules.cpp
     ModuleBase* create_module(
         const std::string& mod_id,
         DestinationModule& audio_dest,
         plugins::PluginManager& plugin_manager,
-        WorkScheduler& scheduler
+        WorkScheduler& work_scheduler
     );
     
     // if module takes in MIDI inputs or does not take in audio input

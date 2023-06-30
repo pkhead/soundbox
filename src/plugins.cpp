@@ -7,7 +7,6 @@
 #include <vector>
 #include <cmath>
 #include <imgui.h>
-#include <plugins/ladspa.h>
 
 #include "audio.h"
 #include "plugins.h"
@@ -169,7 +168,7 @@ static std::vector<std::string> parse_path_list(const std::string list_string)
     return list;
 }
 
-PluginManager::PluginManager()
+PluginManager::PluginManager(const WindowManager& win_manager) : window_manager(win_manager)
 {
     // get standard paths for plugin standards
     _std_ladspa = parse_path_list( LadspaPlugin::get_standard_paths() );
@@ -228,4 +227,32 @@ void PluginManager::scan_plugins()
     plugin_data.clear();
     LadspaPlugin::scan_plugins(ladspa_paths, plugin_data);
     Lv2Plugin::scan_plugins(lv2_paths, plugin_data);
+}
+
+PluginModule* PluginManager::instantiate_plugin(
+    const PluginData& plugin_data,
+    audiomod::DestinationModule& audio_dest,
+    WorkScheduler& work_scheduler
+) {
+    plugins::PluginModule* plugin;
+
+    switch (plugin_data.type)
+    {
+        case plugins::PluginType::Ladspa:
+            plugin = new plugins::LadspaPlugin(audio_dest, plugin_data);
+            break;
+
+        case plugins::PluginType::Lv2:
+        try {
+            plugin = new plugins::Lv2Plugin(audio_dest, plugin_data, work_scheduler, window_manager);
+        } catch (plugins::lv2_error& err) {
+            throw module_create_error(err.what());
+        }
+            break;
+
+        default:
+            throw std::runtime_error("invalid plugin type");
+    }
+
+    return plugin;
 }

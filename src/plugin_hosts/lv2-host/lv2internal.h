@@ -1,4 +1,5 @@
 #pragma once
+#undef Bool
 #include <lilv/lilv.h>
 #include <lv2/log/log.h>
 #include <lv2/atom/atom.h>
@@ -17,6 +18,7 @@
 #include "../../worker.h"
 #include "../../audio.h"
 #include "../../plugins.h"
+#include "../../winmgr.h"
 
 #ifdef ENABLE_GTK2
 #include <gtk/gtk.h>
@@ -594,9 +596,11 @@ namespace lv2 {
         GLXPixmap glx_pixmap = 0;
         GLuint texture_id = 0;
         bool _is_embedded = false;
+
+        const WindowManager& window_manager;
         
     public:
-        UIHost(Lv2PluginHost* host);
+        UIHost(Lv2PluginHost* host, const WindowManager& window_manager);
         ~UIHost();
 
         void show();
