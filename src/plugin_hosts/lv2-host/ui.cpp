@@ -353,13 +353,12 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                 parent_window = glfwCreateWindow(100, 100, plugin_name, 0, 0);
     #ifdef UI_X11
                 parent_window_handle = (void*) glfwGetX11Window(parent_window);
-
                 // make child window float above parent window
-                XSetTransientForHint(
+                /*XSetTransientForHint(
                     glfwGetX11Display(),
                     (Window) parent_window_handle,
                     glfwGetX11Window( glfwGetCurrentContext() )
-                );
+                );*/
     #elif defined(UI_WINDOWS)
                 parent_window_handle = (void*) glfwGetWin32Window(parent_window);
     #endif
@@ -412,6 +411,18 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                         XGetWindowAttributes(glfwGetX11Display(), (Window) child_window, &attrib);
                         window_width = attrib.width;
                         window_height = attrib.height;
+
+                        // this is in order to have the window not visible
+                        // but still mapped. by having it clipped in a region
+                        // that's always offscreen. a bit of a hack, but i
+                        // couldn't find a way to properly do this.
+                        XReparentWindow(
+                            glfwGetX11Display(),
+                            (Window) parent_window_handle,
+                            glfwGetX11Window(glfwGetCurrentContext()),
+                            -window_width,
+                            -window_height
+                        );
 #elif def(UI_WINDOWS)
                         abort(); // TODO
 #endif
