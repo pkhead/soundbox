@@ -214,7 +214,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
 
                 // atom:Sequence
                 if (lilv_node_equals(buffer_type_n, URI.atom_Sequence)) {
-                    AtomSequenceBuffer* seq_buf = new AtomSequenceBuffer {
+                    AtomSequencePort* seq_buf = new AtomSequencePort {
                         port, port_symbol,
 
                         {
@@ -256,7 +256,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
                         }
                     }
 
-                    lilv_instance_connect_port(instance, i, &seq_buf->header);
+                    lilv_instance_connect_port(instance, i, &seq_buf->data.header);
 
                     PortData port_data;
                     port_data.is_output = is_output_port;
@@ -442,17 +442,17 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
     );
 
     // send buffer capacity to plugins
-    for (AtomSequenceBuffer* buf : msg_out)
-        buf->header.atom.size = ATOM_SEQUENCE_CAPACITY;
+    for (AtomSequencePort* out : msg_out)
+        out->data.header.atom.size = ATOM_SEQUENCE_CAPACITY;
 
     // set and monitor required parameters
     if (patch_in)
     {
-        LV2_Atom_Event* event = lv2_atom_sequence_end(&patch_in->header.body, patch_in->header.atom.size);
+        LV2_Atom_Event* event = lv2_atom_sequence_end(&patch_in->data.header.body, patch_in->data.header.atom.size);
         lv2_atom_forge_set_buffer(
             &forge,
             (uint8_t*) event,
-            ATOM_SEQUENCE_CAPACITY - ((size_t)(event) - (size_t)(patch_in->data))
+            ATOM_SEQUENCE_CAPACITY - ((size_t)(event) - (size_t)(patch_in->data.data))
         );
 
         LV2_Atom_Forge_Frame frame;
@@ -498,7 +498,7 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
             }
         }
 
-        patch_in->header.atom.size += lv2_atom_pad_size(forge.offset);
+        patch_in->data.header.atom.size += lv2_atom_pad_size(forge.offset);
     }
 
     // send time and tempo information to plugin
@@ -512,11 +512,11 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
             song_last_tempo = song_tempo;
             song_last_playing = song_playing;
 
-            LV2_Atom_Event* event = lv2_atom_sequence_end(&time_in->header.body, time_in->header.atom.size);
+            LV2_Atom_Event* event = lv2_atom_sequence_end(&time_in->data.header.body, time_in->data.header.atom.size);
             lv2_atom_forge_set_buffer(
                 &forge,
                 (uint8_t*) event,
-                ATOM_SEQUENCE_CAPACITY - ((size_t)(event) - (size_t)(time_in->data))
+                ATOM_SEQUENCE_CAPACITY - ((size_t)(event) - (size_t)(time_in->data.data))
             );
 
             LV2_Atom_Forge_Frame frame;
@@ -539,7 +539,7 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
 
             lv2_atom_forge_pop(&forge, &frame);
 
-            time_in->header.atom.size += lv2_atom_pad_size(forge.offset);
+            time_in->data.header.atom.size += lv2_atom_pad_size(forge.offset);
         }
     }
 
@@ -549,8 +549,8 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
     worker_host.end_run();
 
     // clear input message streams
-    for (AtomSequenceBuffer* buf : msg_in)
-        lv2_atom_sequence_clear(&buf->header);
+    for (AtomSequencePort* in : msg_in)
+        lv2_atom_sequence_clear(&in->data.header);
 
     // write output buffers
     convert_to_stereo(
@@ -578,7 +578,7 @@ void Lv2PluginHost::event(const audiomod::MidiEvent& midi_event)
         atom.header.body.type = uri::map(LV2_MIDI__MidiEvent);
         memcpy(&atom.midi, &midi_msg, midi_msg.size());
 
-        lv2_atom_sequence_append_event(&midi_in->header, ATOM_SEQUENCE_CAPACITY, &atom.header);
+        lv2_atom_sequence_append_event(&midi_in->data.header, ATOM_SEQUENCE_CAPACITY, &atom.header);
     }
 }
 
@@ -588,7 +588,7 @@ size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer,
     {
         LV2_Atom_Event** it = (LV2_Atom_Event**) handle;
 
-        LV2_Atom_Sequence& seq = midi_out->header;
+        LV2_Atom_Sequence& seq = midi_out->data.header;
 
         if (*it == nullptr)
             *it = lv2_atom_sequence_begin(&seq.body);
@@ -630,46 +630,37 @@ size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer,
 void Lv2PluginHost::flush_events()
 {
     // port notifications
-    const int event_transfer = uri::map(LV2_ATOM__eventTransfer);
+    // copy port values to the UIHost
+    _writing_notifs = true;
 
-    for (auto& [ index, callback ] : port_event_callbacks)
+    for (auto& [ index, target ] : port_notification_targets)
     {
         const PortData& port_data = ports[index];
 
         switch (port_data.type) {
             case PortData::Control: {
-                callback(
-                    index,
-                    sizeof(float),
-                    0,
-                    port_data.is_output ? &port_data.ctl_out->value : &port_data.ctl_in->value
-                );
-
+                *((float*)target) = port_data.is_output ? port_data.ctl_out->value : port_data.ctl_in->value;
                 break;
             }
 
             case PortData::AtomSequence: {
-                LV2_ATOM_SEQUENCE_FOREACH (&port_data.sequence->header, ev)
-                {
-                    dbg("CALLBACK\n");
-
-                    callback(
-                        index,
-                        ev->body.size + sizeof(ev->body),
-                        event_transfer,
-                        &ev->body
-                    );
-
-                    break;
-                }
+                ConcurrentAtomSequence* out = (ConcurrentAtomSequence*)(target);
+                auto write_handle = out->begin_write();
+                LV2_ATOM_SEQUENCE_FOREACH (&port_data.sequence->data.header, ev)
+                    write_handle.append(ev);
+                
                 break;
+
+                // write handle will unlock when destroyed
             }
         }
     }
 
+    _writing_notifs = false;
+
     // read patch:Put and patch:Set events
     if (patch_out) {
-        LV2_ATOM_SEQUENCE_FOREACH (&patch_out->header, ev)
+        LV2_ATOM_SEQUENCE_FOREACH (&patch_out->data.header, ev)
         {
             if (ev->body.type == uri::map(LV2_ATOM__Object))
             {
@@ -700,29 +691,19 @@ void Lv2PluginHost::flush_events()
     }
 }
 
-bool Lv2PluginHost::port_subscribe(uint32_t port_index, uint32_t protocol, PortEventCallback callback)
+void Lv2PluginHost::port_subscribe(uint32_t port_index, void* out)
 {
     auto it = ports.find(port_index);
-    if (it == ports.end()) return true;
+    if (it == ports.end()) return;
     auto& [ index, port_data ] = *it;
     assert(index == port_index);
 
-    uint32_t required_protocol;
+    port_notification_targets[index] = out;
+}
 
-    if (port_data.type == PortData::Control && !port_data.is_output) {
-        required_protocol = 0;
-    }
-    else if (port_data.type == PortData::AtomSequence) {
-        required_protocol = uri::map(LV2_ATOM__eventTransfer);
-    }
-
-    // error if protocol and required_protocol don't match
-    // if protocol == -1, it is fine
-    if (protocol != (uint32_t)-1 && protocol != required_protocol)
-        return true;
-
-    port_event_callbacks[index] = callback;
-    return false;
+void Lv2PluginHost::port_unsubscribe(uint32_t port_index)
+{
+    port_notification_targets.erase(port_index);
 }
 
 // TODO

@@ -38,7 +38,7 @@ uint32_t UIHost::suil_port_index_func(SuilController controller, const char* por
 {
     UIHost* self = (UIHost*) controller;
 
-    for (auto& [ index, port_data ] : self->plugin_ctl->ports)
+    for (const auto& [ index, port_data ] : self->plugin_ctl->ports)
     {
         if (strcmp(port_data.symbol, port_symbol) == 0)
             return index;
@@ -82,7 +82,7 @@ void UIHost::suil_port_write_func(
     if (it == self->plugin_ctl->ports.end())
         return;
     
-    auto& [ index, port ] = *it;
+    const auto& [ index, port ] = *it;
     if (port.is_output) return;
 
     // input float
@@ -98,6 +98,7 @@ void UIHost::suil_port_write_func(
     else if (protocol == uri::map(LV2_ATOM__eventTransfer))
     {
         if (port.type == PortData::AtomSequence) {
+            // TODO: this is not thread-safe
             if (data_size < 128) {
                 struct {
                     int64_t time;
@@ -108,7 +109,7 @@ void UIHost::suil_port_write_func(
                 memcpy(&payload.data, data, data_size);
 
                 lv2_atom_sequence_append_event(
-                    &port.sequence->header,
+                    &port.sequence->data.header,
                     ATOM_SEQUENCE_CAPACITY,
                     (LV2_Atom_Event*) &payload
                 );
@@ -431,28 +432,45 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
                                     continue;   
                             }
 
-                            // subscribe to the port
-                            PortEventCallback callback = [this](
-                                uint32_t port_index,
-                                uint32_t buffer_size,
-                                uint32_t format,
-                                const void* buffer
-                            ) {
-                                suil_instance_port_event(
-                                    suil_instance,
-                                    port_index,
-                                    buffer_size,
-                                    format,
-                                    buffer
-                                );
-                            };
+                            auto port_it = plugin_ctl->ports.find(index);
 
-                            dbg("subscribe to port %i\n", index);
+                            if (port_it != plugin_ctl->ports.end()) {
+                                plugin_ctl->ports.find(index);
+                                const PortData& port_data = port_it->second; 
 
-                            bool res = plugin_ctl->port_subscribe(index, (uint32_t)-1, callback);
-                            assert(!res);
+                                dbg("subscribe to port %i\n", index);
+
+                                void* data = nullptr;
+
+                                if (port_data.type == PortData::Control) {
+                                    ctl_port_data_t* ptr = new ctl_port_data_t;
+                                    
+                                    // initialize port data
+                                    ptr->value = port_data.is_output ?
+                                        port_data.ctl_out->value :
+                                        port_data.ctl_in->value;
+
+                                    ptr->previous = ptr->value;
+                                    
+                                    data = &ptr->value;
+                                    ctl_port_data[index] = ptr;
+                                } else if (port_data.type == PortData::AtomSequence) {
+                                    ConcurrentAtomSequence* ptr = new ConcurrentAtomSequence;
+                                    
+                                    data = ptr;
+                                    seq_port_data[index] = ptr;
+                                } else {
+                                    throw std::runtime_error("Invalid PortData type");
+                                }
+
+                                assert(data);
+
+                                plugin_ctl->port_subscribe(index, data);
+                            } else {
+                                dbg("WARNING: plugin request to subscribe to invalid port %i\n", index);
+                            }
                         } else {
-                            dbg("WARNING: port notification connection but portIndex or symbol is not specified");
+                            dbg("WARNING: port notification connection but portIndex or symbol is not specified\n");
                         }
                     }
                 }
@@ -531,7 +549,51 @@ bool UIHost::render()
     }
 #endif
 
-    if (idle_interface) {
+    // receive port notifications
+    if (!plugin_ctl->is_writing_notifications())
+    {
+        // controls
+        for (auto& [index, data] : ctl_port_data)
+        {
+            if (data->value != data->previous) {
+                data->previous = data->value;
+
+                suil_instance_port_event(
+                    suil_instance,
+                    index,
+                    sizeof(float),
+                    0,
+                    &data->value
+                );
+            }
+        }
+
+        // atom sequences
+        for (auto& [index, sequence] : seq_port_data)
+        {
+            auto data = sequence->read();
+            if (data->header.atom.size > sizeof(LV2_Atom_Sequence_Body))
+            {
+                dbg("received data: %i\n", data->header.atom.size);
+
+                int event_transfer_urid = uri::map(LV2_ATOM__eventTransfer);
+
+                LV2_ATOM_SEQUENCE_FOREACH (&data->header, ev)
+                {
+                    suil_instance_port_event(
+                        suil_instance,
+                        index,
+                        ev->body.size + sizeof(ev->body),
+                        event_transfer_urid,
+                        &ev->body
+                    );
+                }
+            }
+        }
+    }
+
+    if (idle_interface)
+    {
         LV2_Handle handle = suil_instance_get_handle(suil_instance);
         assert(handle);
         if (idle_interface->idle(handle)) {

@@ -283,16 +283,67 @@ namespace lv2 {
     static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
 
     struct AtomSequenceBuffer {
-        const LilvPort* port_handle;
-        const std::string symbol;
-
         LV2_Atom_Sequence header;
         uint8_t data[ATOM_SEQUENCE_CAPACITY];
     };
 
-    typedef
-        std::function<void(uint32_t, uint32_t, uint32_t, const void* buffer)> 
-        PortEventCallback;
+    struct AtomSequencePort {
+        const LilvPort* port_handle;
+        const std::string symbol;
+
+        AtomSequenceBuffer data;
+    };
+
+    // a lock-free AtomSequence to be shared by two threads 
+    // attempt to write while it is being read will enter a spinlock
+    // should be fine, probably, as the read function only copies the memory
+    // then releases the lock
+    class ConcurrentAtomSequence {
+    private:
+        std::atomic<bool> _lock = {0};
+
+        void lock() noexcept;
+        void unlock() noexcept;
+
+        AtomSequenceBuffer _buffer;
+    public:
+        ConcurrentAtomSequence();
+        
+        class write_handle_t {
+        private:
+            ConcurrentAtomSequence& self;
+        public:
+            inline write_handle_t(ConcurrentAtomSequence& self) : self(self) {
+                self.lock();
+            };
+            
+            inline ~write_handle_t() {
+                self.unlock();
+            };
+
+            inline LV2_Atom_Event* append(const LV2_Atom_Event* event) {
+                return lv2_atom_sequence_append_event(&self._buffer.header, ATOM_SEQUENCE_CAPACITY, event);
+            }
+        };
+        
+        // this will be called by the realtime thread
+        inline write_handle_t begin_write() {
+            return write_handle_t(*this);
+        };
+
+        // this will called by the ui thread
+        std::unique_ptr<AtomSequenceBuffer> read(); 
+    };
+
+    static constexpr size_t PORT_NOTIFICATION_QUEUE_SIZE = 64;
+
+    struct ControlPortNotification
+    {
+        uint32_t port_index;
+        uint32_t buffer_size;
+        uint32_t format;
+        const void* buffer;
+    };
 
     struct PortData {
         enum Type {
@@ -305,10 +356,9 @@ namespace lv2 {
         union {
             ControlInputPort* ctl_in;
             ControlOutputPort* ctl_out;
-            AtomSequenceBuffer* sequence;
+            AtomSequencePort* sequence;
         };
     };
-
 
     class Lv2PluginHost
     {
@@ -349,6 +399,8 @@ namespace lv2 {
 
         void _set_port_value(const char* port_symbol, const void* value, uint32_t size, uint32_t type);
         const void* _get_port_value(const char* port_symbol, uint32_t* size, uint32_t type);
+
+        std::atomic<bool> _writing_notifs = false;
         
         static void set_port_value_callback(
             const char* port_symbol,
@@ -365,8 +417,6 @@ namespace lv2 {
             uint32_t type
         );
 
-        std::unordered_map<int, PortEventCallback> port_event_callbacks;
-
     public:
         Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
         ~Lv2PluginHost();
@@ -377,13 +427,13 @@ namespace lv2 {
         
         std::vector<ControlInputPort*> ctl_in;
         std::vector<ControlOutputPort*> ctl_out;
-        std::vector<AtomSequenceBuffer*> msg_in;
-        std::vector<AtomSequenceBuffer*> msg_out;
-        AtomSequenceBuffer* midi_in = nullptr;
-        AtomSequenceBuffer* midi_out = nullptr;
-        AtomSequenceBuffer* time_in = nullptr;
-        AtomSequenceBuffer* patch_in = nullptr;
-        AtomSequenceBuffer* patch_out = nullptr;
+        std::vector<AtomSequencePort*> msg_in;
+        std::vector<AtomSequencePort*> msg_out;
+        AtomSequencePort* midi_in = nullptr;
+        AtomSequencePort* midi_out = nullptr;
+        AtomSequencePort* time_in = nullptr;
+        AtomSequencePort* patch_in = nullptr;
+        AtomSequencePort* patch_out = nullptr;
 
         std::string plugin_uri;
         LilvInstance* instance;
@@ -396,18 +446,10 @@ namespace lv2 {
 
         Parameter* find_parameter(LV2_URID id) const;
         
-        // returns false on success
-        bool port_subscribe(
-            uint32_t port_index,
-            uint32_t protocol,
-            PortEventCallback callback
-        );
-
-        // returns false on success
-        bool port_unsubscribe(
-            uint32_t port_index,
-            uint32_t protocol
-        );
+        // this will maintain a copy of the data at the given pointer
+        std::unordered_map<int, void*> port_notification_targets;
+        void port_subscribe(uint32_t port_index, void* out);
+        void port_unsubscribe(uint32_t port_index);
 
         void start();
         void stop();
@@ -425,7 +467,7 @@ namespace lv2 {
         void save_state(std::ostream& ostream) const;
         bool load_state(std::istream& istream, size_t size);
 
-        void imgui_interface();
+        inline bool is_writing_notifications() const { return _writing_notifs; }
     }; // class Lv2PluginController
 
     // ui feature
@@ -484,6 +526,25 @@ namespace lv2 {
         );
 
         static void __touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed);
+
+        // this is called by the audio processing thread
+        static void update_port(
+            UIHost& self,
+            uint32_t port_index,
+            PortData::Type type,
+            const void* data
+        );
+
+        // these are copies of the data located in the ports of the plugin host
+        // these are stored to deliever port notifications to the client
+        // plugin in a thread-safe manner
+        struct ctl_port_data_t {
+            float previous;
+            std::atomic<float> value;
+        };
+
+        std::unordered_map<int, ctl_port_data_t*> ctl_port_data;
+        std::unordered_map<int, ConcurrentAtomSequence*> seq_port_data;
 
         // features
         LV2_URID_Map map = {nullptr, uri::map_callback};

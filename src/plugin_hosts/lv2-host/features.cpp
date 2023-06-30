@@ -587,3 +587,42 @@ const void* Lv2PluginHost::get_port_value_callback(
     Lv2PluginHost* plug = (Lv2PluginHost*) user_data;
     return plug->_get_port_value(port_symbol, size, type);
 }
+
+
+//////////////////////////////////////////////////
+// ConcurrentAtomSequence for port subscription //
+//////////////////////////////////////////////////
+ConcurrentAtomSequence::ConcurrentAtomSequence()
+:   _buffer({
+        { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
+        { 0, 0 }
+    })
+{}
+
+void ConcurrentAtomSequence::lock() noexcept
+{
+    for (;;) {
+        if (!_lock.exchange(true, std::memory_order_acquire))
+            return;
+
+        while (_lock.load(std::memory_order_relaxed))
+            __builtin_ia32_pause(); // i think msvc uses a different function
+    }
+}
+
+void ConcurrentAtomSequence::unlock() noexcept
+{
+    _lock.store(false, std::memory_order_release);
+}
+
+// this will be called by the ui thread, so memory allocation is fine
+std::unique_ptr<AtomSequenceBuffer> ConcurrentAtomSequence::read() {
+    std::unique_ptr copy = std::make_unique<AtomSequenceBuffer>();
+
+    lock();
+    *copy = _buffer;
+    lv2_atom_sequence_clear(&_buffer.header);
+    unlock();
+
+    return copy;
+}
