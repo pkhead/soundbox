@@ -7,6 +7,7 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xfixes.h>
+#include <X11/extensions/shape.h>
 
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3.h>
@@ -78,7 +79,7 @@ WindowManager::WindowManager(int _w, int _h, const char* name) : _can_composite(
     // create draw window
     glfwWindowHint(GLFW_VISIBLE, 0);
     glfwWindowHint(GLFW_FLOATING, 1);
-    _draw_window = glfwCreateWindow(_width, _height, name, nullptr, nullptr);
+    _draw_window = glfwCreateWindow(_width, _height, name, nullptr, _root_window);
     if (!_draw_window)
         throw std::runtime_error("could not create GLFW window");
         
@@ -87,6 +88,12 @@ WindowManager::WindowManager(int _w, int _h, const char* name) : _can_composite(
     // parent draw window to root
     XReparentWindow(xdisplay, glfwGetX11Window(_draw_window), glfwGetX11Window(_root_window), 0, 0);
     XMapWindow(xdisplay, glfwGetX11Window(_draw_window));
+
+    // make draw window click-through
+    XRectangle rect;
+    XserverRegion region = XFixesCreateRegion(xdisplay, &rect, 1);
+    XFixesSetWindowShapeRegion(xdisplay, glfwGetX11Window(_draw_window), ShapeInput, 0, 0, region);
+    XFixesDestroyRegion(xdisplay, region);
 #endif
 }
 

@@ -131,7 +131,7 @@ int main(int argc, char** argv)
     if (screen_yscale == 1.0f)  io.FontDefault = font_proggy;
     else                        io.FontDefault = font_inconsolata;
 
-    ImGui_ImplGlfw_InitForOpenGL(draw_window, true);
+    ImGui_ImplGlfw_InitForOpenGL(root_window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     ImGui::StyleColorsClassic();
@@ -666,6 +666,8 @@ int main(int argc, char** argv)
             double now_time = glfwGetTime();
 
             next_time = glfwGetTime() + FRAME_LENGTH;
+
+            glfwMakeContextCurrent(draw_window);
             
             glfwPollEvents();
 
@@ -848,10 +850,12 @@ int main(int argc, char** argv)
 
             // run worker scheduler
             song->work_scheduler.run();
-            
             ImGui::Render();
+
+            glfwMakeContextCurrent(draw_window);
             glViewport(0, 0, display_w, display_h);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
             glfwSwapBuffers(draw_window);
             glfwSwapBuffers(root_window);
 

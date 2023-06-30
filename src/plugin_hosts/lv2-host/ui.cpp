@@ -649,12 +649,20 @@ bool UIHost::render()
 
         ImVec2 cursor = ImGui::GetCursorPos();
         ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
-        XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);
 
         ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(win_width, win_height));
         ImGui::SetCursorPos(cursor);
-        ImGui::InvisibleButton("test", ImVec2(win_width, win_height));
+        ImGui::InvisibleButton("UI", ImVec2(win_width, win_height));
 
+        // if button is hovered, activate the plugin window
+        // by having it under the mouse cursor
+        if (ImGui::IsItemHovered())
+            XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);
+
+        // not hovered, move it off-screen
+        else
+            XMoveWindow(xdisplay, wid, -win_width, -win_height);
+        
         // get mouse position on window
         ImVec2 mouse_pos = ImGui::GetMousePos();
         static int last_mouse_x = -1;
@@ -662,52 +670,6 @@ bool UIHost::render()
 
         int mouse_x = mouse_pos.x - cursor_screen.x;
         int mouse_y = mouse_pos.y - cursor_screen.y;
-
-        
-        /*
-        if (ImGui::IsItemHovered() && (mouse_x != last_mouse_x || mouse_y != last_mouse_y)) {
-            dbg("mouse move %i %i\n", mouse_x, mouse_y);
-
-            XSetInputFocus(xdisplay, wid, RevertToParent, CurrentTime);
-            int status;
-
-            Window root_return, child_return;
-            int root_x_return, root_y_return;
-            int win_x_return, win_y_return;
-            unsigned int mask_return;
-
-            status = XQueryPointer(
-                xdisplay, wid,
-                &root_return, &child_return,
-                &root_x_return, &root_y_return,
-                &win_x_return, &win_y_return,
-                &mask_return);
-            assert(status != BadWindow);
-            
-            XEvent event = {};
-            event.xmotion.type = MotionNotify;
-            event.xmotion.display = xdisplay;
-            event.xmotion.window = wid;
-            event.xmotion.root = root_return;
-            event.xmotion.subwindow = child_return;
-            event.xmotion.time = (Time)(glfwGetTime() * 1000);
-            event.xmotion.x = mouse_x;
-            event.xmotion.y = mouse_y;
-            event.xmotion.x_root = root_x_return;
-            event.xmotion.y_root = root_y_return;
-            event.xmotion.state = mask_return;
-            event.xmotion.is_hint = NotifyNormal;
-            event.xmotion.same_screen = true;
-            status = XSendEvent(xdisplay, wid, False, PointerMotionMask | PointerMotionHintMask, &event);
-            XFlush(xdisplay);
-
-            if (status == 0) {
-                dbg("ERROR: SendEvent error\n");
-            }
-        }
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left, false)) {
-            
-        }*/
 
         last_mouse_x = mouse_x;
         last_mouse_y = mouse_y;
