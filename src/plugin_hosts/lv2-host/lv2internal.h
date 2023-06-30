@@ -294,48 +294,55 @@ namespace lv2 {
         AtomSequenceBuffer data;
     };
 
-    // a lock-free AtomSequence to be shared by two threads 
+    // a lock-free AtomSequence to be shared by two threads. Takes
+    // ownership of the pointer passed in the constructor.
     // attempt to write while it is being read will enter a spinlock
     // should be fine, probably, as the read function only copies the memory
     // then releases the lock
-    class ConcurrentAtomSequence {
+    template <class T>
+    class SharedData {
     private:
         std::atomic<bool> _lock = {0};
-
-        void lock() noexcept;
-        void unlock() noexcept;
-
-        AtomSequenceBuffer _buffer;
-    public:
-        ConcurrentAtomSequence();
         
-        class write_handle_t {
+        void lock() noexcept
+        {
+            for (;;) {
+                if (!_lock.exchange(true, std::memory_order_acquire))
+                    return;
+   
+                while (_lock.load(std::memory_order_relaxed))
+                    __builtin_ia32_pause(); // i think msvc uses a different function
+            }
+        }
+
+        void unlock() noexcept
+        {
+            _lock.store(false, std::memory_order_release);
+        }
+
+        T _data;
+    public:
+        SharedData(T&& data) : _data(data) {};
+        
+        class data_handle_t {
         private:
-            ConcurrentAtomSequence& self;
+            SharedData<T>& self;
         public:
-            inline write_handle_t(ConcurrentAtomSequence& self) : self(self) {
+            inline data_handle_t(SharedData<T>& self) : self(self) {
                 self.lock();
             };
             
-            inline ~write_handle_t() {
+            inline ~data_handle_t() {
                 self.unlock();
             };
 
-            inline LV2_Atom_Event* append(const LV2_Atom_Event* event) {
-                return lv2_atom_sequence_append_event(&self._buffer.header, ATOM_SEQUENCE_CAPACITY, event);
-            }
+            inline T& get() { return self._data; };
         };
         
-        // this will be called by the realtime thread
-        inline write_handle_t begin_write() {
-            return write_handle_t(*this);
+        inline data_handle_t get_handle() {
+            return data_handle_t(*this);
         };
-
-        // this will called by the ui thread
-        std::unique_ptr<AtomSequenceBuffer> read(); 
     };
-
-    static constexpr size_t PORT_NOTIFICATION_QUEUE_SIZE = 64;
 
     struct ControlPortNotification
     {
@@ -358,6 +365,12 @@ namespace lv2 {
             ControlOutputPort* ctl_out;
             AtomSequencePort* sequence;
         };
+    };
+    
+    union PortNotificationTarget {
+        SharedData<AtomSequenceBuffer>* atom_sequence;
+        SharedData<std::vector<uint8_t>>* buffer;
+        std::atomic<float>* control;
     };
 
     class Lv2PluginHost
@@ -446,9 +459,8 @@ namespace lv2 {
 
         Parameter* find_parameter(LV2_URID id) const;
         
-        // this will maintain a copy of the data at the given pointer
-        std::unordered_map<int, void*> port_notification_targets;
-        void port_subscribe(uint32_t port_index, void* out);
+        std::unordered_map<int, PortNotificationTarget> port_notification_targets;
+        void port_subscribe(uint32_t port_index, PortNotificationTarget out);
         void port_unsubscribe(uint32_t port_index);
 
         void start();
@@ -543,8 +555,8 @@ namespace lv2 {
             std::atomic<float> value;
         };
 
-        std::unordered_map<int, ctl_port_data_t*> ctl_port_data;
-        std::unordered_map<int, ConcurrentAtomSequence*> seq_port_data;
+        std::unordered_map<int, std::unique_ptr<ctl_port_data_t>> ctl_port_data;
+        std::unordered_map<int, std::unique_ptr<SharedData<AtomSequenceBuffer>>> seq_port_data;
 
         // features
         LV2_URID_Map map = {nullptr, uri::map_callback};

@@ -440,10 +440,12 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
                                 dbg("subscribe to port %i\n", index);
 
-                                void* data = nullptr;
+                                // the valid union member will be determined
+                                // by the port type 
+                                PortNotificationTarget data;
 
                                 if (port_data.type == PortData::Control) {
-                                    ctl_port_data_t* ptr = new ctl_port_data_t;
+                                    auto ptr = std::make_unique<ctl_port_data_t>();
                                     
                                     // initialize port data
                                     ptr->value = port_data.is_output ?
@@ -452,18 +454,23 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
                                     ptr->previous = ptr->value;
                                     
-                                    data = &ptr->value;
-                                    ctl_port_data[index] = ptr;
+                                    // TODO: whats the point of using unique_ptr then
+                                    data.control = &ptr->value;
+                                    ctl_port_data[index] = std::move(ptr);
                                 } else if (port_data.type == PortData::AtomSequence) {
-                                    ConcurrentAtomSequence* ptr = new ConcurrentAtomSequence;
+                                    auto raw_ptr = new SharedData<AtomSequenceBuffer>({
+                                        { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
+                                        { 0, 0 }
+                                    });
+
+                                    std::unique_ptr ptr =
+                                        std::unique_ptr<SharedData<AtomSequenceBuffer>>(raw_ptr);
                                     
-                                    data = ptr;
-                                    seq_port_data[index] = ptr;
+                                    data.atom_sequence = raw_ptr;
+                                    seq_port_data[index] = std::move(ptr);
                                 } else {
                                     throw std::runtime_error("Invalid PortData type");
                                 }
-
-                                assert(data);
 
                                 plugin_ctl->port_subscribe(index, data);
                             } else {
@@ -571,14 +578,20 @@ bool UIHost::render()
         // atom sequences
         for (auto& [index, sequence] : seq_port_data)
         {
-            auto data = sequence->read();
-            if (data->header.atom.size > sizeof(LV2_Atom_Sequence_Body))
+            // get events and clear buffer
+            AtomSequenceBuffer events; {
+                auto handle = sequence->get_handle();
+                events = handle.get(); // copy
+                lv2_atom_sequence_clear(&handle.get().header);
+            };
+
+            if (events.header.atom.size > sizeof(LV2_Atom_Sequence_Body))
             {
-                dbg("received data: %i\n", data->header.atom.size);
+                dbg("received data: %i\n", events.header.atom.size);
 
                 int event_transfer_urid = uri::map(LV2_ATOM__eventTransfer);
 
-                LV2_ATOM_SEQUENCE_FOREACH (&data->header, ev)
+                LV2_ATOM_SEQUENCE_FOREACH (&events.header, ev)
                 {
                     suil_instance_port_event(
                         suil_instance,

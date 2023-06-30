@@ -639,15 +639,19 @@ void Lv2PluginHost::flush_events()
 
         switch (port_data.type) {
             case PortData::Control: {
-                *((float*)target) = port_data.is_output ? port_data.ctl_out->value : port_data.ctl_in->value;
+                *target.control = port_data.is_output ? port_data.ctl_out->value : port_data.ctl_in->value;
                 break;
             }
 
             case PortData::AtomSequence: {
-                ConcurrentAtomSequence* out = (ConcurrentAtomSequence*)(target);
-                auto write_handle = out->begin_write();
-                LV2_ATOM_SEQUENCE_FOREACH (&port_data.sequence->data.header, ev)
-                    write_handle.append(ev);
+                auto out = target.atom_sequence;
+                AtomSequencePort* in = port_data.sequence;
+
+                auto write_handle = out->get_handle();
+                AtomSequenceBuffer& buf = write_handle.get();
+
+                LV2_ATOM_SEQUENCE_FOREACH (&in->data.header, ev)
+                    lv2_atom_sequence_append_event(&buf.header, ATOM_SEQUENCE_CAPACITY, ev);
                 
                 break;
 
@@ -691,7 +695,7 @@ void Lv2PluginHost::flush_events()
     }
 }
 
-void Lv2PluginHost::port_subscribe(uint32_t port_index, void* out)
+void Lv2PluginHost::port_subscribe(uint32_t port_index, PortNotificationTarget out)
 {
     auto it = ports.find(port_index);
     if (it == ports.end()) return;
