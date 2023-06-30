@@ -218,14 +218,28 @@ void Lv2Plugin::hide_interface() {
 // override render_interface to not show an ImGui window
 // if it is showing a non-embedded plugin ui
 bool Lv2Plugin::render_interface() {
-    if (!_interface_shown) return false;
-
-    if (ui_host.has_custom_ui()) {
-        return ui_host.render();
-    } else {
+    if (ui_host.has_custom_ui() && ui_host.is_embedded()) {
         return PluginModule::render_interface();
+    } else {
+        // ui is an external window
+        if (!_interface_shown) return false;
+
+        if (ui_host.has_custom_ui()) {
+            return ui_host.render();
+        } else {
+            return PluginModule::render_interface();
+        }
     }
 }
+
+void Lv2Plugin::_interface_proc()
+{
+    if (ui_host.has_custom_ui() && ui_host.is_embedded())
+        ui_host.render();
+    else
+        PluginModule::_interface_proc();
+}
+
 
 void Lv2Plugin::event(const audiomod::MidiEvent& event) {
     return host.event(event);

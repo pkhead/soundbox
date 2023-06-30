@@ -191,8 +191,9 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
+    # todo: make Xcomposite optional
     target_compile_definitions(soundbox PUBLIC UI_X11 ${COMPILE_FLAGS})
-    target_link_libraries(soundbox ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
+    target_link_libraries(soundbox Xcomposite ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
 endif()
 
 target_include_directories(soundbox PUBLIC ${INCLUDES})

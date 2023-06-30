@@ -22,6 +22,13 @@
 #include <gtk/gtk.h>
 #endif
 
+#ifdef UI_X11
+#include <GL/glx.h>
+#include <GL/glext.h>
+#include <X11/Xlib.h>
+#undef None
+#endif
+
 #include <iostream>
 
 #define RDFS_PREFIX "http://www.w3.org/2000/01/rdf-schema#"
@@ -581,6 +588,12 @@ namespace lv2 {
 
         // dynamically allocated because of parent feature
         std::vector<LV2_Feature*> features;
+
+        // use x11 composite to get opengl texture
+        Pixmap pixmap = 0;
+        GLXPixmap glx_pixmap = 0;
+        GLuint texture_id = 0;
+        bool _is_embedded = false;
         
     public:
         UIHost(Lv2PluginHost* host);
@@ -589,6 +602,11 @@ namespace lv2 {
         void show();
         void hide();
         bool render();
+        inline bool is_embedded() const { return _is_embedded; };
+
+        // at startup, check compatibility with GL extension
+        // required for embedding windows
+        static void check_compatibility();
 
         inline bool has_custom_ui() const {
             return _has_custom_ui;

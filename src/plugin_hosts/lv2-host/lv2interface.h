@@ -17,6 +17,9 @@ namespace plugins
     private:
         lv2::Lv2PluginHost host;
         lv2::UIHost ui_host;
+
+    protected:
+        void _interface_proc() override;
     
     public:
         Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);

@@ -18,7 +18,6 @@
 #ifdef UI_X11
 #include <X11/Xlib.h>
 #include <X11/extensions/Xcomposite.h>
-#undef None // ...
 #elif defined(UI_WINDOWS)
 #include <windows.h>
 #endif
@@ -28,9 +27,19 @@
 #elif defined(UI_WINDOWS)
 #include <windows.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
+#definde GLFW_EXPOSE_NATIVE_GLX
 #endif
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+#include <GL/glx.h>
+#include <GL/glext.h>
+
+typedef void (*t_glx_bind)(Display *, GLXDrawable, int , const int *);
+typedef void (*t_glx_release)(Display *, GLXDrawable, int);
+
+// manually bind to this function
+t_glx_bind glXBindTexImageEXT = 0;
+t_glx_release glXReleaseTexImageEXT = 0;
 
 using namespace lv2;
 
@@ -137,6 +146,38 @@ void UIHost::suil_touch_func(
 
 void UIHost::__touch(LV2UI_Feature_Handle handle, uint32_t port_index, bool grabbed) {
     dbg("touch\n");
+}
+
+static bool XCOMPOSITE_ENABLED = false;
+
+// at startup, check compatibility with the GL extension required
+// for embedding windows
+void UIHost::check_compatibility()
+{
+    // use x11 composite extension to embed plugin UIs
+    // (XEmbed doesn't work well)
+    Display* xdisplay = glfwGetX11Display();
+
+    int ext_major, ext_minor;
+    if (XCompositeQueryExtension(xdisplay, &ext_major, &ext_minor))
+    {
+        int major_version, minor_version;
+        XCOMPOSITE_ENABLED = XCompositeQueryVersion(xdisplay, &major_version, &minor_version)
+            && (major_version > 0 || minor_version >= 2);
+    }
+    else
+    {
+        dbg("NOTICE: Xcomposite query extension is not enabled, fallback to external plugin windows\n");
+    }
+
+    // bind to functions
+    glXBindTexImageEXT = (t_glx_bind) glXGetProcAddress((const GLubyte*)"glXBindTexImageEXT");
+    glXReleaseTexImageEXT = (t_glx_release) glXGetProcAddress((const GLubyte*)"glXReleaseTexImageEXT");
+
+    if (!glXReleaseTexImageEXT || !glXReleaseTexImageEXT) {
+        dbg("NOTICE: Could not find required functions to support Xcomposite, fall back to external plugin windows\n");
+        XCOMPOSITE_ENABLED = false;
+    }
 }
 
 UIHost::UIHost(Lv2PluginHost* __plugin_controller)
@@ -492,7 +533,6 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller)
 
 UIHost::~UIHost()
 {
-
     if (suil_instance) {
         dbg("free LV2 UI host\n");
         suil_instance_free(suil_instance);
@@ -508,6 +548,18 @@ UIHost::~UIHost()
     } else
 #endif
     if (ui_window) {
+#ifdef UI_X11
+        if (XCOMPOSITE_ENABLED) {
+            Display* xdisplay = glfwGetX11Display();
+            
+            if (texture_id) glDeleteTextures(1, &texture_id);
+            if (glx_pixmap) {
+                glXDestroyPixmap(xdisplay, glx_pixmap);
+                glXReleaseTexImageEXT(xdisplay, glx_pixmap, GLX_FRONT_EXT);
+            }
+            if (pixmap) XFreePixmap(xdisplay, pixmap);
+        }
+#endif
         glfwDestroyWindow(ui_window);
     }
 }
@@ -527,6 +579,132 @@ void UIHost::show() {
     }
 #endif
     glfwShowWindow(ui_window);
+
+#ifdef UI_X11
+    if (XCOMPOSITE_ENABLED) {
+        Display* display = glfwGetX11Display();
+        Window wid = glfwGetX11Window(ui_window);
+
+        // adapted from https://git.dec05eba.com/window-texture/tree/window_texture.c
+        int result = 0;
+        GLXFBConfig *configs = NULL;
+        pixmap = 0;
+        glx_pixmap = 0;
+        texture_id = 0;
+        int glx_pixmap_bound = 0;
+
+        XCompositeRedirectWindow(display, wid, CompositeRedirectAutomatic);
+
+        const int pixmap_config[] = {
+            GLX_BIND_TO_TEXTURE_RGB_EXT, True,
+            GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
+            GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
+            /*GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,*/
+            GLX_BUFFER_SIZE, 24,
+            GLX_RED_SIZE, 8,
+            GLX_GREEN_SIZE, 8,
+            GLX_BLUE_SIZE, 8,
+            GLX_ALPHA_SIZE, 0,
+            0
+        };
+
+        const int pixmap_attribs[] = {
+            GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
+            GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
+            /*GLX_MIPMAP_TEXTURE_EXT, True,*/
+            0
+        };
+
+        XWindowAttributes attr;
+        if (!XGetWindowAttributes(display, wid, &attr)) {
+            dbg("ERROR: Failed to get X window attributes\n");
+            return;
+        }
+
+        GLXFBConfig config;
+        int c;
+
+        // TODO: get proper screen?
+        configs = glXChooseFBConfig(display, 0, pixmap_config, &c);
+        if (!configs) {
+            dbg("ERROR: Failed to choose FB config\n");
+            return;
+        }
+        
+        int found = 0;
+        for (int i = 0; i < c; i++) {
+            config = configs[i];
+            XVisualInfo *visual = glXGetVisualFromFBConfig(display, config);
+            if (!visual)
+                continue;
+
+            if (attr.depth != visual->depth) {
+                XFree(visual);
+                continue;
+            }
+
+            XFree(visual);
+            found = 1;
+            break;
+        }
+
+        if(!found) {
+            dbg("ERROR: No matching fb config found\n");
+            result = 1;
+            goto cleanup;
+        }
+
+        pixmap = XCompositeNameWindowPixmap(display, wid);
+        if(!pixmap) {
+            result = 2;
+            goto cleanup;
+        }
+
+        glx_pixmap = glXCreatePixmap(display, config, pixmap, pixmap_attribs);
+        if(!glx_pixmap) {
+            result = 3;
+            goto cleanup;
+        }
+
+        if(texture_id == 0) {
+            glGenTextures(1, &texture_id);
+            if(texture_id == 0) {
+                result = 4;
+                goto cleanup;
+            }
+            glBindTexture(GL_TEXTURE_2D, texture_id);
+        } else {
+            glBindTexture(GL_TEXTURE_2D, texture_id);
+        }
+
+        glXBindTexImageEXT(display, glx_pixmap, GLX_FRONT_EXT, NULL);
+        glx_pixmap_bound = 1;
+
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+    
+        /*
+        float fLargest = 0.0f;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
+        */
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        XFree(configs);
+        _is_embedded = true;
+        return;
+
+        cleanup:
+        if(texture_id != 0)     glDeleteTextures(1, &texture_id);
+        if(glx_pixmap)          glXDestroyPixmap(display, glx_pixmap);
+        if(glx_pixmap_bound)    glXReleaseTexImageEXT(display, glx_pixmap, GLX_FRONT_EXT);
+        if(pixmap)              XFreePixmap(display, pixmap);
+        if(configs)             XFree(configs);
+    }
+#endif
 }
 
 void UIHost::hide() {
@@ -537,6 +715,12 @@ void UIHost::hide() {
         gtk_widget_hide(gtk_window);
         return;
     }
+#endif
+
+#ifdef UI_X11
+    Display* xdisplay = glfwGetX11Display();
+    Window wid = glfwGetX11Window(ui_window);
+    XCompositeUnredirectWindow(xdisplay, wid, CompositeRedirectAutomatic);
 #endif
     glfwHideWindow(ui_window);
 }
@@ -613,6 +797,15 @@ bool UIHost::render()
             return false;
         }
     }
+
+#ifdef UI_X11
+    if (_is_embedded)
+    {
+        int win_width, win_height;
+        glfwGetWindowSize(ui_window, &win_width, &win_height);
+        ImGui::Image((void*)(size_t)texture_id, ImVec2(win_width, win_height));
+    }
+#endif
 
     return true;
 }
