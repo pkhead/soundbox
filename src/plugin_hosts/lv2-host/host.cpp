@@ -220,7 +220,12 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
                         {
                             { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
                             { 0, 0 }
-                        }
+                        },
+
+                        SharedData<AtomSequenceBuffer>({
+                            { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
+                            { 0, 0 }
+                        })
                     };
 
                     // if control designation is not specified, plugin will
@@ -446,6 +451,14 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
     for (AtomSequencePort* out : msg_out)
         out->data.header.atom.size = ATOM_SEQUENCE_CAPACITY;
 
+    // copy received events
+    for (AtomSequencePort* in : msg_in)
+    {
+        auto handle = in->shared.get_handle();
+        in->data = handle.get();
+        lv2_atom_sequence_clear(&handle.get().header);
+    }
+
     // set and monitor required parameters
     if (patch_in)
     {
@@ -579,7 +592,8 @@ void Lv2PluginHost::event(const audiomod::MidiEvent& midi_event)
         atom.header.body.type = uri::map(LV2_MIDI__MidiEvent);
         memcpy(&atom.midi, &midi_msg, midi_msg.size());
 
-        lv2_atom_sequence_append_event(&midi_in->data.header, ATOM_SEQUENCE_CAPACITY, &atom.header);
+        auto handle = midi_in->shared.get_handle();
+        lv2_atom_sequence_append_event(&handle.get().header, ATOM_SEQUENCE_CAPACITY, &atom.header);
     }
 }
 

@@ -288,22 +288,8 @@ namespace lv2 {
             Parameter* param;
         };
     };
-
-    static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
-
-    struct AtomSequenceBuffer {
-        LV2_Atom_Sequence header;
-        uint8_t data[ATOM_SEQUENCE_CAPACITY];
-    };
-
-    struct AtomSequencePort {
-        const LilvPort* port_handle;
-        const std::string symbol;
-
-        AtomSequenceBuffer data;
-    };
-
-    // a lock-free AtomSequence to be shared by two threads. Takes
+    
+    // a lock-free buffer to be shared by two threads. Takes
     // ownership of the pointer passed in the constructor.
     // attempt to write while it is being read will enter a spinlock
     // should be fine, probably, as the read function only copies the memory
@@ -348,9 +334,29 @@ namespace lv2 {
             inline T& get() { return self._data; };
         };
         
+        // DO NOT DO ANY NON-REALTIME SAFE OPERATIONS
+        // WHILE THE HANDLE IS ACTIVE !!!!!
         inline data_handle_t get_handle() {
             return data_handle_t(*this);
         };
+
+        // this is not thread-safe
+        inline T& unsafe_get() { return _data; };
+    };
+
+    static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
+
+    struct AtomSequenceBuffer {
+        LV2_Atom_Sequence header;
+        uint8_t data[ATOM_SEQUENCE_CAPACITY];
+    };
+
+    struct AtomSequencePort {
+        const LilvPort* port_handle;
+        const std::string symbol;
+
+        AtomSequenceBuffer data;
+        SharedData<AtomSequenceBuffer> shared;
     };
 
     struct ControlPortNotification
@@ -472,6 +478,10 @@ namespace lv2 {
         std::unordered_map<int, PortNotificationTarget> port_notification_targets;
         void port_subscribe(uint32_t port_index, PortNotificationTarget out);
         void port_unsubscribe(uint32_t port_index);
+        
+        // function to get shared atom sequence buffer
+        //SharedData<AtomSequenceBuffer>*
+        //    get_shared_sequence_buffer(uint32_t port_index);
 
         void start();
         void stop();

@@ -101,7 +101,6 @@ void UIHost::suil_port_write_func(
     else if (protocol == uri::map(LV2_ATOM__eventTransfer))
     {
         if (port.type == PortData::AtomSequence) {
-            // TODO: this is not thread-safe
             if (data_size < 128) {
                 struct {
                     int64_t time;
@@ -111,8 +110,9 @@ void UIHost::suil_port_write_func(
                 payload.time = 0;
                 memcpy(&payload.data, data, data_size);
 
+                auto handle = port.sequence->shared.get_handle();
                 lv2_atom_sequence_append_event(
-                    &port.sequence->data.header,
+                    &handle.get().header,
                     ATOM_SEQUENCE_CAPACITY,
                     (LV2_Atom_Event*) &payload
                 );
