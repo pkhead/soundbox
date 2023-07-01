@@ -266,10 +266,15 @@ namespace audiomod {
         void process_node(ModuleNode* node);
         ModuleNode* construct_graph();
         void free_graph(ModuleNode* node);
+        void _get_all_modules(const ModuleOutputTarget* target, std::vector<ModuleBase*>& vec) const;
     public:
         DestinationModule(const DestinationModule&) = delete;
         DestinationModule(int sample_rate, int num_channels, size_t buffer_size);
         ~DestinationModule();
+
+        // Returns an std::vector of all modules that contributes
+        // to the destination
+        std::vector<ModuleBase*> get_all_modules() const;
 
         int sample_rate;
         int channel_count;

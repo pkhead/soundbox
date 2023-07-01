@@ -33,13 +33,25 @@ using namespace lv2;
 LilvWorld* lv2::LILV_WORLD;
 LilvNodeUriList lv2::URI;
 
+int _xlib_error_handler(Display* xdisplay, XErrorEvent* ev) {
+    char error_buf[256];
+    XGetErrorText(xdisplay, ev->error_code, error_buf, 256);
+
+    dbg("X Error %i:\n\t%s\n", ev->error_code, error_buf);
+    return 0;
+}
+
 void lv2::lv2_init(int* argc, char*** argv) {
     LILV_WORLD = lilv_world_new();
 
 #ifdef ENABLE_GTK2    
     gtk_init(argc, argv);
+#endif
+
+#ifndef _NDEBUG
     XSynchronize(glfwGetX11Display(), true);
 #endif
+    XSetErrorHandler(_xlib_error_handler);
 
     suil_init(argc, argv, SUIL_ARG_NONE);
 

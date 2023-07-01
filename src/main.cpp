@@ -861,11 +861,10 @@ int main(int argc, char** argv)
 
         sys::clear_interval(audioaux_interval);
         song_editor.save_preferences();
-
-        audiomod::ModuleBase::free_garbage_modules();
     }
 
     device.stop();
+    audiomod::ModuleBase::free_garbage_modules();
     AudioDevice::_pa_stop();
     lv2::lv2_fini();
 

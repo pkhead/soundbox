@@ -386,19 +386,20 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
     lv2_atom_forge_init(&forge, &map);
 }
 
+void Lv2PluginHost::destroy()
+{
+    dbg("free LV2 plugin host\n");
+    stop();
+    lilv_instance_free(instance);
+
+}
 #define FREE_ARRAY(array, operator) \
     for (auto val : array) \
         operator val;
 
 Lv2PluginHost::~Lv2PluginHost()
 {
-    stop();
-
-    dbg("free LV2 plugin host\n");
-
-    lilv_instance_free(instance);
     delete[] input_combined;
-
     FREE_ARRAY(audio_input_bufs, delete[]);
     FREE_ARRAY(audio_output_bufs, delete[]);
     FREE_ARRAY(ctl_in, delete);

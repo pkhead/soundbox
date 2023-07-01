@@ -20,7 +20,8 @@ Lv2Plugin::Lv2Plugin(
 Lv2Plugin::~Lv2Plugin()
 {
     hide_interface();
-    host.stop();
+    ui_host.destroy();
+    host.destroy();
 }
 
 int Lv2Plugin::control_value_count() const

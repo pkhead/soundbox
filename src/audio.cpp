@@ -623,6 +623,21 @@ void DestinationModule::process_node(ModuleNode* node)
     }
 }
 
+void DestinationModule::_get_all_modules(const ModuleOutputTarget* target, std::vector<ModuleBase*>& vec) const
+{
+    for (ModuleBase* input : target->get_inputs()) {
+        vec.push_back(input);
+        _get_all_modules(input, vec);
+    }
+}
+
+std::vector<ModuleBase*> DestinationModule::get_all_modules() const
+{
+    std::vector<ModuleBase*> out;
+    _get_all_modules(this, out);
+    return out;
+}
+
 
 
 

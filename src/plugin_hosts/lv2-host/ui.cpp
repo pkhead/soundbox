@@ -501,17 +501,22 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
     }
 }
 
-UIHost::~UIHost()
+// destroy the UI host without deleting the windows
+// (windows will be deleted after plugin host is deleted)
+void UIHost::destroy()
 {
     if (suil_instance) {
-        dbg("free LV2 UI host\n");
+        dbg("free LV2 ui host\n");
         suil_instance_free(suil_instance);
     }
 
     if (suil_host) {
         suil_host_free(suil_host);
     }
+}
 
+UIHost::~UIHost()
+{
 #ifdef ENABLE_GTK2
     if (use_gtk) {
         gtk_widget_destroy(gtk_window);
@@ -656,7 +661,7 @@ bool UIHost::render()
         ImGuiStyle& style = ImGui::GetStyle();
         ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(win_width, win_height));
         ImGui::SetCursorPos(cursor);
-        ImGui::Button("ui-area", ImVec2(win_width, win_height));
+        ImGui::InvisibleButton("ui-area", ImVec2(win_width, win_height));
         
         // if button is hovered over, the plugin window is active
         // can't use ImGui::IsItemHovered(), because

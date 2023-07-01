@@ -442,6 +442,7 @@ namespace lv2 {
     public:
         Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
         ~Lv2PluginHost();
+        void destroy();
 
         Song* song;
 
@@ -602,6 +603,7 @@ namespace lv2 {
         UIHost(Lv2PluginHost* host, WindowManager& window_manager);
         ~UIHost();
 
+        void destroy();
         void show();
         void hide();
         bool render();
