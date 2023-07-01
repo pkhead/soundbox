@@ -117,21 +117,31 @@ GLFWwindow* WindowManager::draw_window() const {
         return _draw_window;
 }
 
-bool WindowManager::is_window_hovered() const
+bool WindowManager::is_item_hovered() const
 {
     ImGuiContext& g = *GImGui;
+
+    // assumes item isn't in a popup
+    if (g.OpenPopupStack.Size > 0) return false;
 
     double xpos, ypos;
     glfwGetCursorPos(_root_window, &xpos, &ypos);
 
+    ImVec2 tl = g.LastItemData.Rect.GetTL();
+    ImVec2 br = g.LastItemData.Rect.GetBR();
+
     for (int i = g.Windows.Size - 1; i >= 0; i--) {
         ImGuiWindow* win = g.Windows[i];
-        
+
         if (
             xpos > win->Pos.x && xpos < win->Pos.x + win->Size.x &&
             ypos > win->Pos.y && ypos < win->Pos.y + win->Size.y 
         ) {
-            return win == g.CurrentWindow;
+            if (win == g.CurrentWindow)
+                return xpos > tl.x && xpos < br.x &&
+                       ypos > tl.y && ypos < br.y;
+            else
+                return false;
         }
     }
     
@@ -275,4 +285,37 @@ WindowTexture::~WindowTexture() {
         glXDestroyPixmap(xdisplay, _glx_pixmap);
         glXReleaseTexImageEXT(xdisplay, _glx_pixmap, GLX_FRONT_EXT);
     }
+}
+
+void WindowManager::update() {
+    // if a plugin windows is focused, make overlay
+    // click-through
+    Display* xdisplay = glfwGetX11Display();
+    XRectangle rect;
+
+    if (!focused_window) {
+        if (last_focused_window) {
+            dbg("no active window\n");
+            XRaiseWindow(xdisplay, glfwGetX11Window(_draw_window));
+        }
+
+        int w, h;
+        glfwGetWindowSize(_root_window, &w, &h);
+        rect.width = w;
+        rect.height = h;
+    } else {
+        if (last_focused_window != focused_window) {
+            dbg("new active window\n");
+            XRaiseWindow(xdisplay, glfwGetX11Window(focused_window));
+            XRaiseWindow(xdisplay, glfwGetX11Window(_draw_window));
+        }
+    }
+
+    last_focused_window = focused_window;
+    XserverRegion region = XFixesCreateRegion(xdisplay, &rect, 1);
+    
+    XFixesSetWindowShapeRegion(xdisplay, glfwGetX11Window(_draw_window), ShapeInput, 0, 0, region);
+    XFixesDestroyRegion(xdisplay, region);
+
+    focused_window = nullptr;
 }

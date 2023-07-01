@@ -131,7 +131,7 @@ int main(int argc, char** argv)
     if (screen_yscale == 1.0f)  io.FontDefault = font_proggy;
     else                        io.FontDefault = font_inconsolata;
 
-    ImGui_ImplGlfw_InitForOpenGL(root_window, true);
+    ImGui_ImplGlfw_InitForOpenGL(draw_window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     ImGui::StyleColorsClassic();
@@ -852,6 +852,7 @@ int main(int argc, char** argv)
             song->work_scheduler.run();
 
             ImGui::Render();
+            window_manager.update();
 
             glfwMakeContextCurrent(draw_window);
             glViewport(0, 0, display_w, display_h);

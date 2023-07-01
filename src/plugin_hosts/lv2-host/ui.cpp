@@ -648,36 +648,23 @@ bool UIHost::render()
         int win_width, win_height;
         glfwGetWindowSize(ui_window, &win_width, &win_height);
 
+        ImGui::SetCursorPos(ImVec2(0.0f, ImGui::GetFrameHeight()));
         ImVec2 cursor = ImGui::GetCursorPos();
         ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
         ImVec2 mouse_pos = ImGui::GetMousePos();
 
         ImGuiStyle& style = ImGui::GetStyle();
-        ImGui::SetCursorPos(ImVec2(0.0f, ImGui::GetFrameHeight()));
         ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(win_width, win_height));
+        ImGui::SetCursorPos(cursor);
+        ImGui::Button("ui-area", ImVec2(win_width, win_height));
         
-        // if window is hovered over, the plugin window is active
-        // can't use InvisibleButton and ImGui::IsItemHovered(), because
+        // if button is hovered over, the plugin window is active
+        // can't use ImGui::IsItemHovered(), because
         // it only returns true if the root window is in focus
-        if (window_manager.is_window_hovered()) {
-            dbg("%i\n", glfwGetMouseButton(ui_window, GLFW_MOUSE_BUTTON_LEFT));
+        if (window_manager.is_item_hovered()) {
+            window_manager.focused_window = ui_window;
             XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);
         }
-
-        // not hovered, move it off-screen
-        else
-            XMoveWindow(xdisplay, wid, -win_width, -win_height);
-        
-        // get mouse position on window
-        /*ImVec2 mouse_pos = ImGui::GetMousePos();
-        static int last_mouse_x = -1;
-        static int last_mouse_y = -1;
-
-        int mouse_x = mouse_pos.x - cursor_screen.x;
-        int mouse_y = mouse_pos.y - cursor_screen.y;
-
-        last_mouse_x = mouse_x;
-        last_mouse_y = mouse_y;*/
     }
 #endif
 

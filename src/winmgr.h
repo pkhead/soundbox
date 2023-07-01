@@ -44,13 +44,17 @@ private:
 
     static void _glfw_resize_callback(GLFWwindow* win, int w, int h);
 
+    GLFWwindow* last_focused_window = nullptr;
+
 public:
     WindowManager(int width, int height, const char* name);
     ~WindowManager();
+    GLFWwindow* focused_window = nullptr;
 
     inline bool can_composite() const { return _can_composite; };
 
-    bool is_window_hovered() const;
+    void update();
+    bool is_item_hovered() const;
     GLFWwindow* root_window() const;
     GLFWwindow* draw_window() const;
 } extern WindowCompositor;

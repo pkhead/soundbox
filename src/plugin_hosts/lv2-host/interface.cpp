@@ -19,6 +19,7 @@ Lv2Plugin::Lv2Plugin(
 
 Lv2Plugin::~Lv2Plugin()
 {
+    hide_interface();
     host.stop();
 }
 
