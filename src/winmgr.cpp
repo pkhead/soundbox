@@ -90,19 +90,12 @@ WindowManager::WindowManager(int _w, int _h, const char* name) : _can_composite(
     // parent draw window to root
     XReparentWindow(xdisplay, glfwGetX11Window(_draw_window), glfwGetX11Window(_root_window), 0, 0);
     XMapWindow(xdisplay, glfwGetX11Window(_draw_window));
-
-    // make draw window click-through
-    XRectangle rect;
-    XserverRegion region = XFixesCreateRegion(xdisplay, &rect, 1);
-    
-    XFixesSetWindowShapeRegion(xdisplay, glfwGetX11Window(_draw_window), ShapeInput, 0, 0, region);
-    XFixesDestroyRegion(xdisplay, region);
 #endif
 }
 
 WindowManager::~WindowManager() {
-    if (_root_window) glfwDestroyWindow(_root_window);
     if (_draw_window) glfwDestroyWindow(_draw_window);
+    if (_root_window) glfwDestroyWindow(_root_window);
 }
 
 GLFWwindow* WindowManager::root_window() const {
@@ -291,7 +284,9 @@ void WindowManager::update() {
     // if a plugin windows is focused, make overlay
     // click-through
     Display* xdisplay = glfwGetX11Display();
-    XRectangle rect;
+    XRectangle rect = {};
+
+    ImVec2 mp = ImGui::GetMousePos();
 
     if (!focused_window) {
         if (last_focused_window) {
@@ -311,11 +306,11 @@ void WindowManager::update() {
         }
     }
 
-    last_focused_window = focused_window;
     XserverRegion region = XFixesCreateRegion(xdisplay, &rect, 1);
     
     XFixesSetWindowShapeRegion(xdisplay, glfwGetX11Window(_draw_window), ShapeInput, 0, 0, region);
     XFixesDestroyRegion(xdisplay, region);
 
+    last_focused_window = focused_window;
     focused_window = nullptr;
 }

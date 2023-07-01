@@ -654,23 +654,20 @@ int main(int argc, char** argv)
         while (run_app)
         {
             Song*& song = song_editor.song;
+            double now_time = glfwGetTime();
+
+            next_time = glfwGetTime() + FRAME_LENGTH;
+            
+            glfwPollEvents();
 
             if (glfwWindowShouldClose(root_window)) {
                 glfwSetWindowShouldClose(root_window, 0);
+                //glfwFocusWindow(draw_window);
                 prompt_unsaved_work = true;
                 unsaved_work_callback = [&]() {
                     run_app = false;
                 };
             }
-
-            double now_time = glfwGetTime();
-
-            next_time = glfwGetTime() + FRAME_LENGTH;
-
-            glfwMakeContextCurrent(draw_window);
-            
-            glfwPollEvents();
-
 #ifdef ENABLE_GTK2
             lv2::gtk_process();
 #endif
@@ -731,15 +728,15 @@ int main(int argc, char** argv)
             // show new prompt
             if (prompt_unsaved_work) {
                 ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-                ImGui::OpenPopup("Unsaved work##prompt_new_song");
+                ImGui::OpenPopup("Unsaved work##unsaved_work");
                 prompt_unsaved_work = false;
             }
 
-            if (ImGui::BeginPopupModal("Unsaved work##prompt_new_song", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+            if (ImGui::BeginPopupModal("Unsaved work##unsaved_work", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 ImGui::Text("Do you want to save your work before continuing?");
                 ImGui::NewLine();
                 
-                if (ImGui::Button("Yes##popup_modal_yes")) {
+                if (ImGui::Button("Yes")) {
                     ImGui::CloseCurrentPopup();
                     
                     // if song was able to successfully be saved, then continue
@@ -747,13 +744,13 @@ int main(int argc, char** argv)
                 }
 
                 ImGui::SameLine();
-                if (ImGui::Button("No##popup_modal_no")) {
+                if (ImGui::Button("No")) {
                     ImGui::CloseCurrentPopup();
                     unsaved_work_callback();
                 }
 
                 ImGui::SameLine();
-                if (ImGui::Button("Cancel##popup_modal_cancel")) {
+                if (ImGui::Button("Cancel")) {
                     ImGui::CloseCurrentPopup();
                 }
 
@@ -854,12 +851,10 @@ int main(int argc, char** argv)
             ImGui::Render();
             window_manager.update();
 
-            glfwMakeContextCurrent(draw_window);
             glViewport(0, 0, display_w, display_h);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             glfwSwapBuffers(draw_window);
-            glfwSwapBuffers(root_window);
 
             prev_time = glfwGetTime();
         }

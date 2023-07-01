@@ -23,6 +23,8 @@
 
 #ifdef ENABLE_GTK2
 #include <gtk/gtk.h>
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3native.h>
 #endif
 
 using namespace plugins;
@@ -36,6 +38,7 @@ void lv2::lv2_init(int* argc, char*** argv) {
 
 #ifdef ENABLE_GTK2    
     gtk_init(argc, argv);
+    XSynchronize(glfwGetX11Display(), true);
 #endif
 
     suil_init(argc, argv, SUIL_ARG_NONE);
