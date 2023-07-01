@@ -288,11 +288,13 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                     GtkWidget* widget = (GtkWidget*) suil_instance_get_widget(suil_instance);
                     assert(widget);
 
-                    gtk_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+                    gtk_window = gtk_window_new(GTK_WINDOW_POPUP);
                     gtk_container_border_width(GTK_CONTAINER(gtk_window), 0);
                     gtk_container_add(GTK_CONTAINER(gtk_window), widget);
                     gtk_window_set_title(GTK_WINDOW(gtk_window), plugin_name);
                     g_signal_connect(GTK_OBJECT(gtk_window), "delete-event", G_CALLBACK(close_callback), (gpointer)this);
+
+                    _is_embedded = true;
 
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {
@@ -537,10 +539,35 @@ void UIHost::show() {
     if (use_gtk) {
         gtk_widget_show_all(gtk_window);
 
-        // set transfient for parent glfw window
-        Window wid = (Window) glfwGetX11Window(glfwGetCurrentContext());
-        Window child = gdk_x11_drawable_get_xid(gtk_widget_get_window(GTK_WIDGET(gtk_window)));
-        XSetTransientForHint(glfwGetX11Display(), child, wid);
+        if (window_manager.can_composite())
+        {
+            GdkDisplay* gd = gdk_display_get_default();
+            GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(gtk_window));
+
+            GdkWindow* parent_window = gdk_x11_window_foreign_new_for_display(
+                gd,
+                glfwGetX11Window(window_manager.root_window())
+            );
+
+            assert(parent_window && gdk_window);
+            gdk_window_reparent(gdk_window, parent_window, 0, 0);
+            dbg("Reparent window\n");
+            gtk_widget_show_all(gtk_window);
+            gdk_window_show(gdk_window);
+            //gdk_window_raise(gdk_window);
+
+            gdk_window_process_updates(gdk_window, true);
+
+            Display* xdisplay = glfwGetX11Display();
+            Window wid = gdk_x11_drawable_get_xid(GDK_DRAWABLE(gdk_window));
+            assert(wid);
+            
+            gdk_window_set_composited(gdk_window, true);
+            window_texture = std::make_unique<WindowTexture>(wid);
+            if (!window_texture->is_loaded()) window_texture = nullptr;
+            gdk_window_lower(gdk_window);
+        }
+        
         return;
     }
 #endif
@@ -548,9 +575,10 @@ void UIHost::show() {
 
 #ifdef UI_X11
     if (window_manager.can_composite()) {
-        window_texture = std::make_unique<WindowTexture>(ui_window);
+        Window wid = glfwGetX11Window(ui_window);
+        window_texture = std::make_unique<WindowTexture>(wid);
         if (!window_texture->is_loaded()) window_texture = nullptr;
-        XLowerWindow(glfwGetX11Display(), glfwGetX11Window(ui_window));
+        XLowerWindow(glfwGetX11Display(), wid);
     }
 #endif
 }
@@ -558,17 +586,16 @@ void UIHost::show() {
 void UIHost::hide() {
     if (!ui_window) return;
 
+    window_texture = nullptr;
+
 #ifdef ENABLE_GTK2
     if (use_gtk) {
         gtk_widget_hide(gtk_window);
-        return;
     }
 #endif
 
-#ifdef UI_X11
-    window_texture = nullptr;
-#endif
-    glfwHideWindow(ui_window);
+    if (ui_window)
+        glfwHideWindow(ui_window);
 }
 
 bool UIHost::render()
@@ -648,26 +675,32 @@ bool UIHost::render()
     if (window_texture)
     {
         Display* xdisplay = glfwGetX11Display();
-        Window wid = glfwGetX11Window(ui_window);
 
-        int win_width, win_height;
-        glfwGetWindowSize(ui_window, &win_width, &win_height);
+        Window wid;
 
-        ImGui::SetCursorPos(ImVec2(0.0f, ImGui::GetFrameHeight()));
+        if (use_gtk) // gtk window
+            wid = gdk_x11_drawable_get_xid(gtk_widget_get_window(GTK_WIDGET(gtk_window)));
+        else
+            wid = glfwGetX11Window(ui_window);
+
+        XWindowAttributes attr;
+        XGetWindowAttributes(xdisplay, wid, &attr);
+        
+        //ImGui::SetCursorPos(ImVec2(0.0f, ImGui::GetFrameHeight()));
         ImVec2 cursor = ImGui::GetCursorPos();
         ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
         ImVec2 mouse_pos = ImGui::GetMousePos();
 
         ImGuiStyle& style = ImGui::GetStyle();
-        ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(win_width, win_height));
+        ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(attr.width, attr.height));
         ImGui::SetCursorPos(cursor);
-        ImGui::InvisibleButton("ui-area", ImVec2(win_width, win_height));
+        ImGui::InvisibleButton("ui-area", ImVec2(attr.width, attr.height));
         
         // if button is hovered over, the plugin window is active
         // can't use ImGui::IsItemHovered(), because
         // it only returns true if the root window is in focus
         if (window_manager.is_item_hovered()) {
-            window_manager.focused_window = ui_window;
+            window_manager.focused_window = wid;
             XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);
         }
     }

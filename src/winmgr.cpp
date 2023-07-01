@@ -141,11 +141,30 @@ bool WindowManager::is_item_hovered() const
     return false;
 }
 
-WindowTexture::WindowTexture(GLFWwindow* window)
-:   _window(window)
+static const int pixmap_config[] = {
+    GLX_BIND_TO_TEXTURE_RGB_EXT, True,
+    GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
+    GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
+    //GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,
+    GLX_BUFFER_SIZE, 24,
+    GLX_RED_SIZE, 8,
+    GLX_GREEN_SIZE, 8,
+    GLX_BLUE_SIZE, 8,
+    GLX_ALPHA_SIZE, 0,
+    0
+};
+
+static const int pixmap_attribs[] = {
+    GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
+    GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
+    //GLX_MIPMAP_TEXTURE_EXT, True,
+    0
+};
+
+WindowTexture::WindowTexture(Window wid)
+:   _window(wid)
 {
     Display* display = glfwGetX11Display();
-    Window wid = glfwGetX11Window(window);
 
     // adapted from https://git.dec05eba.com/window-texture/tree/window_texture.c
     int result = 0;
@@ -156,26 +175,6 @@ WindowTexture::WindowTexture(GLFWwindow* window)
     int glx_pixmap_bound = 0;
 
     XCompositeRedirectWindow(display, wid, CompositeRedirectAutomatic);
-
-    const int pixmap_config[] = {
-        GLX_BIND_TO_TEXTURE_RGB_EXT, True,
-        GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
-        GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
-        //GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,
-        GLX_BUFFER_SIZE, 24,
-        GLX_RED_SIZE, 8,
-        GLX_GREEN_SIZE, 8,
-        GLX_BLUE_SIZE, 8,
-        GLX_ALPHA_SIZE, 0,
-        0
-    };
-
-    const int pixmap_attribs[] = {
-        GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
-        GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
-        //GLX_MIPMAP_TEXTURE_EXT, True,
-        0
-    };
 
     XWindowAttributes attr;
     if (!XGetWindowAttributes(display, wid, &attr)) {
@@ -269,9 +268,7 @@ WindowTexture::WindowTexture(GLFWwindow* window)
 
 WindowTexture::~WindowTexture() {
     Display* xdisplay = glfwGetX11Display();
-    Window wid = glfwGetX11Window(_window);
-
-    XCompositeUnredirectWindow(xdisplay, wid, CompositeRedirectAutomatic);
+    XCompositeUnredirectWindow(xdisplay, _window, CompositeRedirectAutomatic);
             
     if (_texture_id) glDeleteTextures(1, &_texture_id);
     if (_glx_pixmap) {
@@ -301,7 +298,7 @@ void WindowManager::update() {
     } else {
         if (last_focused_window != focused_window) {
             dbg("new active window\n");
-            XRaiseWindow(xdisplay, glfwGetX11Window(focused_window));
+            XRaiseWindow(xdisplay, focused_window);
             XRaiseWindow(xdisplay, glfwGetX11Window(_draw_window));
         }
     }
@@ -312,5 +309,5 @@ void WindowManager::update() {
     XFixesDestroyRegion(xdisplay, region);
 
     last_focused_window = focused_window;
-    focused_window = nullptr;
+    focused_window = 0;
 }

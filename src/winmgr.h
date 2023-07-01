@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 
 #ifdef UI_X11
+#include <X11/Xlib.h>
 #include <GL/glx.h>
 #include <GL/glext.h>
 #endif
@@ -17,16 +18,16 @@ private:
     Pixmap _pixmap = 0;
     GLXPixmap _glx_pixmap = 0;
     GLuint _texture_id = 0;
-    GLFWwindow* _window;
+    Window _window;
     int _width = 0;
     int _height = 0;
     bool _success = false;
 public:
-    WindowTexture(GLFWwindow* window);
+    WindowTexture(Window window);
     ~WindowTexture();
 
     inline bool is_loaded() const { return _success; };
-    inline GLFWwindow* window() const { return _window; };
+    inline Window window() const { return _window; };
     inline GLuint texture_id() const { return _texture_id; };
 };
 
@@ -44,12 +45,12 @@ private:
 
     static void _glfw_resize_callback(GLFWwindow* win, int w, int h);
 
-    GLFWwindow* last_focused_window = nullptr;
+    Window last_focused_window = 0;
 
 public:
     WindowManager(int width, int height, const char* name);
     ~WindowManager();
-    GLFWwindow* focused_window = nullptr;
+    Window focused_window = 0;
 
     inline bool can_composite() const { return _can_composite; };
 
