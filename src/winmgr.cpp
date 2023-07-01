@@ -5,9 +5,12 @@
 #ifdef UI_X11
 #include <glad/glad.h>
 #include <X11/Xlib.h>
+
+#ifdef COMPOSITING
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/shape.h>
+#endif
 
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3.h>
@@ -44,7 +47,7 @@ WindowManager::WindowManager(int _w, int _h, const char* name) : _can_composite(
     glfwSetWindowUserPointer(_root_window, this);
     glfwSetWindowSizeCallback(_root_window, _glfw_resize_callback);
 
-#ifdef UI_X11
+#if defined(UI_X11) & defined(COMPOSITING)
     // use x11 composite extension to embed plugin UIs
     Display* xdisplay = glfwGetX11Display();
 
@@ -141,30 +144,32 @@ bool WindowManager::is_item_hovered() const
     return false;
 }
 
-static const int pixmap_config[] = {
-    GLX_BIND_TO_TEXTURE_RGB_EXT, True,
-    GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
-    GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
-    //GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,
-    GLX_BUFFER_SIZE, 24,
-    GLX_RED_SIZE, 8,
-    GLX_GREEN_SIZE, 8,
-    GLX_BLUE_SIZE, 8,
-    GLX_ALPHA_SIZE, 0,
-    0
-};
 
-static const int pixmap_attribs[] = {
-    GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
-    GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
-    //GLX_MIPMAP_TEXTURE_EXT, True,
-    0
-};
-
+#if defined(COMPOSITING) & defined(UI_X11)
 WindowTexture::WindowTexture(Window wid)
 :   _window(wid)
 {
     Display* display = glfwGetX11Display();
+
+    static const int pixmap_config[] = {
+        GLX_BIND_TO_TEXTURE_RGB_EXT, True,
+        GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT | GLX_WINDOW_BIT,
+        GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
+        //GLX_BIND_TO_MIPMAP_TEXTURE_EXT, True,
+        GLX_BUFFER_SIZE, 24,
+        GLX_RED_SIZE, 8,
+        GLX_GREEN_SIZE, 8,
+        GLX_BLUE_SIZE, 8,
+        GLX_ALPHA_SIZE, 0,
+        0
+    };
+
+    static const int pixmap_attribs[] = {
+        GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
+        GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
+        //GLX_MIPMAP_TEXTURE_EXT, True,
+        0
+};
 
     // adapted from https://git.dec05eba.com/window-texture/tree/window_texture.c
     int result = 0;
@@ -276,8 +281,12 @@ WindowTexture::~WindowTexture() {
         glXReleaseTexImageEXT(xdisplay, _glx_pixmap, GLX_FRONT_EXT);
     }
 }
+#endif
 
 void WindowManager::update() {
+    if (!_can_composite) return;
+
+#if defined(UI_X11) & defined(COMPOSITING)
     // if a plugin windows is focused, make overlay
     // click-through
     Display* xdisplay = glfwGetX11Display();
@@ -310,4 +319,5 @@ void WindowManager::update() {
 
     last_focused_window = focused_window;
     focused_window = 0;
+#endif
 }

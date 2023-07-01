@@ -28,6 +28,7 @@ endif()
 
 # gtk2 for certain plugin uis
 option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" OFF)
+option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" OFF)
 
 if(NOT SBOX_DISABLE_GTK2)
     find_package(GTK2)
@@ -171,6 +172,7 @@ if (WIN32)
 
     target_compile_definitions(soundbox PUBLIC UI_WINDOWS ${COMPILE_FLAGS})
     target_link_libraries(soundbox dwmapi comctl32.lib ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
+    set(STATUS_COMPOSITE "No")
 
 # Linux
 else()
@@ -192,9 +194,27 @@ else()
         message(FATAL_ERROR "Could not find library X11")
     endif()
 
-    # todo: make composite optional
+    find_library(LIB_XFIXES Xfixes)
+    find_library(LIB_XCOMPOSITE Xcomposite)
+
+    if(SBOX_DISABLE_COMPOSITE OR LIB_XFIXES STREQUAL "LIB_XFIXES-NOTFOUND" OR LIB_XCOMPOSITE STREQUAL "LIB_XCOMPOSITE-NOTFOUND")
+        set(STATUS_COMPOSITE "No")
+        set(LIB_XFIXES "")
+        set(LIB_XCOMPOSITE "")
+    else()
+        set(STATUS_COMPOSITE "Yes")
+        target_compile_definitions(soundbox PUBLIC COMPOSITING)
+    endif()
+
     target_compile_definitions(soundbox PUBLIC UI_X11 ${COMPILE_FLAGS})
-    target_link_libraries(soundbox Xfixes Xcomposite ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
+    target_link_libraries(soundbox
+        ${LIB_XFIXES}
+        ${LIB_XCOMPOSITE}
+        ${LIBRARIES}
+        ${GLFW_LIBRARIES}
+        ${OPENGL_LIBRARIES}
+        ${X11_LIBRARIES}
+    )
 endif()
 
 target_include_directories(soundbox PUBLIC ${INCLUDES})
@@ -220,5 +240,6 @@ message("\n"
     " - Build Type                  ${CMAKE_BUILD_TYPE}\n"
     " - LV2 plugins (lilv, suil)    ${STATUS_LV2}\n"
     " - GTK2 plugin UIs             ${STATUS_GTK2}\n"
+    " - Plugin UI embedding         ${STATUS_COMPOSITE}\n"
     "\n"
 )

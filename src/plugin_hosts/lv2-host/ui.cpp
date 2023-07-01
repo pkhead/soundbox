@@ -288,13 +288,14 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                     GtkWidget* widget = (GtkWidget*) suil_instance_get_widget(suil_instance);
                     assert(widget);
 
-                    gtk_window = gtk_window_new(GTK_WINDOW_POPUP);
+                    _is_embedded = window_manager.can_composite();
+
+                    gtk_window = gtk_window_new(_is_embedded ? GTK_WINDOW_POPUP : GTK_WINDOW_TOPLEVEL);
                     gtk_container_border_width(GTK_CONTAINER(gtk_window), 0);
                     gtk_container_add(GTK_CONTAINER(gtk_window), widget);
                     gtk_window_set_title(GTK_WINDOW(gtk_window), plugin_name);
                     g_signal_connect(GTK_OBJECT(gtk_window), "delete-event", G_CALLBACK(close_callback), (gpointer)this);
 
-                    _is_embedded = true;
 
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {
@@ -318,11 +319,14 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
     #ifdef UI_X11
                 parent_window_handle = (void*) glfwGetX11Window(parent_window);
                 // make child window float above parent window
-                /*XSetTransientForHint(
-                    glfwGetX11Display(),
-                    (Window) parent_window_handle,
-                    glfwGetX11Window( glfwGetCurrentContext() )
-                );*/
+
+                if (!window_manager.can_composite()) {
+                    XSetTransientForHint(
+                        glfwGetX11Display(),
+                        (Window) parent_window_handle,
+                        glfwGetX11Window( glfwGetCurrentContext() )
+                    );
+                }
     #elif defined(UI_WINDOWS)
                 parent_window_handle = (void*) glfwGetWin32Window(parent_window);
     #endif
@@ -376,20 +380,22 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                         window_width = attrib.width;
                         window_height = attrib.height;
                         
-                        XReparentWindow(
-                            glfwGetX11Display(),
-                            (Window) parent_window_handle,
-                            glfwGetX11Window(window_manager.root_window()),
-                            0, 0
-                        );
+                        _is_embedded = window_manager.can_composite();
+
+                        if (_is_embedded) {
+                            XReparentWindow(
+                                glfwGetX11Display(),
+                                (Window) parent_window_handle,
+                                glfwGetX11Window(window_manager.root_window()),
+                                0, 0
+                            );
+                        }
 #elif def(UI_WINDOWS)
                         abort(); // TODO
 #endif
                     }
 
                     glfwSetWindowSize(parent_window, window_width, window_height);
-
-                    _is_embedded = window_manager.can_composite();
                     dbg("successfully instantiate custom plugin UI\n");
                 } else {
                     dbg("ERROR: could not instantiate ui\n");
@@ -525,7 +531,7 @@ UIHost::~UIHost()
     } else
 #endif
     if (ui_window) {
-#ifdef UI_X11
+#ifdef COMPOSITING
         window_texture = nullptr;
 #endif
         glfwDestroyWindow(ui_window);
@@ -539,7 +545,28 @@ void UIHost::show() {
     if (use_gtk) {
         gtk_widget_show_all(gtk_window);
 
-        if (window_manager.can_composite())
+        // if window manager can't composite, then
+        // use transient-for
+        if (!window_manager.can_composite())
+        {
+            GdkDisplay* gd = gdk_display_get_default();
+            GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(gtk_window));
+            GdkWindow* parent_window = gdk_x11_window_foreign_new_for_display(
+                gd,
+                glfwGetX11Window(window_manager.root_window())
+            );
+
+            gdk_window_set_transient_for(gdk_window, parent_window);
+        }
+    } else
+#endif
+    // use glfw show window if gtk2 is not enabled
+    glfwShowWindow(ui_window);
+    
+#ifdef COMPOSITING
+    if (window_manager.can_composite()) {
+#ifdef ENABLE_GTK2
+        if (use_gtk)
         {
             GdkDisplay* gd = gdk_display_get_default();
             GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(gtk_window));
@@ -566,19 +593,14 @@ void UIHost::show() {
             window_texture = std::make_unique<WindowTexture>(wid);
             if (!window_texture->is_loaded()) window_texture = nullptr;
             gdk_window_lower(gdk_window);
-        }
-        
-        return;
-    }
+        } else
 #endif
-    glfwShowWindow(ui_window);
-
-#ifdef UI_X11
-    if (window_manager.can_composite()) {
-        Window wid = glfwGetX11Window(ui_window);
-        window_texture = std::make_unique<WindowTexture>(wid);
-        if (!window_texture->is_loaded()) window_texture = nullptr;
-        XLowerWindow(glfwGetX11Display(), wid);
+        {
+            Window wid = glfwGetX11Window(ui_window);
+            window_texture = std::make_unique<WindowTexture>(wid);
+            if (!window_texture->is_loaded()) window_texture = nullptr;
+            XLowerWindow(glfwGetX11Display(), wid);
+        }
     }
 #endif
 }
@@ -586,7 +608,9 @@ void UIHost::show() {
 void UIHost::hide() {
     if (!ui_window) return;
 
+#ifdef COMPOSITING
     window_texture = nullptr;
+#endif
 
 #ifdef ENABLE_GTK2
     if (use_gtk) {
@@ -671,16 +695,18 @@ bool UIHost::render()
         }
     }
 
-#ifdef UI_X11
+#ifdef COMPOSITING
     if (window_texture)
     {
         Display* xdisplay = glfwGetX11Display();
 
         Window wid;
 
+#ifdef ENABLE_GTK2
         if (use_gtk) // gtk window
             wid = gdk_x11_drawable_get_xid(gtk_widget_get_window(GTK_WIDGET(gtk_window)));
         else
+#endif
             wid = glfwGetX11Window(ui_window);
 
         XWindowAttributes attr;

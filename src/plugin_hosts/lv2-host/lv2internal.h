@@ -593,7 +593,10 @@ namespace lv2 {
         std::vector<LV2_Feature*> features;
 
         // use x11 composite to get opengl texture
+#ifdef COMPOSITING
         std::unique_ptr<WindowTexture> window_texture;
+#endif
+
         bool _is_embedded = false;
         int _buttons = 0; // number of mouse buttons down on the window
 

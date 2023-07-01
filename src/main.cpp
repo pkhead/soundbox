@@ -64,8 +64,6 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nC
 }
 #endif
 
-bool COMPOSITE_ENABLED = false;
-
 int main(int argc, char** argv)
 {
     { // record endianness

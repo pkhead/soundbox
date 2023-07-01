@@ -8,28 +8,36 @@
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 #include <GL/glext.h>
+typedef Window native_window;
 #endif
 
 #include <vector>
 
+#ifdef COMPOSITING
 class WindowTexture
 {
 private:
+
+#ifdef UI_X11
     Pixmap _pixmap = 0;
     GLXPixmap _glx_pixmap = 0;
     GLuint _texture_id = 0;
-    Window _window;
+#endif
+
     int _width = 0;
     int _height = 0;
     bool _success = false;
+
+    native_window _window;
 public:
-    WindowTexture(Window window);
+    WindowTexture(native_window window);
     ~WindowTexture();
 
     inline bool is_loaded() const { return _success; };
     inline Window window() const { return _window; };
     inline GLuint texture_id() const { return _texture_id; };
 };
+#endif
 
 class WindowManager
 {

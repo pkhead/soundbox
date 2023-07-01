@@ -23,6 +23,9 @@
 
 #ifdef ENABLE_GTK2
 #include <gtk/gtk.h>
+#endif
+
+#ifdef UI_X11
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3native.h>
 #endif
