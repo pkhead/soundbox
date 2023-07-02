@@ -218,7 +218,7 @@ void fft(complex_t<float>* data, int data_size, bool inverse) // data is array o
                 data[match] = data[k] - product;
                 data[k] = data[k] + product;
             }
-            
+
             factor = mult * factor + factor;
         }
     }
@@ -227,5 +227,62 @@ void fft(complex_t<float>* data, int data_size, bool inverse) // data is array o
     {
         for (int i = 0; i < data_size; i++)
             data[i] = data[i] / data_size;
+    }
+}
+
+// Filters
+Filter2ndOrder::Filter2ndOrder()
+{
+    for (int c = 0; c < 2; c++)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            x[c][i] = 0.0f;
+            y[c][i] = 0.0f;
+            a[c][i] = 0.0f;
+            b[c][i] = 0.0f;
+        }
+    }
+}
+
+void Filter2ndOrder::process(float input[2], float output[3])
+{
+    for (int c = 0; c < 2; c++)
+    {
+        x[c][0] = input[c];
+        y[c][0] =
+            b[c][0] * x[c][0] +
+            b[c][1] * x[c][1] +
+            b[c][2] * x[c][2] -
+            a[c][1] * y[c][1] -
+            a[c][2] - y[c][2];
+
+        x[c][2] = x[c][1];
+        x[c][1] = x[c][0];
+        y[c][2] = y[c][1];
+        y[c][1] = y[c][0];
+    }
+}
+
+void Filter2ndOrder::low_pass(float Fs, float f0, float Q)
+{
+    // Fs: sample rate
+    // f0: frequency
+    // Q: peak linear gain
+    float w0 = 2.0f * M_PI * f0 / Fs;
+    float sin = sinf(w0);
+    float cos = cosf(w0);
+
+    float alpha = sin / (2.0f * Q);
+    float a0 = 1.0f + alpha;
+
+    for (int c = 0; c < 2; c++)
+    {
+        b[c][0] = (1.0f - cos) / (2.0f * a0);
+        b[c][1] = (1.0f - cos) / a0;
+        b[c][2] = (1.0f - cos) / (2.0f * a0);
+        a[c][0] = 1.0f;
+        a[c][1] = (-2.0f * cos) / a0;
+        a[c][2] = (1.0f - alpha) / a0;
     }
 }

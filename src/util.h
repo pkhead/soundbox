@@ -131,4 +131,19 @@ struct complex_t
 
 void fft(complex_t<float>* data, int data_size, bool inverse);
 
-// TODO: filters
+class Filter2ndOrder
+{
+public:
+    // [channel][order]
+    float x[2][3]; // input
+    float y[2][3]; // output
+
+    // filter coefficients
+    float a[2][3];
+    float b[2][3];
+
+    Filter2ndOrder();
+
+    void low_pass(float Fs, float f0, float Q);
+    void process(float input[2], float output[2]);
+};
