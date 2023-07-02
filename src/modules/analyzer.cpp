@@ -16,20 +16,33 @@ AnalyzerModule::AnalyzerModule(DestinationModule& dest) :
 
     size_t arr_size = frames_per_window + window_margin * 2;
     buf = new float[arr_size * dest.channel_count];
-    window_left[0] = new float[arr_size];
-    window_right[0] = new float[arr_size];
-    window_left[1] = new float[arr_size];
-    window_right[1] = new float[arr_size];
+
+    for (int i = 0; i < 2; i++) {
+        window_left[i] = new float[arr_size];
+        window_right[i] = new float[arr_size];
+    }
+
+    complex_left = new complex_t<float>[arr_size];
+    complex_right = new complex_t<float>[arr_size];
+    real_left = new float[arr_size];
+    real_right = new float[arr_size];
+
     ready = false;
 }
 
 AnalyzerModule::~AnalyzerModule() {
     ready = false;
     delete[] buf;
-    delete[] window_left[0];
-    delete[] window_left[1];
-    delete[] window_right[0];
-    delete[] window_right[1];
+
+    for (int i = 0; i < 2; i++) {
+        delete[] window_left[i];
+        delete[] window_right[i];
+    }
+
+    delete[] complex_left;
+    delete[] complex_right;
+    delete[] real_left;
+    delete[] real_right;
 }
 
 void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
@@ -51,16 +64,17 @@ void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, s
     {
         int buf_idx = 1 - window_front;
         
-        float* buf_left = window_left[buf_idx];
-        float* buf_right = window_right[buf_idx];
-
+        float* left = window_left[buf_idx];
+        float* right = window_right[buf_idx];
+        
         size_t num_read = ring_buffer.read(buf, samples_per_window);
         assert(num_read == samples_per_window);
 
         size_t j = 0;
+
         for (size_t i = 0; i < samples_per_window; i += channel_count) {
-            buf_left[j] = buf[i];
-            buf_right[j] = buf[i + 1];
+            left[j] = buf[i];
+            right[j] = buf[i + 1];
             j++;
         }
 
@@ -102,44 +116,129 @@ void AnalyzerModule::_interface_proc() {
     in_use = true;
 
     ImVec2 graph_size = ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f);
+    size_t frames_per_buffer = frames_per_window + window_margin * 2;
+    size_t samples_per_buffer = frames_per_buffer * 2;
+
+    // mode slider
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Oscilloscope");
+    ImGui::SameLine();
+    ImGui::RadioButton("##option-oscil", &mode, 0);
+    ImGui::AlignTextToFramePadding();
+    ImGui::SameLine();
+    ImGui::Text("Spectrum");
+    ImGui::SameLine();
+    ImGui::RadioButton("##option-spect", &mode, 1);
+
+    // show oscilloscope align checkbox
+    if (mode == 0) {
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Align");
+        ImGui::SameLine();
+        ImGui::Checkbox("###align", &align);
+    }
 
     if (ready)
     {
         float* left = window_left[window_front];
         float* right = window_right[window_front];
 
-        int offset_left = 0;
-        int offset_right = 0;
+        if (mode == 0)
+        {
+            int offset_left = 0;
+            int offset_right = 0;
 
-        if (align) {
-            // align display to nearest zero crossing from center
-            size_t frames_per_buffer = frames_per_window + window_margin * 2;
-            offset_left = offset_zero_crossing(left, frames_per_buffer, window_margin);
-            offset_right = offset_zero_crossing(right, frames_per_buffer, window_margin);
+            if (align) {
+                // align display to nearest zero crossing from center
+                offset_left = offset_zero_crossing(left, frames_per_buffer, window_margin);
+                offset_right = offset_zero_crossing(right, frames_per_buffer, window_margin);
+            }
+
+            ImGui::PlotLines(
+                "###left_samples", 
+                left + window_margin + offset_left,
+                frames_per_window,
+                0,
+                "L",
+                -range,
+                range,
+                graph_size
+            );
+
+            ImGui::SameLine();
+            ImGui::PlotLines(
+                "###right_samples", 
+                right + window_margin + offset_right,
+                frames_per_window,
+                0,
+                "R",
+                -range,
+                range,
+                graph_size
+            );
+
+            // show range slider
+            ImGui::SameLine();
+            ImGui::VSliderFloat(
+                "###range",
+                ImVec2(ImGui::GetTextLineHeight() * 1.5f, ImGui::GetTextLineHeight() * 10.0f),
+                &range,
+                0.01f,
+                1.0f,
+                "",
+                ImGuiSliderFlags_Logarithmic);
+            if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+                ImGui::SetTooltip("%.3f", range);
+            }
+        } else {
+            // copy real-valued left/right buffers
+            // to complex
+            for (int i = 0; i < frames_per_buffer; i++)
+            {
+                complex_left[i] = left[i];
+                complex_right[i] = right[i];
+            }
+
+            // perform analysis
+            fft(complex_left, frames_per_buffer, false);
+            fft(complex_right, frames_per_buffer, false);
+            for (int i = 0; i < frames_per_buffer; i++)
+            {
+                // sin(x)^2 + cos(x)^2 = 1
+                real_left[i] =
+                    complex_left[i].real * complex_left[i].real +
+                    complex_left[i].imag * complex_left[i].imag;
+                real_right[i] =
+                    complex_right[i].real * complex_right[i].real +
+                    complex_right[i].imag * complex_right[i].imag;
+            }
+
+            // render analysis
+            float scale = frames_per_window * 2.0f;
+            ImGui::PlotLines(
+                "###left_samples", 
+                real_left,
+                frames_per_window,
+                0,
+                "L",
+                0,
+                scale,
+                graph_size
+            );
+
+            ImGui::SameLine();
+            ImGui::PlotLines(
+                "###right_samples", 
+                real_right,
+                frames_per_window,
+                0,
+                "R",
+                0,
+                scale,
+                graph_size
+            );
         }
-
-        ImGui::PlotLines(
-            "###left_samples", 
-            left + window_margin + offset_left,
-            frames_per_window,
-            0,
-            "L",
-            -range,
-            range,
-            graph_size
-        );
-
-        ImGui::SameLine();
-        ImGui::PlotLines(
-            "###right_samples", 
-            right + window_margin + offset_right,
-            frames_per_window,
-            0,
-            "R",
-            -range,
-            range,
-            graph_size
-        );
     }
     else
     {
@@ -168,24 +267,6 @@ void AnalyzerModule::_interface_proc() {
             graph_size
         );
     }
-    
-    ImGui::SameLine();
-    ImGui::VSliderFloat(
-        "###range",
-        ImVec2(ImGui::GetTextLineHeight() * 1.5f, ImGui::GetTextLineHeight() * 10.0f),
-        &range,
-        0.01f,
-        1.0f,
-        "",
-        ImGuiSliderFlags_Logarithmic);
-    if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
-        ImGui::SetTooltip("%.3f", range);
-    }
 
     in_use = false;
-
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Align");
-    ImGui::SameLine();
-    ImGui::Checkbox("###align", &align);
 }

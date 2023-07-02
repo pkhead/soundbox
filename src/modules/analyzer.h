@@ -16,7 +16,7 @@ namespace audiomod
         float* buf;
 
         // 0 = view oscilloscope
-        // 1 = view spectrogram
+        // 1 = view spectum
         int mode = 0;
         bool align = true; // oscilloscope align
         float range = 1.0f;
@@ -25,9 +25,15 @@ namespace audiomod
         std::atomic<int> window_front = 0;
         std::atomic<bool> ready = false;
         std::atomic<bool> in_use = false; // if front buf is in use
+
+        // oscilloscope windows
         float* window_left[2] = { nullptr, nullptr };
         float* window_right[2] = { nullptr, nullptr };
 
+        // buffers, used by ui thread
+        // to do FFT and stuff for spectrum display
+        complex_t<float> *complex_left, *complex_right;
+        float            *real_left,    *real_right;
     public:
         AnalyzerModule(DestinationModule& dest);
         ~AnalyzerModule();

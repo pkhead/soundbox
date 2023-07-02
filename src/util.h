@@ -77,5 +77,58 @@ public:
     size_t read(float* out, size_t size);
 };
 
+// a complex number
+template <typename T = float>
+struct complex_t
+{
+    T real;
+    T imag;
+
+    inline constexpr complex_t()                : real(0.0f), imag(0.0f) {}
+    inline constexpr complex_t(T real)          : real(real), imag(0.0f) {}
+    inline constexpr complex_t(T real, T imag)  : real(real), imag(imag) {}
+
+    inline constexpr complex_t operator+(const complex_t& other) {
+        return complex_t(real + other.real, imag + other.imag);
+    }
+
+    inline constexpr complex_t operator+(const T& scalar) {
+        return complex_t(real + scalar, imag);
+    }
+
+    inline constexpr complex_t operator-(const complex_t& other) {
+        return complex_t(real - other.real, imag - other.imag);
+    }
+
+    inline constexpr complex_t operator-(const T& scalar) {
+        return complex_t(real - scalar, imag);
+    }
+
+    inline constexpr complex_t operator*(const complex_t& other) {
+        return complex_t(
+            real * other.real - imag * other.imag,
+            real * other.imag + imag * other.real
+        );
+    }
+
+    inline constexpr complex_t operator/(const complex_t& other) {
+        T val = other.real * other.real + other.imag * other.imag;
+
+        return complex_t(
+            (real * other.real + imag * other.imag) / val,
+            (imag * other.real - real * other.imag) / val
+        );
+    }
+
+    inline constexpr complex_t operator-() {
+        return complex_t(-real, -imag);
+    }
+
+    inline constexpr complex_t operator==(const complex_t& other) {
+        return real == other.real && imag == other.imag;
+    }
+};
+
+void fft(complex_t<float>* data, int data_size, bool inverse);
+
 // TODO: filters
-// TODO: fft

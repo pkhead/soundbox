@@ -1,4 +1,6 @@
 #include <cstring>
+#include <cmath>
+#include <stdexcept>
 
 #include "util.h"
 
@@ -158,5 +160,72 @@ void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t fr
     else
     {
         memset(dest, 0, buffer_size * sizeof(float));
+    }
+}
+
+// apdated from
+// https://github.com/d1vanov/Simple-FFT/tree/master
+void fft(complex_t<float>* data, int data_size, bool inverse) // data is array of complex numbers
+{
+    if ((data_size & data_size - 1) != 0) {
+        dbg("ERROR: size is not a power of 2");
+        throw std::runtime_error("size is not a power of 2");
+    }
+
+    // rearrange data first
+    int target_index = 0;
+    int bit_mask;
+
+    for (int i = 0; i < data_size; i++)
+    {
+        if (target_index > i) {
+            complex_t temp = data[target_index];
+            data[target_index] = data[i];
+            data[i] = temp;
+        }
+
+        bit_mask = data_size;
+
+        while (target_index & (bit_mask >>= 1))
+            target_index = target_index & (~bit_mask);
+
+        target_index |= bit_mask;
+    }
+
+    // perform algorithm
+    float pi = inverse ? -M_PI : -M_PI;
+    int next, match;
+    float sine, delta;
+    complex_t mult, factor, product;
+
+    for (int i = 1; i < data_size; i *= 2)
+    {
+        int next = i << 1; // getting the next bit
+        delta = pi / i; // angle increasing
+        sine = sinf(delta / 2.0f); // supplementary sine
+        // multiplier for trigonometric reference
+        mult = complex_t(-2.0f * sine * sine, sinf(delta));
+        factor = complex_t(1.0f); // start transform factor
+
+        // iterations through groups with
+        // different transform factor
+        for (int j = 0; j < i; j++) {
+            // iterations through pairs within groups
+            for (int k = j; k < data_size; k += next)
+            {
+                match = k + i;
+                product = data[match] * factor;
+                data[match] = data[k] - product;
+                data[k] = data[k] + product;
+            }
+            
+            factor = mult * factor + factor;
+        }
+    }
+
+    if (inverse)
+    {
+        for (int i = 0; i < data_size; i++)
+            data[i] = data[i] / data_size;
     }
 }
