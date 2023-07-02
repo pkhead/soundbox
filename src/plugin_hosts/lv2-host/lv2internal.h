@@ -6,6 +6,7 @@
 #include <lv2/atom/forge.h>
 #include <lv2/worker/worker.h>
 #include <lv2/ui/ui.h>
+#include <lv2/options/options.h>
 #include <suil/suil.h>
 #include <GLFW/glfw3.h>
 #include <vector>
@@ -414,12 +415,15 @@ namespace lv2 {
         LV2_Feature log_feature;
         LV2_Worker_Schedule lv2_worker_schedule;
         LV2_Feature work_schedule_feature;
+        LV2_Options_Option options[1];
+        LV2_Feature options_feature;
 
-        const LV2_Feature* features[5] {
+        const LV2_Feature* features[6] {
             &map_feature,
             &unmap_feature,
             &log_feature,
             &work_schedule_feature,
+            &options_feature,
             NULL
         };
 

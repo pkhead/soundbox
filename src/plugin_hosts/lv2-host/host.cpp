@@ -55,6 +55,10 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
     log_feature = {LV2_LOG__log, &log};
     lv2_worker_schedule = {&worker_host, WorkerHost::_schedule_work};
     work_schedule_feature = {LV2_WORKER__schedule, &lv2_worker_schedule};
+    options[0] = {
+        LV2_OPTIONS_INSTANCE, 0, 0, 0, 0, 0
+    };
+    options_feature = {LV2_OPTIONS__options, &options};
 
     // instantiate plugin
     instance = lilv_plugin_instantiate(plugin, dest.sample_rate, features);
