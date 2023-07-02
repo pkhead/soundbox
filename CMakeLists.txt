@@ -8,28 +8,28 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" OFF)
+option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" OFF)
+option(SBOX_DISABLE_LV2 "Do not support LV2 plugins" OFF)
+
 # find packages required for lv2 support on system
 find_library(LILV_LIBRARIES lilv-0)
 find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0)
 find_library(SUIL_LIBRARIES suil-0)
 find_path(SUIL_INCLUDE suil/suil.h PATH_SUFFIXES suil-0)
 
-if (
+if (SBOX_DISABLE_LV2 OR
     (LILV_LIBRARIES STREQUAL "LILV_LIBRARIES-NOTFOUND") OR
     (LILV_INCLUDE STREQUAL "LILV_INCLUDE-NOTFOUND") OR
     (SUIL_LIBRARIES STREQUAL "SUIL_LIBRARIES-NOTFOUND") OR
     (SUIL_INCLUDE STREQUAL "SUIL_INCLUDE-NOTFOUND")
 )
-    set(STATUS_LV2 "No")
+    set(LV2_FOUND 0)
 else()
-    set(STATUS_LV2 "Yes")
     set(LV2_FOUND 1)
 endif()
 
-# gtk2 for certain plugin uis
-option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" OFF)
-option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" OFF)
-
+# find gtk2 for certain plugin uis
 if(NOT SBOX_DISABLE_GTK2)
     find_package(GTK2)
 endif()
@@ -41,10 +41,6 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(deps/portaudio-19.7.0 EXCLUDE_FROM_ALL)
 add_subdirectory(deps/glfw)
-
-mark_as_advanced(GLFW_BUILD_DOCS)
-mark_as_advanced(GLFW_BUILD_TESTS)
-mark_as_advanced(GLFW_BUILD_EXAMPLES)
 
 set(SOURCES
     # imgui sources
@@ -83,14 +79,10 @@ set(SOURCES
     src/worker.cpp
     src/util.cpp
 
-    # lv2 plugins
+    # ladspa plugins
     src/plugin_hosts/ladspa.cpp
-    src/plugin_hosts/lv2-host/features.cpp
-    src/plugin_hosts/lv2-host/host.cpp
-    src/plugin_hosts/lv2-host/interface.cpp
-    src/plugin_hosts/lv2-host/ui.cpp
     
-    # sources for app ui
+    # app user interface
     src/ui/ui.cpp
     src/ui/editor.cpp
     src/ui/change_history.cpp
@@ -139,11 +131,19 @@ set(INCLUDES
 
 set(COMPILE_FLAGS "")
 
+# include lv2 plugins
 if (LV2_FOUND)
     set(INCLUDES ${INCLUDES} ${LILV_INCLUDE} ${SUIL_INCLUDE})
+    set(SOURCES ${SOURCES}
+        src/plugin_hosts/lv2-host/features.cpp
+        src/plugin_hosts/lv2-host/host.cpp
+        src/plugin_hosts/lv2-host/interface.cpp
+        src/plugin_hosts/lv2-host/ui.cpp
+    )
     set(COMPILE_FLAGS ${COMPILE_FLAGS} ENABLE_LV2)
 endif()
-    
+
+#include gtk2 for plugin UIs
 if (GTK2_FOUND)
     set(INCLUDES ${INCLUDES} ${GTK2_INCLUDE_DIRS})
     set(COMPILE_FLAGS ${COMPILE_FLAGS} ENABLE_GTK2)
@@ -228,11 +228,19 @@ file(COPY ${CMAKE_SOURCE_DIR}/styles DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/imgui.ini DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/logo.png DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
+
+
 # print build status
 if(GTK2_FOUND)
     set(STATUS_GTK2 "Yes")
 else()
     set(STATUS_GTK2 "No")
+endif()
+
+if (LV2_FOUND)
+    set(STATUS_LV2 "Yes")
+else()
+    set(STATUS_LV2 "No")
 endif()
 
 message("\n"
@@ -243,3 +251,15 @@ message("\n"
     " - Plugin UI embedding         ${STATUS_COMPOSITE}\n"
     "\n"
 )
+
+mark_as_advanced(GLFW_BUILD_DOCS)
+mark_as_advanced(GLFW_BUILD_TESTS)
+mark_as_advanced(GLFW_BUILD_EXAMPLES)
+mark_as_advanced(LV2_FOUND)
+mark_as_advanced(GTK2_FOUND)
+mark_as_advanced(LILV_LIBRARIES)
+mark_as_advanced(LILV_INCLUDE)
+mark_as_advanced(SUIL_LIBRARIES)
+mark_as_advanced(SUIL_INCLUDE)
+mark_as_advanced(LIB_XFIXES)
+mark_as_advanced(LIB_XCOMPOSITE)

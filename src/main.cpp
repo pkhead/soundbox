@@ -9,7 +9,6 @@
 #include <sstream>
 
 #include <glad/gl.h>
-#include "plugin_hosts/lv2-host/lv2interface.h"
 #include <imgui.h>
 #include "ui/theme.h"
 #include <backends/imgui_impl_glfw.h>
@@ -18,6 +17,10 @@
 #include <math.h>
 #include <nfd.h>
 #include "sys.h"
+
+#ifdef ENABLE_LV2
+#include "plugin_hosts/lv2-host/lv2interface.h"
+#endif
 
 #ifdef _WIN32
 // i want the title bar to match light/dark theme in windows
@@ -111,7 +114,9 @@ int main(int argc, char** argv)
     glfwGetWindowContentScale(draw_window, &screen_xscale, &screen_yscale);
 
     // setup LV2 plugin host
+#ifdef ENABLE_LV2
     lv2::lv2_init(&argc, &argv);
+#endif
 
     // setup dear imgui
     IMGUI_CHECKVERSION();
@@ -666,7 +671,7 @@ int main(int argc, char** argv)
                     run_app = false;
                 };
             }
-#ifdef ENABLE_GTK2
+#if defined(ENABLE_GTK2) & defined(ENABLE_LV2)
             lv2::gtk_process();
 #endif
 
@@ -864,7 +869,10 @@ int main(int argc, char** argv)
     device.stop();
     AudioDevice::_pa_stop();
     audiomod::ModuleBase::free_garbage_modules();
-    lv2::lv2_fini();
 
+#ifdef ENABLE_LV2
+    // TODO: interface this function in the PluginManager
+    lv2::lv2_fini();
+#endif
     return 0;
 }

@@ -11,8 +11,11 @@
 #include "audio.h"
 #include "plugins.h"
 #include "plugin_hosts/ladspa.h"
-#include "plugin_hosts/lv2-host/lv2interface.h"
 #include "sys.h"
+
+#ifdef ENABLE_LV2
+#include "plugin_hosts/lv2-host/lv2interface.h"
+#endif
 
 using namespace plugins;
 
@@ -172,10 +175,12 @@ PluginManager::PluginManager(WindowManager& win_manager) : window_manager(win_ma
 {
     // get standard paths for plugin standards
     _std_ladspa = parse_path_list( LadspaPlugin::get_standard_paths() );
-    _std_lv2 = parse_path_list( Lv2Plugin::get_standard_paths() );
-
     ladspa_paths = _std_ladspa;
+
+#ifdef ENABLE_LV2
+    _std_lv2 = parse_path_list( Lv2Plugin::get_standard_paths() );
     lv2_paths = _std_lv2;
+#endif
 }
 
 void PluginManager::add_path(PluginType type, const std::string& path)
@@ -226,7 +231,9 @@ void PluginManager::scan_plugins()
 {
     plugin_data.clear();
     LadspaPlugin::scan_plugins(ladspa_paths, plugin_data);
+#ifdef ENABLE_LV2
     Lv2Plugin::scan_plugins(lv2_paths, plugin_data);
+#endif
 }
 
 PluginModule* PluginManager::instantiate_plugin(
@@ -242,6 +249,7 @@ PluginModule* PluginManager::instantiate_plugin(
             plugin = new plugins::LadspaPlugin(audio_dest, plugin_data);
             break;
 
+#ifdef ENABLE_LV2
         case plugins::PluginType::Lv2:
         try {
             plugin = new plugins::Lv2Plugin(audio_dest, plugin_data, work_scheduler, window_manager);
@@ -249,6 +257,7 @@ PluginModule* PluginManager::instantiate_plugin(
             throw module_create_error(err.what());
         }
             break;
+#endif
 
         default:
             throw std::runtime_error("invalid plugin type");
