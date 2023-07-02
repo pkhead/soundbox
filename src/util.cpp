@@ -288,3 +288,23 @@ void Filter2ndOrder::low_pass(float Fs, float f0, float Q)
         a[c][2] = (1.0f - alpha) / a0;
     }
 }
+
+void Filter2ndOrder::high_pass(float Fs, float f0, float Q)
+{
+    float w0 = 2.0f * M_PI * f0 / Fs;
+    float sin = sinf(w0);
+    float cos = cosf(w0);
+
+    float alpha = sin / (2.0f * Q);
+    float a0 = 1.0f + alpha;
+
+    for (int c = 0; c < 2; c++)
+    {
+        b[c][0] =  (1.0f + cos) / (2.0f * a0);
+        b[c][1] = -(1.0f + cos) / a0;
+        b[c][2] =  (1.0f + cos) / (2.0f * a0);
+        a[c][0] =  1.0f;
+        a[c][1] =  (-2.0f * cos) / a0;
+        a[c][2] =  (1.0f - alpha) / a0;
+    }
+}

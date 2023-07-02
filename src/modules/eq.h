@@ -11,20 +11,11 @@ namespace audiomod
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
         
-        Filter2ndOrder filter;
-
-        enum FilterMode : uint8_t
-        {
-            LowPassFilter = 0,
-            HighPassFilter = 1,
-            BandPassFilter = 2
-        };
-
-        std::atomic<FilterMode> filter_mode;
+        Filter2ndOrder filter[2];
 
         // todo: atomic floats are likely to not be lock free
-        std::atomic<float> frequency;
-        std::atomic<float> resonance;
+        std::atomic<float> frequency[2];
+        std::atomic<float> resonance[2];
 
     public:
         void save_state(std::ostream& ostream) const override;

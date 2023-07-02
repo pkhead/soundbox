@@ -145,5 +145,6 @@ public:
     Filter2ndOrder();
 
     void low_pass(float Fs, float f0, float Q);
+    void high_pass(float Fs, float f0, float Q);
     void process(float input[2], float output[2]);
 };
