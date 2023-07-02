@@ -5,6 +5,7 @@
 #include "../sys.h"
 #include <math.h>
 #include "../song.h"
+#include "../util.h"
 
 using namespace audiomod;
 
@@ -23,7 +24,7 @@ WaveformSynth::WaveformSynth(DestinationModule& dest) : ModuleBase(dest, true) {
     id = "synth.waveform";
     name = "Waveform Synth";
 
-    // generate static data
+    // generate static noise data
     if (!PREPROCESSED_DATA_READY)
     {
         PREPROCESSED_DATA_READY = true;
@@ -118,6 +119,11 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
 
                     case Sawtooth:
                         sample = 2.0 * _mod(phase / PI2 + 0.5, 1.0) - 1.0;
+                        break;
+
+                    // 25% pulse wave
+                    case Pulse:
+                        sample = sign(2.0 * _mod(phase / PI2 + 0.5, 1.0) - 1.0 + 0.5);
                         break;
 
                     case Noise:
@@ -216,6 +222,7 @@ void WaveformSynth::_interface_proc() {
         "Square",
         "Sawtooth",
         "Triangle",
+        "Pulse",
         "Noise",
     };
 
@@ -237,7 +244,7 @@ void WaveformSynth::_interface_proc() {
         ImGui::SetNextItemWidth(-FLT_MIN);
         if (ImGui::BeginCombo("##channel_bus", WAVEFORM_NAMES[waveform_types[osc]]))
         {
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 6; i++) {
                 if (ImGui::Selectable(WAVEFORM_NAMES[i], i == waveform_types[osc])) waveform_types[osc] = static_cast<WaveformType>(i);
 
                 if (i == waveform_types[osc]) {

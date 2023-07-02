@@ -29,7 +29,8 @@ namespace audiomod {
             Square = (uint8_t)1,
             Sawtooth = (uint8_t)2,
             Triangle = (uint8_t)3,
-            Noise = (uint8_t)4,
+            Pulse = (uint8_t)4,
+            Noise = (uint8_t)5, // 1/4 pulse wave
         };
         
         WaveformType waveform_types[3];
