@@ -113,6 +113,7 @@ set(SOURCES
     src/modules/volume.cpp
     src/modules/waveform.cpp
     src/modules/delay.cpp
+    src/modules/eq.cpp
 )
 
 set(LIBRARIES

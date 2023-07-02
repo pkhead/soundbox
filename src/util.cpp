@@ -245,7 +245,7 @@ Filter2ndOrder::Filter2ndOrder()
     }
 }
 
-void Filter2ndOrder::process(float input[2], float output[3])
+void Filter2ndOrder::process(float input[2], float output[2])
 {
     for (int c = 0; c < 2; c++)
     {
@@ -255,12 +255,14 @@ void Filter2ndOrder::process(float input[2], float output[3])
             b[c][1] * x[c][1] +
             b[c][2] * x[c][2] -
             a[c][1] * y[c][1] -
-            a[c][2] - y[c][2];
+            a[c][2] * y[c][2];
 
         x[c][2] = x[c][1];
         x[c][1] = x[c][0];
         y[c][2] = y[c][1];
         y[c][1] = y[c][0];
+
+        output[c] = y[c][0];
     }
 }
 

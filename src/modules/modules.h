@@ -6,3 +6,4 @@
 #include "volume.h"
 #include "waveform.h"
 #include "delay.h"
+#include "eq.h"
