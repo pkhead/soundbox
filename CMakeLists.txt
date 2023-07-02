@@ -10,7 +10,12 @@ endif()
 
 option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" OFF)
 option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" OFF)
-option(SBOX_DISABLE_LV2 "Do not support LV2 plugins" OFF)
+option(SBOX_DISABLE_LV2 "Do not support LV2 plugins" ON)
+
+# lv2 plugin support isn't quite finished yet, so in the main branch
+# i've disabled it by default. on the lv2 branch it is enabled by
+# default. i merged the lv2 branch into main mainly because it had
+# some improvements to the software not pertinent to plugins.
 
 # find packages required for lv2 support on system
 find_library(LILV_LIBRARIES lilv-0)
