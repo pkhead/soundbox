@@ -2,6 +2,7 @@
 //			this may require storing audio data in some sort of ring buffer
 
 #include <imgui.h>
+#include <cmath>
 #include "../util.h"
 #include "analyzer.h"
 
@@ -201,17 +202,38 @@ void AnalyzerModule::_interface_proc() {
             }
 
             // perform analysis
+            // TODO: need faster fft algorithm, also
+            // this loop could probably be a little more optimized
             fft(complex_left, frames_per_buffer, false);
             fft(complex_right, frames_per_buffer, false);
             for (int i = 0; i < frames_per_buffer; i++)
             {
-                // sin(x)^2 + cos(x)^2 = 1
-                real_left[i] =
-                    complex_left[i].real * complex_left[i].real +
-                    complex_left[i].imag * complex_left[i].imag;
-                real_right[i] =
-                    complex_right[i].real * complex_right[i].real +
-                    complex_right[i].imag * complex_right[i].imag;
+                float t = powf(
+                    2.0f,
+                    ((float)i * (logf((float)frames_per_buffer / 2.0f) / logf(2.0f)))
+                    / (float)frames_per_buffer
+                );
+
+                int t0 = (int)t - 1;
+                int t1 = (int)t;
+
+                // sin(x)^2 + cos(x)^2 = 1 
+                float l0 =
+                    complex_left[t0].real * complex_left[t0].real +
+                    complex_left[t0].imag * complex_left[t0].imag;
+                float l1 = 
+                    complex_left[t1].real * complex_left[t1].real +
+                    complex_left[t1].imag * complex_left[t1].imag;
+                float r0 =
+                    complex_right[t0].real * complex_right[t0].real +
+                    complex_right[t0].imag * complex_right[t0].imag;
+                float r1 =
+                    complex_right[t1].real * complex_right[t1].real +
+                    complex_right[t1].imag * complex_right[t1].imag;
+
+                float mod = fmodf(t, 1.0f);
+                real_left[i] = (l1 - l0) * mod + l0;
+                real_right[i] = (r1 - r0) * mod + l1;
             }
 
             // render analysis
@@ -219,7 +241,7 @@ void AnalyzerModule::_interface_proc() {
             ImGui::PlotLines(
                 "###left_samples", 
                 real_left,
-                frames_per_window,
+                frames_per_buffer,
                 0,
                 "L",
                 0,
@@ -231,7 +253,7 @@ void AnalyzerModule::_interface_proc() {
             ImGui::PlotLines(
                 "###right_samples", 
                 real_right,
-                frames_per_window,
+                frames_per_buffer,
                 0,
                 "R",
                 0,
