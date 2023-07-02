@@ -290,6 +290,7 @@ bool NoteEvent::read_midi(const MidiMessage* in)
 //////////////////////
 
 static std::vector<ModuleBase*> garbage_modules;
+static std::mutex garbage_lock;
 
 // TODO: remove audio buffers in ModuleBase, as
 // destination module is the one that now
@@ -317,18 +318,24 @@ void ModuleBase::release()
     _is_released = true;
 
     remove_all_connections();
+
+    std::lock_guard lock(garbage_lock);
     garbage_modules.push_back(this);
 }
 
 void ModuleBase::free_garbage_modules()
 {
-    if (garbage_modules.size() > 0)
-        std::cout << "free " << garbage_modules.size() << " modules\n";
-    
-    for (ModuleBase* mod : garbage_modules)
-        delete mod;
+    std::vector<ModuleBase*> copy; {
+        std::lock_guard lock(garbage_lock);
+        copy = garbage_modules;
+        garbage_modules.clear();
+    };
 
-    garbage_modules.clear();
+    if (copy.size() > 0)
+        std::cout << "free " << copy.size() << " modules\n";
+    
+    for (ModuleBase* mod : copy)
+        delete mod;
 }
 
 void ModuleBase::connect(ModuleOutputTarget* dest) {

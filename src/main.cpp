@@ -862,8 +862,8 @@ int main(int argc, char** argv)
     }
 
     device.stop();
-    audiomod::ModuleBase::free_garbage_modules();
     AudioDevice::_pa_stop();
+    audiomod::ModuleBase::free_garbage_modules();
     lv2::lv2_fini();
 
     return 0;
