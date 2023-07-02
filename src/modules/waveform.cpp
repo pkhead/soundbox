@@ -200,17 +200,14 @@ void WaveformSynth::event(const MidiEvent& midi) {
     }
 }
 
-static void render_slider(const char* id, const char* label, float* var, float max, float ramp, const char* fmt, float start = 0.0f) {
-    static char display_buf[8];
-    snprintf(display_buf, 8, fmt, *var);
-
+static void render_slider(const char* id, const char* label, float* var, float max, bool log, const char* fmt, float start = 0.0f) {
     ImGui::AlignTextToFramePadding();
     ImGui::Text("%s", label);
     ImGui::SameLine();
-    
-    float val = powf((*var - start) / max, 1.0f / ramp);
-    ImGui::SliderFloat(id, &val, 0.0f, 1.0f, display_buf);
-    *var = powf(val, ramp) * max + start;
+    ImGui::SliderFloat(
+        id, var, start, max, fmt,
+        (log ? ImGuiSliderFlags_Logarithmic : 0) | ImGuiSliderFlags_NoRoundToFormat
+    );
 }
 
 void WaveformSynth::_interface_proc() {
@@ -221,13 +218,15 @@ void WaveformSynth::_interface_proc() {
         "Triangle",
         "Noise",
     };
+
+    ImGuiStyle& style = ImGui::GetStyle();
     
     const float slider_width = ImGui::GetTextLineHeight() * 6.0f;
     char sep_text[] = "Oscillator 1";
 
     for (int osc = 0; osc < 3; osc++) {
         ImGui::PushID(osc);
-
+        
         snprintf(sep_text, 13, "Oscillator %i", osc + 1);
         ImGui::SeparatorText(sep_text);
 
@@ -235,7 +234,7 @@ void WaveformSynth::_interface_proc() {
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Waveform");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SetNextItemWidth(-FLT_MIN);
         if (ImGui::BeginCombo("##channel_bus", WAVEFORM_NAMES[waveform_types[osc]]))
         {
             for (int i = 0; i < 5; i++) {
@@ -289,21 +288,21 @@ void WaveformSynth::_interface_proc() {
     ImGui::PushItemWidth(slider_width);
 
     // Attack slider
-    render_slider("##attack", "Atk", &this->attack, 5.0f, 4.0f, "%.3f secs");
+    render_slider("##attack", "Atk", &this->attack, 5.0f, false, "%.3f s");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
 
     // Decay slider
     ImGui::SameLine();
-    render_slider("##decay", "Dky", &this->decay, 10.0f, 4.0f, "%.3f secs");
+    render_slider("##decay", "Dky", &this->decay, 5.0f, false, "%.3f s");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.0f;
 
     // Sustain slider
-    render_slider("##sustain", "Sus", &this->sustain, 1.0f, 1.0f, "%.3f");
+    render_slider("##sustain", "Sus", &this->sustain, 1.0f, false, "%.3f");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 1.0f;
 
     // Release slider
     ImGui::SameLine();
-    render_slider("##release", "Rls", &this->release, 10.0f, 4.0f, "%.3f secs", 0.001f);
+    render_slider("##release", "Rls", &this->release, 5.0f, false, "%.3f s", 0.001f);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) this->attack = 0.001f;
 
     ImGui::PopItemWidth();
