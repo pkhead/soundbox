@@ -1,11 +1,7 @@
 # soundbox
 ![logo](logo.svg)
 
-A free and cross-platform application used for creating tunes.
-
-## Goals
-Soundbox is mainly targeted towards hobbyists who wish to have a simple and lightweight
-tool for creating music. It should be relatively easy to figure out how to use this application.
+A free and cross-platform tool for people who wish to have an easy-to-use yet comprehensive tool for creating tunes.
 
 ## Features
 - Pattern-based grid sequencer
