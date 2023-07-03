@@ -460,6 +460,15 @@ void Song::delete_fx_bus(audiomod::FXBus* bus_to_delete)
 
 }
 
+bool Song::is_note_playable(int key) const
+{
+    Tuning* tuning = tunings[selected_tuning];
+
+    if (key < 0) return false;
+    if (key >= tuning->key_freqs.size()) return false;
+    return true;
+}
+
 bool Song::get_key_frequency(int key, float* freq) const {
     Tuning* tuning = tunings[selected_tuning];
 

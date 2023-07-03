@@ -178,6 +178,7 @@ public:
 
     void delete_fx_bus(audiomod::FXBus* bus_to_delete);
 
+    bool is_note_playable(int key) const;
     bool get_key_frequency(int key, float* freq) const;
 
     // only call these functions from the processing thread
