@@ -57,6 +57,23 @@ WaveformSynth::WaveformSynth(DestinationModule& dest) : ModuleBase(dest, true) {
         voices[i].active = false;
 }
 
+static double poly_blep(double t, double inc)
+{
+    double dt = inc / PI2;
+    // 0 <= t < 1
+    if (t < dt) {
+        t /= dt;
+        return t+t - t*t - 1.0;
+    }
+    // -1 < t < 0
+    else if (t > 1.0 - dt) {
+        t = (t - 1.0) / dt;
+        return t*t + t+t + 1.0;
+    }
+    // 0 otherwise
+    else return 0.0;
+}
+
 void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     if (release < 0.001f) release = 0.001f;
     float t, env;
@@ -102,32 +119,49 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                 float r_mult = (panning[osc] + 1.0f) / 2.0f;
                 float l_mult = 1.0f - r_mult;
 
+                double increment = (PI2 * freq) / sample_rate;
+
                 switch (waveform_types[osc]) {
                     case Sine:
                         sample = sin(phase);
                         break;
 
-                    case Triangle: {
-                        double moda = phase / (PI2 * freq) - period / 4.0;
-                        sample = (4.0 / period) * abs(_mod(moda, period) - period / 2.0) - 1.0;
-                        break;
-                    }
-
                     case Square:
-                        sample = sin(phase) >= 0.0 ? 1.0 : -1.0;
+                    case Triangle: // triangle is an integrated square wave
+                        sample = phase < PI ? 1.0 : -1.0;
+                        sample += poly_blep(phase / PI2, increment);
+                        sample -= poly_blep(fmod(phase / PI2 + 0.5,1.0), increment);
+
+                        if (waveform_types[osc] == Triangle)
+                        {
+                            // this doesn't quite make an accurate triangle wave,
+                            // though it sounds enough like one. just in case, i'm
+                            // keeping the code to make an actual triangle wave, just
+                            // commented out
+                            sample = increment * sample + (1 - increment) * voice.last_sample[osc];
+                            voice.last_sample[osc] = sample;
+                        }
+
                         break;
+                    
+                    /*case Triangle: {
+                        sample = -1.0 + (2.0 * phase / PI2);
+                        sample = 2.0 * (fabs(sample) - 0.5);
+                        break;
+                    }*/
 
                     case Sawtooth:
-                        sample = 2.0 * _mod(phase / PI2 + 0.5, 1.0) - 1.0;
+                        sample = (2.0 * phase / PI2) - 1.0;
+                        sample -= poly_blep(phase / PI2, increment);
                         break;
 
                     // 25% pulse wave
                     case Pulse:
-                        sample = sign(2.0 * _mod(phase / PI2 + 0.5, 1.0) - 1.0 + 0.5);
+                        sample = sign(2.0 * phase / PI2 - 1.0 - 0.5);
                         break;
 
                     case Noise:
-                        sample = NOISE_DATA[(int)(phase * 4.0f) % NOISE_DATA_SIZE];
+                        sample = NOISE_DATA[(int)(voice.time * freq * 4.0f) % NOISE_DATA_SIZE];
                         break;
 
                     // a pulse wave: value[w] = (2.0f * _modf(phase / M_2PI + 0.5f, 1.3f) - 1.0f) > 0.0f ? 1.0f : -1.0f;
@@ -137,7 +171,9 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                 samples[osc][0] = sample * l_mult;
                 samples[osc][1] = sample * r_mult;
 
-                voice.phase[osc] += (PI2 * freq) / sample_rate;
+                voice.phase[osc] += increment;
+                if (voice.phase[osc] > PI2)
+                    voice.phase[osc] -= PI2;
             }
 
             output[i] += samples[0][0] + samples[1][0] + samples[2][0];
@@ -177,7 +213,8 @@ void WaveformSynth::event(const MidiEvent& midi) {
                 { 0.0, 0.0, 0.0 },
                 0.0,
                 -1.0f,
-                // undefined: release_env
+                0.0f,
+                { 0.0, 0.0, 0.0 }
             };
         }
     

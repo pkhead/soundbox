@@ -15,6 +15,7 @@ namespace audiomod {
             double time;
             double release_time;
             float release_env;
+            double last_sample[3];
         };
 
         static constexpr size_t MAX_VOICES = 16;
