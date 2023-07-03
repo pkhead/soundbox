@@ -39,6 +39,16 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
 
 void EQModule::_interface_proc()
 {
+    // TODO: eq display controlled not by sliders, but by
+    //       dragging points on a frequency response display
+    //       just like in BeepBox
+
+    ImGui::BeginGroup();
+    ImGui::AlignTextToFramePadding();
+    ImGuiStyle& style = ImGui::GetStyle();
+
+    ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 10.0f);
+
     for (int i = 0; i < 2; i++)
     {
         ImGui::PushID(i);
@@ -70,6 +80,64 @@ void EQModule::_interface_proc()
 
         ImGui::PopID();
     }
+
+    ImGui::PopItemWidth();
+    ImGui::EndGroup();
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::Text("Band-pass");
+
+    static float _test_freq = 0.0f;
+    static float _test_reso = 0.0f;
+    static bool _test_bool = false;
+
+    ImVec2 vslider_size = ImVec2( ImGui::GetFrameHeight(), ImGui::GetFrameHeightWithSpacing() * 4.0 + ImGui::GetTextLineHeight() );
+    
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + style.FramePadding.y);
+    for (int i = 0; i < 8; i++)
+    {
+        ImGui::PushID(i);
+
+        if (i > 0) ImGui::SameLine();
+
+        const float spacing = style.ItemSpacing.y;
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, spacing));
+        
+        ImGui::BeginGroup();
+
+        ImGui::VSliderFloat(
+            "##bp-frequency",
+            vslider_size,
+            &_test_freq, 20.0f, _dest.sample_rate / 2.5f,
+            "F", ImGuiSliderFlags_Logarithmic
+        );
+
+        if ((ImGui::IsItemHovered() || ImGui::IsItemActive()) && ImGui::BeginTooltip()) {
+            ImGui::Text("Frequency: %.3f Hz", _test_freq);
+            ImGui::EndTooltip();
+        }
+
+        ImGui::SameLine();
+        ImGui::VSliderFloat(
+            "##bp-resonance",
+            vslider_size,
+            &_test_reso, 1.0f, 20.0f,
+            "R"
+        );
+
+        if ((ImGui::IsItemHovered() || ImGui::IsItemActive()) && ImGui::BeginTooltip()) {
+            ImGui::Text("Resonance: %.3f dB", _test_reso);
+            ImGui::EndTooltip();
+        }
+
+        ImGui::PopStyleVar();
+
+        ImGui::Checkbox("##enabled", &_test_bool);
+
+        ImGui::EndGroup();
+        ImGui::PopID();
+    }
+    ImGui::EndGroup();
 }
 
 void EQModule::save_state(std::ostream& ostream) const {}
