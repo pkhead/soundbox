@@ -19,9 +19,8 @@ To see which features are not currently implemented, consult [TODO.txt](TODO.txt
 Most features aren't implemented as this is still fairly early into development.
 
 ## Building
-Dependencies:
-- [lilv](http://drobilla.net/software/lilv.html) for LV2 support
-- [suil](http://drobilla.net/software/suil.html) for LV2 UI support
+Optional dependencies:
+- [lilv](http://drobilla.net/software/lilv.html) and [suil](http://drobilla.net/software/suil.html) for LV2 plugin support
 
 ### Linux
 Install dependencies:
