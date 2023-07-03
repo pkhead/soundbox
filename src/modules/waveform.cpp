@@ -156,9 +156,17 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                         break;
 
                     // 25% pulse wave
-                    case Pulse:
-                        sample = sign(2.0 * phase / PI2 - 1.0 - 0.5);
+                    case Pulse: {
+                        // phase-shift
+                        double mphase = _mod((phase + PI/2.0), PI2);
+
+                        double a = phase / PI - 1.0;
+                        a -= poly_blep(phase / PI2, increment);
+                        double b = mphase / PI - 1.0;
+                        b -= poly_blep(mphase / PI2, increment);
+                        sample = a - b - 0.5;
                         break;
+                    }
 
                     case Noise:
                         sample = NOISE_DATA[(int)(voice.time * freq * 4.0f) % NOISE_DATA_SIZE];
