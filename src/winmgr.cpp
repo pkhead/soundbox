@@ -10,6 +10,13 @@
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/shape.h>
+
+typedef void (*t_glx_bind)(Display *, GLXDrawable, int , const int *);
+typedef void (*t_glx_release)(Display *, GLXDrawable, int);
+
+// manually bind to this function
+static t_glx_bind glXBindTexImageEXT = 0;
+static t_glx_release glXReleaseTexImageEXT = 0;
 #endif
 
 #define GLFW_EXPOSE_NATIVE_X11
@@ -20,13 +27,6 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include "winmgr.h"
-
-typedef void (*t_glx_bind)(Display *, GLXDrawable, int , const int *);
-typedef void (*t_glx_release)(Display *, GLXDrawable, int);
-
-// manually bind to this function
-static t_glx_bind glXBindTexImageEXT = 0;
-static t_glx_release glXReleaseTexImageEXT = 0;
 
 void WindowManager::_glfw_resize_callback(GLFWwindow* root_window, int width, int height)
 {

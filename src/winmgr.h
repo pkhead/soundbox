@@ -5,10 +5,21 @@
 #include <GLFW/glfw3.h>
 
 #ifdef UI_X11
+
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 #include <GL/glext.h>
 typedef Window native_window;
+
+#elif defined(UI_WINDOWS)
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <windows.h>
+typedef HWND native_window;
+
 #endif
 
 #include <vector>
@@ -21,7 +32,7 @@ private:
 #ifdef UI_X11
     Pixmap _pixmap = 0;
     GLXPixmap _glx_pixmap = 0;
-    GLuint _texture_id = 0;
+    GLuint _texture_id = 0; 
 #endif
 
     int _width = 0;
@@ -53,12 +64,12 @@ private:
 
     static void _glfw_resize_callback(GLFWwindow* win, int w, int h);
 
-    Window last_focused_window = 0;
+    native_window last_focused_window = 0;
 
 public:
     WindowManager(int width, int height, const char* name);
     ~WindowManager();
-    Window focused_window = 0;
+    native_window focused_window = 0;
 
     inline bool can_composite() const { return _can_composite; };
 
