@@ -1,5 +1,6 @@
 #include <cstring>
 #include <cmath>
+#include <cassert>
 #include <stdexcept>
 
 #include "util.h"
@@ -233,15 +234,16 @@ void fft(complex_t<float>* data, int data_size, bool inverse) // data is array o
 // Filters
 Filter2ndOrder::Filter2ndOrder()
 {
-    for (int c = 0; c < 2; c++)
+    for (int i = 0; i < 3; i++)
     {
-        for (int i = 0; i < 3; i++)
+        for (int c = 0; c < 2; c++)
         {
             x[c][i] = 0.0f;
             y[c][i] = 0.0f;
-            a[c][i] = 0.0f;
-            b[c][i] = 0.0f;
         }
+
+        a[i] = 0.0f;
+        b[i] = 0.0f;
     }
 }
 
@@ -249,13 +251,13 @@ void Filter2ndOrder::process(float input[2], float output[2])
 {
     for (int c = 0; c < 2; c++)
     {
+        assert(!std::isinf(input[c]));
+
         x[c][0] = input[c];
-        y[c][0] =
-            b[c][0] * x[c][0] +
-            b[c][1] * x[c][1] +
-            b[c][2] * x[c][2] -
-            a[c][1] * y[c][1] -
-            a[c][2] * y[c][2];
+        y[c][0] = b[0] * x[c][0] + b[1] * x[c][1] + b[2] * x[c][2]
+                                 - a[1] * y[c][1] - a[2] * y[c][2];
+
+        assert(!std::isinf(y[c][0]));
 
         x[c][2] = x[c][1];
         x[c][1] = x[c][0];
@@ -272,39 +274,57 @@ void Filter2ndOrder::low_pass(float Fs, float f0, float Q)
     // f0: frequency
     // Q: peak linear gain
     float w0 = 2.0f * M_PI * f0 / Fs;
-    float sin = sinf(w0);
-    float cos = cosf(w0);
+    float si = sinf(w0);
+    float co = cosf(w0);
 
-    float alpha = sin / (2.0f * Q);
+    float alpha = si / (2.0f * Q);
     float a0 = 1.0f + alpha;
 
-    for (int c = 0; c < 2; c++)
-    {
-        b[c][0] = (1.0f - cos) / (2.0f * a0);
-        b[c][1] = (1.0f - cos) / a0;
-        b[c][2] = (1.0f - cos) / (2.0f * a0);
-        a[c][0] = 1.0f;
-        a[c][1] = (-2.0f * cos) / a0;
-        a[c][2] = (1.0f - alpha) / a0;
-    }
+    b[0] = (1.0f - co) / (2.0f * a0);
+    b[1] = (1.0f - co) / a0;
+    b[2] = (1.0f - co) / (2.0f * a0);
+    a[0] = 1.0f;
+    a[1] = (-2.0f * co) / a0;
+    a[2] = (1.0f - alpha) / a0;
 }
 
 void Filter2ndOrder::high_pass(float Fs, float f0, float Q)
 {
     float w0 = 2.0f * M_PI * f0 / Fs;
-    float sin = sinf(w0);
-    float cos = cosf(w0);
+    float si = sinf(w0);
+    float co = cosf(w0);
 
-    float alpha = sin / (2.0f * Q);
+    float alpha = si / (2.0f * Q);
     float a0 = 1.0f + alpha;
 
-    for (int c = 0; c < 2; c++)
-    {
-        b[c][0] =  (1.0f + cos) / (2.0f * a0);
-        b[c][1] = -(1.0f + cos) / a0;
-        b[c][2] =  (1.0f + cos) / (2.0f * a0);
-        a[c][0] =  1.0f;
-        a[c][1] =  (-2.0f * cos) / a0;
-        a[c][2] =  (1.0f - alpha) / a0;
-    }
+    b[0] =  (1.0f + co) / (2.0f * a0);
+    b[1] = -(1.0f + co) / a0;
+    b[2] =  (1.0f + co) / (2.0f * a0);
+    a[0] =  1.0f;
+    a[1] =  (-2.0f * co) / a0;
+    a[2] =  (1.0f - alpha) / a0;
+}
+
+void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
+{
+    // Fs: sample rate
+    // f0: frequency
+    // gain: peak linear gain
+    // bw: band width
+    
+    float w0 = 2.0 * M_PI * f0 / Fs;
+    float sqrt_gain = sqrtf(exp10f(gain / 40.0f));
+    float si = sinf(w0);
+    float co = cosf(w0);
+    float alpha = si * sinh(log(2.0f) / 2.0f * bw_scale * w0 / si);
+    float a0 = 1.0f + alpha / sqrt_gain;
+    //float bandwidth = bw_scale * w0 / (sqrt_gain >= 1.0f ? sqrt_gain : 1.0f / sqrt_gain);
+    //float alpha = tanf(bw_scale * 0.5f);
+    //float a0 = 1.0f + alpha / sqrt_gain;
+    
+    b[0] = (1.0f + alpha * sqrt_gain) / a0;
+    b[1] = a[1] = -2.0f * cosf(w0) / a0;
+    a[0] = 1.0f;
+    b[2] = (1.0f - alpha * sqrt_gain) / a0;
+    a[2] = (1.0f - alpha / sqrt_gain) / a0;
 }

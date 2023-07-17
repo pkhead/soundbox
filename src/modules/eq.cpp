@@ -16,24 +16,54 @@ EQModule::EQModule(DestinationModule& dest)
     // high pass
     frequency[1] = 2.0f;
     resonance[1] = 1.0f;
+
+    // peaks
+    for (int i = 0; i < NUM_PEAKS; i++)
+    {
+        peak_frequency[i] = ((float)i / NUM_PEAKS) * dest.sample_rate;
+        peak_resonance[i] = 1.0f;
+        peak_enabled[i] = false;
+    }
 }
 
 void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
     filter[0].low_pass(sample_rate, frequency[0], resonance[0]);
     filter[1].high_pass(sample_rate, frequency[1], resonance[1]);
 
+    float peak_freq[NUM_PEAKS];
+    float peak_reso[NUM_PEAKS];
+    float peak_enable[NUM_PEAKS];
+
+    for (int i = 0; i < NUM_PEAKS; i++)
+    {
+        peak_freq[i] = peak_frequency[i];
+        peak_reso[i] = peak_resonance[i];
+        peak_enable[i] = peak_enabled[i];
+
+        if (peak_enable[i])
+            peak_filter[i].peak(_dest.sample_rate, peak_freq[i], peak_reso[i], 0.3f);
+    }
+
     for (int i = 0; i < buffer_size; i += 2)
     {
-        float frame_input[2] = { 0.0f, 0.0f };
+        output[i] = 0.0f;
+        output[i + 1] = 0.0f;
 
         for (int j = 0; j < num_inputs; j++)
         {
-            frame_input[0] += inputs[j][i];
-            frame_input[1] += inputs[j][i + 1];
+            output[i] += inputs[j][i];
+            output[i + 1] += inputs[j][i + 1];
         }
 
-        filter[0].process(frame_input, output + i);
+        filter[0].process(output + i, output + i);
         filter[1].process(output + i, output + i);
+
+        for (int j = 0; j < NUM_PEAKS; j++)
+        {
+            if (peak_enable[j]) {
+                peak_filter[j].process(output + i, output + i);
+            }
+        }
     }
 }
 
@@ -71,7 +101,7 @@ void EQModule::_interface_proc()
         ImGui::Text("Resonance");
         ImGui::SameLine();
         ImGui::SliderFloat(
-            "##resonance", &reso, 1.0f, 20.0f, "%.3f",
+            "##resonance", &reso, 0.001f, 10.0f, "%.3f",
             ImGuiSliderFlags_NoRoundToFormat
         );
 
@@ -85,17 +115,18 @@ void EQModule::_interface_proc()
     ImGui::EndGroup();
     ImGui::SameLine();
     ImGui::BeginGroup();
-    ImGui::Text("Band-pass");
-
-    static float _test_freq = 0.0f;
-    static float _test_reso = 0.0f;
-    static bool _test_bool = false;
+    ImGui::Text("Peaks");
 
     ImVec2 vslider_size = ImVec2( ImGui::GetFrameHeight(), ImGui::GetFrameHeightWithSpacing() * 4.0 + ImGui::GetTextLineHeight() );
     
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + style.FramePadding.y);
-    for (int i = 0; i < 8; i++)
+
+    for (int i = 0; i < NUM_PEAKS; i++)
     {
+        float freq = peak_frequency[i];
+        float reso = peak_resonance[i];
+        bool enabled = peak_enabled[i];
+
         ImGui::PushID(i);
 
         if (i > 0) ImGui::SameLine();
@@ -106,33 +137,37 @@ void EQModule::_interface_proc()
         ImGui::BeginGroup();
 
         ImGui::VSliderFloat(
-            "##bp-frequency",
+            "##peak-frequency",
             vslider_size,
-            &_test_freq, 20.0f, _dest.sample_rate / 2.5f,
+            &freq, 20.0f, _dest.sample_rate / 2.5f,
             "F", ImGuiSliderFlags_Logarithmic
         );
 
         if ((ImGui::IsItemHovered() || ImGui::IsItemActive()) && ImGui::BeginTooltip()) {
-            ImGui::Text("Frequency: %.3f Hz", _test_freq);
+            ImGui::Text("Frequency: %.3f Hz", freq);
             ImGui::EndTooltip();
         }
 
         ImGui::SameLine();
         ImGui::VSliderFloat(
-            "##bp-resonance",
+            "##peak-resonance",
             vslider_size,
-            &_test_reso, 1.0f, 20.0f,
+            &reso, -15.0f, 15.0f,
             "R"
         );
 
         if ((ImGui::IsItemHovered() || ImGui::IsItemActive()) && ImGui::BeginTooltip()) {
-            ImGui::Text("Resonance: %.3f dB", _test_reso);
+            ImGui::Text("Resonance: %.3f dB", reso);
             ImGui::EndTooltip();
         }
 
         ImGui::PopStyleVar();
 
-        ImGui::Checkbox("##enabled", &_test_bool);
+        ImGui::Checkbox("##enabled", &enabled);
+
+        peak_frequency[i] = freq;
+        peak_resonance[i] = reso;
+        peak_enabled[i] = enabled;
 
         ImGui::EndGroup();
         ImGui::PopID();

@@ -139,12 +139,14 @@ public:
     float y[2][3]; // output
 
     // filter coefficients
-    float a[2][3];
-    float b[2][3];
+    float a[3];
+    float b[3];
 
     Filter2ndOrder();
 
-    void low_pass(float Fs, float f0, float Q);
-    void high_pass(float Fs, float f0, float Q);
+    void low_pass(float sample_rate, float frequency, float linear_gain);
+    void high_pass(float sample_rate, float frequency, float linear_gain);
+    void peak(float sample_rate, float frequency, float linear_gain, float bandwidth);
+
     void process(float input[2], float output[2]);
 };
