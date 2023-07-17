@@ -27,5 +27,4 @@
     - flanger
     - phaser
     - compressor
-    - limiter
 - Importing MIDI tracks

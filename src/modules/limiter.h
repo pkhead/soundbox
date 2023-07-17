@@ -17,16 +17,16 @@ namespace audiomod
         float _input_gain;
         float _output_gain;
         float _cutoff;
-        float _ratio;
         float _attack;
         float _decay;
-        float _envelope[2];
-        float _buf[2][256];
+        float _limit[2];
+        float _in_volume[2];
+        float _out_volume[2];
+
+        static constexpr size_t BUFFER_SIZE = 1024;
+        float _in_buf[2][BUFFER_SIZE];
+        float _out_buf[2][BUFFER_SIZE];
         int _buf_i[2];
-
-        float in_volume;
-        float out_volume;
-
     public:
         void save_state(std::ostream& ostream) override;
         bool load_state(std::istream&, size_t size) override;
