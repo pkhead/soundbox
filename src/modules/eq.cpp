@@ -20,8 +20,8 @@ EQModule::EQModule(DestinationModule& dest)
     // peaks
     for (int i = 0; i < NUM_PEAKS; i++)
     {
-        peak_frequency[i] = ((float)i / NUM_PEAKS) * dest.sample_rate;
-        peak_resonance[i] = 1.0f;
+        peak_frequency[i] = dest.sample_rate / 4.0f;
+        peak_resonance[i] = 0.0f;
         peak_enabled[i] = false;
     }
 }
@@ -152,7 +152,7 @@ void EQModule::_interface_proc()
         ImGui::VSliderFloat(
             "##peak-resonance",
             vslider_size,
-            &reso, -15.0f, 15.0f,
+            &reso, -20.0f, 20.0f,
             "R"
         );
 
