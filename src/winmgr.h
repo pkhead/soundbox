@@ -45,7 +45,7 @@ public:
     ~WindowTexture();
 
     inline bool is_loaded() const { return _success; };
-    inline Window window() const { return _window; };
+    inline native_window window() const { return _window; };
     inline GLuint texture_id() const { return _texture_id; };
 };
 #endif
