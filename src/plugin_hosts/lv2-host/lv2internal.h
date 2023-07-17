@@ -500,7 +500,7 @@ namespace lv2 {
         void event(const audiomod::MidiEvent& event);
         size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity);
         void flush_events();
-        void save_state(std::ostream& ostream) const;
+        void save_state(std::ostream& ostream);
         bool load_state(std::istream& istream, size_t size);
 
         inline bool is_writing_notifications() const { return _writing_notifs; }

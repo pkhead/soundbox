@@ -26,7 +26,7 @@ namespace audiomod
         std::atomic<bool>  peak_enabled  [NUM_PEAKS];
 
     public:
-        void save_state(std::ostream& ostream) const override;
+        void save_state(std::ostream& ostream) override;
         bool load_state(std::istream&, size_t size) override;
 
         EQModule(DestinationModule& dest);

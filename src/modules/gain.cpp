@@ -1,8 +1,10 @@
 #include <cstdint>
 #include <imgui.h>
 #include <math.h>
-#include "../sys.h"
 #include "gain.h"
+#include "../sys.h"
+#include "../util.h"
+
 using namespace audiomod;
 
 GainModule::GainModule(DestinationModule& dest) : ModuleBase(dest, true) {
@@ -10,7 +12,7 @@ GainModule::GainModule(DestinationModule& dest) : ModuleBase(dest, true) {
     name = "Gain";
 }
 
-void GainModule::save_state(std::ostream& ostream) const
+void GainModule::save_state(std::ostream& ostream)
 {
     push_bytes<uint8_t>(ostream, 0); // version
     push_bytes<float>(ostream, gain);
@@ -26,7 +28,7 @@ bool GainModule::load_state(std::istream& istream, size_t size)
 }
 
 void GainModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
-    float factor = powf(10.0f, gain / 10.0f);
+    float factor = db_to_mult(gain);
     
     for (size_t i = 0; i < buffer_size; i += channel_count) {
         output[i] = 0.0f;

@@ -118,6 +118,7 @@ set(SOURCES
     src/modules/waveform.cpp
     src/modules/delay.cpp
     src/modules/eq.cpp
+    src/modules/limiter.cpp
 )
 
 set(LIBRARIES

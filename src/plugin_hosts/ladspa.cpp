@@ -376,7 +376,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
     );
 }
 
-void LadspaPlugin::save_state(std::ostream& stream) const
+void LadspaPlugin::save_state(std::ostream& stream)
 {
     // LV1
     push_bytes<uint8_t>(stream, (uint8_t) 1);

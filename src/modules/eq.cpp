@@ -175,7 +175,7 @@ void EQModule::_interface_proc()
     ImGui::EndGroup();
 }
 
-void EQModule::save_state(std::ostream& ostream) const {}
+void EQModule::save_state(std::ostream& ostream) {}
 bool EQModule::load_state(std::istream&, size_t size) {
     return true;
 }

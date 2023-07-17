@@ -55,7 +55,7 @@ namespace plugins
             int sample_rate,
             int channel_count
         ) override;
-        void save_state(std::ostream& ostream) const override;
+        void save_state(std::ostream& ostream) override;
         bool load_state(std::istream& istream, size_t size) override;
 
         static const char* get_standard_paths();

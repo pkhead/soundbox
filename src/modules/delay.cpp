@@ -247,7 +247,7 @@ void DelayModule::_interface_proc()
     this->stereo_offset = stereo_offset;
 }
 
-void DelayModule::save_state(std::ostream& ostream) const
+void DelayModule::save_state(std::ostream& ostream)
 {
     push_bytes<uint8_t>(ostream, 0); // write version
 

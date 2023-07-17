@@ -42,7 +42,7 @@ struct VolumeModuleState {
     uint8_t mute;
 };
 
-void VolumeModule::save_state(std::ostream& ostream) const {
+void VolumeModule::save_state(std::ostream& ostream) {
     push_bytes<uint8_t>(ostream, 0); // write version
 
     push_bytes<float>(ostream, volume);

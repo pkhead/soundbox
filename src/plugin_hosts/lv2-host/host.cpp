@@ -730,7 +730,7 @@ void Lv2PluginHost::port_unsubscribe(uint32_t port_index)
 }
 
 // TODO
-void Lv2PluginHost::save_state(std::ostream& ostream) const
+void Lv2PluginHost::save_state(std::ostream& ostream)
 {
     return;
 }

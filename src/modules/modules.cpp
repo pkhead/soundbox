@@ -12,7 +12,8 @@ std::array<audiomod::ModuleListing, NUM_EFFECTS> audiomod::effects_list({
     "effect.analyzer", "Analyzer",
     "effect.gain", "Gain",
     "effect.delay", "Echo/Delay",
-    "effect.eq", "Equalizer"
+    "effect.eq", "Equalizer",
+    "effect.limiter", "Limiter"
 });
 
 std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list({
@@ -40,6 +41,7 @@ ModuleBase* audiomod::create_module(
     MAP("effect.gain", GainModule);
     MAP("effect.delay", DelayModule);
     MAP("effect.eq", EQModule);
+    MAP("effect.limiter", LimiterModule);
     // TODO: equalizer
     // TODO: distortion effect
     // TODO: bitcrusher/downsampler effect

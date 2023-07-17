@@ -199,7 +199,7 @@ namespace audiomod {
         bool interface_shown() const { return _interface_shown; };
 
         // write the serialized state of the module to a stream
-        virtual void save_state(std::ostream& ostream) const { return; };
+        virtual void save_state(std::ostream& ostream) { return; };
 
         // load a serialized state. return true if successful, otherwise return false
         virtual bool load_state(std::istream& istream, size_t size) { return true; };
@@ -395,7 +395,7 @@ namespace audiomod {
         const char* name;
     };
 
-    constexpr size_t NUM_EFFECTS = 4;
+    constexpr size_t NUM_EFFECTS = 5;
     constexpr size_t NUM_INSTRUMENTS = 1;
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;

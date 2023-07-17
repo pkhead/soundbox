@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <cmath>
 #include <vector>
 #include <atomic>
 
@@ -53,6 +54,14 @@ inline T max(T a, T b) {
     return a > b ? a : b;
 }
 
+inline float db_to_mult(float db) {
+    return exp10f(db / 10.0f);
+}
+
+inline double db_to_mult(double db) {
+    return exp10(db / 10.0);
+}
+
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
@@ -77,7 +86,9 @@ public:
     size_t read(float* out, size_t size);
 };
 
-// a complex number
+//////////////////////////////////
+// data type for complex number //
+//////////////////////////////////
 template <typename T = float>
 struct complex_t
 {
@@ -129,6 +140,9 @@ struct complex_t
     }
 };
 
+///////////////////
+// FFT algorithm // (TODO: need more efficient fft)
+///////////////////
 void fft(complex_t<float>* data, int data_size, bool inverse);
 
 class Filter2ndOrder
@@ -149,4 +163,43 @@ public:
     void peak(float sample_rate, float frequency, float linear_gain, float bandwidth);
 
     void process(float input[2], float output[2]);
+};
+
+class SpinLock {
+private:
+    std::atomic<bool> _lock = {0};
+
+public:
+    void lock() noexcept
+    {
+        for (;;) {
+            if (!_lock.exchange(true, std::memory_order_acquire))
+                return;
+
+            while (_lock.load(std::memory_order_relaxed))
+                __builtin_ia32_pause(); // i think msvc uses a different function
+        }
+    }
+
+    void unlock() noexcept
+    {
+        _lock.store(false, std::memory_order_release);
+    }
+    
+    class spinlock_guard {
+    private:
+        SpinLock& self;
+    public:
+        inline spinlock_guard(SpinLock& self) : self(self) {
+            self.lock();
+        };
+        
+        inline ~spinlock_guard() {
+            self.unlock();
+        };
+    };
+    
+    inline spinlock_guard lock_guard() {
+        return spinlock_guard(*this);
+    };
 };

@@ -360,7 +360,7 @@ void WaveformSynth::_interface_proc() {
     ImGui::PopItemWidth();
 }
 
-void WaveformSynth::save_state(std::ostream& ostream) const {
+void WaveformSynth::save_state(std::ostream& ostream) {
     // write version
     push_bytes<uint8_t>(ostream, 0);
 
