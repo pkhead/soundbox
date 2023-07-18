@@ -6,6 +6,9 @@
     - always once selected FX bus, add another docked window called "FX Bus"
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - metronome
+- try not to use spinlocks (used for lv2 port subscription and limiter)
+- put all declarations for module creation in modules.h instead of audio.h
+- figure out why keyboard interactions do not work sometimes with plugin UI embedding enabled
 - mp3 exports
 - Plugin support (VST, CLAP)
     - make lv2 support optional at compile-time
