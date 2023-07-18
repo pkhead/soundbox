@@ -328,3 +328,83 @@ void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
     b[2] = (1.0f - alpha * sqrt_gain) / a0;
     a[2] = (1.0f - alpha / sqrt_gain) / a0;
 }
+
+// thread-safe message queue
+MessageQueue::MessageQueue(size_t data_capacity, size_t slot_count)
+:   _slot_count(slot_count),
+    _data_capacity(data_capacity)
+{
+    slots = new slot_t[_slot_count];
+    
+    for (size_t i = 0; i < _slot_count; i++) {
+        slot_t& slot = slots[i];
+        slot.size = 0;
+        slot.ready = false;
+        slot.reserved = false;
+        slot.data = new uint8_t[_data_capacity];
+    }
+}
+
+MessageQueue::~MessageQueue()
+{
+    for (size_t i = 0; i < _slot_count; i++) {
+        slot_t& slot = slots[i];
+        delete[] slot.data;
+    }
+
+    delete[] slots;
+}
+
+int MessageQueue::post(const void* data, size_t size)
+{
+    if (size > _data_capacity) return 1;
+
+    for (size_t i = 0; i < _slot_count; i++)
+    {
+        slot_t& slot = slots[i];
+
+        if (!slot.reserved.exchange(true))
+        {
+            slot.size = size;
+            memcpy(slot.data, data, size);
+            slot.ready = true;
+            return 0;
+        }
+    }
+
+    return 2;
+}
+
+MessageQueue::read_handle_t::read_handle_t(slot_t* slot)
+    : _size(0), _data(nullptr), slot(slot)
+{
+    if (slot) {
+        _size = slot->size;
+        _data = slot->data;
+    }
+}
+
+MessageQueue::read_handle_t::read_handle_t(const read_handle_t&& src)
+{
+    if (slot) slot->reserved = false;
+    slot = src.slot;
+    _data = src._data;
+    _size = src._size;
+}
+
+MessageQueue::read_handle_t::~read_handle_t()
+{
+    if (slot) slot->reserved = false;
+}
+
+MessageQueue::read_handle_t MessageQueue::read()
+{
+    for (size_t i = 0; i < _slot_count; i++) {
+        slot_t& slot = slots[i];
+        
+        if (slot.reserved && slot.ready.exchange(false))
+            return read_handle_t(&slot);
+    }
+
+    return read_handle_t(nullptr);
+}

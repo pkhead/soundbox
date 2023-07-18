@@ -165,6 +165,54 @@ public:
     void process(float input[2], float output[2]);
 };
 
+// thread-safe message queue
+class MessageQueue
+{
+private:
+    size_t _data_capacity;
+    size_t _slot_count;
+
+    struct slot_t {
+        std::atomic<bool> reserved;
+        std::atomic<bool> ready;
+        size_t size;
+        uint8_t* data;
+    };
+
+    slot_t* slots;
+public:
+    class read_handle_t {
+    private:
+        slot_t* slot;
+        size_t _size;
+        const uint8_t* _data;
+
+    public:
+        read_handle_t(const read_handle_t& src) = delete;
+        read_handle_t(const read_handle_t&& src);
+        read_handle_t(slot_t* slot = nullptr);
+        ~read_handle_t();
+
+        inline size_t size() const { return _size; }
+        inline const uint8_t* data() const { return _data; };
+        inline operator bool() { return slot != nullptr; };
+    };
+
+    MessageQueue(size_t data_capacity, size_t total_slots);
+    ~MessageQueue();
+
+    // Post a message to the queue. Returns 0 on success. If
+    // the data size was too large, it returns 1. If the
+    // queue is full, it returns 2
+    int post(const void* data, size_t size);
+
+    // Get a read handle to a message. Once
+    // the read handle is done being used, the message
+    // will be freed from the queue.
+    read_handle_t read();
+};
+
+
 class SpinLock {
 private:
     std::atomic<bool> _lock = {0};
