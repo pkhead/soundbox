@@ -7,13 +7,18 @@
 
 using namespace audiomod;
 
-CompressorModule::CompressorModule(DestinationModule& dest) : ModuleBase(dest, true) {
+CompressorModule::CompressorModule(DestinationModule& dest) :
+    ModuleBase(dest, true),
+    process_queue(sizeof(message_t), 8),
+    ui_queue(sizeof(message_t), 8)
+{
     id = "effect.compressor";
     name = "Compressor";
 
     // initialize states
     module_state* states[2] = { &process_state, &ui_state };
-    
+    analytics_t* analytics[2] = { &ui_analytics, &process_analytics };
+
     for (int i = 0; i < 2; i++) {
         module_state* state = states[i];
         state->input_gain = 0.0f;
@@ -22,12 +27,14 @@ CompressorModule::CompressorModule(DestinationModule& dest) : ModuleBase(dest, t
         state->decay = 500.0f;
         state->threshold = -0.5f;
         state->ratio = 1.0f;
+
+        analytics_t* a = analytics[i];
+        a->in_volume[0] = 0.0f;
+        a->in_volume[1] = 0.0f;
+        a->out_volume[0] = 0.0f;
+        a->out_volume[1] = 0.0f;
     }
 
-    in_volume[0] = 0.0f;
-    in_volume[1] = 0.0f;
-    out_volume[0] = 0.0f;
-    out_volume[1] = 0.0f;
     _limit[0] = 0.0f;
     _limit[1] = 0.0f;
 
@@ -87,9 +94,31 @@ bool CompressorModule::load_state(std::istream& istream, size_t size)
 }
 
 void CompressorModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
-    process_state_lock.lock();
-    module_state state = process_state;
-    process_state_lock.unlock();
+    // read messages sent from ui thread
+    while (true)
+    {
+        MessageQueue::read_handle_t handle = process_queue.read();
+        if (!handle) break;
+
+        assert(handle.size() == sizeof(message_t));
+        message_t* msg = (message_t*) handle.data();
+
+        // update module state
+        if (msg->type == message_t::ModuleState) {
+            process_state = msg->mod_state;
+        }
+
+        // send analytics to ui thread
+        else if (msg->type == message_t::RequestAnalytics) {
+            message_t new_msg;
+            new_msg.type = message_t::ReceiveAnalytics;
+            new_msg.analytics = process_analytics;
+
+            ui_queue.post(&new_msg, sizeof(new_msg));
+        }
+    }
+    
+    module_state& state = process_state;
 
     float in_factor = db_to_mult(state.input_gain);
     float out_factor = db_to_mult(state.output_gain);
@@ -155,20 +184,32 @@ void CompressorModule::process(float** inputs, float* output, size_t num_inputs,
         }
     }
 
-    process_state_lock.lock();
-    memcpy(in_volume, inv, 2 * sizeof(float));
-    memcpy(out_volume, outv, 2 * sizeof(float));
-    process_state_lock.unlock();
+    memcpy(process_analytics.in_volume, inv, 2 * sizeof(float));
+    memcpy(process_analytics.out_volume, outv, 2 * sizeof(float));
 }
 
 void CompressorModule::_interface_proc() {
     ImGuiStyle& style = ImGui::GetStyle();
     float in_vol[2], out_vol[2];
 
-    process_state_lock.lock();
-    memcpy(in_vol, in_volume, 2 * sizeof(float));
-    memcpy(out_vol, out_volume, 2 * sizeof(float));
-    process_state_lock.unlock();
+    // read messages sent from process thread
+    while (true)
+    {
+        MessageQueue::read_handle_t handle = ui_queue.read();
+        if (!handle) break;
+
+        assert(handle.size() == sizeof(message_t));
+        message_t* msg = (message_t*) handle.data();
+
+        // update module state
+        if (msg->type == message_t::ReceiveAnalytics) {
+            ui_analytics = msg->analytics;
+            waiting = false;
+        }
+    }
+
+    memcpy(in_vol, ui_analytics.in_volume, 2 * sizeof(float));
+    memcpy(out_vol, ui_analytics.out_volume, 2 * sizeof(float));
 
     float width = ImGui::GetTextLineHeight() * 14.0f;
     ImGui::PushItemWidth(width);
@@ -234,8 +275,25 @@ void CompressorModule::_interface_proc() {
 
     ImGui::EndGroup();
     ImGui::PopItemWidth();
-    
-    process_state_lock.lock();
-    process_state = ui_state;
-    process_state_lock.unlock();
+
+    // send updated module state to audio thread,
+    // and request audio thread for analytics
+    {
+        message_t new_msg;
+
+        if (!waiting) {
+            new_msg.type = message_t::RequestAnalytics;
+            if (process_queue.post(&new_msg, sizeof(new_msg))) {
+                dbg("WARNING: CompressorModule process queue is full!\n");
+            } else {
+                waiting = true;
+            }
+        }
+
+        new_msg.type = message_t::ModuleState;
+        new_msg.mod_state = ui_state;
+        if (process_queue.post(&new_msg, sizeof(new_msg))) {
+            dbg("WARNING: CompressorModule process queue is full!\n");
+        }
+    }
 }

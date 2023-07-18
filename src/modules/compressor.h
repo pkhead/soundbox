@@ -21,11 +21,26 @@ namespace audiomod
                   decay,
                   attack;
         } process_state, ui_state;
-        SpinLock process_state_lock; // TODO: don't use a lock, use a message queue. same goes for limiter
-        
-        // set by the processing thread
-        float in_volume[2];
-        float out_volume[2];
+
+        struct analytics_t {
+            float in_volume[2];
+            float out_volume[2];
+        } process_analytics, ui_analytics;
+
+        struct message_t {
+            enum Type : uint8_t {
+                ModuleState, ReceiveAnalytics, RequestAnalytics
+            } type;
+
+            union {
+                module_state mod_state;
+                analytics_t analytics;
+            };
+        };
+
+        MessageQueue process_queue;
+        MessageQueue ui_queue;
+        bool waiting = false; // waiting for analytics response
 
         // these are used only by the processing thread       
         float _limit[2];
