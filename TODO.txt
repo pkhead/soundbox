@@ -1,7 +1,7 @@
 - Undo/redo
     - Undo/redo on text fields (imgui has its own undo/redo for that so conflict?)
       names also don't affect song output so undo/redo for that is possibly undesirable
-    - Undo/redo for module modification (research how lv2 and clap does it)
+    - Undo/redo for module modification (research how lv2 and clap handles control changes)
 - alternative FX mixer ui
     - always once selected FX bus, add another docked window called "FX Bus"
 - Variable-length patterns (useful mainly for audio clips/sampling)
@@ -11,7 +11,6 @@
 - figure out why keyboard interactions do not work sometimes with plugin UI embedding enabled
 - mp3 exports
 - Plugin support (VST, CLAP)
-    - make lv2 support optional at compile-time
 - Automation
 - Channel for playing audio clips
 - Song change markers (time signature or tuning)
@@ -22,6 +21,7 @@
     - sampler
     - slicer
 - Effects
+    - mono/stereo converter (similar to calf mono input)
     - equalizer
         - show frequency response, configurable bandwidth
     - distortion
@@ -30,4 +30,5 @@
     - flanger
     - phaser
     - compressor
+         - boost
 - Importing MIDI tracks
