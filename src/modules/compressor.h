@@ -16,10 +16,8 @@ namespace audiomod
         struct module_state {
             float input_gain,
                   output_gain,
-                  boost_threshold,
-                  boost_ratio,
-                  cutoff_threshold,
-                  cutoff_ratio,
+                  threshold,
+                  ratio,
                   decay,
                   attack;
         } process_state, ui_state;

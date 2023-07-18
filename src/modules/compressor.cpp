@@ -20,10 +20,8 @@ CompressorModule::CompressorModule(DestinationModule& dest) : ModuleBase(dest, t
         state->output_gain = 0.0f;
         state->attack = 100.0f;
         state->decay = 500.0f;
-        state->boost_threshold = -10.0f;
-        state->boost_ratio = 1.0f;
-        state->cutoff_threshold = -0.5f;
-        state->cutoff_ratio = 1.0f;
+        state->threshold = -0.5f;
+        state->ratio = 1.0f;
     }
 
     in_volume[0] = 0.0f;
@@ -95,8 +93,7 @@ void CompressorModule::process(float** inputs, float* output, size_t num_inputs,
 
     float in_factor = db_to_mult(state.input_gain);
     float out_factor = db_to_mult(state.output_gain);
-    float cutoff_threshold = db_to_mult(state.cutoff_threshold);
-    float boost_threshold = db_to_mult(state.boost_threshold);
+    float threshold = db_to_mult(state.threshold);
 
     float a = powf(0.01f, 1.0f / (state.attack * _dest.sample_rate * 0.001f));
     float r = powf(0.01f, 1.0f / (state.decay * _dest.sample_rate * 0.001f));
@@ -119,18 +116,20 @@ void CompressorModule::process(float** inputs, float* output, size_t num_inputs,
 
             float vabs = fabsf(output[i+c]);
 
+            float target = threshold * powf(vabs / threshold, 1.0f - 1.0f / state.ratio);
+
             // move the limit towards the amplitude of the current sample,
             // modified by the ratio
-            float v = cutoff_threshold * powf(vabs / cutoff_threshold, 1.0f - 1.0f / state.cutoff_ratio);
             float& limit = _limit[c];
-            if (v > limit)
-                limit = a * (limit - v) + v;
+
+            if (target > limit)
+                limit = a * (limit - target) + target;
             else
-                limit = r * (limit - v) + v;
-            
+                limit = r * (limit - target) + target;
+
             // if limit surpasses the threshold, perform limiting
-            if (limit > cutoff_threshold)
-                output[i+c] = (output[i+c] / limit) * cutoff_threshold;
+            if (limit > threshold)
+                output[i+c] = (output[i+c] / limit) * threshold;
 
             output[i+c] *= out_factor; // output gain control
 
@@ -179,7 +178,6 @@ void CompressorModule::_interface_proc() {
     ImGui::Text("In");
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Out");
-    ImGui::NewLine();
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Threshold");
     ImGui::AlignTextToFramePadding();
@@ -210,36 +208,27 @@ void CompressorModule::_interface_proc() {
         ImGui::ProgressBar(out_vol[i], ImVec2(width, bar_height), "");
     }
 
-    // boost and cutoff labels
-    float bar_width = width / 2.0f - style.ItemSpacing.x / 2.0f;
-    ImGui::Text("Boost");
-    ImGui::SameLine(bar_width + style.ItemSpacing.x);
-    ImGui::Text("Cutoff");
-
-    ImGui::PushItemWidth(bar_width);
-
     // threshold sliders
-    ImGui::SliderFloat("##boost-threshold", &ui_state.boost_threshold, -20.0f, 0, "%.3f dB");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.boost_threshold = -10.0f;
-    ImGui::SameLine();
-    ImGui::SliderFloat("##cutoff-threshold", &ui_state.cutoff_threshold, -20.0f, 0, "%.3f dB");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.cutoff_threshold = -0.5f;
-
+    ImGui::SliderFloat("##threshold", &ui_state.threshold, -20.0f, 0, "%.3f dB");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.threshold = -10.0f;
+    
     // cutoff sliders
-    ImGui::SliderFloat("##boost-ratio", &ui_state.boost_ratio, 1.0f, 10.0f, "%.3f dB:1");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.boost_ratio = 1.0f;
-    ImGui::SameLine();
-    ImGui::SliderFloat("##cutoff-ratio", &ui_state.cutoff_ratio, 1.0f, 10.0f, "%.3f dB:1");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.cutoff_ratio = 1.0f;
+    ImGui::SliderFloat("##ratio", &ui_state.ratio, 1.0f, 10.0f, "%.3f dB:1");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.ratio = 1.0f;
 
-    ImGui::PopItemWidth();
-
+    // attack
     ImGui::SliderFloat("##attack", &ui_state.attack, 1.0f, 1000.0f, "%.3f ms");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 10.0f;
+    
+    // decay
     ImGui::SliderFloat("##decay", &ui_state.decay, 1.0f, 1000.0f, "%.3f ms");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.decay = 500.0f;
+    
+    // input gain
     ImGui::SliderFloat("##input_gain", &ui_state.input_gain, -20.0f, 20.0f, "%.3f dB");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.input_gain = 0.0f;
+    
+    // output gain
     ImGui::SliderFloat("##output_gain", &ui_state.output_gain, -20.0f, 20.0f, "%.3f dB");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.output_gain = 0.0f;
 
