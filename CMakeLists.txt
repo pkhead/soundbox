@@ -119,6 +119,7 @@ set(SOURCES
     src/modules/delay.cpp
     src/modules/eq.cpp
     src/modules/limiter.cpp
+    src/modules/compressor.cpp
 )
 
 set(LIBRARIES

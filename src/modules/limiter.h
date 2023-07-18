@@ -3,7 +3,6 @@
 #include "../audio.h"
 #include "../util.h"
 
-// TODO: multiple filters
 namespace audiomod
 {
     class LimiterModule : public ModuleBase {

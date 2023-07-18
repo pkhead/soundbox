@@ -395,7 +395,7 @@ namespace audiomod {
         const char* name;
     };
 
-    constexpr size_t NUM_EFFECTS = 5;
+    constexpr size_t NUM_EFFECTS = 6;
     constexpr size_t NUM_INSTRUMENTS = 1;
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;

@@ -8,3 +8,4 @@
 #include "delay.h"
 #include "eq.h"
 #include "limiter.h"
+#include "compressor.h"
