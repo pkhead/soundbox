@@ -12,6 +12,7 @@
 - mp3 exports
 - Plugin support (VST, CLAP)
 - Automation
+- unit tests? how to do that though?
 - Channel for playing audio clips
 - Song change markers (time signature or tuning)
 - Synths
