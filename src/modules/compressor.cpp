@@ -127,8 +127,10 @@ void CompressorModule::process(float** inputs, float* output, size_t num_inputs,
                 limit = r * (limit - v) + v;
 
             // if limit surpasses the threshold, perform limiting
-            if (limit > cutoff_threshold) 
-                output[i+c] = (output[i+c] / limit) * cutoff_threshold;
+            if (limit > cutoff_threshold) { 
+                float div = cutoff_threshold * powf(limit / cutoff_threshold, state.cutoff_ratio);
+                output[i+c] = (output[i+c] * (limit / div));
+            }
 
             output[i+c] *= out_factor; // output gain control
 
@@ -211,7 +213,7 @@ void CompressorModule::_interface_proc() {
 
     ImGui::SliderFloat("##cutoff-threshold", &ui_state.cutoff_threshold, -20.0f, 0, "%.3f dB");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.cutoff_threshold = -0.5f;
-    ImGui::SliderFloat("##cutoff-ratio", &ui_state.cutoff_ratio, 1.0f, 20.0f, "%.3f dB:1");
+    ImGui::SliderFloat("##cutoff-ratio", &ui_state.cutoff_ratio, 1.0f, 10.0f, "%.3f dB:1");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.cutoff_ratio = 1.0f;
     ImGui::SliderFloat("##attack", &ui_state.attack, 1.0f, 1000.0f, "%.3f ms");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 10.0f;
