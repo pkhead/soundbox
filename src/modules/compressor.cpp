@@ -51,22 +51,12 @@ CompressorModule::CompressorModule(DestinationModule& dest) :
 void CompressorModule::save_state(std::ostream& ostream)
 {
     push_bytes<uint8_t>(ostream, 0); // version
-    
-    // lock.lock();
-    // float input_gain = _input_gain;
-    // float output_gain = _output_gain;
-    // float cutoff = _cutoff;
-    // float decay = _decay;
-    // float attack = _attack;
-    // float ratio = _ratio;
-    // lock.unlock();
-
-    // push_bytes<float>(ostream, input_gain);
-    // push_bytes<float>(ostream, output_gain);
-    // push_bytes<float>(ostream, cutoff);
-    // push_bytes<float>(ostream, decay);
-    // push_bytes<float>(ostream, attack);
-    // push_bytes<float>(ostream, ratio);
+    push_bytes<float>(ostream, ui_state.input_gain);
+    push_bytes<float>(ostream, ui_state.output_gain);
+    push_bytes<float>(ostream, ui_state.threshold);
+    push_bytes<float>(ostream, ui_state.decay);
+    push_bytes<float>(ostream, ui_state.attack);
+    push_bytes<float>(ostream, ui_state.ratio);
 }
 
 bool CompressorModule::load_state(std::istream& istream, size_t size)
@@ -74,21 +64,21 @@ bool CompressorModule::load_state(std::istream& istream, size_t size)
     uint8_t version = pull_bytesr<uint8_t>(istream);
     if (version != 0) return false;
 
-    // float input_gain = pull_bytesr<float>(istream);
-    // float output_gain = pull_bytesr<float>(istream);
-    // float cutoff = pull_bytesr<float>(istream);
-    // float decay = pull_bytesr<float>(istream);
-    // float attack = pull_bytesr<float>(istream);
-    // float ratio = pull_bytesr<float>(istream);
+    ui_state.input_gain = pull_bytesr<float>(istream);
+    ui_state.output_gain = pull_bytesr<float>(istream);
+    ui_state.threshold = pull_bytesr<float>(istream);
+    ui_state.decay = pull_bytesr<float>(istream);
+    ui_state.attack = pull_bytesr<float>(istream);
+    ui_state.ratio = pull_bytesr<float>(istream);
 
-    // lock.lock();
-    // _input_gain = input_gain;
-    // _output_gain = output_gain;
-    // _cutoff = cutoff;
-    // _decay = decay;
-    // _attack = attack;
-    // _ratio = ratio;
-    // lock.unlock();
+    // send state to processing
+    message_t new_msg;
+
+    new_msg.type = message_t::ModuleState;
+    new_msg.mod_state = ui_state;
+    if (process_queue.post(&new_msg, sizeof(new_msg))) {
+        dbg("WARNING: LimiterModule process queue is full!\n");
+    }
     
     return true;
 }
@@ -201,7 +191,7 @@ void CompressorModule::_interface_proc() {
         assert(handle.size() == sizeof(message_t));
         message_t* msg = (message_t*) handle.data();
 
-        // update module state
+        // update analytics state
         if (msg->type == message_t::ReceiveAnalytics) {
             ui_analytics = msg->analytics;
             waiting = false;
