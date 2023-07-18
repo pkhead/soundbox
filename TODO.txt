@@ -30,6 +30,4 @@
     - chrous
     - flanger
     - phaser
-    - compressor
-         - boost
 - Importing MIDI tracks
