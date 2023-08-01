@@ -1,5 +1,6 @@
 #include "Tunings.h"
 #include "audio.h"
+#include "modules/modules.h"
 #include "sys.h"
 #include "song.h"
 #include "ui/editor.h"

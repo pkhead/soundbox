@@ -1,5 +1,6 @@
 #include "change_history.h"
 #include "../audio.h"
+#include "../modules/modules.h"
 #include "editor.h"
 #include <cstdlib>
 #include <cstring>

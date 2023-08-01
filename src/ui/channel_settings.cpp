@@ -1,4 +1,5 @@
 #include "ui.h"
+#include "../modules/modules.h"
 
 void render_channel_settings(SongEditor &editor)
 {
