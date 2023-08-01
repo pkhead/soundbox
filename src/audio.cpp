@@ -67,7 +67,9 @@ void AudioDevice::_pa_stop()
         printf("PortAudio error: %s\n", Pa_GetErrorText(err));
 }
 
-AudioDevice::AudioDevice(int output_device) {
+AudioDevice::AudioDevice(int output_device)
+:   ring_buffer(SAMPLE_RATE / 2)
+{
     PaError err;
 
     // if output_device == -1, use default output device
@@ -76,10 +78,7 @@ AudioDevice::AudioDevice(int output_device) {
         printf("no default output device found\n");
         output_device = 0;
     }
-
-    audio_buffer_capacity = SAMPLE_RATE / 2;
-    audio_buffer = new float[audio_buffer_capacity];
-
+    
     PaStreamParameters out_params;
     out_params.channelCount = 2;
     out_params.device = output_device;
@@ -105,7 +104,6 @@ AudioDevice::AudioDevice(int output_device) {
 AudioDevice::~AudioDevice()
 {
     stop();
-    delete[] audio_buffer;
 }
 
 void AudioDevice::stop() {
@@ -118,43 +116,12 @@ void AudioDevice::stop() {
 
 void AudioDevice::queue(float* buf, size_t buf_size)
 {
-    size_t write_ptr = buffer_write_ptr;
-
-    // TODO: use memcpy to copy one or two chunks of the buffer
-    // wrapping around the ring buffer
-    for (size_t i = 0; i < buf_size; i++)
-    {
-        audio_buffer[write_ptr] = buf[i];
-        write_ptr = (write_ptr + 1) % audio_buffer_capacity;
-    }
-
-        /*
-    if (write_ptr + buf_size >= audio_buffer_capacity)
-    {
-    }
-    else
-    {
-        // no bounds in sight
-        memcpy(audio_buffer + write_ptr, buf, buf_size * sizeof(float));
-        write_ptr += buf_size;
-    }*/
-
-    buffer_write_ptr = write_ptr;
+    ring_buffer.write(buf, buf_size);
 }
 
 size_t AudioDevice::samples_queued() const
 {
-    size_t write_ptr = buffer_write_ptr;
-    size_t read_ptr = buffer_read_ptr;
-
-    if (write_ptr >= read_ptr)
-    {
-        return write_ptr - read_ptr;
-    }
-    else
-    {
-        return audio_buffer_capacity - read_ptr - 1 + write_ptr;
-    }
+    return ring_buffer.queued();
 }
 
 static inline float clampf(float value, float min, float max)
@@ -171,30 +138,17 @@ int AudioDevice::_pa_stream_callback(
     const PaStreamCallbackTimeInfo* time_info,
     PaStreamCallbackFlags status_flags
 ) {
-    size_t write_ptr = buffer_write_ptr;
-    size_t read_ptr = buffer_read_ptr;
-
     float* out = (float*) output_buffer;
+    float sample_count = frame_count * 2;
 
-    for (unsigned int i = 0; i < frame_count; i++)
+    // read from the ring buffer and write to out
+    // writes zeros for any remaining samples that were not written to
+    for (size_t i = ring_buffer.read(out, sample_count); i < sample_count; i++)
     {
-        // if there is no data in buffer, write zeroes
-        if (read_ptr == write_ptr - 1)
-        {
-            *out++ = 0.0f;
-            *out++ = 0.0f;
-        }
-        else
-        {
-            *out++ = audio_buffer[read_ptr++];
-            *out++ = audio_buffer[read_ptr++];
-            read_ptr %= audio_buffer_capacity;
-        }
+        out[i] = 0.0f;
+    };
 
-        _frames_written++;
-    }
-
-    buffer_read_ptr = read_ptr;
+    _frames_written += frame_count;
     return 0;
 }
 

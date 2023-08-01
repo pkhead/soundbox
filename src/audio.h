@@ -10,6 +10,7 @@
 #include <vector>
 #include <portaudio.h>
 #include "worker.h"
+#include "util.h"
 
 class AudioDevice {
 private:
@@ -17,11 +18,8 @@ private:
 
     // a ring buffer that should hold up to 0.5 seconds of audio
     // size in bytes: sample_rate() / 2 * sizeof(float)
-    size_t audio_buffer_capacity = 0;
-    float* audio_buffer = nullptr;
-    std::atomic<size_t> buffer_write_ptr = 0;
-    std::atomic<size_t> buffer_read_ptr = 0;
-
+    RingBuffer ring_buffer;
+    
     size_t _thread_buffer_size = 0;
     size_t _thread_buf_pos = 0;
     float* _thread_audio_buffer = nullptr; // this is not owned by the AudioDevice

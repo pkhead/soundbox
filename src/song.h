@@ -160,8 +160,6 @@ public:
     };
     
     int length() const;
-    void set_length(int len);
-
     int max_patterns() const;
     void set_max_patterns(int num_patterns);
 

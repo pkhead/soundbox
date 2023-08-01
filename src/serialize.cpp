@@ -420,9 +420,14 @@ Song* Song::from_file(
             }
 
             // get bus name
-            uint8_t name_size;
-            pull_bytes(input, name_size);
-            input.read(bus->name, name_size); // TODO: cap to bus->name_capacity
+            uint8_t name_size = pull_bytesr<uint8_t>(input);
+            
+            if (name_size > bus->name_capacity) {
+                if (error_msg) *error_msg = "name length exceeds capacity";
+                return nullptr;
+            }
+
+            input.read(bus->name, name_size);
             bus->name[name_size] = 0;
 
             // get mute/solo

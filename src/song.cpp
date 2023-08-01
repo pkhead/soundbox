@@ -286,10 +286,6 @@ Song::~Song() {
 
 // length field
 int Song::length() const { return _length; }
-void Song::set_length(int len) {
-    _length = len;
-    // TODO change channel sequence arrays
-}
 
 // max_pattern field
 int Song::max_patterns() const { return _max_patterns; }

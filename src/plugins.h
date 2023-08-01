@@ -18,7 +18,7 @@ namespace plugins
     enum class PluginType : uint8_t
     {
         Ladspa,
-        Lv2,  // TODO
+        Lv2,
         Vst,  // TODO
         Clap ,// TODO
     };
