@@ -9,7 +9,7 @@ namespace audiomod
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
 
-        RingBuffer ring_buffer;
+        RingBuffer<float> ring_buffer;
 
         const int frames_per_window = 1024;
         const int window_margin = 512; // in frames

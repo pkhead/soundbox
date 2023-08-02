@@ -272,7 +272,8 @@ bool EQModule::load_state(std::istream& istream, size_t size) {
 #ifdef UNIT_TESTS
 #include <catch2/catch_amalgamated.hpp>
 
-TEST_CASE("EQModule serialization", "[modules]") {
+TEST_CASE("EQModule serialization", "[modules]")
+{
     DestinationModule dest(48000, 2, 1024);
     EQModule mod(dest);
 

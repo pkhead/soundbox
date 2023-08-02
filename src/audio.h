@@ -18,7 +18,7 @@ private:
 
     // a ring buffer that should hold up to 0.5 seconds of audio
     // size in bytes: sample_rate() / 2 * sizeof(float)
-    RingBuffer ring_buffer;
+    RingBuffer<float> ring_buffer;
     
     size_t _thread_buffer_size = 0;
     size_t _thread_buf_pos = 0;

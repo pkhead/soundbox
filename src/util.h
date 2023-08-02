@@ -65,23 +65,88 @@ inline double db_to_mult(double db) {
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
-// a RingBuffer of floats
+// a RingBuffer
+template <class T = float>
 class RingBuffer
 {
 private:
     size_t audio_buffer_capacity = 0;
-    float* audio_buffer = nullptr;
+    T* audio_buffer = nullptr;
     std::atomic<size_t> buffer_write_ptr = 0;
     std::atomic<size_t> buffer_read_ptr = 0;
 
 public:
-    RingBuffer(size_t capacity);
-    ~RingBuffer();
-    
-    size_t queued() const;
+    RingBuffer(size_t capacity)
+    {
+        audio_buffer_capacity = capacity;
+        audio_buffer = new T[audio_buffer_capacity];
+        buffer_write_ptr = 0;
+        buffer_read_ptr = 0;
+    }
 
-    void write(float* buf, size_t size);
-    size_t read(float* out, size_t size);
+    ~RingBuffer()
+    {
+        delete[] audio_buffer;
+    }
+    
+    size_t queued() const
+    {
+        size_t write_ptr = buffer_write_ptr;
+        size_t read_ptr = buffer_read_ptr;
+
+        if (write_ptr >= read_ptr) {
+            return write_ptr - read_ptr;
+        } else {
+            return audio_buffer_capacity - read_ptr - 1 + write_ptr;
+        }
+    }
+
+    void write(T* buf, size_t size)
+    {
+        size_t write_ptr = buffer_write_ptr;
+
+        if (write_ptr + size > audio_buffer_capacity)
+        {
+            // copy two chunks of the buffer to the right places
+            // this will not work if it ends up writing the entire buffer and
+            // still needs to wrap (if size and write_ptr are very big)
+            // but nowhere in this code will that happen
+            size_t split1_size = audio_buffer_capacity - write_ptr;
+            memcpy(audio_buffer + write_ptr, buf, split1_size * sizeof(T));
+            memcpy(audio_buffer, buf + split1_size, (size - split1_size) * sizeof(T));
+        }
+        else // no bounds in sight
+        {
+            memcpy(audio_buffer + write_ptr, buf, size * sizeof(T));
+        }
+
+        buffer_write_ptr = (write_ptr + size) % audio_buffer_capacity;
+}
+
+    size_t read(T* out, size_t size)
+    {
+        size_t num_read = 0;
+        size_t write_ptr = buffer_write_ptr;
+        size_t read_ptr = buffer_read_ptr;
+
+        for (size_t i = 0; i < size; i++)
+        {
+            // break if there is no data more in buffer
+            if (read_ptr == write_ptr - 1)
+                break;
+            
+            else
+            {
+                out[i] = audio_buffer[read_ptr++];
+                read_ptr %= audio_buffer_capacity;
+            }
+
+            num_read++;
+        }
+
+        buffer_read_ptr = read_ptr;
+        return num_read;
+    }
 };
 
 //////////////////////////////////

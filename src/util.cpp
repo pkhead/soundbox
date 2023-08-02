@@ -5,83 +5,36 @@
 
 #include "util.h"
 
-RingBuffer::RingBuffer(size_t capacity)
+// ringbuffer tests
+#ifdef UNIT_TESTS
+#include <catch2/catch_amalgamated.hpp>
+
+TEST_CASE("RingBuffer test", "[utils]")
 {
-    audio_buffer_capacity = capacity;
-    audio_buffer = new float[audio_buffer_capacity];
-    buffer_write_ptr = 0;
-    buffer_read_ptr = 0;
+    RingBuffer<int> buffer(6);
+
+    int arr1[4] = { 39, 21, 84, 23 };
+    int arr2[4] = { 12, 95, 25, 92 };
+    int read_buf[4];
+    
+    // write arr1
+    REQUIRE(buffer.queued() == 0);
+    buffer.write(arr1, 4);
+    REQUIRE(buffer.queued() == 4);
+    buffer.read(read_buf, 4);
+    REQUIRE(memcmp(arr1, read_buf, 4 * sizeof(int)));
+    REQUIRE(buffer.queued() == 0);
+
+    // write arr2
+    // the size of the arrays were carefully chosen so
+    // that it would overflow
+    buffer.write(arr2, 4);
+    REQUIRE(buffer.queued() == 4);
+    buffer.read(read_buf, 4);
+    REQUIRE(memcmp(arr2, read_buf, 4 * sizeof(int)));
+    REQUIRE(buffer.queued() == 0);
 }
-
-RingBuffer::~RingBuffer()
-{
-    delete[] audio_buffer;
-}
-
-void RingBuffer::write(float* buf, size_t size)
-{
-    size_t write_ptr = buffer_write_ptr;
-
-    /*for (size_t i = 0; i < size; i++)
-    {
-        audio_buffer[write_ptr++] = buf[i];
-        write_ptr %= audio_buffer_capacity;
-    }*/
-
-    if (write_ptr + size > audio_buffer_capacity)
-    {
-        // copy two chunks of the buffer to the right places
-        // this will not work if it ends up writing the entire buffer and
-        // still needs to wrap (if size and write_ptr are very big)
-        // but nowhere in this code will that happen
-        size_t split1_size = audio_buffer_capacity - write_ptr;
-        memcpy(audio_buffer + write_ptr, buf, split1_size * sizeof(float));
-        memcpy(audio_buffer, buf + split1_size, (size - split1_size) * sizeof(float));
-    }
-    else // no bounds in sight
-    {
-        memcpy(audio_buffer + write_ptr, buf, size * sizeof(float));
-    }
-
-    buffer_write_ptr = (write_ptr + size) % audio_buffer_capacity;
-}
-
-size_t RingBuffer::read(float* out, size_t size)
-{
-    size_t num_read = 0;
-    size_t write_ptr = buffer_write_ptr;
-    size_t read_ptr = buffer_read_ptr;
-
-    for (size_t i = 0; i < size; i++)
-    {
-        // break if there is no data more in buffer
-        if (read_ptr == write_ptr - 1)
-            break;
-        
-        else
-        {
-            out[i] = audio_buffer[read_ptr++];
-            read_ptr %= audio_buffer_capacity;
-        }
-
-        num_read++;
-    }
-
-    buffer_read_ptr = read_ptr;
-    return num_read;
-}
-
-size_t RingBuffer::queued() const
-{
-    size_t write_ptr = buffer_write_ptr;
-    size_t read_ptr = buffer_read_ptr;
-
-    if (write_ptr >= read_ptr) {
-        return write_ptr - read_ptr;
-    } else {
-        return audio_buffer_capacity - read_ptr - 1 + write_ptr;
-    }
-}
+#endif
 
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave)
 {
