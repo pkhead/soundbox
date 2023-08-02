@@ -66,8 +66,6 @@ size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_
 void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
 // a RingBuffer of floats
-// TODO: make audio.cpp use this so there aren't two implementations of ring buffers
-// in the same project (which is a waste!)
 class RingBuffer
 {
 private:

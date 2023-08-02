@@ -22,26 +22,28 @@ void RingBuffer::write(float* buf, size_t size)
 {
     size_t write_ptr = buffer_write_ptr;
 
-    // TODO: use memcpy to copy one or two chunks of the buffer
-    // wrapping around the ring buffer
-    for (size_t i = 0; i < size; i++)
+    /*for (size_t i = 0; i < size; i++)
     {
         audio_buffer[write_ptr++] = buf[i];
         write_ptr %= audio_buffer_capacity;
-    }
-
-        /*
-    if (write_ptr + buf_size >= audio_buffer_capacity)
-    {
-    }
-    else
-    {
-        // no bounds in sight
-        memcpy(audio_buffer + write_ptr, buf, buf_size * sizeof(float));
-        write_ptr += buf_size;
     }*/
 
-    buffer_write_ptr = write_ptr;
+    if (write_ptr + size > audio_buffer_capacity)
+    {
+        // copy two chunks of the buffer to the right places
+        // this will not work if it ends up writing the entire buffer and
+        // still needs to wrap (if size and write_ptr are very big)
+        // but nowhere in this code will that happen
+        size_t split1_size = audio_buffer_capacity - write_ptr;
+        memcpy(audio_buffer + write_ptr, buf, split1_size * sizeof(float));
+        memcpy(audio_buffer, buf + split1_size, (size - split1_size) * sizeof(float));
+    }
+    else // no bounds in sight
+    {
+        memcpy(audio_buffer + write_ptr, buf, size * sizeof(float));
+    }
+
+    buffer_write_ptr = (write_ptr + size) % audio_buffer_capacity;
 }
 
 size_t RingBuffer::read(float* out, size_t size)

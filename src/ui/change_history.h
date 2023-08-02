@@ -27,6 +27,7 @@ namespace change
         RemoveEffect,
         ModifyEffect, // TODO
         SwapEffect,
+        SwapEffectWithInstrument, // TODO
         AddBus, // TODO
         RemoveBus, // TODO
 
