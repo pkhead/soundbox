@@ -14,17 +14,24 @@ namespace audiomod
         // low-pass & high-pass filters
         Filter2ndOrder filter[2];
 
-        // todo: atomic floats are likely to not be lock free
-        std::atomic<float> frequency[2];
-        std::atomic<float> resonance[2];
-
         // peaking filters
         static constexpr int NUM_PEAKS = 8;
         Filter2ndOrder peak_filter[NUM_PEAKS];
-        std::atomic<float> peak_frequency[NUM_PEAKS];
-        std::atomic<float> peak_resonance[NUM_PEAKS];
-        std::atomic<bool>  peak_enabled  [NUM_PEAKS];
 
+        // keep two copies of the module state, one for the
+        // processing thread, and another for the ui thread.
+        // the ui thread will send state updates to the
+        // processing thread
+        struct module_state {
+            float frequency[2],
+                  resonance[2],
+                  peak_frequency[NUM_PEAKS],
+                  peak_resonance[NUM_PEAKS];
+            bool peak_enabled[NUM_PEAKS];
+        } process_state, ui_state;
+
+        MessageQueue queue;
+        std::atomic_flag sent_state;
     public:
         void save_state(std::ostream& ostream) override;
         bool load_state(std::istream&, size_t size) override;

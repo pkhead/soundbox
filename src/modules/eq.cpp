@@ -1,34 +1,51 @@
 #include <imgui.h>
 #include "eq.h"
+#include "../sys.h"
 
 using namespace audiomod;
 
 EQModule::EQModule(DestinationModule& dest)
-:   ModuleBase(dest, true)
+:   ModuleBase(dest, true),
+    queue(sizeof(module_state), 8)
 {
     id = "effect.eq";
     name = "Equalizer";
-
+    
     // low pass
-    frequency[0] = dest.sample_rate / 2.5f;
-    resonance[0] = 1.0f;
+    ui_state.frequency[0] = dest.sample_rate / 2.5f;
+    ui_state.resonance[0] = 1.0f;
 
     // high pass
-    frequency[1] = 2.0f;
-    resonance[1] = 1.0f;
+    ui_state.frequency[1] = 2.0f;
+    ui_state.resonance[1] = 1.0f;
 
     // peaks
     for (int i = 0; i < NUM_PEAKS; i++)
     {
-        peak_frequency[i] = dest.sample_rate / 4.0f;
-        peak_resonance[i] = 0.0f;
-        peak_enabled[i] = false;
+        ui_state.peak_frequency[i] = dest.sample_rate / 4.0f;
+        ui_state.peak_resonance[i] = 0.0f;
+        ui_state.peak_enabled[i] = false;
     }
+
+    process_state = ui_state;
 }
 
 void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
-    filter[0].low_pass(sample_rate, frequency[0], resonance[0]);
-    filter[1].high_pass(sample_rate, frequency[1], resonance[1]);
+    // read messages sent from ui thread
+    while (true)
+    {
+        MessageQueue::read_handle_t handle = queue.read();
+        if (!handle) break;
+
+        assert(handle.size() == sizeof(module_state));
+        module_state* state = (module_state*) handle.data();
+        process_state = *state;
+        sent_state.clear();
+    }
+
+    module_state& state = process_state;
+    filter[0].low_pass(sample_rate, state.frequency[0], state.resonance[0]);
+    filter[1].high_pass(sample_rate, state.frequency[1], state.resonance[1]);
 
     float peak_freq[NUM_PEAKS];
     float peak_reso[NUM_PEAKS];
@@ -36,9 +53,9 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
 
     for (int i = 0; i < NUM_PEAKS; i++)
     {
-        peak_freq[i] = peak_frequency[i];
-        peak_reso[i] = peak_resonance[i];
-        peak_enable[i] = peak_enabled[i];
+        peak_freq[i] = state.peak_frequency[i];
+        peak_reso[i] = state.peak_resonance[i];
+        peak_enable[i] = state.peak_enabled[i];
 
         if (peak_enable[i])
             peak_filter[i].peak(_dest.sample_rate, peak_freq[i], peak_reso[i], 0.3f);
@@ -83,8 +100,8 @@ void EQModule::_interface_proc()
     {
         ImGui::PushID(i);
 
-        float freq = frequency[i];
-        float reso = resonance[i];
+        float freq = ui_state.frequency[i];
+        float reso = ui_state.resonance[i];
 
         if (i == 0) ImGui::Text("Low-pass");
         if (i == 1) ImGui::Text("High-pass");
@@ -105,8 +122,8 @@ void EQModule::_interface_proc()
             ImGuiSliderFlags_NoRoundToFormat
         );
 
-        frequency[i] = freq;
-        resonance[i] = reso;
+        ui_state.frequency[i] = freq;
+        ui_state.resonance[i] = reso;
 
         ImGui::PopID();
     }
@@ -123,9 +140,9 @@ void EQModule::_interface_proc()
 
     for (int i = 0; i < NUM_PEAKS; i++)
     {
-        float freq = peak_frequency[i];
-        float reso = peak_resonance[i];
-        bool enabled = peak_enabled[i];
+        float freq = ui_state.peak_frequency[i];
+        float reso = ui_state.peak_resonance[i];
+        bool enabled = ui_state.peak_enabled[i];
 
         ImGui::PushID(i);
 
@@ -165,17 +182,89 @@ void EQModule::_interface_proc()
 
         ImGui::Checkbox("##enabled", &enabled);
 
-        peak_frequency[i] = freq;
-        peak_resonance[i] = reso;
-        peak_enabled[i] = enabled;
+        ui_state.peak_frequency[i] = freq;
+        ui_state.peak_resonance[i] = reso;
+        ui_state.peak_enabled[i] = enabled;
 
         ImGui::EndGroup();
         ImGui::PopID();
     }
     ImGui::EndGroup();
+
+    // send updated module state to audio thread
+    if (!sent_state.test_and_set()) {
+        if (queue.post(&ui_state, sizeof(ui_state))) {
+            dbg("WARNING: LimiterModule process queue is full!\n");
+        }
+    }
 }
 
-void EQModule::save_state(std::ostream& ostream) {}
-bool EQModule::load_state(std::istream&, size_t size) {
+// TODO: test this function
+void EQModule::save_state(std::ostream& ostream) {
+    push_bytes<uint8_t>(ostream, 0); // version
+
+    // lpf/hpf
+    push_bytes<float>(ostream, ui_state.frequency[0]);
+    push_bytes<float>(ostream, ui_state.frequency[1]);
+    push_bytes<float>(ostream, ui_state.resonance[0]);
+    push_bytes<float>(ostream, ui_state.resonance[1]);
+
+    // peak filters
+    // "enabled" fields are written into a bitfield
+    constexpr size_t byte_count = (NUM_PEAKS + 8 - 1) / 8; // NUM_PEAKS / 8, rounded up
+
+    for (size_t i = 0; i < byte_count; i++)
+    {
+        uint8_t bitfield = 0;
+
+        for (size_t j = 0; j < 8; j++) {
+            bitfield |= ui_state.peak_enabled[i*8+j] << j;
+        }
+
+        push_bytes<uint8_t>(ostream, bitfield);
+    }
+
+    for (int i = 0; i < NUM_PEAKS; i++)
+    {
+        push_bytes<float>(ostream, ui_state.peak_frequency[i]);
+        push_bytes<float>(ostream, ui_state.peak_resonance[i]);
+    }
+}
+
+bool EQModule::load_state(std::istream& istream, size_t size) {
+    // verify version
+    if (pull_bytesr<uint8_t>(istream) != 0) return false;
+
+    // lpf/hpf
+    ui_state.frequency[0] = pull_bytesr<float>(istream);
+    ui_state.frequency[1] = pull_bytesr<float>(istream);
+    ui_state.resonance[0] = pull_bytesr<float>(istream);
+    ui_state.resonance[1] = pull_bytesr<float>(istream);
+
+    // peak filters
+    // "enabled" fields are read from a bitfield
+    constexpr size_t byte_count = (NUM_PEAKS + 8 - 1) / 8; // NUM_PEAKS / 8, rounded up
+
+    for (size_t i = 0; i < byte_count; i++)
+    {
+        uint8_t bitfield = pull_bytesr<uint8_t>(istream);
+
+        for (size_t j = 0; j < 8; j++) {
+            ui_state.peak_enabled[i*8+j] = (bitfield >> j) & 1;
+        }
+    }
+
+    // frequency/resonance
+    for (int i = 0; i < NUM_PEAKS; i++)
+    {
+        ui_state.peak_frequency[i] = pull_bytesr<float>(istream);
+        ui_state.peak_resonance[i] = pull_bytesr<float>(istream);
+    }
+
+    if (queue.post(&ui_state, sizeof(ui_state))) {
+        dbg("WARNING: LimiterModule process queue is full!\n");
+        return false;
+    }
+
     return true;
 }
