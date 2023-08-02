@@ -36,8 +36,15 @@ inline void __dbg(const char* file, int line, const char* fmt, ...) {
 
 #endif
 
-inline int sign(float v) {
-    return v >= 0.0f ? 1 : -1; 
+// binary sign -- returns only two results
+template <typename T>
+inline int bsign(T v) {
+    return v >= 0 ? 1 : -1; 
+}
+
+template <typename T>
+inline int sign(T v) {
+    return v == 0 ? 0 : bsign(v);
 }
 
 inline bool is_zero_crossing(float prev, float next) {
@@ -97,7 +104,7 @@ public:
         if (write_ptr >= read_ptr) {
             return write_ptr - read_ptr;
         } else {
-            return audio_buffer_capacity - read_ptr - 1 + write_ptr;
+            return audio_buffer_capacity - read_ptr + write_ptr;
         }
     }
 
@@ -132,7 +139,7 @@ public:
         for (size_t i = 0; i < size; i++)
         {
             // break if there is no data more in buffer
-            if (read_ptr == write_ptr - 1)
+            if (read_ptr == write_ptr)
                 break;
             
             else

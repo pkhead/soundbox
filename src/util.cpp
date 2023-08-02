@@ -5,37 +5,6 @@
 
 #include "util.h"
 
-// ringbuffer tests
-#ifdef UNIT_TESTS
-#include <catch2/catch_amalgamated.hpp>
-
-TEST_CASE("RingBuffer test", "[utils]")
-{
-    RingBuffer<int> buffer(6);
-
-    int arr1[4] = { 39, 21, 84, 23 };
-    int arr2[4] = { 12, 95, 25, 92 };
-    int read_buf[4];
-    
-    // write arr1
-    REQUIRE(buffer.queued() == 0);
-    buffer.write(arr1, 4);
-    REQUIRE(buffer.queued() == 4);
-    buffer.read(read_buf, 4);
-    REQUIRE(memcmp(arr1, read_buf, 4 * sizeof(int)));
-    REQUIRE(buffer.queued() == 0);
-
-    // write arr2
-    // the size of the arrays were carefully chosen so
-    // that it would overflow
-    buffer.write(arr2, 4);
-    REQUIRE(buffer.queued() == 4);
-    buffer.read(read_buf, 4);
-    REQUIRE(memcmp(arr2, read_buf, 4 * sizeof(int)));
-    REQUIRE(buffer.queued() == 0);
-}
-#endif
-
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave)
 {
     size_t sample_count;
@@ -363,3 +332,109 @@ MessageQueue::read_handle_t MessageQueue::read()
 
     return read_handle_t(nullptr);
 }
+
+
+
+#ifdef UNIT_TESTS
+#include <catch2/catch_amalgamated.hpp>
+using namespace Catch;
+
+TEST_CASE("Max", "[utils]")
+{
+    REQUIRE(max(9, -3) == 9);
+    REQUIRE(max(10, 2) == 10);
+    REQUIRE(max(-8, -3) == -3);
+}
+
+TEST_CASE("Min", "[utils]")
+{
+    REQUIRE(min(9, -3) == -3);
+    REQUIRE(min(10, 2) == 2);
+    REQUIRE(min(-8, -3) == -8);
+}
+
+TEST_CASE("Binary Sign", "[utils]")
+{
+    REQUIRE(bsign(4.0f) == 1);
+    REQUIRE(bsign(-2.0f) == -1);
+    REQUIRE(bsign(0.0f) == 1);
+}
+
+TEST_CASE("Sign", "[utils]")
+{
+    REQUIRE(sign(4.0f) == 1);
+    REQUIRE(sign(-2.0f) == -1);
+    REQUIRE(sign(0.0f) == 0);
+}
+
+TEST_CASE("Zero Crossing", "[utils]")
+{
+    REQUIRE(is_zero_crossing(-1.0f, 1.0f));
+    REQUIRE(is_zero_crossing(1.0f, -1.0f));
+    REQUIRE(is_zero_crossing(0.0f, 0.0f));
+    REQUIRE(is_zero_crossing(0.0f, 2.0f));
+    REQUIRE(is_zero_crossing(-2.0f, 0.0));
+    REQUIRE_FALSE(is_zero_crossing(2.0f, 1.0f));
+    REQUIRE_FALSE(is_zero_crossing(-2.0f, -1.0f));
+}
+
+TEST_CASE("dB to factor", "[utils]")
+{
+    REQUIRE_THAT(db_to_mult(3.0f), Matchers::WithinAbs(1.995262315f, 0.00001f));
+    REQUIRE_THAT(db_to_mult(3.0), Matchers::WithinAbs(1.995262315, 0.00001));
+}
+
+// ringbuffer tests
+TEST_CASE("RingBuffer test 1", "[utils.ringbuffer]")
+{
+    RingBuffer<int> buffer(6);
+
+    int arr1[4] = { 39, 21, 84, 23 };
+    int arr2[4] = { 12, 95, 25, 92 };
+    int read_buf[4];
+    
+    // write arr1
+    REQUIRE(buffer.queued() == 0);
+    buffer.write(arr1, 4);
+    REQUIRE(buffer.queued() == 4);
+    buffer.read(read_buf, 4);
+    REQUIRE(memcmp(arr1, read_buf, 4 * sizeof(int)) == 0);
+    REQUIRE(buffer.queued() == 0);
+
+    // write arr2
+    // the size of the arrays were carefully chosen so
+    // that it would overflow
+    buffer.write(arr2, 4);
+    REQUIRE(buffer.queued() == 4);
+    buffer.read(read_buf, 4);
+    REQUIRE(memcmp(arr2, read_buf, 4 * sizeof(int)) == 0);
+    REQUIRE(buffer.queued() == 0);
+}
+
+TEST_CASE("RingBuffer test 2", "[utils.ringbuffer]")
+{
+    RingBuffer<int> buffer(9);
+
+    int arr1[6] = { 1, 2, 3, 4, 5, 6 };
+    int arr2[4] = { 7, 8, 9, 10 };
+    int arr3[3] = { 11, 12, 13 };
+    int read_buf[6];
+
+    REQUIRE(buffer.queued() == 0);
+    buffer.write(arr1, 6);
+    REQUIRE(buffer.queued() == 6);
+    buffer.read(read_buf, 6);
+    REQUIRE(memcmp(arr1, read_buf, 6 * sizeof(int)) == 0);
+    REQUIRE(buffer.queued() == 0);
+
+    buffer.write(arr2, 4);
+    buffer.write(arr3, 3);
+    REQUIRE(buffer.queued() == 7);
+    buffer.read(read_buf, 4);
+    REQUIRE(buffer.queued() == 3);
+    REQUIRE(memcmp(read_buf, arr2, 4 * sizeof(int)) == 0);
+    buffer.read(read_buf, 3);
+    REQUIRE(memcmp(read_buf, arr3, 3 * sizeof(int)) == 0);
+    REQUIRE(buffer.queued() == 0);
+}
+#endif
