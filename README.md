@@ -1,7 +1,7 @@
 # soundbox
 ![logo](logo.svg)
 
-A free and cross-platform tool for people who wish to have an easy-to-use yet comprehensive tool for creating tunes.
+A free and cross-platform tool for making music. Essentially [BeepBox](https://www.beepbox.co/) if it were a native application.
 
 ## Features
 - Pattern-based grid sequencer
