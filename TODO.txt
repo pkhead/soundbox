@@ -1,4 +1,4 @@
-- Undo/redo
+= Undo/redo
     - Undo/redo on text fields (imgui has its own undo/redo for that so conflict?)
       names also don't affect song output so undo/redo for that is possibly undesirable
     - Undo/redo for module modification (research how lv2 and clap handles control changes)
@@ -7,14 +7,27 @@
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - metronome
 - try not to use spinlocks (used for lv2 port subscription)
+= Unit tests
+    = module serialization
+    - ring buffer
+    - message queue
+    - util functions
+    - sys.h
+    - song.h
+    - ui Vec2
 - figure out why keyboard interactions do not work sometimes with plugin UI embedding enabled
 - mp3 exports
-- Plugin support (VST, CLAP)
+- Plugin support
+    = LV2
+        - serialization
+        - pretty sure there are some bugs
+    - VST
+    - CLAP
 - Automation
-- unit tests? how to do that though?
 - Channel for playing audio clips
 - Song change markers (time signature or tuning)
 - Synths
+    x waveform
     - FM (possibly incorporated into waveform synth?)
     - harmonics
     - noise (possibly incorporated into waveform synth?)
@@ -22,6 +35,10 @@
     - slicer
 - Effects
     - mono/stereo converter (similar to calf mono input)
+        - then, remove unused interlacing feature in LADSPA impl
+    x echo
+    x limiter
+    x compressor
     - equalizer
         - show frequency response, configurable bandwidth
     - distortion

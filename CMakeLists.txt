@@ -301,7 +301,7 @@ message("\n"
     " - LV2 plugins (lilv, suil)    ${STATUS_LV2}\n"
     " - GTK2 plugin UIs             ${STATUS_GTK2}\n"
     " - Plugin UI embedding         ${STATUS_COMPOSITE}\n"
-    " - Unit tests                  ${STATUS_TESTS}\n"
+    " - Build unit tests            ${STATUS_TESTS}\n"
     "\n"
 )
 
