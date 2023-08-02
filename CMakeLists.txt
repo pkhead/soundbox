@@ -11,6 +11,7 @@ endif()
 option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" OFF)
 option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" OFF)
 option(SBOX_DISABLE_LV2 "Do not support LV2 plugins" ON)
+option(UNIT_TESTS "Compile unit tests" ON)
 
 # lv2 plugin support isn't quite finished yet, so in the main branch
 # i've disabled it by default. on the lv2 branch it is enabled by
@@ -51,6 +52,8 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(deps/portaudio-19.7.0 EXCLUDE_FROM_ALL)
 add_subdirectory(deps/glfw)
 
+# main.cpp is not included in this so that unit testing may work
+# main.cpp is included in add_exceutable 
 set(SOURCES
     # imgui sources
     deps/imgui/imgui_demo.cpp
@@ -169,10 +172,10 @@ if (WIN32)
     )
 
     if (CMAKE_BUILD_TYPE MATCHES Debug)
-        add_executable(soundbox ${SOURCES})
+        add_executable(soundbox ${SOURCES} src/main.cpp)
     else()
         # if not making a debug build, remove the console window
-        add_executable(soundbox WIN32 ${SOURCES})
+        add_executable(soundbox WIN32 ${SOURCES} src/main.cpp)
         target_compile_definitions(soundbox PUBLIC USE_WIN32_MAIN)
     endif()
 
@@ -182,9 +185,17 @@ if (WIN32)
         message(FATAL_ERROR "Could not find library opengl32")
     endif()
 
+    # build application
     target_compile_definitions(soundbox PUBLIC UI_WINDOWS ${COMPILE_FLAGS})
     target_link_libraries(soundbox dwmapi comctl32.lib ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
     set(STATUS_COMPOSITE "No")
+
+    # build unit tests
+    if (UNIT_TESTS)
+        add_executable(soundbox-tests ${SOURCES} deps/catch2/catch_amalgamated.cpp)
+        target_compile_definitions(soundbox-tests PUBLIC UI_WINDOWS UNIT_TESTS ${COMPILE_FLAGS})
+        target_link_libraries(soundbox-tests ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
+    endif()
 
 # Linux
 else()
@@ -193,7 +204,11 @@ else()
         deps/nativefiledialog/src/nfd_zenity.c
     )
 
-    add_executable(soundbox ${SOURCES})
+    add_executable(soundbox ${SOURCES} src/main.cpp)
+
+    if (UNIT_TESTS)
+        add_executable(soundbox-tests ${SOURCES} deps/catch2/catch_amalgamated.cpp)
+    endif()
 
     find_package(OpenGL REQUIRED)
     find_package(X11 REQUIRED)
@@ -216,10 +231,13 @@ else()
     else()
         set(STATUS_COMPOSITE "Yes")
         target_compile_definitions(soundbox PUBLIC COMPOSITING)
+
+        if (UNIT_TESTS)
+            target_compile_definitions(soundbox-tests PUBLIC COMPOSITING)
+        endif()
     endif()
 
-    target_compile_definitions(soundbox PUBLIC UI_X11 ${COMPILE_FLAGS})
-    target_link_libraries(soundbox
+    set(LINUX_LIBRARIES
         ${LIB_XFIXES}
         ${LIB_XCOMPOSITE}
         ${LIBRARIES}
@@ -227,20 +245,36 @@ else()
         ${OPENGL_LIBRARIES}
         ${X11_LIBRARIES}
     )
+    mark_as_advanced(LINUX_LIBRARIES)
+
+    target_compile_definitions(soundbox PUBLIC UI_X11 ${COMPILE_FLAGS})
+    target_link_libraries(soundbox ${LINUX_LIBRARIES})
+
+    # build unit tests
+    if (UNIT_TESTS)
+        target_compile_definitions(soundbox-tests PUBLIC UI_X11 UNIT_TESTS ${COMPILE_FLAGS})
+        target_link_libraries(soundbox-tests ${LINUX_LIBRARIES})
+    endif()
 endif()
 
 target_include_directories(soundbox PUBLIC ${INCLUDES})
 
+if (UNIT_TESTS)
+    target_include_directories(soundbox-tests PUBLIC ${INCLUDES})
+endif()
+
 # add debug macro
 target_compile_definitions(soundbox PUBLIC "$<$<CONFIG:DEBUG>:DEBUG>")
+
+if (UNIT_TESTS)
+    target_compile_definitions(soundbox-tests PUBLIC "$<$<CONFIG:DEBUG>:DEBUG>")
+endif()
 
 # copy directories to binary directory, mainly for easy use in Visual Studio
 file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/styles DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/imgui.ini DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/logo.png DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
-
 
 # print build status
 if(GTK2_FOUND)
@@ -255,12 +289,19 @@ else()
     set(STATUS_LV2 "No")
 endif()
 
+if (UNIT_TESTS)
+    set(STATUS_TESTS "Yes")
+else()
+    set(STATUS_TESTS "No")
+endif()
+
 message("\n"
     "Configuration:\n"
     " - Build Type                  ${CMAKE_BUILD_TYPE}\n"
     " - LV2 plugins (lilv, suil)    ${STATUS_LV2}\n"
     " - GTK2 plugin UIs             ${STATUS_GTK2}\n"
     " - Plugin UI embedding         ${STATUS_COMPOSITE}\n"
+    " - Unit tests                  ${STATUS_TESTS}\n"
     "\n"
 )
 

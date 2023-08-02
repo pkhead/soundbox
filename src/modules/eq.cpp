@@ -268,3 +268,31 @@ bool EQModule::load_state(std::istream& istream, size_t size) {
 
     return true;
 }
+
+#ifdef UNIT_TESTS
+#include <catch2/catch_amalgamated.hpp>
+
+TEST_CASE("EQModule serialization", "[modules]") {
+    DestinationModule dest(48000, 2, 1024);
+    EQModule mod(dest);
+
+    mod.ui_state.frequency[0] = 1.0f;
+    mod.ui_state.frequency[1] = 2.0f;
+    mod.ui_state.resonance[0] = 3.0f;
+    mod.ui_state.resonance[1] = 4.0f;
+
+    for (int i = 0; i < mod.NUM_PEAKS; i++)
+    {
+        mod.ui_state.peak_enabled[i] = i % 2 != 0;
+        mod.ui_state.peak_frequency[i] = 5.0f * i;
+        mod.ui_state.peak_resonance[i] = 4.0f * i;
+    }
+
+    std::stringstream stream;
+    EQModule::module_state state = mod.ui_state;
+
+    mod.save_state(stream);
+    mod.load_state(stream, stream.tellp());
+    REQUIRE(memcmp(&mod.ui_state, &state, sizeof(EQModule::module_state)) == 0);
+}
+#endif

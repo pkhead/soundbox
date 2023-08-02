@@ -67,6 +67,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nC
 }
 #endif
 
+#ifndef UNIT_TESTS
 int main(int argc, char** argv)
 {
     { // record endianness
@@ -876,3 +877,4 @@ int main(int argc, char** argv)
 #endif
     return 0;
 }
+#endif
