@@ -339,52 +339,92 @@ MessageQueue::read_handle_t MessageQueue::read()
 #include <catch2/catch_amalgamated.hpp>
 using namespace Catch;
 
-TEST_CASE("Max", "[utils]")
-{
+TEST_CASE("Max 1", "[utils]") {
     REQUIRE(max(9, -3) == 9);
+}
+
+TEST_CASE("Max 2", "[utils]") {
     REQUIRE(max(10, 2) == 10);
+}
+
+TEST_CASE("Max 3", "[utils]") {
     REQUIRE(max(-8, -3) == -3);
 }
 
-TEST_CASE("Min", "[utils]")
-{
+TEST_CASE("Min 1", "[utils]") {
     REQUIRE(min(9, -3) == -3);
+}
+
+TEST_CASE("Min 2", "[utils]") {
     REQUIRE(min(10, 2) == 2);
+}
+
+TEST_CASE("Min 3", "[utils]") {
     REQUIRE(min(-8, -3) == -8);
 }
 
-TEST_CASE("Binary Sign", "[utils]")
-{
+TEST_CASE("Binary Sign 1", "[utils]") {
     REQUIRE(bsign(4.0f) == 1);
+}
+
+TEST_CASE("Binary Sign 2", "[utils]") {
     REQUIRE(bsign(-2.0f) == -1);
+}
+
+TEST_CASE("Binary Sign 3", "[utils]") {
     REQUIRE(bsign(0.0f) == 1);
 }
 
-TEST_CASE("Sign", "[utils]")
-{
+TEST_CASE("Sign 1", "[utils]") {
     REQUIRE(sign(4.0f) == 1);
+}
+
+TEST_CASE("Sign 2", "[utils]") {
     REQUIRE(sign(-2.0f) == -1);
+}
+
+TEST_CASE("Sign 3", "[utils]") {
     REQUIRE(sign(0.0f) == 0);
 }
 
-TEST_CASE("Zero Crossing", "[utils]")
-{
+TEST_CASE("Zero Crossing 1", "[utils]") {
     REQUIRE(is_zero_crossing(-1.0f, 1.0f));
+}
+
+TEST_CASE("Zero Crossing 2", "[utils]") {
     REQUIRE(is_zero_crossing(1.0f, -1.0f));
+}
+
+TEST_CASE("Zero Crossing 3", "[utils]") {
     REQUIRE(is_zero_crossing(0.0f, 0.0f));
+}
+
+TEST_CASE("Zero Crossing 4", "[utils]") {
     REQUIRE(is_zero_crossing(0.0f, 2.0f));
+}
+
+TEST_CASE("Zero Crossing 5", "[utils]") {
     REQUIRE(is_zero_crossing(-2.0f, 0.0));
+}
+
+TEST_CASE("Zero Crossing 6", "[utils]") {
     REQUIRE_FALSE(is_zero_crossing(2.0f, 1.0f));
+}
+
+TEST_CASE("Zero Crossing 7", "[utils]") {
     REQUIRE_FALSE(is_zero_crossing(-2.0f, -1.0f));
 }
 
-TEST_CASE("dB to factor", "[utils]")
-{
+TEST_CASE("dB to factor 1", "[utils]") {
     REQUIRE_THAT(db_to_mult(3.0f), Matchers::WithinAbs(1.995262315f, 0.00001f));
+}
+
+TEST_CASE("dB to factor 2", "[utils]") {
     REQUIRE_THAT(db_to_mult(3.0), Matchers::WithinAbs(1.995262315, 0.00001));
 }
 
 // ringbuffer tests
+// TODO: these are not *unit* tests
 TEST_CASE("RingBuffer test 1", "[utils.ringbuffer]")
 {
     RingBuffer<int> buffer(6);
