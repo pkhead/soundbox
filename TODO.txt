@@ -9,9 +9,9 @@
 - try not to use spinlocks (used for lv2 port subscription)
 = Unit tests
     = module serialization
-    - ring buffer
+    x ring buffer
     - message queue
-    - util functions
+    x util functions
     - sys.h
     - song.h
     - ui Vec2
@@ -39,7 +39,7 @@
     x echo
     x limiter
     x compressor
-    - equalizer
+    = equalizer
         - show frequency response, configurable bandwidth
     - distortion
     - bitcrusher/downsampler
