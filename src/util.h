@@ -230,6 +230,7 @@ public:
 
     void low_pass(float sample_rate, float frequency, float linear_gain);
     void high_pass(float sample_rate, float frequency, float linear_gain);
+    void all_pass(float sample_rate, float frequency, float linear_gain);
     void peak(float sample_rate, float frequency, float linear_gain, float bandwidth);
 
     void process(float input[2], float output[2]);

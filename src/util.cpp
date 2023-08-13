@@ -229,6 +229,19 @@ void Filter2ndOrder::high_pass(float Fs, float f0, float Q)
     a[2] =  (1.0f - alpha) / a0;
 }
 
+void Filter2ndOrder::all_pass(float Fs, float f0, float Q)
+{
+    float w0 = 2.0f * M_PI * f0 / Fs;
+    float si = sinf(w0);
+    float co = cosf(w0);
+    float alpha = si / (2.0f * Q);
+    float a0 = 1.0f + alpha;
+
+    b[0] = a[2] = (1.0f - alpha) / a0;
+    b[1] = a[1] = (-2.0f * co) / a0;
+    b[2] = a[0] = 1.0f;
+}
+
 void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
 {
     // Fs: sample rate
