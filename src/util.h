@@ -62,11 +62,11 @@ inline T max(T a, T b) {
 }
 
 inline float db_to_mult(float db) {
-    return exp10f(db / 10.0f);
+    return powf(10.0f, db / 10.0f);
 }
 
 inline double db_to_mult(double db) {
-    return exp10(db / 10.0);
+    return powf(10.0f, db / 10.0);
 }
 
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);

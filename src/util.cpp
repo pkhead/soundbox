@@ -250,7 +250,7 @@ void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
     // bw: band width
     
     float w0 = 2.0 * M_PI * f0 / Fs;
-    float sqrt_gain = sqrtf(exp10f(gain / 40.0f));
+    float sqrt_gain = sqrtf(powf(10.0f, gain / 40.0f));
     float si = sinf(w0);
     float co = cosf(w0);
     float alpha = si * sinh(log(2.0f) / 2.0f * bw_scale * w0 / si);
