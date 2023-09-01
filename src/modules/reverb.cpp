@@ -6,6 +6,7 @@ so i looked at this blog post: https://signalsmith-audio.co.uk/writing/2021/lets
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include <imgui.h>
 #include "reverb.h"
 
 using namespace audiomod;
@@ -62,11 +63,18 @@ static void hadamard(float* arr)
 }
 
 ReverbModule::ReverbModule(DestinationModule& dest)
-    : ModuleBase(dest, true)
+    : ModuleBase(dest, true),
+      state_queue(sizeof(module_state), 8)
 {
     id = "effect.reverb";
     name = "Reverb";
-    mix_mult = 0.8f;
+    
+    // initialize state
+    ui_state.mix = 0.0f;
+    ui_state.low_cut = 200.0f;
+    ui_state.feedback = 0.8f;
+    ui_state.size = 0.5f;
+    process_state = ui_state;
 
     // create delay buffers
     size_t buffer_size = (size_t)(dest.sample_rate * MAX_DELAY_LEN);
@@ -130,10 +138,25 @@ void ReverbModule::diffuse(int i, float* values)
 
 void ReverbModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
 {
-    float input_frame[2];
+    // receive new state sent from ui thread
+    while (true)
+    {
+        MessageQueue::read_handle_t handle = state_queue.read();
+        if (!handle) break;
+
+        assert(handle.size() == sizeof(module_state));
+        module_state* state = (module_state*) handle.data();
+
+        process_state = *state;
+    }
+
+    float input_frame[2], out_frame[2];
     float channels[REVERB_CHANNEL_COUNT];
     float delayed[REVERB_CHANNEL_COUNT];
     int k;
+
+    float dry = 1.0f - process_state.mix;
+    float wet = process_state.mix;
 
     for (size_t smp = 0; smp < buffer_size; smp += 2)
     {
@@ -164,7 +187,7 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         // delay
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
-            delayed[i] = echoes[i].read() * mix_mult;
+            delayed[i] = echoes[i].read() * process_state.feedback;
         }
 
         // apply mix matrix
@@ -184,17 +207,66 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
 
         // mix internal channels into output
         k = 0;
-        output[smp] = 0.0f;
-        output[smp+1] = 0.0f;
+        out_frame[0] = 0.0f;
+        out_frame[1] = 0.0f;
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
-            output[smp+k] += channels[i];
+            out_frame[k] += out_frame[i];
             k = (k + 1) % 2;
         }
+
+        output[smp] = input_frame[0] * dry + out_frame[0] * wet;
+        output[smp+1] = input_frame[1] * dry + out_frame[1] * wet;
     }
 }
 
 void ReverbModule::_interface_proc()
 {
+    module_state old_state = ui_state;
 
+    float width = ImGui::GetTextLineHeight() * 14.0f;
+    ImGui::PushItemWidth(width);
+
+    // labels
+    ImGui::BeginGroup();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Mix");
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Size");
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Feedback");
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Low Cut");
+    ImGui::EndGroup();
+    ImGui::SameLine();
+
+    // controls
+    ImGui::BeginGroup();
+
+    // mix
+    ImGui::SliderFloat("##mix", &ui_state.mix, 0.0f, 1.0f);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.mix = 0.0f;
+    
+    // size
+    ImGui::SliderFloat("##size", &ui_state.size, 0.0f, 1.0f);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.size = 0.5f;
+    
+    // feedback
+    ImGui::SliderFloat("##feedback", &ui_state.feedback, 0.0f, 1.0f);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.feedback = 0.8f;
+    
+    // low cut
+    ImGui::SliderFloat(
+        "##low_cut", &ui_state.low_cut, 20.0f, _dest.sample_rate / 2.5f, "%.0f Hz",
+        ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat
+    );
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.low_cut = 200.0f;
+
+    ImGui::EndGroup();
+
+    // if state changed, post new state
+    if (memcmp(&old_state, &ui_state, sizeof(module_state)) != 0)
+    {
+        state_queue.post(&ui_state, sizeof(ui_state));
+    }
 }

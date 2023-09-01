@@ -10,6 +10,16 @@ namespace audiomod
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
 
+        // keep two copies of the module state, one for the
+        // processing thread, and another for the ui thread.
+        struct module_state {
+            float mix,
+                  size,
+                  feedback,
+                  low_cut;
+        } process_state, ui_state;
+        MessageQueue state_queue;
+
         static constexpr float MAX_DELAY_LEN = 2.0f; // in seconds
         static constexpr size_t REVERB_CHANNEL_COUNT = 8;
         static constexpr size_t DIFFUSE_STEPS = 4;
