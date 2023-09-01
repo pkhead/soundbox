@@ -1,3 +1,8 @@
+/*
+i'm not smart enough to design my own reverb
+so i looked at this blog post: https://signalsmith-audio.co.uk/writing/2021/lets-write-a-reverb/ 
+*/
+
 #include <cstring>
 #include <cassert>
 #include "reverb.h"
@@ -29,35 +34,31 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     name = "Reverb";
     mix_mult = 0.5f;
 
-    for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
-        delay_index[i] = 0;
-
-    delay_len[0] = 0.1f * dest.sample_rate;
-    delay_len[1] = 0.11f * dest.sample_rate;
-    delay_len[2] = 0.12f * dest.sample_rate;
-    delay_len[3] = 0.13f * dest.sample_rate;
-    delay_len[4] = 0.14f * dest.sample_rate;
-    delay_len[5] = 0.15f * dest.sample_rate;
-    delay_len[6] = 0.16f * dest.sample_rate;
-    delay_len[7] = 0.17f * dest.sample_rate;
-
     // create delay buffers
     size_t buffer_size = (size_t)(dest.sample_rate * MAX_DELAY_LEN);
 
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
-        delay_bufs[i] = new float[buffer_size];
-        memset(delay_bufs[i], 0, buffer_size * sizeof(float));
+        echoes[i].resize(buffer_size);
     }
+
+    for (int i = 0; i < DIFFUSE_STEPS; i++)
+    {
+        diffuse_delays[i].resize(buffer_size);
+    }
+
+    echoes[0].delay = 0.1f * dest.sample_rate;
+    echoes[1].delay = 0.11f * dest.sample_rate;
+    echoes[2].delay = 0.12f * dest.sample_rate;
+    echoes[3].delay = 0.13f * dest.sample_rate;
+    echoes[4].delay = 0.14f * dest.sample_rate;
+    echoes[5].delay = 0.15f * dest.sample_rate;
+    echoes[6].delay = 0.16f * dest.sample_rate;
+    echoes[7].delay = 0.17f * dest.sample_rate;
 }
 
 ReverbModule::~ReverbModule()
-{
-    for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
-    {
-        delete[] delay_bufs[i];
-    }
-}
+{}
 
 void ReverbModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
 {
@@ -89,7 +90,7 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         // delay
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
-            delayed[i] = delay_bufs[i][delay_index[i]] * mix_mult;
+            delayed[i] = echoes[i].read() * mix_mult;
         }
 
         // apply mix matrix
@@ -104,8 +105,7 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         // send to delay
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
-            delay_bufs[i][delay_index[i]] = channels[i];
-            delay_index[i] = (delay_index[i] + 1) % delay_len[i];
+            echoes[i].write(channels[i]);
         }
 
         // mix internal channels into output

@@ -36,7 +36,8 @@
 - Effects
     - mono/stereo converter (similar to calf mono input)
         - then, remove unused interlacing feature in LADSPA impl
-    x echo
+    = echo
+        - rewrite to use DelayLine class
     x limiter
     x compressor
     = equalizer

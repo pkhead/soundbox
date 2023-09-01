@@ -12,10 +12,10 @@ namespace audiomod
 
         static constexpr float MAX_DELAY_LEN = 2.0f; // in seconds
         static constexpr size_t REVERB_CHANNEL_COUNT = 8;
+        static constexpr size_t DIFFUSE_STEPS = 4;
         float mix_mult;
 
-        size_t delay_len[8], delay_index[8]; // these are in samples
-        float* delay_bufs[REVERB_CHANNEL_COUNT];
+        DelayLine<float> diffuse_delays[DIFFUSE_STEPS], echoes[REVERB_CHANNEL_COUNT];
 
     public:
         ReverbModule(DestinationModule& dest);
