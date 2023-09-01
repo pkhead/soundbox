@@ -73,7 +73,7 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     ui_state.mix = 0.0f;
     ui_state.low_cut = 200.0f;
     ui_state.feedback = 0.8f;
-    ui_state.size = 0.5f;
+    ui_state.echo_delay = 0.5f;
     process_state = ui_state;
 
     // create delay buffers
@@ -84,9 +84,6 @@ ReverbModule::ReverbModule(DestinationModule& dest)
         echoes[i].resize(buffer_size);
     }
 
-    assert(DIFFUSE_STEPS == 4);
-    static float DELAY_MULTIPLIERS[] = {0.0f, 0.125f, 0.25f, 0.5f, 1.0f};
-
     for (int i = 0; i < DIFFUSE_STEPS; i++)
     {
         float range = 0.040f;
@@ -96,19 +93,11 @@ ReverbModule::ReverbModule(DestinationModule& dest)
         {
             diffuse_delays[i][k].resize(buffer_size);
             float delay_len = ((double)rand() / RAND_MAX) * range + range_start;
+            assert(delay_len <= MAX_DELAY_LEN);
             diffuse_delays[i][k].delay = (float)dest.sample_rate * delay_len;
             diffuse_factors[i][k] = (rand() > RAND_MAX / 2) ? 1.0f : -1.0f;
             //diffuse_delays[i][k].delay = ((double)rand() / RAND_MAX * 0.6) * dest.sample_rate;
         }
-    }
-
-    // setup echoes
-    float d = 0.100f;
-
-    for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
-    {
-        echoes[i].delay = d * dest.sample_rate;
-        d = d + 0.01f;
     }
 }
 
@@ -148,6 +137,14 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         module_state* state = (module_state*) handle.data();
 
         process_state = *state;
+    }
+
+    // setup echo delays
+    for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
+    {
+        float d = (float)i / REVERB_CHANNEL_COUNT * process_state.echo_delay;
+        assert(d <= MAX_DELAY_LEN);
+        echoes[i].delay = d * _dest.sample_rate;
     }
 
     float input_frame[2], out_frame[2];
@@ -232,7 +229,7 @@ void ReverbModule::_interface_proc()
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Mix");
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Size");
+    ImGui::Text("Echo Delay");
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Feedback");
     ImGui::AlignTextToFramePadding();
@@ -247,9 +244,9 @@ void ReverbModule::_interface_proc()
     ImGui::SliderFloat("##mix", &ui_state.mix, 0.0f, 1.0f);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.mix = 0.0f;
     
-    // size
-    ImGui::SliderFloat("##size", &ui_state.size, 0.0f, 1.0f);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.size = 0.5f;
+    // delay
+    ImGui::SliderFloat("##delay", &ui_state.echo_delay, 0.0f, 1.0f, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.echo_delay = 0.5f;
     
     // feedback
     ImGui::SliderFloat("##feedback", &ui_state.feedback, 0.0f, 1.0f);

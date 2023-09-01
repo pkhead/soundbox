@@ -14,14 +14,14 @@ namespace audiomod
         // processing thread, and another for the ui thread.
         struct module_state {
             float mix,
-                  size,
+                  echo_delay,
                   feedback,
                   low_cut;
         } process_state, ui_state;
         MessageQueue state_queue;
 
-        static constexpr float MAX_DELAY_LEN = 2.0f; // in seconds
-        static constexpr size_t REVERB_CHANNEL_COUNT = 8;
+        static constexpr float MAX_DELAY_LEN = 1.0f; // in seconds
+        static constexpr size_t REVERB_CHANNEL_COUNT = 4;
         static constexpr size_t DIFFUSE_STEPS = 4;
         float mix_mult;
 
