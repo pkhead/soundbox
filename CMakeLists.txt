@@ -123,6 +123,7 @@ set(SOURCES
     src/modules/eq.cpp
     src/modules/limiter.cpp
     src/modules/compressor.cpp
+    src/modules/reverb.cpp
 )
 
 set(LIBRARIES
