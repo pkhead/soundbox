@@ -15,7 +15,9 @@ namespace audiomod
         static constexpr size_t DIFFUSE_STEPS = 4;
         float mix_mult;
 
-        DelayLine<float> diffuse_delays[DIFFUSE_STEPS], echoes[REVERB_CHANNEL_COUNT];
+        DelayLine<float> diffuse_delays[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT], echoes[REVERB_CHANNEL_COUNT];
+
+        void diffuse(int index, float* values);
 
     public:
         ReverbModule(DestinationModule& dest);

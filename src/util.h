@@ -285,8 +285,8 @@ public:
     }
 
     inline void write(float v) {
-        buf[index] = v;
-        index = (index + 1) % delay;
+        buf[index++] = v;
+        if (index > delay) index = 0;
     }
 
     inline size_t max_size() const { return _max_size; }
