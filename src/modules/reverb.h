@@ -16,6 +16,7 @@ namespace audiomod
         float mix_mult;
 
         DelayLine<float> diffuse_delays[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT], echoes[REVERB_CHANNEL_COUNT];
+        float diffuse_factors[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT];
 
         void diffuse(int index, float* values);
 

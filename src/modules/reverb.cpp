@@ -66,7 +66,7 @@ ReverbModule::ReverbModule(DestinationModule& dest)
 {
     id = "effect.reverb";
     name = "Reverb";
-    mix_mult = 0.5f;
+    mix_mult = 0.8f;
 
     // create delay buffers
     size_t buffer_size = (size_t)(dest.sample_rate * MAX_DELAY_LEN);
@@ -76,25 +76,31 @@ ReverbModule::ReverbModule(DestinationModule& dest)
         echoes[i].resize(buffer_size);
     }
 
+    assert(DIFFUSE_STEPS == 4);
+    static float DELAY_MULTIPLIERS[] = {0.0f, 0.125f, 0.25f, 0.5f, 1.0f};
+
     for (int i = 0; i < DIFFUSE_STEPS; i++)
     {
-        float d = 0.001;
+        float range = 0.040f;
+        float range_start = (float)i * range;
 
         for (int k = 0; k < REVERB_CHANNEL_COUNT; k++)
         {
             diffuse_delays[i][k].resize(buffer_size);
-            diffuse_delays[i][k].delay = d * dest.sample_rate;
-            d = d * 2.0f;
+            float delay_len = ((double)rand() / RAND_MAX) * range + range_start;
+            diffuse_delays[i][k].delay = (float)dest.sample_rate * delay_len;
+            diffuse_factors[i][k] = (rand() > RAND_MAX / 2) ? 1.0f : -1.0f;
+            //diffuse_delays[i][k].delay = ((double)rand() / RAND_MAX * 0.6) * dest.sample_rate;
         }
     }
 
     // setup echoes
-    float d = 0.05;
+    float d = 0.100f;
 
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
         echoes[i].delay = d * dest.sample_rate;
-        d = d + 0.1;
+        d = d + 0.01f;
     }
 }
 
@@ -108,23 +114,18 @@ void ReverbModule::diffuse(int i, float* values)
     // delay values
     for (size_t c = 0; c < REVERB_CHANNEL_COUNT; c++)
     {
-        diffuse_delays[i][c].write(values[c]);
         temp[c] = diffuse_delays[i][c].read();
+        diffuse_delays[i][c].write(values[c]);
     }
 
-    // shuffle & polarity inversion
-    assert(REVERB_CHANNEL_COUNT == 8);
-    values[0] = temp[2];
-    values[1] = -temp[3];
-    values[2] = temp[1];
-    values[3] = -temp[7];
-    values[4] = -temp[6];
-    values[5] = temp[4];
-    values[6] = temp[5];
-    values[7] = -temp[0];
-
     // apply mixing matrix
-    hadamard<REVERB_CHANNEL_COUNT>(values);
+    hadamard<REVERB_CHANNEL_COUNT>(temp);
+
+    // shuffle & polarity inversion
+    for (size_t c = 0; c < REVERB_CHANNEL_COUNT; c++)
+    {
+        values[c] = temp[c] * diffuse_factors[i][c];
+    }
 }
 
 void ReverbModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
