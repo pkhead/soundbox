@@ -27,10 +27,12 @@
 - Channel for playing audio clips
 - Song change markers (time signature or tuning)
 - Synths
-    x waveform
-    - FM (possibly incorporated into waveform synth?)
+    x basic waveform
+    - "synthbox" synthesizer comparable to fl's sytrus
+        also does FM
     - harmonics
-    - noise (possibly incorporated into waveform synth?)
+    - spectrum
+    - noise (although probably part of synthbox)
     - sampler
     - slicer
 - Effects
@@ -47,5 +49,5 @@
     - chrous
     - flanger
     - phaser
-    - reverb
+    = reverb
 - Importing MIDI tracks

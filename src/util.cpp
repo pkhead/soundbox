@@ -155,7 +155,10 @@ void fft(complex_t<float>* data, int data_size, bool inverse) // data is array o
     }
 }
 
-// Filters
+/*
+ Filters
+ Thanks to https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt
+*/
 Filter2ndOrder::Filter2ndOrder()
 {
     for (int i = 0; i < 3; i++)
@@ -175,8 +178,6 @@ void Filter2ndOrder::process(float input[2], float output[2])
 {
     for (int c = 0; c < 2; c++)
     {
-        assert(!std::isinf(input[c]));
-
         x[c][0] = input[c];
         y[c][0] = b[0] * x[c][0] + b[1] * x[c][1] + b[2] * x[c][2]
                                  - a[1] * y[c][1] - a[2] * y[c][2];
@@ -240,6 +241,25 @@ void Filter2ndOrder::all_pass(float Fs, float f0, float Q)
     b[0] = a[2] = (1.0f - alpha) / a0;
     b[1] = a[1] = (-2.0f * co) / a0;
     b[2] = a[0] = 1.0f;
+}
+
+void Filter2ndOrder::low_shelf(float Fs, float f0, float gain, float slope)
+{
+    float A = sqrtf(powf(10.0f, gain / 40.0f));
+    float w0 = 2.0f * M_PI * f0 / Fs;
+
+    float si = sinf(w0);
+    float co = cosf(w0);
+    float alpha = si / 2.0f * sqrtf( (A + 1.0f / A) * (1.0f / slope - 1.0f) + 2.0f );
+    float sqrt_alpha = 2.0f * sqrtf(A) * alpha;
+    
+    float a0 =             (A + 1.0f) + (A - 1.0f) * co + sqrt_alpha;
+    b[0] =       (     A*( (A + 1.0f) - (A - 1.0f) * co + sqrt_alpha)) / a0;
+    b[1] =       (2.0f*A*( (A - 1.0f) - (A + 1.0f) * co))              / a0;
+    b[2] =       (     A*( (A + 1.0f) - (A - 1.0f) * co - sqrt_alpha)) / a0;
+    a[0] =       1.0f;
+    a[1] =       ( -2.0f*( (A - 1.0f) + (A + 1.0f) * co))              / a0;
+    a[2] =       (         (A + 1.0f) + (A - 1.0f) * co - sqrt_alpha)  / a0;
 }
 
 void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)

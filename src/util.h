@@ -234,6 +234,8 @@ public:
     void all_pass(float sample_rate, float frequency, float linear_gain);
     void peak(float sample_rate, float frequency, float linear_gain, float bandwidth);
 
+    void low_shelf(float sample_rate, float frequency, float linear_gain, float slope);
+
     void process(float input[2], float output[2]);
 };
 
