@@ -76,6 +76,7 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     ui_state.feedback = 0.8f;
     ui_state.echo_delay = 0.5f;
     ui_state.shelf_gain = -10.0f;
+    ui_state.diffuse = 0.5f;
     process_state = ui_state;
 
     // create delay buffers
@@ -84,8 +85,8 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
         echoes[i].resize(buffer_size);
-        early_delays[i].resize(buffer_size);
-        early_delays[i].delay = (0.1f + 0.05f * i) * _dest.sample_rate;
+        //early_delays[i].resize(buffer_size);
+        //early_delays[i].delay = (0.05f + 0.05f * i) * _dest.sample_rate;
     }
 
     // initialize diffuser
@@ -144,7 +145,8 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
     // setup echo delays
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
-        float d = (float)i / REVERB_CHANNEL_COUNT * process_state.echo_delay;
+        float f = (float)(i+1) / REVERB_CHANNEL_COUNT;
+        float d = f * process_state.echo_delay + f * 0.02;
         assert(d <= MAX_DELAY_LEN);
         echoes[i].delay = d * _dest.sample_rate;
     }
@@ -198,28 +200,19 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         }
 
         // read early reflections
-        float early_samples[REVERB_CHANNEL_COUNT];
-        memset(early_samples, 0, sizeof(early_samples));
+        //float early_samples[REVERB_CHANNEL_COUNT];
+        //memset(early_samples, 0, sizeof(early_samples));
+
 
         // diffuse step
-        for (int i = 0; i < DIFFUSE_STEPS; i++)
+        //diffuse(0, channels);
+        for (int i = 1; i < DIFFUSE_STEPS; i++)
         {
             diffuse(i, channels);
-
-            for (int c = 0; c < REVERB_CHANNEL_COUNT; c++)
-            {
-                float fac = (float)(i + 1) / DIFFUSE_STEPS;
-                early_samples[c] += channels[c] * fac;
-            }
         }
 
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
-            // delay early samples
-            float early_sample = early_samples[i];
-            early_samples[i] = early_delays[i].read();
-            early_delays[i].write(early_sample);
-
             // delay with feedback & filter
             delayed[i] = echoes[i].read() * process_state.feedback;
             shelf_filters[i].process(delayed + i);
@@ -227,11 +220,17 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
 
         // apply mix matrix
         householder(delayed, REVERB_CHANNEL_COUNT);
+        //diffuse(0, delayed);
 
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
             // mix with source
             channels[i] += delayed[i];
+        }
+
+        diffuse(0, channels);
+
+        for (int i = 0; i < REVERB_CHANNEL_COUNT; i++) {
             // send to delay
             echoes[i].write(channels[i]);
         }
@@ -242,7 +241,7 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         out_frame[1] = 0.0f;
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
-            out_frame[k] += channels[i] + early_samples[i] * 0.8f;
+            out_frame[k] += channels[i];
             k = (k + 1) % 2;
         }
 
@@ -279,15 +278,15 @@ void ReverbModule::_interface_proc()
     ImGui::BeginGroup();
 
     // mix
-    ImGui::SliderFloat("##mix", &ui_state.mix, 0.0f, 1.0f);
+    ImGui::SliderFloat("##mix", &ui_state.mix, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.mix = 0.0f;
     
     // diffusion
-    ImGui::SliderFloat("##diffusion", &ui_state.diffuse, 0.0f, 1.0f, "%.3f");
+    ImGui::SliderFloat("##diffusion", &ui_state.diffuse, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.diffuse = 0.5f;
 
     // delay
-    ImGui::SliderFloat("##delay", &ui_state.echo_delay, 0.0f, 1.0f, "%.3f s");
+    ImGui::SliderFloat("##delay", &ui_state.echo_delay, 0.0f, 1.0f, "%.3f s", ImGuiSliderFlags_AlwaysClamp);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.echo_delay = 0.5f;
     
     // feedback
@@ -303,7 +302,7 @@ void ReverbModule::_interface_proc()
 
     // shelf gain
     ImGui::SliderFloat(
-        "##shelf_gain", &ui_state.shelf_gain, -20.0f, 5.0f, "%.3f dB",
+        "##shelf_gain", &ui_state.shelf_gain, -20.0f, 0.0f, "%.3f dB",
         ImGuiSliderFlags_NoRoundToFormat
     );
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.shelf_gain = -10.0f;
