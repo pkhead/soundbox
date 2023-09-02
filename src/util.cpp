@@ -163,34 +163,27 @@ Filter2ndOrder::Filter2ndOrder()
 {
     for (int i = 0; i < 3; i++)
     {
-        for (int c = 0; c < 2; c++)
-        {
-            x[c][i] = 0.0f;
-            y[c][i] = 0.0f;
-        }
-
+        x[i] = 0.0f;
+        y[i] = 0.0f;
         a[i] = 0.0f;
         b[i] = 0.0f;
     }
 }
 
-void Filter2ndOrder::process(float input[2], float output[2])
+void Filter2ndOrder::process(float* value)
 {
-    for (int c = 0; c < 2; c++)
-    {
-        x[c][0] = input[c];
-        y[c][0] = b[0] * x[c][0] + b[1] * x[c][1] + b[2] * x[c][2]
-                                 - a[1] * y[c][1] - a[2] * y[c][2];
+        x[0] = *value;
+        y[0] = b[0] * x[0] + b[1] * x[1] + b[2] * x[2]
+                                 - a[1] * y[1] - a[2] * y[2];
 
-        assert(!std::isinf(y[c][0]));
+        assert(!std::isinf(y[0]));
 
-        x[c][2] = x[c][1];
-        x[c][1] = x[c][0];
-        y[c][2] = y[c][1];
-        y[c][1] = y[c][0];
+        x[2] = x[1];
+        x[1] = x[0];
+        y[2] = y[1];
+        y[1] = y[0];
 
-        output[c] = y[c][0];
-    }
+        *value = y[0];
 }
 
 void Filter2ndOrder::low_pass(float Fs, float f0, float Q)
@@ -260,6 +253,25 @@ void Filter2ndOrder::low_shelf(float Fs, float f0, float gain, float slope)
     a[0] =       1.0f;
     a[1] =       ( -2.0f*( (A - 1.0f) + (A + 1.0f) * co))              / a0;
     a[2] =       (         (A + 1.0f) + (A - 1.0f) * co - sqrt_alpha)  / a0;
+}
+
+void Filter2ndOrder::high_shelf(float Fs, float f0, float gain, float slope)
+{
+    float A = sqrtf(powf(10.0f, gain / 40.0f));
+    float w0 = 2.0f * M_PI * f0 / Fs;
+
+    float si = sinf(w0);
+    float co = cosf(w0);
+    float alpha = si / 2.0f * sqrtf( (A + 1.0f / A) * (1.0f / slope - 1.0f) + 2.0f );
+    float sqrt_alpha = 2.0f * sqrtf(A) * alpha;
+    
+    float a0 =             (A + 1.0f) - (A - 1.0f) * co + sqrt_alpha;
+    b[0] =       (      A*( (A + 1.0f) + (A - 1.0f) * co + sqrt_alpha)) / a0;
+    b[1] =       (-2.0f*A*( (A - 1.0f) + (A + 1.0f) * co))              / a0;
+    b[2] =       (      A*( (A + 1.0f) + (A - 1.0f) * co - sqrt_alpha)) / a0;
+    a[0] =       1.0f;
+    a[1] =       (   2.0f*( (A - 1.0f) - (A + 1.0f) * co))              / a0;
+    a[2] =       (          (A + 1.0f) - (A - 1.0f) * co - sqrt_alpha)  / a0;
 }
 
 void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)

@@ -44,8 +44,11 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
     }
 
     module_state& state = process_state;
-    filter[0].low_pass(sample_rate, state.frequency[0], state.resonance[0]);
-    filter[1].high_pass(sample_rate, state.frequency[1], state.resonance[1]);
+
+    for (int c = 0; c < 2; c++) {
+        filter[0][c].low_pass(sample_rate, state.frequency[0], state.resonance[0]);
+        filter[1][c].high_pass(sample_rate, state.frequency[1], state.resonance[1]);
+    }
 
     float peak_freq[NUM_PEAKS];
     float peak_reso[NUM_PEAKS];
@@ -58,7 +61,8 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
         peak_enable[i] = state.peak_enabled[i];
 
         if (peak_enable[i])
-            peak_filter[i].peak(_dest.sample_rate, peak_freq[i], peak_reso[i], 0.3f);
+            for (int c = 0; c < 2; c++)
+                peak_filter[i][c].peak(_dest.sample_rate, peak_freq[i], peak_reso[i], 0.3f);
     }
 
     for (int i = 0; i < buffer_size; i += 2)
@@ -72,13 +76,16 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
             output[i + 1] += inputs[j][i + 1];
         }
 
-        filter[0].process(output + i, output + i);
-        filter[1].process(output + i, output + i);
-
+        for (int c = 0; c < 2; c++)
+        {
+            filter[0][c].process(output + i + c);
+            filter[1][c].process(output + i + c);
+        }
         for (int j = 0; j < NUM_PEAKS; j++)
         {
             if (peak_enable[j]) {
-                peak_filter[j].process(output + i, output + i);
+                peak_filter[j][0].process(output + i);
+                peak_filter[j][1].process(output + i + 1);
             }
         }
     }

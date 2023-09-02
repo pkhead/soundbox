@@ -22,10 +22,10 @@ namespace audiomod
         void _interface_proc() override;
         
         // low-pass & high-pass filters
-        Filter2ndOrder filter[2];
+        Filter2ndOrder filter[2][2];
 
         // peaking filters
-        Filter2ndOrder peak_filter[NUM_PEAKS];
+        Filter2ndOrder peak_filter[NUM_PEAKS][2];
 
         // keep two copies of the module state, one for the
         // processing thread, and another for the ui thread.

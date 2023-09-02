@@ -220,8 +220,8 @@ class Filter2ndOrder
 {
 public:
     // [channel][order]
-    float x[2][3]; // input
-    float y[2][3]; // output
+    float x[3]; // input
+    float y[3]; // output
 
     // filter coefficients
     float a[3];
@@ -234,9 +234,10 @@ public:
     void all_pass(float sample_rate, float frequency, float linear_gain);
     void peak(float sample_rate, float frequency, float linear_gain, float bandwidth);
 
-    void low_shelf(float sample_rate, float frequency, float linear_gain, float slope);
+    void low_shelf(float sample_rate, float frequency, float gain, float slope);
+    void high_shelf(float sample_rate, float frequency, float gain, float slope);
 
-    void process(float input[2], float output[2]);
+    void process(float* sample);
 };
 
 template <class T = float>
