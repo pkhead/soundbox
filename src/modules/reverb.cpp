@@ -71,9 +71,10 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     
     // initialize state
     ui_state.mix = 0.0f;
-    ui_state.low_cut = 200.0f;
+    ui_state.shelf_freq = 200.0f;
     ui_state.feedback = 0.8f;
     ui_state.echo_delay = 0.5f;
+    ui_state.shelf_gain = -10.0f;
     process_state = ui_state;
 
     // create delay buffers
@@ -147,6 +148,12 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         echoes[i].delay = d * _dest.sample_rate;
     }
 
+    // setup filters
+    for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
+    {
+        shelf_filters[i].high_shelf(_dest.sample_rate, process_state.shelf_freq, process_state.shelf_gain, 0.5f);
+    }
+    
     float input_frame[2], out_frame[2];
     float channels[REVERB_CHANNEL_COUNT];
     float delayed[REVERB_CHANNEL_COUNT];
@@ -181,10 +188,11 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
             diffuse(i, channels);
         }
 
-        // delay
+        // delay with feedback & filter
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
             delayed[i] = echoes[i].read() * process_state.feedback;
+            shelf_filters[i].process(delayed + i);
         }
 
         // apply mix matrix
@@ -227,13 +235,15 @@ void ReverbModule::_interface_proc()
     // labels
     ImGui::BeginGroup();
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Mix");
+    ImGui::Text("Dry/Wet Mix");
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Echo Delay");
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Feedback");
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Low Cut");
+    ImGui::Text("High Shelf Freq.");
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("High Shelf Gain");
     ImGui::EndGroup();
     ImGui::SameLine();
 
@@ -252,12 +262,19 @@ void ReverbModule::_interface_proc()
     ImGui::SliderFloat("##feedback", &ui_state.feedback, 0.0f, 1.0f);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.feedback = 0.8f;
     
-    // low cut
+    // shelf freq
     ImGui::SliderFloat(
-        "##low_cut", &ui_state.low_cut, 20.0f, _dest.sample_rate / 2.5f, "%.0f Hz",
+        "##shelf_freq", &ui_state.shelf_freq, 20.0f, _dest.sample_rate / 2.5f, "%.0f Hz",
         ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat
     );
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.low_cut = 200.0f;
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.shelf_freq = 200.0f;
+
+    // shelf gain
+    ImGui::SliderFloat(
+        "##shelf_gain", &ui_state.shelf_gain, -20.0f, 5.0f, "%.3f dB",
+        ImGuiSliderFlags_NoRoundToFormat
+    );
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.shelf_gain = -10.0f;
 
     ImGui::EndGroup();
 

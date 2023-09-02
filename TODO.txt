@@ -7,6 +7,7 @@
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - metronome
 - try not to use spinlocks (used for lv2 port subscription)
+- use ring buffer for message queue
 = Unit tests
     = module serialization
     x ring buffer

@@ -16,14 +16,15 @@ namespace audiomod
             float mix,
                   echo_delay,
                   feedback,
-                  low_cut;
+                  shelf_freq,
+                  shelf_gain;
         } process_state, ui_state;
         MessageQueue state_queue;
 
         static constexpr float MAX_DELAY_LEN = 1.0f; // in seconds
         static constexpr size_t REVERB_CHANNEL_COUNT = 4;
         static constexpr size_t DIFFUSE_STEPS = 4;
-        float mix_mult;
+        Filter2ndOrder shelf_filters[REVERB_CHANNEL_COUNT];
 
         DelayLine<float> diffuse_delays[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT], echoes[REVERB_CHANNEL_COUNT];
         float diffuse_factors[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT];
