@@ -26,7 +26,12 @@ namespace audiomod
         static constexpr size_t DIFFUSE_STEPS = 4;
         Filter2ndOrder shelf_filters[REVERB_CHANNEL_COUNT];
 
-        DelayLine<float> diffuse_delays[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT], echoes[REVERB_CHANNEL_COUNT];
+        // this allocates >10 mb of memory lol
+        DelayLine<float>
+            diffuse_delays[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT],
+            echoes[REVERB_CHANNEL_COUNT],
+            early_delays[REVERB_CHANNEL_COUNT];
+        
         float diffuse_factors[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT];
 
         void diffuse(int index, float* values);
@@ -34,5 +39,8 @@ namespace audiomod
     public:
         ReverbModule(DestinationModule& dest);
         ~ReverbModule();
+
+        void save_state(std::ostream& ostream) override;
+        bool load_state(std::istream&, size_t size) override;
     };
 }

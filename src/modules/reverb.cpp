@@ -8,6 +8,7 @@ so i looked at this blog post: https://signalsmith-audio.co.uk/writing/2021/lets
 #include <cassert>
 #include <imgui.h>
 #include "reverb.h"
+#include "../sys.h"
 
 using namespace audiomod;
 
@@ -83,8 +84,11 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
         echoes[i].resize(buffer_size);
+        early_delays[i].resize(buffer_size);
+        early_delays[i].delay = (0.1f + 0.05f * i) * _dest.sample_rate;
     }
 
+    // initialize diffuser
     for (int i = 0; i < DIFFUSE_STEPS; i++)
     {
         float range = 0.040f;
@@ -97,7 +101,6 @@ ReverbModule::ReverbModule(DestinationModule& dest)
             assert(delay_len <= MAX_DELAY_LEN);
             diffuse_delays[i][k].delay = (float)dest.sample_rate * delay_len;
             diffuse_factors[i][k] = (rand() > RAND_MAX / 2) ? 1.0f : -1.0f;
-            //diffuse_delays[i][k].delay = ((double)rand() / RAND_MAX * 0.6) * dest.sample_rate;
         }
     }
 }
@@ -182,15 +185,30 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
             k = (k + 1) % 2;
         }
 
+        // read early reflections
+        float early_samples[REVERB_CHANNEL_COUNT];
+        memset(early_samples, 0, sizeof(early_samples));
+
         // diffuse step
         for (int i = 0; i < DIFFUSE_STEPS; i++)
         {
             diffuse(i, channels);
+
+            for (int c = 0; c < REVERB_CHANNEL_COUNT; c++)
+            {
+                float fac = (float)(i + 1) / DIFFUSE_STEPS;
+                early_samples[c] += channels[c] * fac;
+            }
         }
 
-        // delay with feedback & filter
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
+            // delay early samples
+            float early_sample = early_samples[i];
+            early_samples[i] = early_delays[i].read();
+            early_delays[i].write(early_sample);
+
+            // delay with feedback & filter
             delayed[i] = echoes[i].read() * process_state.feedback;
             shelf_filters[i].process(delayed + i);
         }
@@ -198,15 +216,11 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         // apply mix matrix
         householder(delayed, REVERB_CHANNEL_COUNT);
 
-        // mix with source
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
+            // mix with source
             channels[i] += delayed[i];
-        }
-
-        // send to delay
-        for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
-        {
+            // send to delay
             echoes[i].write(channels[i]);
         }
 
@@ -216,7 +230,7 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         out_frame[1] = 0.0f;
         for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
         {
-            out_frame[k] += out_frame[i];
+            out_frame[k] += channels[i] + early_samples[i] * 0.8f;
             k = (k + 1) % 2;
         }
 
@@ -283,4 +297,34 @@ void ReverbModule::_interface_proc()
     {
         state_queue.post(&ui_state, sizeof(ui_state));
     }
+}
+
+void ReverbModule::save_state(std::ostream& ostream)
+{
+    push_bytes<uint8_t>(ostream, 0); // version
+
+    push_bytes<float>(ostream, ui_state.mix);
+    push_bytes<float>(ostream, ui_state.echo_delay);
+    push_bytes<float>(ostream, ui_state.feedback);
+    push_bytes<float>(ostream, ui_state.shelf_freq);
+    push_bytes<float>(ostream, ui_state.shelf_gain);
+}
+
+bool ReverbModule::load_state(std::istream& istream, size_t size)
+{
+    uint8_t version = pull_bytesr<uint8_t>(istream);
+    if (version != 0) return false;
+
+    ui_state.mix = pull_bytesr<float>(istream);
+    ui_state.echo_delay = pull_bytesr<float>(istream);
+    ui_state.feedback = pull_bytesr<float>(istream);
+    ui_state.shelf_freq = pull_bytesr<float>(istream);
+    ui_state.shelf_gain = pull_bytesr<float>(istream);
+    
+    // send state to processing thread
+    if (state_queue.post(&ui_state, sizeof(ui_state))) {
+        dbg("WARNING: LimiterModule process queue is full!\n");
+    }
+
+    return true;
 }
