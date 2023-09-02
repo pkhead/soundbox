@@ -14,6 +14,7 @@ namespace audiomod
         // processing thread, and another for the ui thread.
         struct module_state {
             float mix,
+                  diffuse,
                   echo_delay,
                   feedback,
                   shelf_freq,
@@ -33,6 +34,7 @@ namespace audiomod
             early_delays[REVERB_CHANNEL_COUNT];
         
         float diffuse_factors[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT];
+        float diffuse_delay_mod[DIFFUSE_STEPS][REVERB_CHANNEL_COUNT];
 
         void diffuse(int index, float* values);
 

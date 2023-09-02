@@ -91,15 +91,13 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     // initialize diffuser
     for (int i = 0; i < DIFFUSE_STEPS; i++)
     {
-        float range = 0.040f;
+        float range = 0.020f;
         float range_start = (float)i * range;
 
         for (int k = 0; k < REVERB_CHANNEL_COUNT; k++)
         {
             diffuse_delays[i][k].resize(buffer_size);
-            float delay_len = ((double)rand() / RAND_MAX) * range + range_start;
-            assert(delay_len <= MAX_DELAY_LEN);
-            diffuse_delays[i][k].delay = (float)dest.sample_rate * delay_len;
+            diffuse_delay_mod[i][k] = ((double)rand() / RAND_MAX);
             diffuse_factors[i][k] = (rand() > RAND_MAX / 2) ? 1.0f : -1.0f;
         }
     }
@@ -155,6 +153,20 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
         shelf_filters[i].high_shelf(_dest.sample_rate, process_state.shelf_freq, process_state.shelf_gain, 0.5f);
+    }
+
+    // setup diffuser
+    for (int i = 0; i < DIFFUSE_STEPS; i++)
+    {
+        float range = process_state.diffuse * 0.5f / DIFFUSE_STEPS;
+        float range_start = (float)i * range;
+
+        for (int k = 0; k < REVERB_CHANNEL_COUNT; k++)
+        {
+            float delay_len = diffuse_delay_mod[i][k] * range + range_start;
+            assert(delay_len <= MAX_DELAY_LEN);
+            diffuse_delays[i][k].delay = (float)_dest.sample_rate * delay_len;
+        }
     }
     
     float input_frame[2], out_frame[2];
@@ -251,6 +263,8 @@ void ReverbModule::_interface_proc()
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Dry/Wet Mix");
     ImGui::AlignTextToFramePadding();
+    ImGui::Text("Diffusion");
+    ImGui::AlignTextToFramePadding();
     ImGui::Text("Echo Delay");
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Feedback");
@@ -268,6 +282,10 @@ void ReverbModule::_interface_proc()
     ImGui::SliderFloat("##mix", &ui_state.mix, 0.0f, 1.0f);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.mix = 0.0f;
     
+    // diffusion
+    ImGui::SliderFloat("##diffusion", &ui_state.diffuse, 0.0f, 1.0f, "%.3f");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.diffuse = 0.5f;
+
     // delay
     ImGui::SliderFloat("##delay", &ui_state.echo_delay, 0.0f, 1.0f, "%.3f s");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.echo_delay = 0.5f;
@@ -304,6 +322,7 @@ void ReverbModule::save_state(std::ostream& ostream)
     push_bytes<uint8_t>(ostream, 0); // version
 
     push_bytes<float>(ostream, ui_state.mix);
+    push_bytes<float>(ostream, ui_state.diffuse);
     push_bytes<float>(ostream, ui_state.echo_delay);
     push_bytes<float>(ostream, ui_state.feedback);
     push_bytes<float>(ostream, ui_state.shelf_freq);
@@ -316,6 +335,7 @@ bool ReverbModule::load_state(std::istream& istream, size_t size)
     if (version != 0) return false;
 
     ui_state.mix = pull_bytesr<float>(istream);
+    ui_state.diffuse = pull_bytesr<float>(istream);
     ui_state.echo_delay = pull_bytesr<float>(istream);
     ui_state.feedback = pull_bytesr<float>(istream);
     ui_state.shelf_freq = pull_bytesr<float>(istream);
