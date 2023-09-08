@@ -554,6 +554,7 @@ void DestinationModule::process_node(ModuleNode* node)
     {
         process_node(node->inputs[i]);
 
+        /*
         MidiEvent midi_buf[8];
         size_t count;
         void* handle = nullptr;
@@ -563,8 +564,9 @@ void DestinationModule::process_node(ModuleNode* node)
                 node->module->event(midi_buf[i]);
             }
         }
+        */
 
-        node->inputs[i]->module->flush_events();
+        node->inputs[i]->module->flush_events(node->module);
     }
 
     if (node->module)

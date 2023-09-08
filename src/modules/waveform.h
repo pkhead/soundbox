@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../audio.h"
+#include "../util.h"
 #include <ostream>
 
 namespace audiomod {
@@ -17,6 +18,8 @@ namespace audiomod {
             float release_env;
             double last_sample[3];
         };
+
+        MessageQueue event_queue;
 
         static constexpr size_t MAX_VOICES = 16;
         Voice voices[MAX_VOICES];
@@ -46,6 +49,8 @@ namespace audiomod {
         float release = 0.0f;
 
         void event(const MidiEvent& event) override;
+        void queue_event(const MidiEvent& event) override;
+        void flush_events(ModuleBase* out_module) override;
         void save_state(std::ostream& output) override;
         bool load_state(std::istream& input, size_t size) override;
     };

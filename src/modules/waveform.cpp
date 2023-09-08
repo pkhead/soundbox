@@ -20,7 +20,10 @@ static const size_t NOISE_DATA_SIZE = 1 << 16;
 static float NOISE_DATA[1 << 16];
 static bool PREPROCESSED_DATA_READY = false;
 
-WaveformSynth::WaveformSynth(DestinationModule& dest) : ModuleBase(dest, true) {
+WaveformSynth::WaveformSynth(DestinationModule& dest)
+:   ModuleBase(dest, true),
+    event_queue(sizeof(MidiEvent), MAX_VOICES*2)
+{
     id = "synth.waveform";
     name = "Waveform Synth";
 
@@ -248,6 +251,22 @@ void WaveformSynth::event(const MidiEvent& midi) {
                 break;
             }
         }
+    }
+}
+
+void WaveformSynth::queue_event(const MidiEvent& event)
+{
+    event_queue.post(&event, sizeof(event));
+}
+
+void WaveformSynth::flush_events(ModuleBase* out_module)
+{
+    while (true) {
+        auto handle = event_queue.read();
+        if (!handle) break;
+
+        const MidiEvent* ev = (const MidiEvent*) handle.data();
+        event(*ev);
     }
 }
 

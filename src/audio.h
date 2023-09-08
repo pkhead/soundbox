@@ -153,27 +153,23 @@ namespace audiomod {
         // free all modules that were marked for deletion
         static void free_garbage_modules();
 
-        // send a midi event to the module
+        /**
+        * Process a MIDI event, to be called from the audio thread.
+        * @param event The event to be processed 
+        **/
         virtual void event(const MidiEvent& event) {};
 
         /**
-        * Receive MIDI events from a module.
-        *
-        * This will dequeue an internal MIDI sequence buffer and write it to the output.
-        * If the given buffer is not big enough, it will return. Processing
-        * will resume once the function is called again. If there are no MIDI messages
-        * left, it should return 0. This should be called in a loop.
-        *
-        * @param handle A handle for the iterator. When the process begin,
-        * this should point to nullptr
-        *
-        * @returns The number of MIDI messages written to the output
+        * Queue a MIDI event to be processed on the audio thread.
+        * @param event The event to queue
         **/
-        virtual size_t receive_events(void** handle, MidiEvent* buffer, size_t capacity) { return 0; };
-        
-        // Tell the module to clear its event queue after
-        // processing is finished
-        virtual void flush_events() {};
+        virtual void queue_event(const MidiEvent& event) {};
+
+        /**
+        * Flush the event queue of the module.
+        * @param out_module The module to send possible midi outputs to, if not nullptr
+        */
+        virtual void flush_events(ModuleBase* out_module) {};
 
         // connect this module's output to a target's input
         void connect(ModuleOutputTarget* dest);
