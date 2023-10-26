@@ -91,15 +91,16 @@ void CompressorModule::process(float** inputs, float* output, size_t num_inputs,
         if (!handle) break;
 
         assert(handle.size() == sizeof(message_t));
-        message_t* msg = (message_t*) handle.data();
-
+        message_t msg;
+        handle.read(&msg, sizeof(msg));
+        
         // update module state
-        if (msg->type == message_t::ModuleState) {
-            process_state = msg->mod_state;
+        if (msg.type == message_t::ModuleState) {
+            process_state = msg.mod_state;
         }
 
         // send analytics to ui thread
-        else if (msg->type == message_t::RequestAnalytics) {
+        else if (msg.type == message_t::RequestAnalytics) {
             message_t new_msg;
             new_msg.type = message_t::ReceiveAnalytics;
             new_msg.analytics = process_analytics;
@@ -189,11 +190,12 @@ void CompressorModule::_interface_proc() {
         if (!handle) break;
 
         assert(handle.size() == sizeof(message_t));
-        message_t* msg = (message_t*) handle.data();
-
+        message_t msg;
+        handle.read(&msg, sizeof(msg));
+        
         // update analytics state
-        if (msg->type == message_t::ReceiveAnalytics) {
-            ui_analytics = msg->analytics;
+        if (msg.type == message_t::ReceiveAnalytics) {
+            ui_analytics = msg.analytics;
             waiting = false;
         }
     }

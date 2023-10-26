@@ -72,20 +72,24 @@ inline double db_to_mult(double db) {
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
-// a RingBuffer
+/*
+* Single-writer, single-reader ring buffer 
+*/
 template <class T = float>
 class RingBuffer
 {
+    static_assert(std::atomic<size_t>::is_always_lock_free);
+
 private:
-    size_t audio_buffer_capacity = 0;
+    const size_t audio_buffer_capacity = 0;
     T* audio_buffer = nullptr;
     std::atomic<size_t> buffer_write_ptr = 0;
     std::atomic<size_t> buffer_read_ptr = 0;
 
 public:
     RingBuffer(size_t capacity)
+    :   audio_buffer_capacity(capacity)
     {
-        audio_buffer_capacity = capacity;
         audio_buffer = new T[audio_buffer_capacity];
         buffer_write_ptr = 0;
         buffer_read_ptr = 0;
@@ -96,6 +100,9 @@ public:
         delete[] audio_buffer;
     }
     
+    /**
+    * Returns the number of elements that are queued for reading
+    **/
     size_t queued() const
     {
         size_t write_ptr = buffer_write_ptr;
@@ -105,6 +112,21 @@ public:
             return write_ptr - read_ptr;
         } else {
             return audio_buffer_capacity - read_ptr + write_ptr;
+        }
+    }
+
+    /**
+    * Returns the number of space allowed for writing
+    **/
+    size_t writable() const
+    {
+        size_t write_ptr = buffer_write_ptr;
+        size_t read_ptr = buffer_read_ptr;
+
+        if (write_ptr >= read_ptr) {
+            return audio_buffer_capacity - write_ptr + read_ptr;
+        } else {
+            return read_ptr - write_ptr;
         }
     }
 
@@ -128,8 +150,13 @@ public:
         }
 
         buffer_write_ptr = (write_ptr + size) % audio_buffer_capacity;
-}
+    }
 
+    /**
+    * Read data from the ring buffer
+    * @param out Data will be read into here. Can be nullptr.
+    * @param size The amount of elements to read
+    **/
     size_t read(T* out, size_t size)
     {
         size_t num_read = 0;
@@ -144,7 +171,9 @@ public:
             
             else
             {
-                out[i] = audio_buffer[read_ptr++];
+                // probably could optimize it so that
+                // it doesn't enter a loop when out is null
+                if (out) out[i] = audio_buffer[read_ptr++];
                 read_ptr %= audio_buffer_capacity;
             }
 
@@ -299,35 +328,10 @@ public:
 class MessageQueue
 {
 private:
-    size_t _data_capacity;
-    size_t _slot_count;
+    RingBuffer<std::byte> ringbuf;
 
-    struct slot_t {
-        std::atomic<bool> reserved;
-        std::atomic<bool> ready;
-        size_t size;
-        uint8_t* data;
-    };
-
-    slot_t* slots;
 public:
-    class read_handle_t {
-    private:
-        slot_t* slot;
-        size_t _size;
-        const uint8_t* _data;
-
-    public:
-        read_handle_t(const read_handle_t& src) = delete;
-        read_handle_t(const read_handle_t&& src);
-        read_handle_t(slot_t* slot = nullptr);
-        ~read_handle_t();
-
-        inline size_t size() const { return _size; }
-        inline const uint8_t* data() const { return _data; };
-        inline operator bool() { return slot != nullptr; };
-    };
-
+    class read_handle_t;
     MessageQueue(size_t data_capacity, size_t total_slots);
     ~MessageQueue();
 
@@ -336,10 +340,30 @@ public:
     // queue is full, it returns 2
     int post(const void* data, size_t size);
 
+
     // Get a read handle to a message. Once
     // the read handle is done being used, the message
     // will be freed from the queue.
     read_handle_t read();
+
+    class read_handle_t {
+        friend read_handle_t MessageQueue::read();
+    
+    private:    
+        size_t _size;
+        RingBuffer<std::byte>& _buf;
+        size_t bytes_read;
+        read_handle_t(RingBuffer<std::byte>& ringbuf);
+
+    public:
+        read_handle_t(const read_handle_t& src) = delete;
+        read_handle_t(const read_handle_t&& src);
+        ~read_handle_t();
+
+        inline size_t size() const { return _size; }
+        void read(void* out, size_t count);
+        inline operator bool() { return _size != 0; };
+    };
 };
 
 

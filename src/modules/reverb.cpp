@@ -137,9 +137,10 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         if (!handle) break;
 
         assert(handle.size() == sizeof(module_state));
-        module_state* state = (module_state*) handle.data();
-
-        process_state = *state;
+        module_state state;
+        handle.read(&state, sizeof(state));
+        
+        process_state = state;
     }
 
     // setup echo delays

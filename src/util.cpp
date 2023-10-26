@@ -300,82 +300,64 @@ void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
 
 // thread-safe message queue
 MessageQueue::MessageQueue(size_t data_capacity, size_t slot_count)
-:   _slot_count(slot_count),
-    _data_capacity(data_capacity)
-{
-    slots = new slot_t[_slot_count];
-    
-    for (size_t i = 0; i < _slot_count; i++) {
-        slot_t& slot = slots[i];
-        slot.size = 0;
-        slot.ready = false;
-        slot.reserved = false;
-        slot.data = new uint8_t[_data_capacity];
-    }
-}
+:   ringbuf((data_capacity + sizeof(size_t)) * slot_count)
+{}
 
 MessageQueue::~MessageQueue()
-{
-    for (size_t i = 0; i < _slot_count; i++) {
-        slot_t& slot = slots[i];
-        delete[] slot.data;
-    }
+{}
 
-    delete[] slots;
+template <typename T>
+inline size_t pad_align(T a, T b)
+{
+    assert(b && ((b & (b - 1)) == 0));
+    return (a + b-1) & -b;
 }
 
 int MessageQueue::post(const void* data, size_t size)
 {
-    if (size > _data_capacity) return 1;
+    if (size > ringbuf.writable()) return 1;
 
-    for (size_t i = 0; i < _slot_count; i++)
-    {
-        slot_t& slot = slots[i];
+    size_t data_size = pad_align(sizeof(size_t) + size, sizeof(size_t));
+    std::byte* msg_data = new std::byte[data_size];
 
-        if (!slot.reserved.exchange(true))
-        {
-            slot.size = size;
-            memcpy(slot.data, data, size);
-            slot.ready = true;
-            return 0;
-        }
-    }
+    *((size_t*) msg_data) = size; // write message size
+    memcpy(msg_data + sizeof(size_t), data, size); // write message data
+    
+    // write to ringbuffer
+    ringbuf.write(msg_data, data_size);
 
-    return 2;
+    delete[] msg_data;
+    return 0;
 }
 
-MessageQueue::read_handle_t::read_handle_t(slot_t* slot)
-    : _size(0), _data(nullptr), slot(slot)
+MessageQueue::read_handle_t::read_handle_t(RingBuffer<std::byte>& ringbuf)
+    : _size(0), _buf(ringbuf), bytes_read(0)
 {
-    if (slot) {
-        _size = slot->size;
-        _data = slot->data;
+    if (ringbuf.queued() > 0)
+    {
+        ringbuf.read((std::byte*) &_size, sizeof(size_t));
     }
 }
 
 MessageQueue::read_handle_t::read_handle_t(const read_handle_t&& src)
-{
-    if (slot) slot->reserved = false;
-    slot = src.slot;
-    _data = src._data;
-    _size = src._size;
-}
+    : _size(src._size), _buf(src._buf), bytes_read(src.bytes_read)
+{}
 
 MessageQueue::read_handle_t::~read_handle_t()
 {
-    if (slot) slot->reserved = false;
+    // when handle is closed, move read cursor to the next message
+    _buf.read(nullptr, pad_align(_size, sizeof(size_t)) - bytes_read);
+}
+
+void MessageQueue::read_handle_t::read(void* out, size_t count)
+{
+    _buf.read((std::byte*) out, count);
+    bytes_read += count;
 }
 
 MessageQueue::read_handle_t MessageQueue::read()
 {
-    for (size_t i = 0; i < _slot_count; i++) {
-        slot_t& slot = slots[i];
-        
-        if (slot.reserved && slot.ready.exchange(false))
-            return read_handle_t(&slot);
-    }
-
-    return read_handle_t(nullptr);
+    return read_handle_t(this->ringbuf);
 }
 
 
@@ -521,5 +503,25 @@ TEST_CASE("RingBuffer test 2", "[utils.ringbuffer]")
     buffer.read(read_buf, 3);
     REQUIRE(memcmp(read_buf, arr3, 3 * sizeof(int)) == 0);
     REQUIRE(buffer.queued() == 0);
+}
+
+TEST_CASE("MessageQueue test", "[utils.message_queue]")
+{
+    MessageQueue queue(sizeof(size_t) * 100, 0);
+
+    const std::string str1 = "Hello, world!";
+    const std::string str2 = "How are you?";
+    const std::string str3 = "How's the weather?";
+
+    queue.post(str1.c_str(), str1.size());
+
+    {
+        char buf[str1.size() + 1];
+
+        auto handle = queue.read();
+        REQUIRE(handle.size() == str1.size());
+        handle.read(buf, str1.size());
+        REQUIRE(std::string(buf) == str1);
+    }
 }
 #endif

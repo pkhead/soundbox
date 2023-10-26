@@ -38,8 +38,10 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
         if (!handle) break;
 
         assert(handle.size() == sizeof(module_state));
-        module_state* state = (module_state*) handle.data();
-        process_state = *state;
+        module_state state;
+        handle.read(&state, sizeof(module_state));
+        
+        process_state = state;
         sent_state.clear();
     }
 

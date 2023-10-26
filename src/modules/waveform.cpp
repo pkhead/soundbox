@@ -265,8 +265,11 @@ void WaveformSynth::flush_events(ModuleBase* out_module)
         auto handle = event_queue.read();
         if (!handle) break;
 
-        const MidiEvent* ev = (const MidiEvent*) handle.data();
-        event(*ev);
+        // ERROR
+        assert(handle.size() == sizeof(MidiEvent));
+        MidiEvent ev;
+        handle.read(&ev, sizeof(MidiEvent));
+        event(ev);
     }
 }
 
