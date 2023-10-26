@@ -5,18 +5,24 @@
 #include <string>
 #include <imgui.h>
 #include <nfd.h>
+#include <stb_image.h>
 #include "../audio.h"
-#include "change_history.h"
+#include "../editor/change_history.h"
 #include "../modules/modules.h"
 #include "../song.h"
-#include "editor.h"
-#include "theme.h"
+#include "../editor/editor.h"
+#include "../editor/theme.h"
 #include "ui.h"
 #include "../util.h"
+
+using namespace ui;
 
 constexpr char APP_VERSION[] = "0.1.0";
 constexpr char FILE_VERSION[] = "0001";
 char VERSION_STR[64];
+
+GLuint logo_texture;
+int logo_width, logo_height;
 
 ImU32 hex_color(const char* str)
 {
@@ -25,7 +31,7 @@ ImU32 hex_color(const char* str)
     return IM_RGB32(r, g, b);    
 }
 
-void push_btn_disabled(ImGuiStyle& style, bool is_disabled)
+void ui::push_btn_disabled(ImGuiStyle& style, bool is_disabled)
 {
     ImVec4 btn_colors[3];
     btn_colors[0] = style.Colors[ImGuiCol_Button];
@@ -44,12 +50,12 @@ void push_btn_disabled(ImGuiStyle& style, bool is_disabled)
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, btn_colors[2]);
 }
 
-void pop_btn_disabled()
+void ui::pop_btn_disabled()
 {
     ImGui::PopStyleColor(3);
 }
 
-std::string file_browser(FileBrowserMode mode, const std::string &filter_list, const std::string &default_path)
+std::string ui::file_browser(FileBrowserMode mode, const std::string &filter_list, const std::string &default_path)
 {
     std::string result_path("");
     nfdchar_t* out_path;
@@ -95,14 +101,14 @@ std::string file_browser(FileBrowserMode mode, const std::string &filter_list, c
 
 
 
-bool show_demo_window = false;
+bool ui::show_demo_window = false;
 bool show_about_window = false;
 bool show_shortcuts_window = false;
 
 std::string status_message;
 double status_time = -9999.0;
 
-void show_status(const char* fmt, ...)
+void ui::show_status(const char* fmt, ...)
 {
     static char buf[256];
 
@@ -114,14 +120,52 @@ void show_status(const char* fmt, ...)
     status_time = -30.0;
 }
 
-void show_status(const std::string& text)
+void ui::show_status(const std::string& text)
 {
     status_message = text;
     status_time = -30.0;
 }
 
-void ui_init(SongEditor& editor)
+void ui::ui_init(SongEditor& editor)
 {
+    // load logo
+    {
+        logo_texture = 0;
+        logo_width = 0;
+        logo_height = 0;
+
+        uint8_t* img_data = stbi_load("logo.png", &logo_width, &logo_height, NULL, 4);
+        if (img_data)
+        {
+            // create opengl texture
+            glGenTextures(1, &logo_texture);
+            glBindTexture(GL_TEXTURE_2D, logo_texture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            // upload pictures into texture
+#ifdef GL_UNPACK_ROW_LENGTH
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA,
+                logo_width,
+                logo_height,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                img_data
+            );
+
+            // we are done
+            stbi_image_free(img_data);
+        }
+    }
+
     UserActionList& user_actions = editor.ui_actions;
 
     // write version string
@@ -289,7 +333,7 @@ static bool str_search(const std::string& str, const char* query)
     return str_low.find(query_low) != std::string::npos;
 }
 
-const char* module_selection_popup(SongEditor& editor, bool instruments)
+const char* ui::module_selection_popup(SongEditor& editor, bool instruments)
 {
     static char search_query[64];
     static bool force_instruments = false;
@@ -423,7 +467,7 @@ const char* module_selection_popup(SongEditor& editor, bool instruments)
 
 
 
-EffectsInterfaceAction effect_rack_ui(
+EffectsInterfaceAction ui::effect_rack_ui(
     SongEditor* editor,
     audiomod::EffectsRack* effects_rack,
     EffectsInterfaceResult* result,
@@ -552,7 +596,7 @@ EffectsInterfaceAction effect_rack_ui(
     if (ImGui::MenuItem(label, user_actions.combo_str(action_name))) \
         deferred_actions.push_back(action_name)
 
-void compute_imgui(SongEditor& editor) {
+void ui::compute_imgui(SongEditor& editor) {
     ImGuiStyle& style = ImGui::GetStyle();
     Song& song = *editor.song;
     UserActionList& user_actions = editor.ui_actions;

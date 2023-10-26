@@ -95,12 +95,13 @@ set(SOURCES
     # ladspa plugins
     src/plugin_hosts/ladspa.cpp
     
+    # editor
+    src/editor/editor.cpp
+    src/editor/change_history.cpp
+    src/editor/theme.cpp
+    
     # app user interface
     src/ui/ui.cpp
-    src/ui/editor.cpp
-    src/ui/change_history.cpp
-    src/ui/theme.cpp
-
     src/ui/song_settings.cpp
     src/ui/channel_settings.cpp
     src/ui/pattern_editor.cpp

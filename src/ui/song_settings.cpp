@@ -1,7 +1,8 @@
 #include "ui.h"
 #include "imgui_stdlib.h"
+using namespace ui;
 
-void render_song_settings(SongEditor &editor)
+void ui::render_song_settings(SongEditor &editor)
 {
     Song& song = *editor.song;
     UserActionList& user_actions = editor.ui_actions;

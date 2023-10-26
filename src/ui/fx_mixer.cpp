@@ -1,7 +1,8 @@
 #include "ui.h"
 #include "../modules/modules.h"
+using namespace ui;
 
-void render_fx_mixer(SongEditor &editor)
+void ui::render_fx_mixer(SongEditor &editor)
 {
     ImGuiStyle& style = ImGui::GetStyle();
     Song& song = *editor.song;

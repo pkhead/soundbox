@@ -10,7 +10,7 @@
 
 #include <glad/gl.h>
 #include <imgui.h>
-#include "ui/theme.h"
+#include "editor/theme.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
@@ -43,7 +43,7 @@
 #include "audiofile.h"
 #include "ui/ui.h"
 #include "song.h"
-#include "ui/editor.h"
+#include "editor/editor.h"
 #include "audio.h"
 #include "sys.h"
 #include "util.h"
@@ -55,9 +55,6 @@ static void glfw_error_callback(int error, const char *description)
 {
     std::cerr << "GLFW error " << error << ": " << description << "\n";
 }
-
-GLuint logo_texture;
-int logo_width, logo_height;
 
 #ifdef USE_WIN32_MAIN
 int main();
@@ -143,45 +140,7 @@ int main(int argc, char** argv)
     // setup audio backend
     AudioDevice::_pa_start();
 
-    show_demo_window = false;
-
-    // load logo
-    {
-        logo_texture = 0;
-        logo_width = 0;
-        logo_height = 0;
-
-        uint8_t* img_data = stbi_load("logo.png", &logo_width, &logo_height, NULL, 4);
-        if (img_data)
-        {
-            // create opengl texture
-            glGenTextures(1, &logo_texture);
-            glBindTexture(GL_TEXTURE_2D, logo_texture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            // upload pictures into texture
-#ifdef GL_UNPACK_ROW_LENGTH
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
-            glTexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                GL_RGBA,
-                logo_width,
-                logo_height,
-                0,
-                GL_RGBA,
-                GL_UNSIGNED_BYTE,
-                img_data
-            );
-
-            // we are done
-            stbi_image_free(img_data);
-        }
-    }
+    ui::show_demo_window = false;
 
     AudioDevice device(-1);
 
@@ -259,10 +218,10 @@ int main(int argc, char** argv)
                 song_editor.song->serialize(file);
                 file.close();
 
-                show_status("Successfully saved %s", last_file_path.c_str());
+                ui::show_status("Successfully saved %s", last_file_path.c_str());
                 return true;
             } else {
-                show_status("Could not save to %s", last_file_path.c_str());
+                ui::show_status("Could not save to %s", last_file_path.c_str());
                 return false;
             }
         };
@@ -281,7 +240,7 @@ int main(int argc, char** argv)
                 Song* old_song = song_editor.song;
                 song_editor.song = new Song(4, 8, 8, destination);
                 song_editor.reset();
-                ui_init(song_editor);
+                ui::ui_init(song_editor);
                 delete old_song;
 
                 file_mutex.unlock();
@@ -321,17 +280,17 @@ int main(int argc, char** argv)
                         song_editor.song = new_song;
                         song_editor.reset();
                         delete old_song;
-                        ui_init(song_editor);
+                        ui::ui_init(song_editor);
 
                         last_file_path = out_path;
                         last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
                     } else {
-                        show_status("Error reading file: %s", error_msg.c_str());
+                        ui::show_status("Error reading file: %s", error_msg.c_str());
                     }
 
                     file_mutex.unlock();
                 } else {
-                    show_status("Could not open %s", out_path);
+                    ui::show_status("Could not open %s", out_path);
                 }
             } else if (result != NFD_CANCEL) {
                 std::cerr << "Error: " << NFD_GetError() << "\n";
@@ -344,7 +303,7 @@ int main(int argc, char** argv)
             // only 256 tunings can be loaded
             if (song_editor.song->tunings.size() >= 256)
             {
-                show_status("Cannot add more tunings");
+                ui::show_status("Cannot add more tunings");
                 return;
             }
 
@@ -392,7 +351,7 @@ int main(int argc, char** argv)
                     }
                     else // error reading file
                     {
-                        show_status("Error: %s", error_msg.c_str());
+                        ui::show_status("Error: %s", error_msg.c_str());
                     }
                 }
 
@@ -405,16 +364,16 @@ int main(int argc, char** argv)
                     {
                         if (song->load_kbm(out_path, *tun, &error_msg))
                         {
-                            show_status("Successfully applied mapping");
+                            ui::show_status("Successfully applied mapping");
                         }
                         else // if there was an error
                         {
-                            show_status("Error: %s", error_msg.c_str());
+                            ui::show_status("Error: %s", error_msg.c_str());
                         }
                     }
                     else // kbm import only works if you have selected a scl import
                     {
-                        show_status("Please select an SCL import in order to apply the keyboard mapping to it.");
+                        ui::show_status("Please select an SCL import in order to apply the keyboard mapping to it.");
                     }
                 }
 
@@ -426,7 +385,7 @@ int main(int argc, char** argv)
 
                     if (!file.is_open())
                     {
-                        show_status("Could not open %s", out_path);
+                        ui::show_status("Could not open %s", out_path);
                     }
                     else
                     {
@@ -450,7 +409,7 @@ int main(int argc, char** argv)
                         else
                         {
                             // error reading file
-                            show_status("Error: %s", error_msg.c_str());
+                            ui::show_status("Error: %s", error_msg.c_str());
                         }
                         
                         file.close();
@@ -459,7 +418,7 @@ int main(int argc, char** argv)
 
                 // unknown file extension
                 else {
-                    show_status("Incompatible file extension .%s", file_ext.c_str());
+                    ui::show_status("Incompatible file extension .%s", file_ext.c_str());
                 }
 
                 song->mutex.unlock();
@@ -474,7 +433,7 @@ int main(int argc, char** argv)
         });
 
         // actions that don't require window management/io are defined in ui.cpp
-        ui_init(song_editor);
+        ui::ui_init(song_editor);
 
         static const double FRAME_LENGTH = 1.0 / 240.0;
 
@@ -571,7 +530,7 @@ int main(int argc, char** argv)
             );
 
             if (export_data.song == nullptr) {
-                show_status("Error while exporting the song");
+                ui::show_status("Error while exporting the song");
 
                 delete export_data.destination;
                 return;
@@ -582,7 +541,7 @@ int main(int argc, char** argv)
 
             // if could not open file?
             if (!export_data.out_file.is_open()) {
-                show_status("Could not save to %s", export_config.file_name);
+                ui::show_status("Could not save to %s", export_config.file_name);
                 
                 delete export_data.song;
                 delete export_data.destination;
@@ -679,7 +638,7 @@ int main(int argc, char** argv)
             // key input
             if (!io.WantTextInput) {
                 if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
-                    show_demo_window = !show_demo_window;
+                    ui::show_demo_window = !ui::show_demo_window;
                 }
 
                 // for each user action in the user action list struct
@@ -727,7 +686,7 @@ int main(int argc, char** argv)
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
 
-            compute_imgui(song_editor);
+            ui::compute_imgui(song_editor);
 
             // show new prompt
             if (prompt_unsaved_work) {
@@ -837,7 +796,7 @@ int main(int argc, char** argv)
                             delete export_data.writer;
                             export_config.p_open = false;
 
-                            show_status("Successfully exported to %s", export_config.file_name);
+                            ui::show_status("Successfully exported to %s", export_config.file_name);
 
                             export_data.is_exporting = false;
                         }

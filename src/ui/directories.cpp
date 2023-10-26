@@ -1,8 +1,9 @@
 #include <filesystem>
 #include <algorithm>
 #include "ui.h"
+using namespace ui;
 
-void render_directories_window(SongEditor &editor)
+void ui::render_directories_window(SongEditor &editor)
 {
     ImGuiStyle& style = ImGui::GetStyle();
     plugins::PluginManager& plugins = editor.plugin_manager;

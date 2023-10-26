@@ -1,7 +1,7 @@
 #include "../audio.h"
 #include "../sys.h"
 #include "../plugins.h"
-#include "../ui/editor.h"
+#include "../editor/editor.h"
 #include "modules.h"
 #include <iostream>
 #include <stdexcept>

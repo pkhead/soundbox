@@ -46,8 +46,6 @@ struct UserActionList {
 };
 
 class SongEditor {
-private:
-
 public:
     SongEditor(Song* song, audiomod::DestinationModule& audio_dest, WindowManager& winmgr);
     ~SongEditor();

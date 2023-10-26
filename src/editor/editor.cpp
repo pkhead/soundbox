@@ -1,4 +1,5 @@
 #include <tomlcpp/tomlcpp.hpp>
+#include <stb_image.h>
 #include <fstream>
 #include "editor.h"
 #include "../audio.h"

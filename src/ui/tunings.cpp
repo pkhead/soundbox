@@ -1,6 +1,7 @@
 #include "ui.h"
+using namespace ui;
 
-void render_tunings_window(SongEditor &editor)
+void ui::render_tunings_window(SongEditor &editor)
 {
     Song& song = *editor.song;
     UserActionList& user_actions = editor.ui_actions;

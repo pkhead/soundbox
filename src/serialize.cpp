@@ -3,7 +3,7 @@
 #include "modules/modules.h"
 #include "sys.h"
 #include "song.h"
-#include "ui/editor.h"
+#include "editor/editor.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

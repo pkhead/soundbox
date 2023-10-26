@@ -1,6 +1,7 @@
 #include "ui.h"
+using namespace ui;
 
-void render_plugin_list(SongEditor &editor)
+void ui::render_plugin_list(SongEditor &editor)
 {
     static int selected_plugin = 0;
 

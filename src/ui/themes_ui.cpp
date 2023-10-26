@@ -1,6 +1,7 @@
 #include "ui.h"
+using namespace ui;
 
-void render_themes_window(SongEditor &editor)
+void ui::render_themes_window(SongEditor &editor)
 {
     if (editor.show_themes_window) {
         if (ImGui::Begin("Themes", &editor.show_themes_window, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize))

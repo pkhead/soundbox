@@ -1,9 +1,10 @@
 #include <imgui.h>
-#include "change_history.h"
+#include "../editor/change_history.h"
 #include "../song.h"
 #include "ui.h"
+using namespace ui;
 
-void render_track_editor(SongEditor& editor)
+void ui::render_track_editor(SongEditor& editor)
 {
     Song& song = *editor.song;
     ImGuiIO& io = ImGui::GetIO();

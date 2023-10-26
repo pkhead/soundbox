@@ -1,14 +1,16 @@
 #include <math.h>
 
 #include <imgui.h>
-#include "change_history.h"
+#include "../editor/change_history.h"
+#include "../editor/theme.h"
 #include "../song.h"
-#include "theme.h"
 #include "ui.h"
+
+using namespace ui;
 
 constexpr float PIANO_KEY_VELOCITY = 0.8f;
 
-void render_pattern_editor(SongEditor &editor)
+void ui::render_pattern_editor(SongEditor &editor)
 {
     ImGuiIO& io = ImGui::GetIO();
     Song& song = *editor.song;

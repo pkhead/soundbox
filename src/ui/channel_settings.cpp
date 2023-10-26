@@ -1,7 +1,9 @@
 #include "ui.h"
 #include "../modules/modules.h"
 
-void render_channel_settings(SongEditor &editor)
+using namespace ui;
+
+void ui::render_channel_settings(SongEditor &editor)
 {
     Song& song = *editor.song;
     static char char_buf[64];
