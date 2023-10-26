@@ -450,8 +450,18 @@ TEST_CASE("dB to factor 2", "[utils]") {
     REQUIRE_THAT(db_to_mult(3.0), Matchers::WithinAbs(1.995262315, 0.00001));
 }
 
+TEST_CASE("pad_align 1", "[utils]")
+{
+    REQUIRE(pad_align(sizeof(size_t) * 3 + 1, sizeof(size_t)) == sizeof(size_t) * 4);
+}
+
+TEST_CASE("pad_align 2", "[utils]")
+{
+    REQUIRE(pad_align(sizeof(size_t) * 4, sizeof(size_t)) == sizeof(size_t) * 4);
+}
+
 // ringbuffer tests
-// TODO: these are not *unit* tests
+// TODO: these are not *unit* tests, also does not test writable function
 TEST_CASE("RingBuffer test 1", "[utils.ringbuffer]")
 {
     RingBuffer<int> buffer(6);
@@ -505,23 +515,37 @@ TEST_CASE("RingBuffer test 2", "[utils.ringbuffer]")
     REQUIRE(buffer.queued() == 0);
 }
 
-TEST_CASE("MessageQueue test", "[utils.message_queue]")
+// not really a *unit* test
+TEST_CASE("MessageQueue test", "[utils]")
 {
-    MessageQueue queue(sizeof(size_t) * 100, 0);
+    MessageQueue queue(90, 100);
 
-    const std::string str1 = "Hello, world!";
-    const std::string str2 = "How are you?";
-    const std::string str3 = "How's the weather?";
+    const std::string str1("ABISUDHUIEH");
+    const std::string str2("8931uiHUIHIOJSD89");
 
     queue.post(str1.c_str(), str1.size());
+    queue.post(str2.c_str(), str2.size());
 
+    // string 1
     {
         char buf[str1.size() + 1];
+        memset(buf, 0, sizeof(buf));
 
         auto handle = queue.read();
         REQUIRE(handle.size() == str1.size());
         handle.read(buf, str1.size());
         REQUIRE(std::string(buf) == str1);
+    }
+
+    // string 2
+    {
+        char buf[str2.size() + 1];
+        memset(buf, 0, sizeof(buf));
+
+        auto handle = queue.read();
+        REQUIRE(handle.size() == str2.size());
+        handle.read(buf, str2.size());
+        REQUIRE(std::string(buf) == str2);
     }
 }
 #endif

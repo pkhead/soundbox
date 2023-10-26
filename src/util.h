@@ -173,7 +173,8 @@ public:
             {
                 // probably could optimize it so that
                 // it doesn't enter a loop when out is null
-                if (out) out[i] = audio_buffer[read_ptr++];
+                if (out) out[i] = audio_buffer[read_ptr];
+                read_ptr++;
                 read_ptr %= audio_buffer_capacity;
             }
 
