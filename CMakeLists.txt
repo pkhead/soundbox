@@ -90,6 +90,7 @@ set(SOURCES
     src/plugins.cpp
     src/worker.cpp
     src/util.cpp
+    src/dsp.cpp
 
     # ladspa plugins
     src/plugin_hosts/ladspa.cpp

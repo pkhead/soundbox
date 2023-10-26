@@ -5,6 +5,7 @@
 #include "ladspa.h"
 #include "../sys.h"
 #include "../util.h"
+#include "../dsp.h"
 
 using namespace plugins;
 

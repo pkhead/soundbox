@@ -1,5 +1,6 @@
 #pragma once
 #include "../audio.h"
+#include "../dsp.h"
 
 // Module/plugin lists
 namespace audiomod

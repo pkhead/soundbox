@@ -1,3 +1,9 @@
+/**
+* Provides useful mathematical functions (things such as min, max, clamp, e.t.c.)
+* as well as classes for Ring Buffers, Message Queues, and Spinlocks.
+* TODO: move debug log function out of this code
+**/
+
 #pragma once
 #include <cstddef>
 #include <cmath>
@@ -68,9 +74,6 @@ inline float db_to_mult(float db) {
 inline double db_to_mult(double db) {
     return powf(10.0f, db / 10.0);
 }
-
-size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
-void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
 /*
 * Single-writer, single-reader ring buffer 
@@ -238,91 +241,6 @@ struct complex_t
     inline constexpr complex_t operator==(const complex_t& other) {
         return real == other.real && imag == other.imag;
     }
-};
-
-///////////////////
-// FFT algorithm // (TODO: need more efficient fft)
-///////////////////
-void fft(complex_t<float>* data, int data_size, bool inverse);
-
-// 2nd-order IIR filters
-class Filter2ndOrder
-{
-public:
-    // [channel][order]
-    float x[3]; // input
-    float y[3]; // output
-
-    // filter coefficients
-    float a[3];
-    float b[3];
-
-    Filter2ndOrder();
-
-    void low_pass(float sample_rate, float frequency, float linear_gain);
-    void high_pass(float sample_rate, float frequency, float linear_gain);
-    void all_pass(float sample_rate, float frequency, float linear_gain);
-    void peak(float sample_rate, float frequency, float linear_gain, float bandwidth);
-
-    void low_shelf(float sample_rate, float frequency, float gain, float slope);
-    void high_shelf(float sample_rate, float frequency, float gain, float slope);
-
-    void process(float* sample);
-};
-
-template <class T = float>
-class DelayLine
-{
-private:
-    size_t index;
-    size_t _max_size;
-    T* buf;
-
-public:
-    size_t delay;
-
-    DelayLine()
-    :   index(0),
-        buf(nullptr),
-        _max_size(0),
-        delay(0)
-    {}
-
-    DelayLine(size_t max_size)
-    {
-        resize(max_size);
-    }
-
-    ~DelayLine()
-    {
-        if (buf) {
-            delete[] buf;
-        }
-    }
-
-    void resize(size_t new_capacity)
-    {
-        if (buf) {
-            delete[] buf;
-        }
-
-        _max_size = new_capacity;
-
-        // create new zero-initialized array
-        buf = new float[_max_size];
-        memset(buf, 0, _max_size * sizeof(float));
-    }
-
-    inline float read() {
-        return buf[index];
-    }
-
-    inline void write(float v) {
-        buf[index++] = v;
-        if (index > delay) index = 0;
-    }
-
-    inline size_t max_size() const { return _max_size; }
 };
 
 // thread-safe message queue

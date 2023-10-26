@@ -2,6 +2,7 @@
 #include <atomic>
 #include "../audio.h"
 #include "../util.h"
+#include "../dsp.h"
 
 // TODO: multiple filters
 namespace audiomod

@@ -1,6 +1,7 @@
 #include <imgui.h>
 #include <cmath>
 #include "../util.h"
+#include "../dsp.h"
 #include "analyzer.h"
 
 using namespace audiomod;

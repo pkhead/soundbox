@@ -1,6 +1,7 @@
 #pragma once
 #include "../audio.h"
 #include "../util.h"
+#include "../dsp.h"
 
 namespace audiomod
 {
