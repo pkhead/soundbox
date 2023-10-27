@@ -29,7 +29,7 @@ Optional dependencies:
 Install dependencies:
 ```bash
 # ubuntu
-apt install cmake liblilv-dev libsuil-dev libfftw3-bin libfftw3-single3
+apt install cmake liblilv-dev libsuil-dev libfftw3-dev
 ```
 
 Clone repository and build the project
