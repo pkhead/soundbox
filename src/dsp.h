@@ -4,11 +4,6 @@
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
-///////////////////
-// FFT algorithm // (TODO: need more efficient fft)
-///////////////////
-void fft(complex_t<float>* data, int data_size, bool inverse);
-
 // 2nd-order IIR filters
 class Filter2ndOrder
 {

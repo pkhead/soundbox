@@ -1,4 +1,6 @@
 #pragma once
+#include <fftw3.h>
+#include <memory>
 #include "../audio.h"
 #include "../util.h"
 
@@ -8,6 +10,7 @@ namespace audiomod
     protected:
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
+
 
         RingBuffer<float> ring_buffer;
 
@@ -32,7 +35,11 @@ namespace audiomod
 
         // buffers, used by ui thread
         // to do FFT and stuff for spectrum display
-        complex_t<float> *complex_left, *complex_right;
+        float* fft_in[2];
+        fftwf_complex* fft_out[2];
+        fftwf_plan fft_plan[2];
+
+        fftwf_complex *complex_left, *complex_right;
         float            *real_left,    *real_right;
     public:
         AnalyzerModule(DestinationModule& dest);

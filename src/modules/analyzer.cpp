@@ -21,12 +21,20 @@ AnalyzerModule::AnalyzerModule(DestinationModule& dest) :
         window_right[i] = new float[arr_size];
     }
 
-    complex_left = new complex_t<float>[arr_size];
-    complex_right = new complex_t<float>[arr_size];
+    complex_left = new fftwf_complex[arr_size];
+    complex_right = new fftwf_complex[arr_size];
     real_left = new float[arr_size];
     real_right = new float[arr_size];
 
     ready = false;
+
+    // create fft data for each channel
+    for (int c = 0; c < 2; c++)
+    {
+        fft_in[c] = (float*) fftwf_malloc(sizeof(float) * arr_size);
+        fft_out[c] = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * arr_size);
+        fft_plan[c] = fftwf_plan_dft_r2c_1d(arr_size, fft_in[c], fft_out[c], FFTW_ESTIMATE);
+    }
 }
 
 AnalyzerModule::~AnalyzerModule() {
@@ -42,6 +50,13 @@ AnalyzerModule::~AnalyzerModule() {
     delete[] complex_right;
     delete[] real_left;
     delete[] real_right;
+
+    for (int c = 0; c < 2; c++)
+    {
+        fftwf_free(fft_in[c]);
+        fftwf_free(fft_out[c]);
+        fftwf_destroy_plan(fft_plan[c]);
+    }
 }
 
 void AnalyzerModule::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) {
@@ -191,19 +206,18 @@ void AnalyzerModule::_interface_proc() {
                 ImGui::SetTooltip("%.3f", range);
             }
         } else {
-            // copy real-valued left/right buffers
-            // to complex
+            // feed left/right buffers into fftw
             for (int i = 0; i < frames_per_buffer; i++)
             {
-                complex_left[i] = left[i];
-                complex_right[i] = right[i];
+                fft_in[0][i] = left[i];
+                fft_in[1][i] = right[i];
             }
 
             // perform analysis
-            // TODO: need faster fft algorithm, also
-            // this loop could probably be a little more optimized
-            fft(complex_left, frames_per_buffer, false);
-            fft(complex_right, frames_per_buffer, false);
+            // TODO: this loop could probably be a little more optimized
+            fftwf_execute(fft_plan[0]);
+            fftwf_execute(fft_plan[1]);
+            
             for (int i = 0; i < frames_per_buffer; i++)
             {
                 float t = powf(
@@ -211,6 +225,22 @@ void AnalyzerModule::_interface_proc() {
                     ((float)i * (logf((float)frames_per_buffer / 2.0f) / logf(2.0f)))
                     / (float)frames_per_buffer
                 );
+
+                int t0 = (int)t;
+
+                float l =
+                    fft_out[0][t0][0] * fft_out[0][t0][0] +
+                    fft_out[0][t0][1] * fft_out[0][t0][1];
+                float r =
+                    fft_out[1][t0][0] * fft_out[1][t0][0] +
+                    fft_out[1][t0][1] * fft_out[1][t0][1];
+
+                real_left[i] = l;
+                real_right[i] = r;
+
+                /*
+                this piece of code does interpolation
+                so that at low delta-t's, it doesn't make square shapes
 
                 int t0 = (int)t - 1;
                 int t1 = (int)t;
@@ -231,7 +261,7 @@ void AnalyzerModule::_interface_proc() {
 
                 float mod = fmodf(t, 1.0f);
                 real_left[i] = (l1 - l0) * mod + l0;
-                real_right[i] = (r1 - r0) * mod + l1;
+                real_right[i] = (r1 - r0) * mod + l1;*/
             }
 
             // render analysis

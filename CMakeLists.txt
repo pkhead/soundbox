@@ -23,6 +23,8 @@ find_library(LILV_LIBRARIES lilv-0)
 find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0)
 find_library(SUIL_LIBRARIES suil-0)
 find_path(SUIL_INCLUDE suil/suil.h PATH_SUFFIXES suil-0)
+find_library(FFTW3_LIBRARIES fftw3f REQUIRED)
+find_path(FFTW3_INCLUDE fftw3.h REQUIRED)
 
 if (SBOX_DISABLE_LV2 OR
     (LILV_LIBRARIES STREQUAL "LILV_LIBRARIES-NOTFOUND") OR
@@ -134,6 +136,7 @@ set(LIBRARIES
     ${LILV_LIBRARIES}
     ${SUIL_LIBRARIES}
     ${GTK2_LIBRARIES}
+    ${FFTW3_LIBRARIES}
 )
 
 set(INCLUDES
@@ -145,6 +148,8 @@ set(INCLUDES
     deps/portaudio-19.7.0/include
     deps/nativefiledialog/src/include
     deps/tuning-library/include
+
+    ${FFTW3_INCLUDE}
 )
 
 set(COMPILE_FLAGS "")
