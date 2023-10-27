@@ -589,12 +589,22 @@ void SongEditor::process(AudioDevice& device)
 
     file_mutex.unlock();
     song->mutex.unlock();
+
+    if (song_export)
+        song_export->process();
 }
 
 void SongEditor::begin_export()
 {
     if (song_export) return;
     song_export = std::make_unique<SongExport>(*this, export_config.file_name, export_config.sample_rate);
+
+    // if there was an error in song export
+    if (!song_export->error().empty())
+    {
+        ui::show_status(song_export->error());
+        song_export = nullptr;
+    }
 }
 
 void SongEditor::stop_export()

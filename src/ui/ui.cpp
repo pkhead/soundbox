@@ -744,6 +744,7 @@ void ui::compute_imgui(SongEditor& editor) {
     render_plugin_list(editor);
     render_themes_window(editor);
     render_directories_window(editor);
+    render_export_window(editor);
 
     // render module interfaces
     for (size_t i = 0; i < editor.mod_interfaces.size();)

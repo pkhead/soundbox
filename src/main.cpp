@@ -194,11 +194,7 @@ int main(int argc, char** argv)
 
         bool run_app = true;
 
-        // audio auxillary thread
-        
-        uint64_t audio_last_timestamp = device.frames_written();
-        std::atomic<long> thread_processing_time = 0;
-
+        // song processing thread
         sys::interval_t* audioaux_interval = sys::set_interval(5, [&]() {
             song_editor.process(device);
         });
