@@ -1,3 +1,8 @@
+/**
+* The UI directory holds all source code related to
+* ImGui rendering. The state of the UI is held
+* in the SongEditor class (in editor/editor.h)
+**/
 #pragma once
 
 #include <cstdint>
@@ -92,6 +97,7 @@ namespace ui
     void render_directories_window(SongEditor& editor);
     void render_tunings_window(SongEditor& editor);
     void render_themes_window(SongEditor& editor);
+    void render_export_window(SongEditor& editor);
 
     const char* module_selection_popup(SongEditor& editor, bool instruments);
 
@@ -102,6 +108,7 @@ namespace ui
 
     void show_status(const char* fmt, ...);
     void show_status(const std::string& status_text);
+    void prompt_unsaved_work(std::function<void()> callback);
 
     // enum used for the type of the value in ChangeActionType
     enum class ValueType : uint8_t

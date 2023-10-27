@@ -1,9 +1,13 @@
 #include <tomlcpp/tomlcpp.hpp>
 #include <stb_image.h>
 #include <fstream>
+#include <nfd.h>
+
 #include "editor.h"
 #include "../audio.h"
 #include "theme.h"
+#include "../ui/ui.h"
+
 
 //////////////////
 // USER ACTIONS //
@@ -111,8 +115,8 @@ const char* UserActionList::combo_str(const std::string& action_name) const {
 // SongEditor singleton //
 //////////////////////////
 
-SongEditor::SongEditor(Song* song, audiomod::DestinationModule& audio_dest, WindowManager& win_mgr) :
-    song(song), audio_dest(audio_dest), plugin_manager(win_mgr)
+SongEditor::SongEditor(Song* _song, audiomod::DestinationModule& _audio_dest, WindowManager& _win_mgr) :
+    song(_song), audio_dest(_audio_dest), plugin_manager(_win_mgr)
 {
     const char* theme_name = "Soundbox Dark";
 
@@ -125,8 +129,227 @@ SongEditor::SongEditor(Song* song, audiomod::DestinationModule& audio_dest, Wind
 
     theme.set_imgui_colors();
     plugin_manager.scan_plugins();
+
+    // TODO: customizable default save dir
+#ifdef _WIN32
+    default_save_dir = std::string(std::getenv("USERPROFILE")) + "\\";
+#else
+    default_save_dir = std::string(std::getenv("HOME")) + "/";
+#endif
+
+    ui_actions.set_callback("song_new", [this]() {
+        ui::prompt_unsaved_work([&]() {
+            last_file_path.clear();
+            last_file_name.clear();
+            
+            file_mutex.lock();
+            audio_dest.reset();
+
+            Song* old_song = song;
+            song = new Song(4, 8, 8, audio_dest);
+            reset();
+            ui::ui_init(*this);
+            delete old_song;
+
+            file_mutex.unlock();
+        });
+    });
+
+    // song save as
+    ui_actions.set_callback("song_save_as", [this]() {
+        save_song_as();
+    });
+
+    // song save
+    ui_actions.set_callback("song_save", [this]() {
+        save_song();
+    });
+
+    // song open
+    ui_actions.set_callback("song_open", [this]() {
+        nfdchar_t* out_path;
+        nfdresult_t result = NFD_OpenDialog("box", last_file_path.empty() ? default_save_dir.c_str() : last_file_path.c_str(), &out_path);
+
+        if (result == NFD_OKAY) {
+            std::ifstream file;
+            file.open(out_path, std::ios::in | std::ios::binary);
+
+            if (file.is_open()) {
+                file_mutex.lock();
+
+                std::string error_msg = "unknown error";
+                Song* new_song = Song::from_file(file, audio_dest, plugin_manager, &error_msg);
+                file.close();
+
+                if (new_song != nullptr) {
+                    audio_dest.reset();
+
+                    Song* old_song = song;
+                    song = new_song;
+                    reset();
+                    delete old_song;
+                    ui::ui_init(*this);
+
+                    last_file_path = out_path;
+                    last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
+                } else {
+                    ui::show_status("Error reading file: %s", error_msg.c_str());
+                }
+
+                file_mutex.unlock();
+            } else {
+                ui::show_status("Could not open %s", out_path);
+            }
+        } else if (result != NFD_CANCEL) {
+            std::cerr << "Error: " << NFD_GetError() << "\n";
+        }
+    });
+
+    std::string last_tuning_location;
+    ui_actions.set_callback("load_tuning", [this, &last_tuning_location]()
+    {
+        // only 256 tunings can be loaded
+        if (song->tunings.size() >= 256)
+        {
+            ui::show_status("Cannot add more tunings");
+            return;
+        }
+
+        nfdchar_t* out_path;
+        nfdresult_t result = NFD_OpenDialog(
+            "tun,scl,kbm",
+            last_tuning_location.empty() ? nullptr : last_tuning_location.c_str(),
+            &out_path
+        );
+
+        if (result == NFD_OKAY) {
+            song->mutex.lock();
+
+            const std::string path_str = std::string(out_path);
+            std::string error_msg = "unknown error";
+
+            // get file name extension
+            std::string file_ext = path_str.substr(path_str.find_last_of(".") + 1);
+
+            // store location
+            last_tuning_location = path_str.substr(0, path_str.find_last_of("/\\") + 1);
+
+            // read scl file
+            if (file_ext == "scl")
+            {
+                Tuning* tun;
+
+                if ((tun = song->load_scale_scl(out_path, &error_msg)))
+                {
+                    // if tuning name was not found, write file name as name of the tuning
+                    if (tun->name.empty())
+                    {
+                        // get file name without extension
+                        std::string file_path = path_str.substr(path_str.find_last_of("/\\") + 1);
+                        
+                        int dot_index;
+                        file_path = (dot_index = file_path.find_last_of(".")) > 0 ?
+                            file_path.substr(0, dot_index) :
+                            file_path.substr(dot_index + 1); // if dot is at the beginning of file, just remove it
+
+                        tun->name = file_path;
+                    } 
+                }
+                else // error reading file
+                {
+                    ui::show_status("Error: %s", error_msg.c_str());
+                }
+            }
+
+            // read kbm file
+            else if (file_ext == "kbm")
+            {
+                Tuning* tun = song->tunings[song->selected_tuning];
+
+                if (tun->scl_import != nullptr)
+                {
+                    if (song->load_kbm(out_path, *tun, &error_msg))
+                    {
+                        ui::show_status("Successfully applied mapping");
+                    }
+                    else // if there was an error
+                    {
+                        ui::show_status("Error: %s", error_msg.c_str());
+                    }
+                }
+                else // kbm import only works if you have selected a scl import
+                {
+                    ui::show_status("Please select an SCL import in order to apply the keyboard mapping to it.");
+                }
+            }
+
+            // read tun file
+            else if (file_ext == "tun")
+            {
+                std::fstream file;
+                file.open(out_path);
+
+                if (!file.is_open())
+                {
+                    ui::show_status("Could not open %s", out_path);
+                }
+                else
+                {
+                    Tuning* tun;
+                    if ((tun = song->load_scale_tun(file, &error_msg)))
+                    {
+                        // if tuning name was not found, write file name as name of the tuning
+                        if (tun->name.empty())
+                        {
+                            // get file name without extension
+                            std::string file_path = path_str.substr(path_str.find_last_of("/\\") + 1);
+                            
+                            int dot_index;
+                            file_path = (dot_index = file_path.find_last_of(".")) > 0 ?
+                                file_path.substr(0, dot_index) :
+                                file_path.substr(dot_index + 1); // if dot is at the beginning of file, just remove it
+
+                            tun->name = file_path;
+                        } 
+                    }
+                    else
+                    {
+                        // error reading file
+                        ui::show_status("Error: %s", error_msg.c_str());
+                    }
+                    
+                    file.close();
+                }
+            }
+
+            // unknown file extension
+            else {
+                ui::show_status("Incompatible file extension .%s", file_ext.c_str());
+            }
+
+            song->mutex.unlock();
+        } else if (result != NFD_CANCEL) {
+            std::cerr << "Error: " << NFD_GetError() << "\n";
+        }
+    });
+
+    ui_actions.set_callback("export", [&]() {
+        nfdchar_t* out_path = nullptr;
+        nfdresult_t result = NFD_SaveDialog("wav", nullptr, &out_path);
+
+        if (result == NFD_OKAY) {
+            export_config.active = true;
+            export_config.file_name = out_path;
+            export_config.sample_rate = 48000;
+        } else if (result != NFD_CANCEL) {
+            std::cerr << "Error: " << NFD_GetError() << "\n";
+            return;
+        }
+    });
     
     reset();
+
+    last_playing = song->is_playing;
 }
 
 SongEditor::~SongEditor()
@@ -292,4 +515,90 @@ void SongEditor::load_preferences()
 
         }
     }
+}
+
+bool SongEditor::save_song_as()
+{
+    std::string file_name = last_file_path.empty()
+        ? default_save_dir + this->song->name + ".box"
+        : last_file_path;
+    nfdchar_t* out_path = nullptr;
+    nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);
+
+    if (result == NFD_OKAY) {
+        last_file_path = out_path;
+        last_file_name = last_file_path.substr(last_file_path.find_last_of("/\\") + 1);
+        
+        save_song();
+        
+        free(out_path);
+
+        return true;
+    }
+    else if (result == NFD_CANCEL) {
+        return false;
+    } else {
+        std::cerr << "Error: " << NFD_GetError() << "\n";
+        return false;
+    }
+}
+
+bool SongEditor::save_song()
+{
+    if (last_file_path.empty()) {
+        return save_song_as();
+    }
+
+    std::ofstream file;
+    file.open(last_file_path, std::ios::out | std::ios::trunc | std::ios::binary);
+
+    if (file.is_open()) {
+        song->serialize(file);
+        file.close();
+
+        ui::show_status("Successfully saved %s", last_file_path.c_str());
+        return true;
+    } else {
+        ui::show_status("Could not save to %s", last_file_path.c_str());
+        return false;
+    }
+}
+
+void SongEditor::process(AudioDevice& device)
+{
+    file_mutex.lock();
+    song->mutex.lock();
+
+    audio_dest.prepare();
+
+    bool song_playing = song->is_playing;
+    if (song_playing != last_playing) {
+        last_playing = song_playing;
+        
+        if (song_playing) song->play();
+        else song->stop();
+    }
+
+    while (device.samples_queued() < device.sample_rate() * 0.05)
+    {
+        float* buf;
+        if (song_playing) song->update((double)audio_dest.frames_per_buffer / device.sample_rate());
+        size_t buf_size = audio_dest.process(&buf);
+        device.queue(buf, buf_size);
+    }
+
+    file_mutex.unlock();
+    song->mutex.unlock();
+}
+
+void SongEditor::begin_export()
+{
+    if (song_export) return;
+    song_export = std::make_unique<SongExport>(*this, export_config.file_name, export_config.sample_rate);
+}
+
+void SongEditor::stop_export()
+{
+    if (!song_export) return;
+    song_export = nullptr;
 }

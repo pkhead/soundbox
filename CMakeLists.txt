@@ -101,6 +101,7 @@ set(SOURCES
     src/editor/editor.cpp
     src/editor/change_history.cpp
     src/editor/theme.cpp
+    src/editor/export.cpp
     
     # app user interface
     src/ui/ui.cpp
@@ -114,6 +115,7 @@ set(SOURCES
     src/ui/directories.cpp
     src/ui/tunings.cpp
     src/ui/themes_ui.cpp
+    src/ui/export.cpp
 
     src/ui/imgui_stdlib.cpp
 

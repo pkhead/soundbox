@@ -592,6 +592,15 @@ EffectsInterfaceAction ui::effect_rack_ui(
     return action;
 }
 
+bool show_unsaved_work_prompt = false;
+std::function<void()> unsaved_work_callback;
+
+void ui::prompt_unsaved_work(std::function<void ()> callback)
+{
+    show_unsaved_work_prompt = true;
+    unsaved_work_callback = callback;
+}
+
 // menu item helper
 #define MENU_ITEM(label, action_name) \
     if (ImGui::MenuItem(label, user_actions.combo_str(action_name))) \
@@ -829,6 +838,39 @@ void ui::compute_imgui(SongEditor& editor) {
         ImGui::TextWrapped("[ (Left Bracket): Move playhead left");
 
         ImGui::End();
+    }
+
+    // unsaved work prompt
+    // show new prompt
+    if (show_unsaved_work_prompt) {
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::OpenPopup("Unsaved work##unsaved_work");
+        show_unsaved_work_prompt = false;
+    }
+
+    if (ImGui::BeginPopupModal("Unsaved work##unsaved_work", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::Text("Do you want to save your work before continuing?");
+        ImGui::NewLine();
+        
+        if (ImGui::Button("Yes")) {
+            ImGui::CloseCurrentPopup();
+            
+            // if song was able to successfully be saved, then continue
+            if (editor.save_song()) unsaved_work_callback();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("No")) {
+            ImGui::CloseCurrentPopup();
+            unsaved_work_callback();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
     }
 
     // show status info as an overlay
