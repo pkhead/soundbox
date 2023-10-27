@@ -6,6 +6,7 @@
 #include <imgui.h>
 #include <nfd.h>
 #include <stb_image.h>
+#include <glad/gl.h>
 #include "../audio.h"
 #include "../editor/change_history.h"
 #include "../modules/modules.h"
@@ -172,7 +173,7 @@ void ui::ui_init(SongEditor& editor)
 #ifdef DEBUG
     snprintf(VERSION_STR, 64, "version %s-dev / SnBx%s", APP_VERSION, FILE_VERSION);
 #else
-    snprintf(VERSION_STR, 64, "version %s / %s", APP_VERSION, FILE_VERSION);
+    snprintf(VERSION_STR, 64, "version %s / SnBx%s", APP_VERSION, FILE_VERSION);
 #endif
 
     Song& song = *editor.song;

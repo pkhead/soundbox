@@ -28,6 +28,7 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #include <dwmapi.h>
+#include <wchar.h>
 
 #ifndef INCLUDE_GLFW_NATIVE
 #define INCLUDE_GLFW_NATIVE
@@ -57,10 +58,34 @@ static void glfw_error_callback(int error, const char *description)
 }
 
 #ifdef USE_WIN32_MAIN
-int main();
+int main(int argc, char** argv);
 
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow) {
-    return main();
+int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
+    int argc;
+    LPWSTR* argv_w = CommandLineToArgvW(lpCmdLine, &argc);
+
+    // convert wchar to char
+    char** argv = new char*[argc];
+
+    for (int i = 0; i < argc; i++)
+    {
+        char* str = new char[wcslen(argv_w[i])];
+        argv[i] = str;
+        WideCharToMultiByte(CP_UTF8, NULL, argv_w[i], -1, str, -1, NULL, NULL);
+    }
+
+    // call main
+    int err = main(argc, argv);
+
+    // deallocate memory
+    for (int i = 0; i < argc; i++)
+    {
+        delete argv[i];
+    }
+    delete[] argv;
+
+    // return error code
+    return err;
 }
 #endif
 
