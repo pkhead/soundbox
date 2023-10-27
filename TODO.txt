@@ -48,6 +48,8 @@
     - phaser
     = reverb
 
+- don't use native file browser
+    (port the file browser i made with imgui/love2d to C++)
 - Importing MIDI tracks
 - figure out why keyboard interactions do not work sometimes with plugin UI embedding enabled
 - mp3 exports
