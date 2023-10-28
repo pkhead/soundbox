@@ -68,3 +68,5 @@
 - try not to use spinlocks (used for lv2 port subscription)
 x use ring buffer for message queue
 - thin out main.cpp
+- make audio rendering realtime-capable
+  (kind of hard, since it's (1.) an extra thread that (2.) can't do memory de/allocation)

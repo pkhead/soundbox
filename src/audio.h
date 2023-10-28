@@ -112,29 +112,42 @@ namespace audiomod
 
     class ModuleOutputTargetNode
     {
+        friend ModuleGraph;
+
     protected:
+        std::vector<float*> input_arrays;
         std::vector<ModuleNodeRc> input_nodes;
+        ModuleGraph& graph;
 
     public:
+        ModuleOutputTargetNode(ModuleGraph& graph);
+        ~ModuleOutputTargetNode();
+
         bool remove_input(ModuleNodeRc& module);
-        void add_input(ModuleNodeRc& module);
-        const std::vector<ModuleNodeRc>& get_inputs() const;
+        void add_input(ModuleNodeRc module);
+        inline const std::vector<ModuleNodeRc>& get_inputs() const {
+            return input_nodes;
+        }
     };
 
     typedef std::shared_ptr<ModuleOutputTargetNode> ModuleOutputTargetNodeRc;
 
-    class ModuleNode : public ModuleOutputTargetNode
+    class ModuleNode : public ModuleOutputTargetNode, public std::enable_shared_from_this<ModuleNode>
     {
+        friend ModuleGraph;
+    
     protected:
-        std::vector<std::shared_ptr<ModuleOutputTargetNode>> output_nodes;
         std::unique_ptr<ModuleBase> _module;
-        ModuleGraph& graph;
+
+        ModuleOutputTargetNodeRc output_node;
+        float* output_array;
 
     public:
-        ModuleNode(ModuleGraph& graph, std::unique_ptr<ModuleBase> module);
+        ModuleNode(ModuleGraph& graph, std::unique_ptr<ModuleBase>&& module);
+        ~ModuleNode();
         
         // Connect this module's output to a node's input
-        void connect(std::shared_ptr<ModuleOutputTargetNode> dest);
+        void connect(ModuleOutputTargetNodeRc& dest);
 
         // Disconnect this node from its output
         void disconnect();
@@ -150,25 +163,35 @@ namespace audiomod
 
     class ModuleGraph
     {
+    friend ModuleNode;
+
     private:
         std::vector<ModuleNodeRc> nodes;
+        ModuleOutputTargetNodeRc _dest;
 
-        float* _audio_buffer;
-        size_t _prev_buffer_size;
+        float* audio_buffer;
 
         uint64_t _frame_time;
 
         // buffer filled with zeroes if audio is not yet ready
         static constexpr size_t DUMMY_BUFFER_SAMPLE_COUNT = 256;
         float dummy_buffer[DUMMY_BUFFER_SAMPLE_COUNT];
+
+        void make_dirty();
+        void process_node(ModuleNode& node);
     
     public:
         ModuleGraph(const ModuleGraph&) = delete;
         ModuleGraph(int sample_rate, int num_channels, size_t buffer_size);
+        ~ModuleGraph();
 
         const int sample_rate;
         const int num_channels;
         const int frames_per_buffer;
+
+        inline ModuleOutputTargetNodeRc destination() {
+            return _dest;
+        }
 
         template <class T, class... Args>
         ModuleNodeRc create(Args&&... args)
@@ -182,7 +205,7 @@ namespace audiomod
         inline uint64_t time_in_frames() const { return _frame_time; };
         inline double time_in_seconds() const { return (double)_frame_time / frames_per_buffer; };
 
-        void process();
+        size_t process(float* &buffer);
     };
 
     class ModuleBase
