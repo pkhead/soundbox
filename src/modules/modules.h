@@ -1,10 +1,110 @@
 #pragma once
 #include "../audio.h"
 #include "../dsp.h"
+#include "../worker.h"
 
 // Module/plugin lists
 namespace audiomod
 {
+    /**
+    * A class which handles an effect rack
+    **/
+    class EffectsRack
+    {
+    protected:
+        std::vector<ModuleNodeRc> inputs;
+        ModuleOutputTargetNodeRc output;
+
+    public:
+        EffectsRack();
+        ~EffectsRack();
+        
+        std::vector<ModuleNodeRc> modules;
+
+        void insert(ModuleNodeRc& module, size_t position);
+        void insert(ModuleNodeRc& module);
+        ModuleNodeRc remove(size_t position);
+
+        /**
+        * Connect a module to the effects rack
+        */
+        void connect_input(ModuleNodeRc& input);
+
+        /**
+        * Connect the effects rack to a module
+        * @returns The previous output module
+        */
+        ModuleOutputTargetNodeRc connect_output(ModuleOutputTargetNodeRc& output);
+
+        /**
+        * Disconnect the input from effects rack
+        */
+        bool disconnect_input(ModuleNodeRc& input);
+        void disconnect_all_inputs();
+
+        /**
+        * Disconnect the effects rack to its output
+        * @returns A reference to the now disconnected output module
+        */
+        ModuleOutputTargetNodeRc disconnect_output();
+    };
+
+    class FXBus
+    {
+    public:
+        FXBus(ModuleGraph& graph);
+        ~FXBus();
+
+        EffectsRack rack;
+
+        class ControllerModule : public ModuleBase
+        {
+        protected:
+            void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
+
+            // used for calculating loudness
+            float smp_count = 0;
+            float window_size = 1024;
+            float smp_accum[2] = { 0.0f, 0.0f };
+        public:
+            float analysis_volume[2] = {0.0f, 0.0f};
+            float gain = 0.0f;
+            bool mute = false;
+            bool mute_override = false;
+
+            ControllerModule();
+        };
+        ModuleNodeRc controller;
+
+        inline const std::vector<ModuleNodeRc>& get_modules() const
+        {
+            return rack.modules;
+        };
+
+        static constexpr size_t name_capacity = 16;
+        char name[16];
+
+        bool interface_open = false;
+        bool solo = false;
+
+        // index of target bus
+        int target_bus = 0;
+
+        inline void insert(ModuleNodeRc& module, size_t position) { rack.insert(module, position); };
+        inline void insert(ModuleNodeRc& module) { rack.insert(module); };
+        inline ModuleNodeRc remove(size_t position) { return rack.remove(position); };
+        
+        // wrap around EffectsRack methods, because
+        // EffectsRack's output should always be the controller module
+        inline void connect_input(ModuleNodeRc& input) { rack.connect_input(input); };
+        inline bool disconnect_input(ModuleNodeRc& input) { return rack.disconnect_input(input); };
+        inline void disconnect_all_inputs() { rack.disconnect_all_inputs(); };
+
+        // these implementations aren't one-liners so maybe inlining isn't a good idea
+        ModuleOutputTargetNode connect_output(ModuleOutputTargetNode& output);
+        ModuleOutputTargetNode disconnect_output();
+    };
+
     struct ModuleListing
     {
         const char* id;
@@ -19,7 +119,7 @@ namespace audiomod
     // define in modules/modules.cpp
     ModuleBase* create_module(
         const std::string& mod_id,
-        DestinationModule& audio_dest,
+        ModuleGraph& graph,
         plugins::PluginManager& plugin_manager,
         WorkScheduler& work_scheduler
     );
