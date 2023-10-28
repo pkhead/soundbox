@@ -282,15 +282,21 @@ void ui::render_pattern_editor(SongEditor &editor)
                             note_start_length = -selected_note->length;
                         }
                     } else {
+                        int key = scroll - mouse_cy;
+
                         is_adding_note = true;
                         note_drag_mode = DragMode::Any;
 
                         song.mutex.lock();
-                        selected_note = &selected_pattern->add_note(mouse_cx, scroll - mouse_cy, cursor_note_length);
+                        selected_note = &selected_pattern->add_note(mouse_cx, key, cursor_note_length);
                         song.mutex.unlock();
                         
                         note_anchor = mouse_cx;
                         note_start_length = cursor_note_length;
+
+                        // Preview Added Note
+                        if (!song.is_playing && editor.note_preview)
+                            editor.play_note(editor.selected_channel, key, PIANO_KEY_WIDTH, 0.2f);
                     }
 
                     note_pattern = selected_pattern;

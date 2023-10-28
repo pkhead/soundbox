@@ -60,6 +60,16 @@ private:
 
     std::unique_ptr<SongExport> song_export;
     bool last_playing;
+
+    struct active_note_t
+    {
+        int key;
+        float volume;
+        int channel;
+        int frames_remaining;
+    };
+
+    std::vector<active_note_t> active_notes;
 public:
     SongEditor(Song* song, audiomod::DestinationModule& audio_dest, WindowManager& winmgr);
     ~SongEditor();
@@ -83,6 +93,7 @@ public:
     bool save_song();
     bool save_song_as();
 
+    void play_note(int channel, int key, float volume, float secs_len);
     void process(AudioDevice& device);
 
     // view preferences

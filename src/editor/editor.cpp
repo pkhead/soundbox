@@ -370,6 +370,7 @@ void SongEditor::reset()
     ui_values.clear();
     mod_interfaces.clear();
     fx_interfaces.clear();
+    active_notes.clear();
     selected_channel = 0;
     selected_bar = 0;
 }
@@ -439,6 +440,25 @@ void SongEditor::remove_channel(int channel_index)
     }
 
     song->remove_channel(channel_index);
+}
+
+void SongEditor::play_note(int channel, int key, float volume, float secs_len)
+{
+    if (song->is_note_playable(key))
+    {
+        audiomod::MidiEvent midi_ev;
+        midi_ev.time = song->audio_dest().time_in_frames();
+        (audiomod::NoteEvent {
+            audiomod::NoteEventKind::NoteOn,
+            key,
+            volume
+        }).write_midi(&midi_ev.msg);
+        song->channels[channel]->synth_mod->queue_event(midi_ev);
+
+        active_notes.push_back({
+            key, volume, channel, (int)(audio_dest.sample_rate * secs_len)
+        });
+    }
 }
 
 void SongEditor::save_preferences() const
@@ -600,12 +620,47 @@ void SongEditor::process(AudioDevice& device)
         else song->stop();
     }
 
+    int frames_passed = 0;
+
     while (device.samples_queued() < device.sample_rate() * 0.05)
     {
         float* buf;
         if (song_playing) song->update((double)audio_dest.frames_per_buffer / device.sample_rate());
         size_t buf_size = audio_dest.process(&buf);
         device.queue(buf, buf_size);
+
+        frames_passed += audio_dest.frames_per_buffer;
+    }
+
+    // cursor follow playhead (if user enabled this feature)
+    if (follow_playhead && song_playing)
+        selected_bar = song->bar_position;
+
+    // process active notes (started from note previews)
+    for (int i = active_notes.size() - 1; i >= 0; i--)
+    {
+        active_note_t& active_note = active_notes[i];
+        active_note.frames_remaining -= frames_passed;
+
+        // stop note when done
+        if (active_note.frames_remaining <= 0)
+        {
+            // if channel still exists
+            if (active_note.channel < song->channels.size())
+            {
+                audiomod::MidiEvent midi_ev;
+                midi_ev.time = song->audio_dest().time_in_frames();
+                (audiomod::NoteEvent {
+                    audiomod::NoteEventKind::NoteOff,
+                    active_note.key,
+                    active_note.volume
+                }).write_midi(&midi_ev.msg);
+
+                song->channels[active_note.channel]->synth_mod->queue_event(midi_ev);
+            }
+
+            active_notes.erase(active_notes.begin() + i);
+        }
     }
 
     file_mutex.unlock();
