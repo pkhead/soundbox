@@ -682,10 +682,14 @@ void ui::compute_imgui(SongEditor& editor) {
 
         if (ImGui::BeginMenu("Preferences"))
         {
-            ImGui::MenuItem("Keep Current Pattern Selected");
-            ImGui::MenuItem("Hear Preview of Added Notes");
-            ImGui::MenuItem("Allow Adding Notes Not in Scale");
-            ImGui::MenuItem("Show Notes From All Channels");
+            if (ImGui::MenuItem("Keep Current Pattern Selected", nullptr, editor.follow_playhead))
+                editor.follow_playhead = !editor.follow_playhead;
+
+            if (ImGui::MenuItem("Hear Preview of Added Notes", nullptr, editor.note_preview))
+                editor.note_preview = !editor.note_preview;
+
+            if (ImGui::MenuItem("Show Notes From All Channels", nullptr, editor.show_all_channels))
+                editor.show_all_channels = !editor.show_all_channels;
             
             ImGui::Separator();
 

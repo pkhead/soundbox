@@ -445,6 +445,9 @@ void SongEditor::save_preferences() const
     // write selected theme
     file << "[ui]\n";
     file << "theme = " << std::quoted(theme.name()) << "\n";
+    file << "follow_playhead = " << (follow_playhead ? "true" : "false") << "\n";
+    file << "note_preview = " << (note_preview ? "true" : "false") << "\n";
+    file << "show_all_channels = " << (show_all_channels ? "true" : "false") << "\n";
 
     // write plugin paths
     file << "\n[plugins]\n";
@@ -496,6 +499,21 @@ void SongEditor::load_preferences()
         if (theme_pref.first) {
             theme.load(theme_pref.second);
             theme.set_imgui_colors();
+        }
+
+        auto follow_playhead_v = ui_table->getBool("follow_playhead");
+        if (follow_playhead_v.first) {
+            follow_playhead = follow_playhead_v.second;
+        }
+
+        auto note_preview_v = ui_table->getBool("note_preview");
+        if (note_preview_v.first) {
+            note_preview = note_preview_v.second;
+        }
+
+        auto show_all_channels_v = ui_table->getBool("show_all_channels");
+        if (show_all_channels_v.first) {
+            show_all_channels = show_all_channels_v.second;
         }
     }
 

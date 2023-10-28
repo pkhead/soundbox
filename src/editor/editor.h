@@ -85,7 +85,11 @@ public:
 
     void process(AudioDevice& device);
 
-
+    // view preferences
+    bool follow_playhead = false; // Keep Current Pattern Selected
+    bool note_preview = false; // Preview Added Note
+    bool show_all_channels = false; // Show All Channels
+    
     int selected_channel = 0;
     int selected_bar = 0;
 
