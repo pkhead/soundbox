@@ -219,14 +219,18 @@ ModuleNode::~ModuleNode()
         delete[] ptr;
 }
 
-void ModuleNode::add_input(ModuleNodeRc module)
+void ModuleNode::add_input(const ModuleNodeRc&& module)
 {
-    input_nodes.push_back(std::move(module));
+    assert(module);
+
+    input_nodes.push_back(module);
     input_arrays.push_back(new float[modctx.frames_per_buffer * modctx.num_channels]);
 }
 
 bool ModuleNode::remove_input(ModuleNodeRc& module)
 {
+    assert(module);
+
     for (auto it = input_nodes.begin(); it != input_nodes.end(); it++) {
         if (*it == module) {
             input_nodes.erase(it);
@@ -241,6 +245,8 @@ bool ModuleNode::remove_input(ModuleNodeRc& module)
 
 void ModuleNode::connect(ModuleNodeRc& dest)
 {
+    assert(dest);
+
     disconnect();
     dest->add_input(shared_from_this());
     output_node = dest;
@@ -262,20 +268,29 @@ void ModuleNode::remove_all_connections()
 {
     disconnect();
 
-    for (ModuleNodeRc& input : input_nodes)
-        input->disconnect();
+    for (size_t i = input_nodes.size() - 1; i != SIZE_MAX; i--) {
+        input_nodes[i]->disconnect();
+    }
 }
 
+class DummyModule : public ModuleBase
+{
+private:
+public:
+    DummyModule() : ModuleBase(false) {}
 
-
+    virtual void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
+    {}
+};
 
 ModuleContext::ModuleContext(int sample_rate, int num_channels, size_t buffer_size)
 :   sample_rate(sample_rate), num_channels(num_channels), frames_per_buffer(buffer_size)
 {
     audio_buffer = new float[frames_per_buffer * num_channels];
-
     // fill dummy buffer with zeroes
     memset(dummy_buffer, 0, sizeof(dummy_buffer));
+    
+    _dest = create<DummyModule>();
 }
 
 ModuleContext::~ModuleContext()
@@ -288,17 +303,24 @@ void ModuleContext::make_dirty()
 
 void ModuleContext::process_node(ModuleNode& node)
 {
+    const size_t buf_size = frames_per_buffer * num_channels;
+
     // get data in inputs
+    size_t i = 0;
     for (ModuleNodeRc& input : node.input_nodes)
     {
-        process_node(node);
+        process_node(*input);
+
+        // copy input's output array to my input array
+        memcpy(node.input_arrays[i], input->output_array, buf_size * sizeof(float));
+        i++;
     }
 
     node.module().process(
         node.input_arrays.data(),
         node.output_array,
         node.input_nodes.size(),
-        frames_per_buffer * num_channels,
+        buf_size,
         sample_rate,
         num_channels
     );
@@ -306,9 +328,14 @@ void ModuleContext::process_node(ModuleNode& node)
 
 size_t ModuleContext::process(float* &buffer)
 {
+    const size_t buf_size = frames_per_buffer * num_channels;
+    
+    size_t i = 0;
     for (ModuleNodeRc& input_node : _dest->input_nodes)
     {
-        process_node(*input_node.get());
+        process_node(*input_node);
+        // copy input's output array to my input array
+        memcpy(_dest->input_arrays[i], input_node->output_array, buf_size * sizeof(float));
     }
 
     // combine all inputs into one buffer
@@ -323,7 +350,7 @@ size_t ModuleContext::process(float* &buffer)
     }
 
     buffer = audio_buffer;
-    return frames_per_buffer * num_channels;
+    return buf_size;
 }
 
 
@@ -335,6 +362,10 @@ size_t ModuleContext::process(float* &buffer)
 ///////////////////////
 //  MODULE BEHAVIOR  //
 ///////////////////////
+
+ModuleBase::ModuleBase(bool has_interface)
+:   _has_interface(has_interface)
+{}
 
 bool ModuleBase::has_interface() const {
     return _has_interface;

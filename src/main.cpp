@@ -171,12 +171,10 @@ int main(int argc, char** argv)
     {
         const size_t BUFFER_SIZE = 128;
 
-        audiomod::ModuleContext modctx(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
-        
         // initialize song editor
         SongEditor song_editor(
-            new Song(4, 8, 8, modctx),
-            modctx, window_manager
+            device, BUFFER_SIZE,
+            window_manager
         );
         song_editor.load_preferences();
 
@@ -205,7 +203,7 @@ int main(int argc, char** argv)
         glfwShowWindow(root_window);
         while (run_app)
         {
-            Song*& song = song_editor.song;
+            std::unique_ptr<Song>& song = song_editor.song;
             double now_time = glfwGetTime();
 
             next_time = glfwGetTime() + FRAME_LENGTH;
@@ -239,7 +237,11 @@ int main(int argc, char** argv)
                             ImGui::IsKeyDown(ImGuiMod_Alt) == ((action.modifiers & USERMOD_ALT) != 0))
                         ) {
                             if (action.callback)
+                            {
+                                song_editor.mutex.lock();
                                 action.callback();
+                                song_editor.mutex.unlock();
+                            }
                             else
                                 std::cout << "no callback set for " << action.name << "\n";                    
                         }
@@ -274,7 +276,9 @@ int main(int argc, char** argv)
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
 
+            song_editor.mutex.lock();
             ui::compute_imgui(song_editor);
+            song_editor.mutex.unlock();
 
             // run worker scheduler
             song->work_scheduler.run();

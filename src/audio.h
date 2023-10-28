@@ -124,7 +124,7 @@ namespace audiomod
         float* output_array;
 
         bool remove_input(ModuleNodeRc& module);
-        void add_input(ModuleNodeRc module);
+        void add_input(const ModuleNodeRc&& module);
 
     public:
         ModuleNode(ModuleContext& modctx, std::unique_ptr<ModuleBase>&& module);
@@ -159,7 +159,6 @@ namespace audiomod
     friend ModuleNode;
 
     private:
-        std::vector<ModuleNodeRc> nodes;
         ModuleNodeRc _dest; // does not have outputs
 
         float* audio_buffer;
@@ -191,7 +190,6 @@ namespace audiomod
         {
             std::unique_ptr<T> module = std::make_unique<T>(args...);
             ModuleNodeRc node = std::make_shared<ModuleNode>(*this, std::move(module));
-            nodes.push_back(node);
             return node;
         }
 
@@ -206,9 +204,6 @@ namespace audiomod
     protected:
         bool _has_interface;
         bool _interface_shown = false;
-        
-        float* _audio_buffer;
-        size_t _audio_buffer_size;
 
         virtual void _interface_proc() {};
 
@@ -220,7 +215,7 @@ namespace audiomod
 
         ModuleBase(const ModuleBase&) = delete;
         ModuleBase(bool has_interface);
-        virtual ~ModuleBase();
+        virtual ~ModuleBase() {}
 
         /**
         * Process a MIDI event, to be called from the audio thread.

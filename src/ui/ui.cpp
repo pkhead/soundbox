@@ -221,30 +221,22 @@ void ui::ui_init(SongEditor& editor)
 
     // song next bar
     user_actions.set_callback("song_next_bar", [&song]() {
-        song.mutex.lock();
-
         song.bar_position++;
         song.position += song.beats_per_bar;
 
         // wrap around
         if (song.bar_position >= song.length()) song.bar_position -= song.length();
         if (song.position >= song.length() * song.beats_per_bar) song.position -= song.length() * song.beats_per_bar;
-
-        song.mutex.unlock();
     });
 
     // song previous bar
     user_actions.set_callback("song_prev_bar", [&song]() {
-        song.mutex.lock();
-
         song.bar_position--;
         song.position -= song.beats_per_bar;
 
         // wrap around
         if (song.bar_position < 0) song.bar_position += song.length();
         if (song.position < 0) song.position += song.length() * song.beats_per_bar;
-
-        song.mutex.unlock();
     });
 
     // mute selected channel
@@ -295,7 +287,7 @@ void ui::ui_init(SongEditor& editor)
     user_actions.set_callback("remove_bar", [&]() {
         if (song.length() > 1)
         {
-            editor.push_change(new change::ChangeRemoveBar(editor.selected_bar, &song));
+            editor.push_change(new change::ChangeRemoveBar(editor.selected_bar, *editor.song));
             song.remove_bar(editor.selected_bar);
             if (editor.selected_bar > 0) editor.selected_bar--;
         }
@@ -485,9 +477,8 @@ EffectsInterfaceAction ui::effect_rack_ui(
     EffectsInterfaceResult* result,
     bool swap_instrument
 ) {
-    Song* song = editor->song;
+    auto& song = editor->song;
 
-    std::mutex& mutex = song->mutex;
     EffectsInterfaceAction action = EffectsInterfaceAction::Nothing;
 
     // effects
@@ -558,10 +549,8 @@ EffectsInterfaceAction ui::effect_rack_ui(
                 if (n_next >= 0 && n_next < effects_rack->modules.size()) {
                     // swap n and n_next
                     int min = i > n_next ? n_next : i;
-                    mutex.lock();
                     auto m = effects_rack->remove(min);
                     effects_rack->insert(m, min + 1);
-                    mutex.unlock();
                     ImGui::ResetMouseDragDelta();
                 }
             }

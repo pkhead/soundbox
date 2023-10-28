@@ -159,7 +159,7 @@ void EffectsRack::insert(ModuleNodeRc& module, size_t position) {
 ModuleNodeRc EffectsRack::remove(size_t position) {
     if (modules.empty()) return nullptr;
 
-    ModuleNodeRc& target_module = modules[position];
+    ModuleNodeRc target_module = modules[position];
     target_module->remove_all_connections();
 
     // if there is only one item in the rack

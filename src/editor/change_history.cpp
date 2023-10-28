@@ -33,10 +33,10 @@ bool change::ChangeSongTempo::merge(change::Action* other)
 
 // Song Max Patterns //
 
-void track_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song* song)
+void track_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song& song)
 {
-    snapshot.rows = song->channels.size();
-    snapshot.cols = song->length();
+    snapshot.rows = song.channels.size();
+    snapshot.cols = song.length();
     snapshot.patterns.clear();
     snapshot.patterns.reserve(snapshot.rows * snapshot.cols);
 
@@ -44,12 +44,12 @@ void track_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song
     {
         for (int col = 0; col < snapshot.cols; col++)
         {
-            snapshot.patterns.push_back(song->channels[row]->sequence[col]);
+            snapshot.patterns.push_back(song.channels[row]->sequence[col]);
         }
     }
 }
 
-void apply_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song* song)
+void apply_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song& song)
 {
     int i = 0;
 
@@ -57,26 +57,26 @@ void apply_snapshot(change::ChangeSongMaxPatterns::TrackSnapshot& snapshot, Song
     {
         for (int col = 0; col < snapshot.cols; col++)
         {
-            song->channels[row]->sequence[col] = snapshot.patterns[i];
+            song.channels[row]->sequence[col] = snapshot.patterns[i];
             i++;
         }
     }
 }
 
-change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count, Song* song)
+change::ChangeSongMaxPatterns::ChangeSongMaxPatterns(int old_count, int new_count, Song& song)
     : old_count(old_count), new_count(new_count)
 {
     track_snapshot(before, song);
 }
 
 void change::ChangeSongMaxPatterns::undo(SongEditor& editor) {
-    track_snapshot(after, editor.song);
+    track_snapshot(after, *editor.song);
     editor.song->set_max_patterns(old_count);
-    apply_snapshot(before, editor.song);
+    apply_snapshot(before, *editor.song);
 }
 
 void change::ChangeSongMaxPatterns::redo(SongEditor& editor) {
-    apply_snapshot(after, editor.song);
+    apply_snapshot(after, *editor.song);
     editor.song->set_max_patterns(new_count);
 }
 
@@ -195,8 +195,6 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     // delete the module at the back
-    editor.song->mutex.lock();
-
     auto mod = rack->remove(rack->modules.size() - 1);
     if (mod) {
         editor.hide_module_interface(mod);
@@ -206,8 +204,6 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
         mod->module().save_state(stream);
         mod_data = stream.str();
     }
-    
-    editor.song->mutex.unlock();
 }
 
 void change::ChangeAddEffect::redo(SongEditor& editor) {
@@ -215,23 +211,19 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
     const char* parent_name;
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
-    editor.song->mutex.lock();
-
     auto mod = audiomod::create_module(
         mod_type,
         editor.modctx,
         editor.plugin_manager,
         editor.song->work_scheduler
     );
-    mod->module().song = editor.song;
+    mod->module().song = editor.song.get();
     mod->module().parent_name = parent_name;
     rack->insert(mod);
 
     // load module data
     std::stringstream stream(mod_data);
     mod->module().load_state(stream, mod_data.size());
-
-    editor.song->mutex.unlock();
 }
 
 bool change::ChangeAddEffect::merge(Action* other) {
@@ -258,8 +250,6 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
     // delete the module at the back
-    editor.song->mutex.lock();
-
     auto mod = rack->remove(index);
     if (mod) {
         mod_type = mod->module().id;
@@ -272,16 +262,12 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
 
         editor.hide_module_interface(mod);
     }
-    
-    editor.song->mutex.unlock();
 }
 
 void change::ChangeRemoveEffect::undo(SongEditor& editor) {
     audiomod::EffectsRack* rack;
     const char* parent_name;
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
-
-    editor.song->mutex.lock();
 
     auto mod = audiomod::create_module(
         mod_type,
@@ -290,15 +276,13 @@ void change::ChangeRemoveEffect::undo(SongEditor& editor) {
         editor.song->work_scheduler
     );
 
-    mod->module().song = editor.song;
+    mod->module().song = editor.song.get();
     mod->module().parent_name = parent_name;
     rack->insert(mod, index);
 
     // load module state
     std::stringstream stream(mod_state);
     mod->module().load_state(stream, mod_state.size());
-
-    editor.song->mutex.unlock();
 }
 
 bool change::ChangeRemoveEffect::merge(Action* other) {
@@ -317,8 +301,6 @@ void change::ChangeSwapEffect::undo(SongEditor& editor)
     const char* parent_name;
     get_rack_info(target_type, editor, target_index, &rack, &parent_name);
 
-    editor.song->mutex.lock();
-
     int min = new_index > old_index ? old_index : new_index;
     int max = new_index > old_index ? new_index : old_index;
 
@@ -326,8 +308,6 @@ void change::ChangeSwapEffect::undo(SongEditor& editor)
     rack->insert(mod0, max);
     auto mod1 = rack->remove(max - 1);
     rack->insert(mod1, min);
-
-    editor.song->mutex.unlock();
 }
 
 // same as undo
@@ -342,17 +322,15 @@ bool change::ChangeSwapEffect::merge(Action* other)
 }
 
 // Add Note //
-change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Song* song, bool from_null_pattern, int old_pattern_count, Note note)
+change::ChangeAddNote::ChangeAddNote(int channel_index, int bar, Song& song, bool from_null_pattern, int old_pattern_count, Note note)
     : channel_index(channel_index), bar(bar), note(note), from_null_pattern(from_null_pattern)
 {
-    new_index = song->channels[channel_index]->sequence[bar];
+    new_index = song.channels[channel_index]->sequence[bar];
     old_max_patterns = old_pattern_count;
 }
 
 void change::ChangeAddNote::undo(SongEditor& editor)
 {
-    editor.song->mutex.lock();
-
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
 
@@ -376,16 +354,12 @@ void change::ChangeAddNote::undo(SongEditor& editor)
         editor.song->channels[channel_index]->sequence[bar] = 0;
         editor.song->set_max_patterns(old_max_patterns);
     }
-
-    editor.song->mutex.unlock();
 }
 
 void change::ChangeAddNote::redo(SongEditor& editor)
 {
-    Song* song = editor.song;
+    auto& song = editor.song;
 
-    song->mutex.lock();
-    
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
@@ -400,8 +374,6 @@ void change::ChangeAddNote::redo(SongEditor& editor)
     
     auto& pattern = channel->patterns[pattern_id];
     pattern->notes.push_back(note);
-
-    song->mutex.unlock();
 }
 
 bool change::ChangeAddNote::merge(Action* other)
@@ -416,8 +388,6 @@ change::ChangeRemoveNote::ChangeRemoveNote(int channel_index, int bar, Note note
 
 void change::ChangeRemoveNote::redo(SongEditor& editor)
 {
-    editor.song->mutex.lock();
-    
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
@@ -433,22 +403,16 @@ void change::ChangeRemoveNote::redo(SongEditor& editor)
             break;
         }
     }
-
-    editor.song->mutex.unlock();
 }
 
 void change::ChangeRemoveNote::undo(SongEditor& editor)
 {
-    editor.song->mutex.lock();
-    
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
     int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
     auto& pattern = editor.song->channels[channel_index]->patterns[pattern_id];
     pattern->notes.push_back(note);
-
-    editor.song->mutex.unlock();
 }
 
 bool change::ChangeRemoveNote::merge(Action* other)
@@ -463,8 +427,6 @@ change::ChangeNote::ChangeNote(int channel_index, int bar, Note old_note, Note n
 
 void change::ChangeNote::undo(SongEditor& editor)
 {
-    editor.song->mutex.lock();
-    
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
@@ -479,14 +441,10 @@ void change::ChangeNote::undo(SongEditor& editor)
             break;
         }
     }
-
-    editor.song->mutex.unlock();
 }
 
 void change::ChangeNote::redo(SongEditor& editor)
 {
-    editor.song->mutex.lock();
-    
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
@@ -501,8 +459,6 @@ void change::ChangeNote::redo(SongEditor& editor)
             break;
         }
     }
-
-    editor.song->mutex.unlock();
 }
 
 bool change::ChangeNote::merge(Action* other)
@@ -600,11 +556,11 @@ bool change::ChangeInsertBar::merge(Action* other)
 }
 
 // Remove Bar //
-change::ChangeRemoveBar::ChangeRemoveBar(int bar, Song* song)
+change::ChangeRemoveBar::ChangeRemoveBar(int bar, Song& song)
 {
     bars.push_back({
         bar,
-        song->get_bar_patterns(bar)
+        song.get_bar_patterns(bar)
     });
 }
 
@@ -719,7 +675,7 @@ audiomod::ModuleNodeRc change::ModuleData::load(SongEditor& editor) const
         editor.song->work_scheduler
     );
     
-    mod->module().song = editor.song;
+    mod->module().song = editor.song.get();
     std::stringstream stream(data);
     mod->module().load_state(stream, data.size());
     return mod;

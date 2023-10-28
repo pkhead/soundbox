@@ -118,9 +118,12 @@ const char* UserActionList::combo_str(const std::string& action_name) const {
 // SongEditor singleton //
 //////////////////////////
 
-SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowManager& _win_mgr) :
-    song(_song), modctx(_modctx), plugin_manager(_win_mgr)
+SongEditor::SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowManager& _win_mgr)
+:   modctx(device.sample_rate(), device.num_channels(), audio_buffer_size),
+    plugin_manager(_win_mgr)
 {
+    song = std::make_unique<Song>(4, 8, 8, modctx);
+
     const char* theme_name = "Soundbox Dark";
 
     try
@@ -145,16 +148,12 @@ SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowMana
             last_file_path.clear();
             last_file_name.clear();
             
-            file_mutex.lock();
             //modctx.reset();
 
-            Song* old_song = song;
-            song = new Song(4, 8, 8, modctx);
+            song->stop();
+            song = std::make_unique<Song>(4, 8, 8, modctx);
             reset();
             ui::ui_init(*this);
-            delete old_song;
-
-            file_mutex.unlock();
         });
     });
 
@@ -178,19 +177,16 @@ SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowMana
             file.open(out_path, std::ios::in | std::ios::binary);
 
             if (file.is_open()) {
-                file_mutex.lock();
-
                 std::string error_msg = "unknown error";
-                Song* new_song = Song::from_file(file, modctx, plugin_manager, &error_msg);
+                auto new_song = Song::from_file(file, modctx, plugin_manager, &error_msg);
                 file.close();
 
                 if (new_song != nullptr) {
                     //audio_dest.reset();
 
-                    Song* old_song = song;
-                    song = new_song;
+                    song->stop();
+                    song.swap(new_song);
                     reset();
-                    delete old_song;
                     ui::ui_init(*this);
 
                     last_file_path = out_path;
@@ -198,8 +194,6 @@ SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowMana
                 } else {
                     ui::show_status("Error reading file: %s", error_msg.c_str());
                 }
-
-                file_mutex.unlock();
             } else {
                 ui::show_status("Could not open %s", out_path);
             }
@@ -226,8 +220,6 @@ SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowMana
         );
 
         if (result == NFD_OKAY) {
-            song->mutex.lock();
-
             const std::string path_str = std::string(out_path);
             std::string error_msg = "unknown error";
 
@@ -329,8 +321,6 @@ SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowMana
             else {
                 ui::show_status("Incompatible file extension .%s", file_ext.c_str());
             }
-
-            song->mutex.unlock();
         } else if (result != NFD_CANCEL) {
             std::cerr << "Error: " << NFD_GetError() << "\n";
         }
@@ -357,8 +347,6 @@ SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowMana
 
 SongEditor::~SongEditor()
 {
-    delete song;
-
     for (auto it : ui_values)
         free(it.second);
 }
@@ -372,6 +360,7 @@ void SongEditor::reset()
     active_notes.clear();
     selected_channel = 0;
     selected_bar = 0;
+    last_playing = false;
 }
 
 bool SongEditor::undo()
@@ -599,8 +588,7 @@ bool SongEditor::save_song()
 
 void SongEditor::process(AudioDevice& device)
 {
-    file_mutex.lock();
-    song->mutex.lock();
+    mutex.lock();
 
     //modctx.prepare();
 
@@ -655,8 +643,7 @@ void SongEditor::process(AudioDevice& device)
         }
     }
 
-    file_mutex.unlock();
-    song->mutex.unlock();
+    mutex.unlock();
 
     if (song_export)
         song_export->process();

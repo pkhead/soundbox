@@ -76,21 +76,15 @@ void ui::render_fx_mixer(SongEditor &editor)
         // delete requested bus
         if (bus_to_delete)
         {
-            song.mutex.lock();
             song.delete_fx_bus(*bus_to_delete);
-            song.mutex.unlock();
         }
 
         ImGui::Separator();
         if (ImGui::Button("Add", ImVec2(-1.0f, 0.0f)))
         {
-            song.mutex.lock();
-
             auto bus = std::make_unique<audiomod::FXBus>(editor.modctx);
             song.fx_mixer[0]->connect_input(bus->controller);
             song.fx_mixer.push_back(std::move(bus));
-
-            song.mutex.unlock();
         }
     } ImGui::End();
 
@@ -203,8 +197,6 @@ void ui::render_fx_mixer(SongEditor &editor)
             switch (effect_rack_ui(&editor, &fx_bus->rack, &result))
             {
                 case EffectsInterfaceAction::Add: {
-                    song.mutex.lock();
-                    
                     try {
                         auto mod = audiomod::create_module(
                             result.module_id,
@@ -227,7 +219,6 @@ void ui::render_fx_mixer(SongEditor &editor)
                         show_status("Error: %s", err.what());
                     }
 
-                    song.mutex.unlock();
                     break;
                 }
 
@@ -237,8 +228,6 @@ void ui::render_fx_mixer(SongEditor &editor)
 
                 case EffectsInterfaceAction::Delete: {
                     // delete the selected module
-                    song.mutex.lock();
-
                     auto mod = fx_bus->rack.remove(result.target_index);
                     if (mod != nullptr) {
                         // register change
@@ -251,8 +240,7 @@ void ui::render_fx_mixer(SongEditor &editor)
 
                         editor.hide_module_interface(mod);
                     }
-
-                    song.mutex.unlock();
+                    
                     break;
                 }
 

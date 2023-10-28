@@ -75,7 +75,7 @@ void ui::render_song_settings(SongEditor &editor)
             int old_max_patterns = song.max_patterns();
             if (max_patterns != old_max_patterns)
             {
-                editor.push_change(new change::ChangeSongMaxPatterns(old_max_patterns, max_patterns, &song));
+                editor.push_change(new change::ChangeSongMaxPatterns(old_max_patterns, max_patterns, song));
                 song.set_max_patterns(max_patterns);
             }
         }

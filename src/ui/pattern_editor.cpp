@@ -287,9 +287,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                         is_adding_note = true;
                         note_drag_mode = DragMode::Any;
 
-                        song.mutex.lock();
                         selected_note = &selected_pattern->add_note(mouse_cx, key, cursor_note_length);
-                        song.mutex.unlock();
                         
                         note_anchor = mouse_cx;
                         note_start_length = cursor_note_length;
@@ -486,7 +484,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                         editor.push_change(new change::ChangeAddNote(
                             editor.selected_channel,
                             editor.selected_bar,
-                            &song, from_null_pattern, old_max_patterns,
+                            song, from_null_pattern, old_max_patterns,
                             *selected_note
                         ));
                     }

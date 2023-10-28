@@ -131,7 +131,7 @@ void ui::render_channel_settings(SongEditor &editor)
                         editor.song->work_scheduler
                     );
 
-                    mod->module().song = editor.song;
+                    mod->module().song = editor.song.get();
                     mod->module().parent_name = cur_channel->name;
                     cur_channel->set_instrument(mod);
                 } catch (plugins::module_create_error& err) {
@@ -160,11 +160,7 @@ void ui::render_channel_settings(SongEditor &editor)
                     
                     mod->module().parent_name = cur_channel->name;
                     mod->module().song = &song;
-
-                    {
-                        const std::lock_guard<std::mutex> lock(song.mutex);
-                        cur_channel->effects_rack.insert(mod);
-                    }
+                    cur_channel->effects_rack.insert(mod);
 
                     // register change
                     editor.push_change(new change::ChangeAddEffect(
@@ -185,10 +181,8 @@ void ui::render_channel_settings(SongEditor &editor)
 
             case EffectsInterfaceAction::Delete: {
                 // delete the selected module
-                song.mutex.lock();
-
                 auto mod = cur_channel->effects_rack.remove(result.target_index);
-                if (mod != nullptr) {
+                if (mod) {
                     // register change
                     editor.push_change(new change::ChangeRemoveEffect(
                         editor.selected_channel,
@@ -199,8 +193,6 @@ void ui::render_channel_settings(SongEditor &editor)
 
                     editor.hide_module_interface(mod);
                 }
-
-                song.mutex.unlock();
                 break;
             }
 

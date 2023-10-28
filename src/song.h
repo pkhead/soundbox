@@ -52,11 +52,11 @@ class Song;
 
 class Channel {
 private:
-    std::vector<std::unique_ptr<audiomod::FXBus>>& fx_mixer;
+    Song& song;
 
 public:
     Channel(const Channel&) = delete; // prevent copy
-    Channel(int song_length, int max_patterns, Song* song);
+    Channel(int song_length, int max_patterns, Song& song);
     ~Channel();
 
     audiomod::ModuleNodeRc vol_mod;
@@ -138,8 +138,8 @@ public:
 
     std::string project_notes;
 
-    std::vector<std::unique_ptr<Channel>> channels;
     std::vector<std::unique_ptr<audiomod::FXBus>> fx_mixer;
+    std::vector<std::unique_ptr<Channel>> channels;
 
     int beats_per_bar = 8;
     int bar_position = 0;
@@ -209,7 +209,7 @@ public:
     bool load_kbm(const char* file_path, Tuning& tuning, std::string* error);
 
     void serialize(std::ostream& out) const;
-    static Song* from_file(
+    static std::unique_ptr<Song> from_file(
         std::istream& input,
         audiomod::ModuleContext& audio_dest,
         plugins::PluginManager& plugin_manager,

@@ -78,7 +78,7 @@ namespace change
     class ChangeSongMaxPatterns : public Action
     {
     public:
-        ChangeSongMaxPatterns(int old_count, int new_count, Song* song);
+        ChangeSongMaxPatterns(int old_count, int new_count, Song& song);
         int old_count, new_count;
 
         struct TrackSnapshot
@@ -186,7 +186,7 @@ namespace change
     class ChangeAddNote : public Action
     {
     public:
-        ChangeAddNote(int channel_index, int bar, Song* song, bool from_null_pattern, int old_pattern_count, Note note);
+        ChangeAddNote(int channel_index, int bar, Song& song, bool from_null_pattern, int old_pattern_count, Note note);
         int channel_index, bar;
         Note note;
 
@@ -252,7 +252,7 @@ namespace change
             std::vector<int> pattern_indices;
         };
 
-        ChangeRemoveBar(int bar, Song* song);
+        ChangeRemoveBar(int bar, Song& song);
         int bar;
         std::vector<Bar> bars;
 

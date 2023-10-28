@@ -52,7 +52,6 @@ class SongEditor {
 private:
     // this mutex is locked by the audio thread while audio is being processed
     // and is locked by the main thread when a new song is being loaded
-    std::mutex file_mutex;
 
     std::string last_file_path;
     std::string last_file_name;
@@ -71,13 +70,14 @@ private:
 
     std::vector<active_note_t> active_notes;
 public:
-    SongEditor(Song* song, audiomod::ModuleContext& modctx, WindowManager& winmgr);
+    SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowManager& winmgr);
     ~SongEditor();
-    Song* song;
+    std::unique_ptr<Song> song;
     Theme theme;
     UserActionList ui_actions;
-    audiomod::ModuleContext& modctx;
+    audiomod::ModuleContext modctx;
     plugins::PluginManager plugin_manager;
+    std::mutex mutex;
 
     // exporting
     struct ExportConfigData {

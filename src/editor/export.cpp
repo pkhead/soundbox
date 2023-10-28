@@ -9,7 +9,7 @@ SongExport::SongExport(SongEditor& editor, const char* file_name, int sample_rat
     modctx(sample_rate, 2, 64)
 {
     // calculate length of song
-    Song* orig_song = editor.song;
+    std::unique_ptr<Song>& orig_song = editor.song;
 
     int beat_len = orig_song->length() * orig_song->beats_per_bar;
     float sec_len = (float)beat_len * (60.0f / orig_song->tempo);
