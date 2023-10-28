@@ -77,8 +77,10 @@ namespace plugins
         // tell implementation that a control value has changed
         virtual void control_value_change(int index) {};
 
+        audiomod::ModuleContext& modctx;
+
     public:
-        PluginModule(audiomod::DestinationModule& audio_dest, const PluginData& data);
+        PluginModule(audiomod::ModuleContext& modctx, const PluginData& data);
         virtual ~PluginModule() {};
     };
 
@@ -101,9 +103,9 @@ namespace plugins
         
         PluginManager(WindowManager& window_manager);
 
-        PluginModule* instantiate_plugin(
+        audiomod::ModuleNodeRc instantiate_plugin(
             const PluginData& plugin_data,
-            audiomod::DestinationModule& audio_dest,
+            audiomod::ModuleContext& modctx,
             WorkScheduler& work_scheduler
         );
 

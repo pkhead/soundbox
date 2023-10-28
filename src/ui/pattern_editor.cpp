@@ -168,12 +168,12 @@ void ui::render_pattern_editor(SongEditor &editor)
         static Channel* prev_channel = nullptr;
         
         // get data for the currently selected channel
-        Channel* selected_channel = song.channels[editor.selected_channel];
+        Channel* selected_channel = song.channels[editor.selected_channel].get();
         int pattern_id = selected_channel->sequence[editor.selected_bar] - 1;
         Pattern* selected_pattern = nullptr;
 
         if (pattern_id >= 0) {
-            selected_pattern = selected_channel->patterns[selected_channel->sequence[editor.selected_bar] - 1];
+            selected_pattern = selected_channel->patterns[selected_channel->sequence[editor.selected_bar] - 1].get();
         }
 
         Vec2 mouse_pos = Vec2(io.MousePos) - canvas_p0;
@@ -262,7 +262,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                     {
                         int pattern = song.new_pattern(editor.selected_channel);
                         selected_channel->sequence[editor.selected_bar] = pattern + 1;
-                        selected_pattern = selected_channel->patterns[pattern];
+                        selected_pattern = selected_channel->patterns[pattern].get();
                     }
                     
                     mouse_start = mouse_px;
@@ -309,14 +309,14 @@ void ui::render_pattern_editor(SongEditor &editor)
                 if (play_key && song.is_note_playable(played_key)) {
                     // turn off old note
                     audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.audio_dest().time_in_frames();
+                    midi_ev.time = song.mod_ctx().time_in_frames();
                     (audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         played_key,
                         PIANO_KEY_VELOCITY
                     }).write_midi(&midi_ev.msg);
 
-                    selected_channel->synth_mod->queue_event(midi_ev);
+                    selected_channel->synth_mod->module().queue_event(midi_ev);
                 }
 
                 play_key = true;
@@ -325,14 +325,14 @@ void ui::render_pattern_editor(SongEditor &editor)
 
                 if (song.is_note_playable(key)) {
                     audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.audio_dest().time_in_frames();
+                    midi_ev.time = song.mod_ctx().time_in_frames();
                     (audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOn,
                         key,
                         PIANO_KEY_VELOCITY
                     }).write_midi(&midi_ev.msg);
 
-                    selected_channel->synth_mod->queue_event(midi_ev);
+                    selected_channel->synth_mod->module().queue_event(midi_ev);
                 }
             }
         }
@@ -348,7 +348,7 @@ void ui::render_pattern_editor(SongEditor &editor)
             } else if (play_key) {
                 if (prev_mouse_cy != mouse_cy) {
                     audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.audio_dest().time_in_frames();
+                    midi_ev.time = song.mod_ctx().time_in_frames();
 
                     // turn off old note
                     if (song.is_note_playable(played_key)) {
@@ -358,7 +358,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                             PIANO_KEY_VELOCITY
                         }).write_midi(&midi_ev.msg);
 
-                        selected_channel->synth_mod->queue_event(midi_ev);
+                        selected_channel->synth_mod->module().queue_event(midi_ev);
 
                         // turn on new note
                         played_key = scroll - mouse_cy;
@@ -368,7 +368,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                             PIANO_KEY_VELOCITY
                         }).write_midi(&midi_ev.msg);
 
-                        selected_channel->synth_mod->queue_event(midi_ev);
+                        selected_channel->synth_mod->module().queue_event(midi_ev);
                     }
                 }
             }
@@ -443,7 +443,7 @@ void ui::render_pattern_editor(SongEditor &editor)
         if (selected_channel != prev_channel) {
             if (prev_channel != nullptr && play_key) {
                 audiomod::MidiEvent midi_ev;
-                midi_ev.time = song.audio_dest().time_in_frames();
+                midi_ev.time = song.mod_ctx().time_in_frames();
 
                 if (song.is_note_playable(played_key)) {
                     (audiomod::NoteEvent {
@@ -452,7 +452,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                         PIANO_KEY_VELOCITY
                     }).write_midi(&midi_ev.msg);
 
-                    prev_channel->synth_mod->queue_event(midi_ev);
+                    prev_channel->synth_mod->module().queue_event(midi_ev);
                 }
 
                 play_key = false;
@@ -512,7 +512,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                 // turn off old note
                 if (song.is_note_playable(played_key)) {
                     audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.audio_dest().time_in_frames();
+                    midi_ev.time = song.mod_ctx().time_in_frames();
 
                     (audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
@@ -520,7 +520,7 @@ void ui::render_pattern_editor(SongEditor &editor)
                         PIANO_KEY_VELOCITY
                     }).write_midi(&midi_ev.msg);
 
-                    selected_channel->synth_mod->queue_event(midi_ev);
+                    selected_channel->synth_mod->module().queue_event(midi_ev);
                 }
 
                 play_key = false;
@@ -620,12 +620,12 @@ void ui::render_pattern_editor(SongEditor &editor)
             {
                 // don't redraw selected pattern
                 if (ch_i == editor.selected_channel) continue;
-                Channel* channel = song.channels[ch_i];
+                auto& channel = song.channels[ch_i];
 
                 // get pattern
                 int p_id = channel->sequence[editor.selected_bar];
                 if (p_id == 0) continue; // don't draw null pattern
-                Pattern* pattern = channel->patterns[p_id - 1];
+                auto& pattern = channel->patterns[p_id - 1];
 
                 // draw notes in pattern
                 for (Note& note : pattern->notes)

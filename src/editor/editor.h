@@ -71,12 +71,12 @@ private:
 
     std::vector<active_note_t> active_notes;
 public:
-    SongEditor(Song* song, audiomod::DestinationModule& audio_dest, WindowManager& winmgr);
+    SongEditor(Song* song, audiomod::ModuleContext& modctx, WindowManager& winmgr);
     ~SongEditor();
     Song* song;
     Theme theme;
     UserActionList ui_actions;
-    audiomod::DestinationModule& audio_dest;
+    audiomod::ModuleContext& modctx;
     plugins::PluginManager plugin_manager;
 
     // exporting
@@ -114,8 +114,7 @@ public:
     bool show_plugin_list = false;
     bool show_dir_window = false;
 
-    std::vector<audiomod::ModuleBase*> mod_interfaces;
-    std::vector<audiomod::FXBus*> fx_interfaces;
+    std::vector<audiomod::ModuleNodeRc> mod_interfaces;
 
     void begin_export();
     void stop_export();
@@ -142,9 +141,9 @@ public:
     change::Stack redo_stack;
 
     void remove_channel(int channel_index);
-    void delete_fx_bus(audiomod::FXBus* bus_to_delete);
-    void toggle_module_interface(audiomod::ModuleBase* mod);
-    void hide_module_interface(audiomod::ModuleBase* mod);
+    void delete_fx_bus(std::unique_ptr<audiomod::FXBus>& bus_to_delete);
+    void toggle_module_interface(audiomod::ModuleNodeRc& mod);
+    void hide_module_interface(audiomod::ModuleNodeRc& mod);
 };
 
 class SongExport
@@ -155,7 +154,7 @@ private:
     bool is_done;
     std::unique_ptr<Song> song; // a copy of the current song for the export process
     SongEditor& editor;
-    audiomod::DestinationModule destination;
+    audiomod::ModuleContext modctx;
     size_t total_frames;
     std::ofstream out_file;
     std::unique_ptr<audiofile::WavWriter> writer;

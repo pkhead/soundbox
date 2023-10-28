@@ -42,7 +42,7 @@ namespace plugins
         std::vector<ControlOutput*> ctl_out;
     
     public:
-        LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& data);
+        LadspaPlugin(audiomod::ModuleContext& modctx, const PluginData& data);
         ~LadspaPlugin();
 
         virtual PluginType plugin_type() { return PluginType::Ladspa; };

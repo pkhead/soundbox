@@ -6,7 +6,7 @@ SongExport::SongExport(SongEditor& editor, const char* file_name, int sample_rat
     is_done(false),
     total_frames(0),
     _step(0),
-    destination(sample_rate, 2, 64)
+    modctx(sample_rate, 2, 64)
 {
     // calculate length of song
     Song* orig_song = editor.song;
@@ -21,7 +21,7 @@ SongExport::SongExport(SongEditor& editor, const char* file_name, int sample_rat
     orig_song->serialize(song_serialized);
     song = std::unique_ptr<Song>(Song::from_file(
         song_serialized,
-        destination, 
+        modctx, 
         editor.plugin_manager,
         nullptr
     ));
@@ -44,8 +44,8 @@ SongExport::SongExport(SongEditor& editor, const char* file_name, int sample_rat
     writer = std::make_unique<audiofile::WavWriter>(
         out_file,
         total_frames,
-        destination.channel_count,
-        destination.sample_rate
+        modctx.num_channels,
+        modctx.sample_rate
     );
 
     // set up song for exporting
@@ -55,7 +55,7 @@ SongExport::SongExport(SongEditor& editor, const char* file_name, int sample_rat
     song->is_playing = true;
     song->do_loop = false;
     song->play();
-    destination.prepare();
+    //destination.prepare();
 }
 
 void SongExport::process()
@@ -63,10 +63,10 @@ void SongExport::process()
     if (is_done) return;
 
     while (song->is_playing) {
-        song->update(1.0 / destination.sample_rate * destination.frames_per_buffer);
+        song->update(1.0 / modctx.sample_rate * modctx.frames_per_buffer);
 
         float* buf;
-        size_t buf_size = destination.process(&buf);
+        size_t buf_size = modctx.process(buf);
         song->work_scheduler.run();
 
         writer->write_block(buf, buf_size);
@@ -84,7 +84,7 @@ void SongExport::process()
         is_done = true;
         out_file.close();
         song = nullptr;
-        audiomod::ModuleBase::free_garbage_modules();
+        //audiomod::ModuleBase::free_garbage_modules();
     }
 }
 

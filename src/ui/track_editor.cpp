@@ -182,14 +182,15 @@ void ui::render_track_editor(SongEditor& editor)
                 0.0f)
             );
 
-            Channel* ch_dat = song.channels[ch];
-            bool enable_mute = ch_dat->vol_mod.mute;
+            auto& ch_dat = song.channels[ch];
+            auto& vol_mod = ch_dat->vol_mod->module<audiomod::VolumeModule>();
+            bool enable_mute = vol_mod.mute;
             bool enable_solo = ch_dat->solo;
 
             // mute button
             push_btn_disabled(style, !enable_mute);
             if (ImGui::SmallButton("M")) {
-                ch_dat->vol_mod.mute = !enable_mute;
+                vol_mod.mute = !enable_mute;
             }
 
             pop_btn_disabled();

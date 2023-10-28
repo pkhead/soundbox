@@ -8,7 +8,7 @@ void ui::render_channel_settings(SongEditor &editor)
     Song& song = *editor.song;
     static char char_buf[64];
     
-    Channel* cur_channel = song.channels[editor.selected_channel];
+    auto& cur_channel = song.channels[editor.selected_channel];
 
     if (ImGui::Begin("Channel Settings")) {
         // channel name
@@ -18,14 +18,16 @@ void ui::render_channel_settings(SongEditor &editor)
         ImGui::SameLine();
         ImGui::InputText("##channel_name", cur_channel->name, 16);
 
+        auto& vol_mod = cur_channel->vol_mod->module<audiomod::VolumeModule>();
+
         // volume slider
         {
-            float volume = cur_channel->vol_mod.volume * 100.0f;
+            float volume = vol_mod.volume * 100.0f;
             ImGui::AlignTextToFramePadding();
             ImGui::Text("Volume");
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_volume", &volume, 0.0f, 100.0f, "%.0f");
-            cur_channel->vol_mod.volume = volume / 100.0f;
+            vol_mod.volume = volume / 100.0f;
 
             // change detection
             {
@@ -33,7 +35,7 @@ void ui::render_channel_settings(SongEditor &editor)
                 snprintf(char_buf, 64, "chvol%i", editor.selected_channel);
 
                 float prev, cur;
-                cur = cur_channel->vol_mod.volume;
+                cur = vol_mod.volume;
                 if (change_detection(editor, cur, &prev, ImGui::GetID(char_buf))) {
                     editor.push_change(new change::ChangeChannelVolume(editor.selected_channel, prev, cur));
                 }
@@ -45,7 +47,7 @@ void ui::render_channel_settings(SongEditor &editor)
             ImGui::AlignTextToFramePadding();
             ImGui::Text("Panning");
             ImGui::SameLine();
-            ImGui::SliderFloat("##channel_panning", &cur_channel->vol_mod.panning, -1, 1, "%.2f");
+            ImGui::SliderFloat("##channel_panning", &vol_mod.panning, -1, 1, "%.2f");
             
             // change detection
             {
@@ -53,7 +55,7 @@ void ui::render_channel_settings(SongEditor &editor)
                 snprintf(char_buf, 64, "chpan%i", editor.selected_channel);
 
                 float prev, cur;
-                cur = cur_channel->vol_mod.panning;
+                cur = vol_mod.panning;
                 if (change_detection(editor, cur, &prev, ImGui::GetID(char_buf))) {
                     editor.push_change(new change::ChangeChannelPanning(editor.selected_channel, prev, cur));
                 }
@@ -67,7 +69,7 @@ void ui::render_channel_settings(SongEditor &editor)
             ImGui::SameLine();
 
             // write preview value
-            audiomod::FXBus* cur_fx_bus = song.fx_mixer[cur_channel->fx_target_idx];
+            auto& cur_fx_bus = song.fx_mixer[cur_channel->fx_target_idx];
             snprintf(char_buf, 64, "%i - %s", cur_channel->fx_target_idx, cur_fx_bus->name);
 
             if (ImGui::BeginCombo("##channel_fx_target", char_buf))
@@ -75,7 +77,7 @@ void ui::render_channel_settings(SongEditor &editor)
                 // list potential targets
                 for (size_t target_i = 0; target_i < song.fx_mixer.size(); target_i++)
                 {
-                    audiomod::FXBus* target_bus = song.fx_mixer[target_i];
+                    auto& target_bus = song.fx_mixer[target_i];
 
                     // write target bus name
                     snprintf(char_buf, 64, "%lu - %s", target_i, target_bus->name);
@@ -108,7 +110,7 @@ void ui::render_channel_settings(SongEditor &editor)
         ImGui::NewLine();
 
         // load instrument
-        ImGui::Text("Instrument: %s", cur_channel->synth_mod->name.c_str());
+        ImGui::Text("Instrument: %s", cur_channel->synth_mod->module().name.c_str());
         if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
         {
             ImGui::OpenPopup("load_instrument");
@@ -122,15 +124,15 @@ void ui::render_channel_settings(SongEditor &editor)
             if (mod_id)
             {
                 try {
-                    audiomod::ModuleBase* mod = audiomod::create_module(
+                    auto mod = audiomod::create_module(
                         mod_id,
-                        editor.audio_dest,
+                        editor.modctx,
                         editor.plugin_manager,
                         editor.song->work_scheduler
                     );
 
-                    mod->song = editor.song;
-                    mod->parent_name = cur_channel->name;
+                    mod->module().song = editor.song;
+                    mod->module().parent_name = cur_channel->name;
                     cur_channel->set_instrument(mod);
                 } catch (plugins::module_create_error& err) {
                     show_status("Error: %s", err.what());
@@ -149,15 +151,15 @@ void ui::render_channel_settings(SongEditor &editor)
         {
             case EffectsInterfaceAction::Add: {
                 try {
-                    audiomod::ModuleBase* mod = audiomod::create_module(
+                    auto mod = audiomod::create_module(
                         result.module_id,
-                        editor.audio_dest,
+                        editor.modctx,
                         editor.plugin_manager,
                         editor.song->work_scheduler
                     );
                     
-                    mod->parent_name = cur_channel->name;
-                    mod->song = &song;
+                    mod->module().parent_name = cur_channel->name;
+                    mod->module().song = &song;
 
                     {
                         const std::lock_guard<std::mutex> lock(song.mutex);
@@ -185,18 +187,17 @@ void ui::render_channel_settings(SongEditor &editor)
                 // delete the selected module
                 song.mutex.lock();
 
-                audiomod::ModuleBase* mod = cur_channel->effects_rack.remove(result.target_index);
+                auto mod = cur_channel->effects_rack.remove(result.target_index);
                 if (mod != nullptr) {
                     // register change
                     editor.push_change(new change::ChangeRemoveEffect(
                         editor.selected_channel,
                         change::FXRackTargetType::TargetChannel,
                         result.target_index,
-                        mod
+                        mod->module()
                     ));
 
                     editor.hide_module_interface(mod);
-                    mod->release();
                 }
 
                 song.mutex.unlock();

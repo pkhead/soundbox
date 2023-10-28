@@ -118,8 +118,8 @@ const char* UserActionList::combo_str(const std::string& action_name) const {
 // SongEditor singleton //
 //////////////////////////
 
-SongEditor::SongEditor(Song* _song, audiomod::DestinationModule& _audio_dest, WindowManager& _win_mgr) :
-    song(_song), audio_dest(_audio_dest), plugin_manager(_win_mgr)
+SongEditor::SongEditor(Song* _song, audiomod::ModuleContext& _modctx, WindowManager& _win_mgr) :
+    song(_song), modctx(_modctx), plugin_manager(_win_mgr)
 {
     const char* theme_name = "Soundbox Dark";
 
@@ -146,10 +146,10 @@ SongEditor::SongEditor(Song* _song, audiomod::DestinationModule& _audio_dest, Wi
             last_file_name.clear();
             
             file_mutex.lock();
-            audio_dest.reset();
+            //modctx.reset();
 
             Song* old_song = song;
-            song = new Song(4, 8, 8, audio_dest);
+            song = new Song(4, 8, 8, modctx);
             reset();
             ui::ui_init(*this);
             delete old_song;
@@ -181,11 +181,11 @@ SongEditor::SongEditor(Song* _song, audiomod::DestinationModule& _audio_dest, Wi
                 file_mutex.lock();
 
                 std::string error_msg = "unknown error";
-                Song* new_song = Song::from_file(file, audio_dest, plugin_manager, &error_msg);
+                Song* new_song = Song::from_file(file, modctx, plugin_manager, &error_msg);
                 file.close();
 
                 if (new_song != nullptr) {
-                    audio_dest.reset();
+                    //audio_dest.reset();
 
                     Song* old_song = song;
                     song = new_song;
@@ -369,7 +369,6 @@ void SongEditor::reset()
     redo_stack.clear();
     ui_values.clear();
     mod_interfaces.clear();
-    fx_interfaces.clear();
     active_notes.clear();
     selected_channel = 0;
     selected_bar = 0;
@@ -395,19 +394,19 @@ bool SongEditor::redo()
     return true;
 }
 
-void SongEditor::hide_module_interface(audiomod::ModuleBase* mod) {
+void SongEditor::hide_module_interface(audiomod::ModuleNodeRc& mod) {
     for (auto it = mod_interfaces.begin(); it != mod_interfaces.end(); it++) {
         if (*it == mod) {
-            mod->hide_interface();
+            mod->module().hide_interface();
             mod_interfaces.erase(it);
             break;
         }
     }
 }
 
-void SongEditor::toggle_module_interface(audiomod::ModuleBase* mod) {
+void SongEditor::toggle_module_interface(audiomod::ModuleNodeRc& mod) {
     // if want to show interface, add module to interfaces list
-    if (!mod->interface_shown() && mod->show_interface()) {
+    if (!mod->module().interface_shown() && mod->module().show_interface()) {
         mod_interfaces.push_back(mod);
 
     // if want to hide interface, remove module from interfaces list
@@ -416,25 +415,18 @@ void SongEditor::toggle_module_interface(audiomod::ModuleBase* mod) {
     }
 }
 
-void SongEditor::delete_fx_bus(audiomod::FXBus* bus_to_delete)
+void SongEditor::delete_fx_bus(std::unique_ptr<audiomod::FXBus>& bus_to_delete)
 {
-    // remove interface
     bus_to_delete->interface_open = false;
-    for (auto it = fx_interfaces.begin(); it != fx_interfaces.end(); it++)
-        if (*it == bus_to_delete) {
-            fx_interfaces.erase(it);
-            break;
-        }
-
     song->delete_fx_bus(bus_to_delete);
 }
 
 void SongEditor::remove_channel(int channel_index)
 {
-    Channel* channel = song->channels[channel_index];
+    auto& channel = song->channels[channel_index];
 
     // remove interfaces
-    for (audiomod::ModuleBase* mod : channel->effects_rack.modules)
+    for (auto& mod : channel->effects_rack.modules)
     {
         hide_module_interface(mod);
     }
@@ -447,16 +439,16 @@ void SongEditor::play_note(int channel, int key, float volume, float secs_len)
     if (song->is_note_playable(key))
     {
         audiomod::MidiEvent midi_ev;
-        midi_ev.time = song->audio_dest().time_in_frames();
+        midi_ev.time = modctx.time_in_frames();
         (audiomod::NoteEvent {
             audiomod::NoteEventKind::NoteOn,
             key,
             volume
         }).write_midi(&midi_ev.msg);
-        song->channels[channel]->synth_mod->queue_event(midi_ev);
+        song->channels[channel]->synth_mod->module().queue_event(midi_ev);
 
         active_notes.push_back({
-            key, volume, channel, (int)(audio_dest.sample_rate * secs_len)
+            key, volume, channel, (int)(modctx.sample_rate * secs_len)
         });
     }
 }
@@ -610,7 +602,7 @@ void SongEditor::process(AudioDevice& device)
     file_mutex.lock();
     song->mutex.lock();
 
-    audio_dest.prepare();
+    //modctx.prepare();
 
     bool song_playing = song->is_playing;
     if (song_playing != last_playing) {
@@ -625,11 +617,11 @@ void SongEditor::process(AudioDevice& device)
     while (device.samples_queued() < device.sample_rate() * 0.05)
     {
         float* buf;
-        if (song_playing) song->update((double)audio_dest.frames_per_buffer / device.sample_rate());
-        size_t buf_size = audio_dest.process(&buf);
+        if (song_playing) song->update((double)modctx.frames_per_buffer / device.sample_rate());
+        size_t buf_size = modctx.process(buf);
         device.queue(buf, buf_size);
 
-        frames_passed += audio_dest.frames_per_buffer;
+        frames_passed += modctx.frames_per_buffer;
     }
 
     // cursor follow playhead (if user enabled this feature)
@@ -649,14 +641,14 @@ void SongEditor::process(AudioDevice& device)
             if (active_note.channel < song->channels.size())
             {
                 audiomod::MidiEvent midi_ev;
-                midi_ev.time = song->audio_dest().time_in_frames();
+                midi_ev.time = modctx.time_in_frames();
                 (audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
                     active_note.key,
                     active_note.volume
                 }).write_midi(&midi_ev.msg);
 
-                song->channels[active_note.channel]->synth_mod->queue_event(midi_ev);
+                song->channels[active_note.channel]->synth_mod->module().queue_event(midi_ev);
             }
 
             active_notes.erase(active_notes.begin() + i);

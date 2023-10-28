@@ -61,24 +61,24 @@ struct file {
 }
 */
 
-static void save_module(std::ostream& out, audiomod::ModuleBase* mod)
+static void save_module(std::ostream& out, audiomod::ModuleBase& mod)
 {
     std::stringstream stream;
 
     // store module type
-    push_bytes(out, (uint8_t) strlen(mod->id));
-    out << mod->id;
+    push_bytes(out, (uint8_t) strlen(mod.id));
+    out << mod.id;
 
     // store module state
-    mod->save_state(stream);
+    mod.save_state(stream);
     size_t state_size = stream.tellp();
     push_bytes<uint64_t>(out, state_size);
     if (state_size > 0) out << stream.rdbuf();
 }
 
-static audiomod::ModuleBase* load_module(
+static audiomod::ModuleNodeRc load_module(
     std::istream& input,
-    audiomod::DestinationModule& audio_dest,
+    audiomod::ModuleContext& modctx,
     plugins::PluginManager& plugin_manager,
     WorkScheduler& work_scheduler,
     std::string* error_msg
@@ -91,7 +91,7 @@ static audiomod::ModuleBase* load_module(
     inst_id[id_size] = 0;
 
     // load module based off id
-    audiomod::ModuleBase* mod = audiomod::create_module(inst_id, audio_dest, plugin_manager, work_scheduler);
+    audiomod::ModuleNodeRc mod = audiomod::create_module(inst_id, modctx, plugin_manager, work_scheduler);
     if (mod == nullptr) {
         if (error_msg != nullptr) *error_msg = "unknown module type " + std::string(inst_id);
         delete[] inst_id;
@@ -103,7 +103,7 @@ static audiomod::ModuleBase* load_module(
     pull_bytes(input, mod_state_size);
 
     if (mod_state_size > 0)
-        mod->load_state(input, mod_state_size);
+        mod->module().load_state(input, mod_state_size);
 
     delete[] inst_id;
     return mod;
@@ -180,7 +180,7 @@ void Song::serialize(std::ostream& out) const {
 
     // v4: fx mixer
     push_bytes(out, (uint16_t) fx_mixer.size());
-    for (audiomod::FXBus* bus : fx_mixer)
+    for (auto& bus : fx_mixer)
     {
         // write bus name
         push_bytes(out, (uint8_t) strlen(bus->name));
@@ -188,7 +188,7 @@ void Song::serialize(std::ostream& out) const {
 
         // write mute/solo
         uint8_t fx_state = 0;
-        if (bus->controller.mute)   fx_state |= 1;
+        if (dynamic_cast<audiomod::FXBus::FaderModule&>(bus->controller->module()).mute)   fx_state |= 1;
         if (bus->solo)              fx_state |= 2;
         push_bytes(out, (uint8_t) fx_state);
 
@@ -198,21 +198,22 @@ void Song::serialize(std::ostream& out) const {
 
         // write effects
         push_bytes(out, (uint8_t) bus->get_modules().size());
-        for (audiomod::ModuleBase* mod : bus->get_modules())
-            save_module(out, mod);
+        for (audiomod::ModuleNodeRc& mod : bus->get_modules())
+            save_module(out, mod->module());
     }
 
     // write the channel data
-    for (Channel* channel : channels) {
+    for (auto& channel : channels) {
         push_bytes(out, (uint8_t) strlen(channel->name));
         out << channel->name;
 
-        push_bytes(out, (float) channel->vol_mod.volume);
-        push_bytes(out, (float) channel->vol_mod.panning);
+        audiomod::VolumeModule& vol_mod = channel->vol_mod->module<audiomod::VolumeModule>();
+        push_bytes(out, (float) vol_mod.volume);
+        push_bytes(out, (float) vol_mod.panning);
 
         // write channel flags (mute, solo)
         uint8_t channel_flags = 0;
-        if (channel->vol_mod.mute)  channel_flags |= 1;
+        if (vol_mod.mute)  channel_flags |= 1;
         if (channel->solo)          channel_flags |= 2;
 
         push_bytes(out, (uint8_t) channel_flags);
@@ -221,13 +222,13 @@ void Song::serialize(std::ostream& out) const {
         push_bytes(out, (uint16_t) channel->fx_target_idx);
 
         // save channel instrument
-        save_module(out, channel->synth_mod);
+        save_module(out, channel->synth_mod->module());
         
         // v4: store effects
         push_bytes(out, (uint8_t) channel->effects_rack.modules.size());
 
-        for (audiomod::ModuleBase* mod : channel->effects_rack.modules)
-            save_module(out, mod);
+        for (audiomod::ModuleNodeRc& mod : channel->effects_rack.modules)
+            save_module(out, mod->module());
 
         // write channel sequence
         for (int& id : channel->sequence) {
@@ -235,7 +236,7 @@ void Song::serialize(std::ostream& out) const {
         }
 
         // write pattern data
-        for (Pattern* pattern : channel->patterns) {
+        for (auto& pattern : channel->patterns) {
             push_bytes(out, (uint32_t) pattern->notes.size());
 
             for (Note& note : pattern->notes) {
@@ -249,7 +250,7 @@ void Song::serialize(std::ostream& out) const {
 
 Song* Song::from_file(
     std::istream& input,
-    audiomod::DestinationModule& audio_dest,
+    audiomod::ModuleContext& modctx,
     plugins::PluginManager& plugin_manager,
     std::string* error_msg
 ) {
@@ -299,7 +300,7 @@ Song* Song::from_file(
     pull_bytes(input, tempo);
 
     // create song
-    Song* song = new Song(num_channels, length, max_patterns, audio_dest);
+    Song* song = new Song(num_channels, length, max_patterns, modctx);
     strncpy(song->name, song_name, song->name_capcity);
     song->project_notes = project_notes;
     song->name[song_name_size] = 0;
@@ -413,10 +414,10 @@ Song* Song::from_file(
             audiomod::FXBus* bus;
             
             if (i == 0)
-                bus = song->fx_mixer[0];
+                bus = song->fx_mixer[0].get();
             else {
-                bus = new audiomod::FXBus(audio_dest);
-                song->fx_mixer.push_back(bus);
+                bus = new audiomod::FXBus(modctx);
+                song->fx_mixer.push_back(std::unique_ptr<audiomod::FXBus>(bus));
             }
 
             // get bus name
@@ -434,7 +435,7 @@ Song* Song::from_file(
             uint8_t flags;
             pull_bytes(input, flags);
 
-            if ((flags & 1) == 1) bus->controller.mute = true; // mute
+            if ((flags & 1) == 1) dynamic_cast<audiomod::FXBus::FaderModule&>(bus->controller->module()).mute = true; // mute
             if ((flags & 2) == 2) bus->solo = true;            // solo
 
             // get output bus
@@ -452,29 +453,29 @@ Song* Song::from_file(
             for (uint8_t j = 0; j < mod_count; j++)
             {
                 // read mod type
-                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, work_scheduler, error_msg);
+                audiomod::ModuleNodeRc mod = load_module(input, modctx, plugin_manager, work_scheduler, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;
                 }
 
-                mod->song = song;
-                mod->parent_name = bus->name;
+                mod->module().song = song;
+                mod->module().parent_name = bus->name;
                 bus->insert(mod);
             }
         }
 
         // connect the fx buses
-        for (audiomod::FXBus* bus : song->fx_mixer)
+        for (auto& bus : song->fx_mixer)
         {
             if (bus == song->fx_mixer.front()) continue;
-            song->fx_mixer[bus->target_bus]->connect_input(&bus->controller);
+            song->fx_mixer[bus->target_bus]->connect_input(bus->controller);
         }
     }
 
     // retrive channel data
     for (uint32_t channel_i = 0; channel_i < num_channels; channel_i++) {
-        Channel* channel = song->channels[channel_i];
+        auto& channel = song->channels[channel_i];
 
         // channel name
         uint8_t channel_name_size;
@@ -489,15 +490,16 @@ Song* Song::from_file(
         pull_bytes(input, volume);
         pull_bytes(input, panning);
 
-        channel->vol_mod.volume = volume;
-        channel->vol_mod.panning = panning;
+        audiomod::VolumeModule& vol_mod = channel->vol_mod->module<audiomod::VolumeModule>();
+        vol_mod.volume = volume;
+        vol_mod.panning = panning;
 
         // mute/solo flags
         {
             uint8_t channel_flags;
             pull_bytes(input, channel_flags);
 
-            channel->vol_mod.mute = (channel_flags & 1) == 1;
+            vol_mod.mute =          (channel_flags & 1) == 1;
             channel->solo =         (channel_flags & 2) == 2;
         }
 
@@ -510,14 +512,14 @@ Song* Song::from_file(
 
         // instrument data
         {
-            audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, work_scheduler, error_msg);
+            auto mod = load_module(input, modctx, plugin_manager, work_scheduler, error_msg);
             if (mod == nullptr) {
                 delete song;
                 return nullptr;
             }
 
-            mod->song = song;
-            mod->parent_name = channel->name;
+            mod->module().song = song;
+            mod->module().parent_name = channel->name;
             channel->set_instrument(mod);
         }
 
@@ -528,20 +530,20 @@ Song* Song::from_file(
 
             for (uint8_t modi = 0; modi < num_mods; modi++)
             {
-                audiomod::ModuleBase* mod = load_module(input, audio_dest, plugin_manager, work_scheduler, error_msg);
+                audiomod::ModuleNodeRc mod = load_module(input, modctx, plugin_manager, work_scheduler, error_msg);
                 if (mod == nullptr) {
                     delete song;
                     return nullptr;
                 }
 
-                mod->song = song;
-                mod->parent_name = channel->name;
+                mod->module().song = song;
+                mod->module().parent_name = channel->name;
                 channel->effects_rack.insert(mod);
             }
 
             // connect channel to target fx bus
-            song->fx_mixer.front()->disconnect_input(&channel->vol_mod);
-            song->fx_mixer[channel->fx_target_idx]->connect_input(&channel->vol_mod);
+            song->fx_mixer.front()->disconnect_input(channel->vol_mod);
+            song->fx_mixer[channel->fx_target_idx]->connect_input(channel->vol_mod);
         }
 
         // get sequence

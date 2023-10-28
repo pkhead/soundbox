@@ -15,7 +15,7 @@
 #include "audio.h"
 #include "plugins.h"
 #include <imgui.h>
-#include "modules/volume.h"
+#include "modules/modules.h"
 #include "worker.h"
 
 struct Note {
@@ -52,15 +52,15 @@ class Song;
 
 class Channel {
 private:
-    std::vector<audiomod::FXBus*>& fx_mixer;
+    std::vector<std::unique_ptr<audiomod::FXBus>>& fx_mixer;
 
 public:
     Channel(const Channel&) = delete; // prevent copy
     Channel(int song_length, int max_patterns, Song* song);
     ~Channel();
 
-    audiomod::VolumeModule vol_mod;
-    audiomod::ModuleBase* synth_mod;
+    audiomod::ModuleNodeRc vol_mod;
+    audiomod::ModuleNodeRc synth_mod;
     audiomod::EffectsRack effects_rack;
 
     int fx_target_idx = 0;
@@ -68,10 +68,10 @@ public:
 
     char name[16];
     std::vector<int> sequence;
-    std::vector<Pattern*> patterns;
+    std::vector<std::unique_ptr<Pattern>> patterns;
     
     int first_empty_pattern() const;
-    void set_instrument(audiomod::ModuleBase* new_instrument);
+    void set_instrument(audiomod::ModuleNodeRc new_instrument);
     void set_fx_target(int fx_index);
 };
 
@@ -122,13 +122,12 @@ private:
 
     std::vector<NoteData> prev_notes;
     std::vector<NoteData> cur_notes;
-    audiomod::DestinationModule& audio_out;
+    audiomod::ModuleContext& modctx;
 
 public:
     Song(const Song&) = delete; // disable copy
-    Song(int num_channels, int length, int max_patterns, audiomod::DestinationModule& audio_out);
-    ~Song();
-
+    Song(int num_channels, int length, int max_patterns, audiomod::ModuleContext& modctx);
+    
     std::mutex mutex;
 
     // scheduler for work to be done by modules
@@ -139,9 +138,8 @@ public:
 
     std::string project_notes;
 
-    std::vector<Channel*> channels;
-
-    std::vector<audiomod::FXBus*> fx_mixer;
+    std::vector<std::unique_ptr<Channel>> channels;
+    std::vector<std::unique_ptr<audiomod::FXBus>> fx_mixer;
 
     int beats_per_bar = 8;
     int bar_position = 0;
@@ -155,8 +153,8 @@ public:
     std::vector<Tuning*> tunings;
     int selected_tuning = 0;
 
-    inline audiomod::DestinationModule& audio_dest() const {
-        return audio_out;
+    inline audiomod::ModuleContext& mod_ctx() const {
+        return modctx;
     };
     
     int length() const;
@@ -171,10 +169,10 @@ public:
     void set_bar_patterns(int bar_position, int* array, size_t size);
     void set_bar_patterns(int bar_position, std::vector<int> patterns);
 
-    Channel* insert_channel(int channel_index);
+    std::unique_ptr<Channel>& insert_channel(int channel_index);
     void remove_channel(int channel_index);
 
-    void delete_fx_bus(audiomod::FXBus* bus_to_delete);
+    void delete_fx_bus(std::unique_ptr<audiomod::FXBus>& bus_to_delete);
 
     bool is_note_playable(int key) const;
     bool get_key_frequency(int key, float* freq) const;
@@ -213,7 +211,7 @@ public:
     void serialize(std::ostream& out) const;
     static Song* from_file(
         std::istream& input,
-        audiomod::DestinationModule& audio_dest,
+        audiomod::ModuleContext& audio_dest,
         plugins::PluginManager& plugin_manager,
         std::string *error_msg
     );

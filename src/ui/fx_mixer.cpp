@@ -16,9 +16,9 @@ void ui::render_fx_mixer(SongEditor &editor)
         float mute_btn_size = ImGui::CalcTextSize("M").x + style.FramePadding.x * 2.0f;
         float solo_btn_size = ImGui::CalcTextSize("S").x + style.FramePadding.x * 2.0f;
 
-        audiomod::FXBus* bus_to_delete = nullptr;
+        std::unique_ptr<audiomod::FXBus>* bus_to_delete = nullptr;
 
-        for (audiomod::FXBus* bus : song.fx_mixer)
+        for (auto& bus : song.fx_mixer)
         {
             ImGui::PushID(i);
 
@@ -38,17 +38,19 @@ void ui::render_fx_mixer(SongEditor &editor)
             if (i != 0 && ImGui::BeginPopupContextItem())
             {
                 if (ImGui::Selectable("Remove", false))
-                    bus_to_delete = bus;
+                    bus_to_delete = &bus;
 
                 ImGui::EndPopup();
             }
 
+            auto& bus_controller = bus->controller->module<audiomod::FXBus::FaderModule>();
+
             // mute button
-            push_btn_disabled(style, !bus->controller.mute);
+            push_btn_disabled(style, !bus_controller.mute);
             ImGui::SameLine();
             if (ImGui::SmallButton("M"))
             {
-                bus->controller.mute = !bus->controller.mute;
+                bus_controller.mute = !bus_controller.mute;
             }
             pop_btn_disabled();
 
@@ -62,9 +64,9 @@ void ui::render_fx_mixer(SongEditor &editor)
             pop_btn_disabled();
 
             // left channel
-            ImGui::ProgressBar(bus->controller.analysis_volume[0], Vec2(-1.0f, 1.0f), "");
+            ImGui::ProgressBar(bus_controller.analysis_volume[0], Vec2(-1.0f, 1.0f), "");
             // right channel
-            ImGui::ProgressBar(bus->controller.analysis_volume[1], Vec2(-1.0f, 1.0f), "");
+            ImGui::ProgressBar(bus_controller.analysis_volume[1], Vec2(-1.0f, 1.0f), "");
 
             ImGui::PopID();
             
@@ -75,7 +77,7 @@ void ui::render_fx_mixer(SongEditor &editor)
         if (bus_to_delete)
         {
             song.mutex.lock();
-            song.delete_fx_bus(bus_to_delete);
+            song.delete_fx_bus(*bus_to_delete);
             song.mutex.unlock();
         }
 
@@ -84,9 +86,9 @@ void ui::render_fx_mixer(SongEditor &editor)
         {
             song.mutex.lock();
 
-            audiomod::FXBus* bus = new audiomod::FXBus(editor.audio_dest);
-            song.fx_mixer[0]->connect_input(&bus->controller);
-            song.fx_mixer.push_back(bus);
+            auto bus = std::make_unique<audiomod::FXBus>(editor.modctx);
+            song.fx_mixer[0]->connect_input(bus->controller);
+            song.fx_mixer.push_back(std::move(bus));
 
             song.mutex.unlock();
         }
@@ -95,9 +97,9 @@ void ui::render_fx_mixer(SongEditor &editor)
     // render fx interfaces
     static char char_buf[64];
     int i = 0;
-    audiomod::FXBus* bus_to_delete = nullptr;
+    std::unique_ptr<audiomod::FXBus>* bus_to_delete = nullptr;
 
-    for (audiomod::FXBus* fx_bus : song.fx_mixer)
+    for (auto& fx_bus : song.fx_mixer)
     {
         if (!fx_bus->interface_open)
         {
@@ -106,7 +108,7 @@ void ui::render_fx_mixer(SongEditor &editor)
         }
         
         // write window id
-        snprintf(char_buf, 64, "FX: %i - %s###%p", i, fx_bus->name, fx_bus);
+        snprintf(char_buf, 64, "FX: %i - %s###%p", i, fx_bus->name, fx_bus.get());
         
         if (ImGui::Begin(
             char_buf, // window id
@@ -126,7 +128,7 @@ void ui::render_fx_mixer(SongEditor &editor)
 
                 if (ImGui::BeginPopup("Remove")) {
                     if (ImGui::Selectable("Confirm?"))
-                        bus_to_delete = fx_bus;
+                        bus_to_delete = &fx_bus;
 
                     ImGui::EndPopup();
                 }
@@ -148,11 +150,13 @@ void ui::render_fx_mixer(SongEditor &editor)
             }
 
             // show volume analysis and TODO: gain slider
+            auto& controller = fx_bus->controller->module<audiomod::FXBus::FaderModule>();
+
             // left channel
             float bar_height = ImGui::GetTextLineHeight() * 0.25f;
-            ImGui::ProgressBar(fx_bus->controller.analysis_volume[0], Vec2(-1.0f, bar_height), "");
+            ImGui::ProgressBar(controller.analysis_volume[0], Vec2(-1.0f, bar_height), "");
             // right channel
-            ImGui::ProgressBar(fx_bus->controller.analysis_volume[1], Vec2(-1.0f, bar_height), "");
+            ImGui::ProgressBar(controller.analysis_volume[1], Vec2(-1.0f, bar_height), "");
 
             // show output bus combobox
             if (i > 0)
@@ -169,7 +173,7 @@ void ui::render_fx_mixer(SongEditor &editor)
                     // list potential targets
                     for (size_t target_i = 0; target_i < song.fx_mixer.size(); target_i++)
                     {
-                        audiomod::FXBus* target_bus = song.fx_mixer[target_i];
+                        auto& target_bus = song.fx_mixer[target_i];
 
                         // skip if looking at myself or an input of myself
                         if (target_bus == fx_bus || song.fx_mixer[target_bus->target_bus] == fx_bus) continue;
@@ -181,11 +185,11 @@ void ui::render_fx_mixer(SongEditor &editor)
                         if (ImGui::Selectable(char_buf, is_selected))
                         {
                             // remove old connection
-                            song.fx_mixer[fx_bus->target_bus]->disconnect_input(&fx_bus->controller);
+                            song.fx_mixer[fx_bus->target_bus]->disconnect_input(fx_bus->controller);
 
                             // create new connection
                             fx_bus->target_bus = target_i;
-                            target_bus->connect_input(&fx_bus->controller);
+                            target_bus->connect_input(fx_bus->controller);
                         }
 
                         if (is_selected) ImGui::SetItemDefaultFocus();
@@ -202,15 +206,15 @@ void ui::render_fx_mixer(SongEditor &editor)
                     song.mutex.lock();
                     
                     try {
-                        audiomod::ModuleBase* mod = audiomod::create_module(
+                        auto mod = audiomod::create_module(
                             result.module_id,
-                            editor.audio_dest,
+                            editor.modctx,
                             editor.plugin_manager,
                             editor.song->work_scheduler
                         );
 
-                        mod->parent_name = fx_bus->name;
-                        mod->song = &song;
+                        mod->module().parent_name = fx_bus->name;
+                        mod->module().song = &song;
                         fx_bus->insert(mod);
 
                         // register change
@@ -235,18 +239,17 @@ void ui::render_fx_mixer(SongEditor &editor)
                     // delete the selected module
                     song.mutex.lock();
 
-                    audiomod::ModuleBase* mod = fx_bus->rack.remove(result.target_index);
+                    auto mod = fx_bus->rack.remove(result.target_index);
                     if (mod != nullptr) {
                         // register change
                         editor.push_change(new change::ChangeRemoveEffect(
                             i,
                             change::FXRackTargetType::TargetFXBus,
                             result.target_index,
-                            mod
+                            mod->module()
                         ));
 
                         editor.hide_module_interface(mod);
-                        mod->release();
                     }
 
                     song.mutex.unlock();
@@ -275,5 +278,5 @@ void ui::render_fx_mixer(SongEditor &editor)
     }
 
     if (bus_to_delete)
-        song.delete_fx_bus(bus_to_delete);
+        song.delete_fx_bus(*bus_to_delete);
 }

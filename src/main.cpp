@@ -171,12 +171,12 @@ int main(int argc, char** argv)
     {
         const size_t BUFFER_SIZE = 128;
 
-        audiomod::DestinationModule destination(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
+        audiomod::ModuleContext modctx(device.sample_rate(), device.num_channels(), BUFFER_SIZE);
         
         // initialize song editor
         SongEditor song_editor(
-            new Song(4, 8, 8, destination),
-            destination, window_manager
+            new Song(4, 8, 8, modctx),
+            modctx, window_manager
         );
         song_editor.load_preferences();
 
@@ -296,7 +296,6 @@ int main(int argc, char** argv)
 
     device.stop();
     AudioDevice::_pa_stop();
-    audiomod::ModuleBase::free_garbage_modules();
 
 #ifdef ENABLE_LV2
     // TODO: interface this function in the PluginManager

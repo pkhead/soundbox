@@ -97,12 +97,12 @@ change::ChangeChannelVolume::ChangeChannelVolume(int channel_index, float old_va
 
 void change::ChangeChannelVolume::undo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song->channels[channel_index]->vol_mod.volume = old_vol;
+    editor.song->channels[channel_index]->vol_mod->module<audiomod::VolumeModule>().volume = old_vol;
 }
 
 void change::ChangeChannelVolume::redo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song->channels[channel_index]->vol_mod.volume = new_vol;
+    editor.song->channels[channel_index]->vol_mod->module<audiomod::VolumeModule>().volume = new_vol;
 }
 
 bool change::ChangeChannelVolume::merge(Action* other) {
@@ -121,12 +121,12 @@ change::ChangeChannelPanning::ChangeChannelPanning(int channel_index, float old_
 
 void change::ChangeChannelPanning::undo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song->channels[channel_index]->vol_mod.panning = old_val;
+    editor.song->channels[channel_index]->vol_mod->module<audiomod::VolumeModule>().panning = old_val;
 }
 
 void change::ChangeChannelPanning::redo(SongEditor& editor) {
     editor.selected_channel = channel_index;
-    editor.song->channels[channel_index]->vol_mod.panning = new_val;
+    editor.song->channels[channel_index]->vol_mod->module<audiomod::VolumeModule>().panning = new_val;
 }
 
 bool change::ChangeChannelPanning::merge(Action* other) {
@@ -197,16 +197,14 @@ void change::ChangeAddEffect::undo(SongEditor& editor) {
     // delete the module at the back
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = rack->remove(rack->modules.size() - 1);
-    if (mod != nullptr) {
+    auto mod = rack->remove(rack->modules.size() - 1);
+    if (mod) {
         editor.hide_module_interface(mod);
 
         // save module data
         std::stringstream stream;
-        mod->save_state(stream);
+        mod->module().save_state(stream);
         mod_data = stream.str();
-
-        mod->release();
     }
     
     editor.song->mutex.unlock();
@@ -219,19 +217,19 @@ void change::ChangeAddEffect::redo(SongEditor& editor) {
 
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(
+    auto mod = audiomod::create_module(
         mod_type,
-        editor.audio_dest,
+        editor.modctx,
         editor.plugin_manager,
         editor.song->work_scheduler
     );
-    mod->song = editor.song;
-    mod->parent_name = parent_name;
+    mod->module().song = editor.song;
+    mod->module().parent_name = parent_name;
     rack->insert(mod);
 
     // load module data
     std::stringstream stream(mod_data);
-    mod->load_state(stream, mod_data.size());
+    mod->module().load_state(stream, mod_data.size());
 
     editor.song->mutex.unlock();
 }
@@ -242,14 +240,14 @@ bool change::ChangeAddEffect::merge(Action* other) {
 
 // Remove Effect //
 
-change::ChangeRemoveEffect::ChangeRemoveEffect(int target_index, FXRackTargetType target_type, int index, audiomod::ModuleBase* mod)
+change::ChangeRemoveEffect::ChangeRemoveEffect(int target_index, FXRackTargetType target_type, int index, audiomod::ModuleBase& mod)
     : target_index(target_index), target_type(target_type), index(index)
 {
-    mod_type = mod->id;
+    mod_type = mod.id;
     
     // save module state
     std::stringstream stream;
-    mod->save_state(stream);
+    mod.save_state(stream);
 
     mod_state = stream.str();
 }
@@ -262,18 +260,17 @@ void change::ChangeRemoveEffect::redo(SongEditor& editor) {
     // delete the module at the back
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = rack->remove(index);
-    if (mod != nullptr) {
-        mod_type = mod->id;
+    auto mod = rack->remove(index);
+    if (mod) {
+        mod_type = mod->module().id;
     
         // save module state
         std::stringstream stream;
-        mod->save_state(stream);
+        mod->module().save_state(stream);
 
         mod_state = stream.str();
 
         editor.hide_module_interface(mod);
-        mod->release();
     }
     
     editor.song->mutex.unlock();
@@ -286,20 +283,20 @@ void change::ChangeRemoveEffect::undo(SongEditor& editor) {
 
     editor.song->mutex.lock();
 
-    audiomod::ModuleBase* mod = audiomod::create_module(
+    auto mod = audiomod::create_module(
         mod_type,
-        editor.audio_dest,
+        editor.modctx,
         editor.plugin_manager,
         editor.song->work_scheduler
     );
 
-    mod->song = editor.song;
-    mod->parent_name = parent_name;
+    mod->module().song = editor.song;
+    mod->module().parent_name = parent_name;
     rack->insert(mod, index);
 
     // load module state
     std::stringstream stream(mod_state);
-    mod->load_state(stream, mod_state.size());
+    mod->module().load_state(stream, mod_state.size());
 
     editor.song->mutex.unlock();
 }
@@ -325,9 +322,9 @@ void change::ChangeSwapEffect::undo(SongEditor& editor)
     int min = new_index > old_index ? old_index : new_index;
     int max = new_index > old_index ? new_index : old_index;
 
-    audiomod::ModuleBase* mod0 = rack->remove(min);
+    auto mod0 = rack->remove(min);
     rack->insert(mod0, max);
-    audiomod::ModuleBase* mod1 = rack->remove(max - 1);
+    auto mod1 = rack->remove(max - 1);
     rack->insert(mod1, min);
 
     editor.song->mutex.unlock();
@@ -360,7 +357,7 @@ void change::ChangeAddNote::undo(SongEditor& editor)
     editor.selected_bar = bar;
 
     int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
+    auto& pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (auto it = pattern->notes.begin(); it != pattern->notes.end(); it++)
     {
@@ -392,7 +389,7 @@ void change::ChangeAddNote::redo(SongEditor& editor)
     editor.selected_channel = channel_index;
     editor.selected_bar = bar;
     
-    Channel* channel = editor.song->channels[channel_index];
+    auto& channel = editor.song->channels[channel_index];
     int pattern_id = channel->sequence[bar] - 1;
 
     if (pattern_id == -1)
@@ -401,7 +398,7 @@ void change::ChangeAddNote::redo(SongEditor& editor)
         channel->sequence[editor.selected_bar] = pattern_id + 1;
     }
     
-    Pattern* pattern = channel->patterns[pattern_id];
+    auto& pattern = channel->patterns[pattern_id];
     pattern->notes.push_back(note);
 
     song->mutex.unlock();
@@ -425,7 +422,7 @@ void change::ChangeRemoveNote::redo(SongEditor& editor)
     editor.selected_bar = bar;
     
     int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
+    auto& pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (auto it = pattern->notes.begin(); it != pattern->notes.end(); it++)
     {
@@ -448,7 +445,7 @@ void change::ChangeRemoveNote::undo(SongEditor& editor)
     editor.selected_bar = bar;
     
     int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
+    auto& pattern = editor.song->channels[channel_index]->patterns[pattern_id];
     pattern->notes.push_back(note);
 
     editor.song->mutex.unlock();
@@ -472,7 +469,7 @@ void change::ChangeNote::undo(SongEditor& editor)
     editor.selected_bar = bar;
     
     int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
+    auto& pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (Note& note_v : pattern->notes)
     {
@@ -494,7 +491,7 @@ void change::ChangeNote::redo(SongEditor& editor)
     editor.selected_bar = bar;
     
     int pattern_id = editor.song->channels[channel_index]->sequence[bar] - 1;
-    Pattern* pattern = editor.song->channels[channel_index]->patterns[pattern_id];
+    auto& pattern = editor.song->channels[channel_index]->patterns[pattern_id];
 
     for (Note& note_v : pattern->notes)
     {
@@ -704,37 +701,37 @@ bool change::ChangeNewChannel::merge(Action* other)
 }
 
 // Remove Channel //
-change::ModuleData::ModuleData(audiomod::ModuleBase* module)
+change::ModuleData::ModuleData(audiomod::ModuleBase& module)
 {
     std::stringstream stream;
 
-    type = module->id;
-    module->save_state(stream);
+    type = module.id;
+    module.save_state(stream);
     data = stream.str();
 }
 
-audiomod::ModuleBase* change::ModuleData::load(SongEditor& editor) const
+audiomod::ModuleNodeRc change::ModuleData::load(SongEditor& editor) const
 {
-    audiomod::ModuleBase* mod = audiomod::create_module(
+    auto mod = audiomod::create_module(
         type,
-        editor.audio_dest,
+        editor.modctx,
         editor.plugin_manager,
         editor.song->work_scheduler
     );
     
-    mod->song = editor.song;
+    mod->module().song = editor.song;
     std::stringstream stream(data);
-    mod->load_state(stream, data.size());
+    mod->module().load_state(stream, data.size());
     return mod;
 }
 
-change::ChangeRemoveChannel::ChangeRemoveChannel(int index, Channel* channel)
-    : index(index), instrument(channel->synth_mod)
+change::ChangeRemoveChannel::ChangeRemoveChannel(int index, std::unique_ptr<Channel>& channel)
+    : index(index), instrument(channel->synth_mod->module())
 {
     _save(channel);
 }
 
-void change::ChangeRemoveChannel::_save(Channel* channel)
+void change::ChangeRemoveChannel::_save(std::unique_ptr<Channel>& channel)
 {
     fx_target = channel->fx_target_idx;
     solo = channel->solo;
@@ -744,30 +741,30 @@ void change::ChangeRemoveChannel::_save(Channel* channel)
     // save patterns
     patterns.clear();
     patterns.reserve(channel->patterns.size());
-    for (Pattern* pat : channel->patterns)
+    for (auto& pat : channel->patterns)
     {
         patterns.push_back(*pat);
     }
     
     // save volume mod configuration
     std::stringstream data;
-    channel->vol_mod.save_state(data);
+    channel->vol_mod->module().save_state(data);
     vol_mod_data = data.str();
 
-    instrument = std::move(ModuleData(channel->synth_mod));
+    instrument = std::move(ModuleData(channel->synth_mod->module()));
 
     effects.clear();
     effects.reserve(channel->effects_rack.modules.size());
 
-    for (audiomod::ModuleBase* module : channel->effects_rack.modules)
-        effects.push_back(ModuleData(module));
+    for (auto& module : channel->effects_rack.modules)
+        effects.push_back(ModuleData(module->module()));
 }
 
 void change::ChangeRemoveChannel::undo(SongEditor& editor)
 {
     editor.selected_channel = index;
 
-    Channel* channel = editor.song->insert_channel(index);
+    auto& channel = editor.song->insert_channel(index);
 
     channel->set_fx_target(fx_target);
     channel->solo = solo;
@@ -784,7 +781,7 @@ void change::ChangeRemoveChannel::undo(SongEditor& editor)
 
     // load volume mod configuration
     std::stringstream data(vol_mod_data);
-    channel->vol_mod.load_state(data, vol_mod_data.size());
+    channel->vol_mod->module().load_state(data, vol_mod_data.size());
 
     // load instrument config
     channel->set_instrument(instrument.load(editor));
@@ -792,7 +789,8 @@ void change::ChangeRemoveChannel::undo(SongEditor& editor)
     // load effects
     for (ModuleData& data : effects)
     {
-        channel->effects_rack.insert(data.load(editor));
+        auto node = data.load(editor);
+        channel->effects_rack.insert(node);
     }
 }
 

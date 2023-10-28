@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <cstring>
+#include <imgui.h>
 #include "audio.h"
 
 int AudioDevice::_pa_stream_callback_raw(
@@ -323,4 +324,45 @@ size_t ModuleContext::process(float* &buffer)
 
     buffer = audio_buffer;
     return frames_per_buffer * num_channels;
+}
+
+
+
+
+
+
+
+///////////////////////
+//  MODULE BEHAVIOR  //
+///////////////////////
+
+bool ModuleBase::has_interface() const {
+    return _has_interface;
+}
+
+bool ModuleBase::show_interface() {
+    if (!_has_interface) return false;
+    return _interface_shown = true;
+}
+
+void ModuleBase::hide_interface() {
+    _interface_shown = false;
+}
+
+bool ModuleBase::render_interface() {
+    if (!_interface_shown) return false;
+
+    char window_name[128];
+    snprintf(window_name, 128, "%s - %s###%p", name.c_str(), parent_name == nullptr ? "" : parent_name, this);
+
+    if (ImGui::Begin(window_name, &_interface_shown, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (has_interface())
+            _interface_proc();
+        else
+        {
+            ImGui::TextDisabled("(no interface)");
+        }
+    } ImGui::End();
+
+    return _interface_shown;
 }

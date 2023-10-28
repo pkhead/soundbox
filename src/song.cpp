@@ -53,7 +53,10 @@ inline bool Pattern::is_empty() const {
 /*************************
 *        CHANNEL         *
 *************************/
-Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song->fx_mixer), vol_mod(song->audio_dest()) {
+Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song->fx_mixer)
+{
+    vol_mod = song->mod_ctx().create<audiomod::VolumeModule>(song->mod_ctx());
+
     strcpy(name, "Channel");
     
     for (int i = 0; i < song_length; i++) {
@@ -61,55 +64,49 @@ Channel::Channel(int song_length, int max_patterns, Song* song) : fx_mixer(song-
     }
 
     for (int i = 0; i < max_patterns; i++) {
-        patterns.push_back(new Pattern());
+        patterns.push_back(std::make_unique<Pattern>());
     }
 
-    synth_mod = new audiomod::WaveformSynth(song->audio_dest());
-    synth_mod->song = song;
-    synth_mod->parent_name = name;
+    synth_mod = song->mod_ctx().create<audiomod::WaveformSynth>(song->mod_ctx());
+    synth_mod->module().song = song;
+    synth_mod->module().parent_name = name;
     effects_rack.connect_input(synth_mod);
-    effects_rack.connect_output(&vol_mod);
-    fx_mixer[fx_target_idx]->connect_input(&vol_mod);
+    effects_rack.connect_output(vol_mod);
+    fx_mixer[fx_target_idx]->connect_input(vol_mod);
 }
 
 Channel::~Channel() {
-    for (Pattern* pattern : patterns) {
-        delete pattern;
-    }
-
     effects_rack.disconnect_all_inputs();
     effects_rack.disconnect_output();
 
-    fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
+    fx_mixer[fx_target_idx]->disconnect_input(vol_mod);
 
-    synth_mod->release();
-    vol_mod.remove_all_connections();
+    vol_mod->remove_all_connections();
 }
 
-void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {
+void Channel::set_instrument(audiomod::ModuleNodeRc new_instrument) {
     effects_rack.disconnect_input(synth_mod);
-    if (synth_mod != nullptr) synth_mod->release();
     
-    synth_mod = new_instrument;
-    synth_mod->parent_name = name;
+    synth_mod = std::move(new_instrument);
+    synth_mod->module().parent_name = name;
     effects_rack.connect_input(synth_mod);
 }
 
 void Channel::set_fx_target(int fx_index)
 {
     // disconnect old target
-    fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
+    fx_mixer[fx_target_idx]->disconnect_input(vol_mod);
 
     // connect to new target
     fx_target_idx = fx_index;
-    fx_mixer[fx_index]->connect_input(&vol_mod);
+    fx_mixer[fx_index]->connect_input(vol_mod);
 }
 
 int Channel::first_empty_pattern() const
 {
     int i = 0;
 
-    for (const Pattern* pattern : patterns)
+    for (const auto& pattern : patterns)
     {
         if (pattern->is_empty()) return i;
         i++;
@@ -245,8 +242,8 @@ void Tuning::analyze()
 *         SONG           *
 *************************/
 
-Song::Song(int num_channels, int length, int max_patterns, audiomod::DestinationModule& audio_out)
-    : _length(length), audio_out(audio_out), _max_patterns(max_patterns)
+Song::Song(int num_channels, int length, int max_patterns, audiomod::ModuleContext& modctx)
+    : _length(length), modctx(modctx), _max_patterns(max_patterns)
 {
     strcpy(name, "Untitled");
 
@@ -263,26 +260,16 @@ Song::Song(int num_channels, int length, int max_patterns, audiomod::Destination
     tuning->analyze();
     tunings.push_back(tuning);
 
-    audiomod::FXBus* master_bus = new audiomod::FXBus(audio_out);
+    std::unique_ptr<audiomod::FXBus> master_bus(new audiomod::FXBus(modctx));
     strcpy(master_bus->name, "Master");
     master_bus->target_bus = 0;
-    master_bus->connect_output(&audio_out);
-    fx_mixer.push_back(master_bus);
+    master_bus->connect_output(modctx.destination());
+    fx_mixer.push_back(std::move(master_bus));
     
     for (int ch_i = 0; ch_i < num_channels; ch_i++) {
-        Channel* ch = new Channel(_length, _max_patterns, this);
+        auto ch = std::make_unique<Channel>(_length, _max_patterns, this);
         snprintf(ch->name, 16, "Channel %i", ch_i + 1);
-        channels.push_back(ch);
-    }
-}
-
-Song::~Song() {
-    for (Channel* channel : channels) {
-        delete channel;
-    }
-
-    for (audiomod::FXBus* bus : fx_mixer) {
-        delete bus;
+        channels.push_back(std::move(ch));
     }
 }
 
@@ -297,21 +284,18 @@ void Song::set_max_patterns(int num_patterns) {
 
     if (num_patterns > _max_patterns) {
         // add patterns
-        for (Channel* ch : channels) {
-            while (ch->patterns.size() < num_patterns) ch->patterns.push_back(new Pattern());
+        for (auto& ch : channels) {
+            while (ch->patterns.size() < num_patterns) ch->patterns.push_back(std::make_unique<Pattern>());
         }
     } else if (num_patterns < _max_patterns) {
         // remove patterns
-        for (Channel* ch : channels) {
+        for (auto& ch : channels) {
             // if pattern#'s in sequence will no longer be valid,
             // set them to zero
             for (int& num : ch->sequence) {
                 if (num > num_patterns) num = 0;
             }
 
-            for (auto it = ch->patterns.begin() + num_patterns; it != ch->patterns.end(); it++) {
-                delete *it;
-            }
             ch->patterns.erase(ch->patterns.begin() + num_patterns, ch->patterns.end());
 
             assert(ch->patterns.size() == num_patterns);
@@ -323,7 +307,7 @@ void Song::set_max_patterns(int num_patterns) {
 
 int Song::new_pattern(int channel_id) {
     if (channel_id < 0 || channel_id >= channels.size()) return -1;
-    Channel* channel = channels[channel_id];
+    auto& channel = channels[channel_id];
 
     // find first unused pattern slot in channel
     int i = channel->first_empty_pattern();
@@ -340,7 +324,7 @@ void Song::insert_bar(int position)
 
     _length++;
 
-    for (Channel* channel : channels) {
+    for (auto& channel : channels) {
         channel->sequence.insert(channel->sequence.begin() + position, 0);
     }
 
@@ -353,7 +337,7 @@ void Song::remove_bar(int position)
 
     _length--;
 
-    for (Channel* channel : channels) {
+    for (auto& channel : channels) {
         channel->sequence.erase(channel->sequence.begin() + position);
     }
 
@@ -371,7 +355,7 @@ std::vector<int> Song::get_bar_patterns(int bar_position)
     std::vector<int> out;
     out.reserve(channels.size());
 
-    for (Channel* channel : channels)
+    for (auto& channel : channels)
     {
         out.push_back(channel->sequence[bar_position]);
     }
@@ -392,31 +376,30 @@ void Song::set_bar_patterns(int bar_position, std::vector<int> patterns)
     set_bar_patterns(bar_position, &patterns.front(), patterns.size());
 }
 
-Channel* Song::insert_channel(int channel_id)
+std::unique_ptr<Channel>& Song::insert_channel(int channel_id)
 {
     mutex.lock();
 
-    Channel* new_channel = new Channel(_length, _max_patterns, this);
+    auto new_channel = std::make_unique<Channel>(_length, _max_patterns, this);
     snprintf(new_channel->name, 16, "Channel %i", (int) channels.size() + 1);
-    channels.insert(channels.begin() + channel_id, new_channel);
+    auto it = channels.insert(channels.begin() + channel_id, std::move(new_channel));
 
     mutex.unlock();
 
-    return new_channel;
+    return *it;
 }
 
 void Song::remove_channel(int channel_index)
 {
     mutex.lock();
 
-    Channel* ch = channels[channel_index];
+    auto& ch = channels[channel_index];
     channels.erase(channels.begin() + channel_index);
-    delete ch;
 
     mutex.unlock();
 }
 
-void Song::delete_fx_bus(audiomod::FXBus* bus_to_delete)
+void Song::delete_fx_bus(std::unique_ptr<audiomod::FXBus>& bus_to_delete)
 {
     // can't delete the master bus
     if (bus_to_delete == fx_mixer[0]) {
@@ -428,28 +411,27 @@ void Song::delete_fx_bus(audiomod::FXBus* bus_to_delete)
 
     for (auto it = fx_mixer.begin(); it != fx_mixer.end(); it++) {
         if (*it == bus_to_delete)
-        {
-            fx_mixer[0]->disconnect_input(&bus_to_delete->controller);
+        { 
+            fx_mixer[0]->disconnect_input(bus_to_delete->controller);
             fx_mixer.erase(it);
 
             // move any connections to the deleted bus to master
-            for (Channel* ch : channels)
+            for (auto& ch : channels)
                 if (ch->fx_target_idx == bus_idx)
                 {
-                    bus_to_delete->disconnect_input(&ch->vol_mod);
-                    fx_mixer[0]->connect_input(&ch->vol_mod);
+                    bus_to_delete->disconnect_input(ch->vol_mod);
+                    fx_mixer[0]->connect_input(ch->vol_mod);
                     ch->fx_target_idx = 0;
                 }
 
-            for (audiomod::FXBus* bus : fx_mixer)
+            for (auto& bus : fx_mixer)
                 if (bus->target_bus == bus_idx)
                 {
-                    bus_to_delete->disconnect_input(&bus->controller);
-                    fx_mixer[0]->connect_input(&bus->controller);
+                    bus_to_delete->disconnect_input(bus->controller);
+                    fx_mixer[0]->connect_input(bus->controller);
                     bus->target_bus = 0;
                 }
 
-            delete bus_to_delete;
             break;
         }
 
@@ -497,14 +479,14 @@ void Song::stop() {
         notes_playing--;
 
         audiomod::MidiEvent midi_ev;
-        midi_ev.time = audio_dest().time_in_frames();
+        midi_ev.time = mod_ctx().time_in_frames();
         (audiomod::NoteEvent {
             audiomod::NoteEventKind::NoteOff,
             note_data.note.key,
             1.0f
         }).write_midi(&midi_ev.msg);
         
-        channels[note_data.channel_i]->synth_mod->event(midi_ev);
+        channels[note_data.channel_i]->synth_mod->module().event(midi_ev);
     }
 
     assert(notes_playing == 0);
@@ -515,7 +497,7 @@ void Song::stop() {
 void Song::update(double elapsed) {
     // first check if any channels are solo'd
     bool solo_mode = false;
-    for (Channel* channel : channels) {
+    for (auto& channel : channels) {
         if (channel->solo) {
             solo_mode = true;
             break;
@@ -524,44 +506,54 @@ void Song::update(double elapsed) {
 
     // if a channel is solo'd, then mute all but the channels that are solo'd
     if (solo_mode) {
-        for (Channel* channel : channels)
+        for (auto& channel : channels)
         {
-            channel->vol_mod.mute_override = !channel->solo;
+            dynamic_cast<audiomod::VolumeModule&>(channel->vol_mod->module())
+            .mute_override = !channel->solo;
         }
     } else {
-        for (Channel* channel : channels)
+        for (auto& channel : channels)
         {
-            channel->vol_mod.mute_override = false;
+            dynamic_cast<audiomod::VolumeModule&>(channel->vol_mod->module())
+            .mute_override = false;
         }
     }
 
     // then, do the same for fx channels
     solo_mode = false;
-    for (audiomod::FXBus* bus : fx_mixer) {
+    for (auto& bus : fx_mixer) {
         if (bus->solo) {
             solo_mode = true;
             break;
         }
     }
     if (solo_mode) {
-        for (audiomod::FXBus* bus : fx_mixer) {
-            bus->controller.mute_override = !bus->solo;
+        for (auto& bus : fx_mixer) {
+            dynamic_cast<audiomod::FXBus::FaderModule&>(bus->controller->module())
+            .mute_override = !bus->solo;
         }
 
         // unmute any buses that are connected to the soloed bus
-        for (audiomod::FXBus* bus : fx_mixer) {
-            if (bus->solo) {
-                while (bus != fx_mixer[0])
+        for (auto& orig_bus : fx_mixer) {
+            std::unique_ptr<audiomod::FXBus>* bus = &orig_bus;
+
+            if (bus->get()->solo) {
+                while (bus != &fx_mixer[0])
                 {
-                    bus->controller.mute_override = false;
-                    bus = fx_mixer[bus->target_bus];
+                    dynamic_cast<audiomod::FXBus::FaderModule&>(bus->get()->controller->module())
+                    .mute_override = false;
+                    
+                    bus = &fx_mixer[bus->get()->target_bus];
                 }
-                bus->controller.mute_override = false;
+
+                dynamic_cast<audiomod::FXBus::FaderModule&>(bus->get()->controller->module())
+                .mute_override = false;
             }
         }
     } else {
-        for (audiomod::FXBus* bus : fx_mixer) {
-            bus->controller.mute_override = false;
+        for (auto& bus : fx_mixer) {
+            dynamic_cast<audiomod::FXBus::FaderModule&>(bus->controller->module())
+            .mute_override = false;
         }
     }
 
@@ -570,10 +562,10 @@ void Song::update(double elapsed) {
     cur_notes.clear();
 
     int channel_i = 0;
-    for (Channel* channel : channels) {
+    for (auto& channel : channels) {
         int pattern_index = channel->sequence[bar_position] - 1;
         if (pattern_index >= 0) {
-            Pattern* pattern = channel->patterns[pattern_index];
+            auto& pattern = channel->patterns[pattern_index];
 
             for (Note& note : pattern->notes) {
                 if (pos_in_bar >= note.time && pos_in_bar < note.time + note.length)    
@@ -604,14 +596,14 @@ void Song::update(double elapsed) {
             assert(notes_playing >= 0);
 
             audiomod::MidiEvent midi_ev;
-            midi_ev.time = audio_dest().time_in_frames();
+            midi_ev.time = mod_ctx().time_in_frames();
             (audiomod::NoteEvent {
                 audiomod::NoteEventKind::NoteOff,
                 old_note.note.key,
                 1.0f
             }).write_midi(&midi_ev.msg);
 
-            channels[old_note.channel_i]->synth_mod->event(midi_ev);
+            channels[old_note.channel_i]->synth_mod->module().event(midi_ev);
         }
     }
 
@@ -631,14 +623,14 @@ void Song::update(double elapsed) {
             notes_playing++;
             
             audiomod::MidiEvent midi_ev;
-            midi_ev.time = audio_dest().time_in_frames();
+            midi_ev.time = mod_ctx().time_in_frames();
             (audiomod::NoteEvent {
                 audiomod::NoteEventKind::NoteOn,
                 new_note.note.key,
                 1.0f
             }).write_midi(&midi_ev.msg);
 
-            channels[new_note.channel_i]->synth_mod->event(midi_ev);
+            channels[new_note.channel_i]->synth_mod->module().event(midi_ev);
         }
     }
 

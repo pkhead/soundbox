@@ -139,9 +139,10 @@ namespace audiomod
         // Disconnect all inputs and outputs
         void remove_all_connections();
 
-        inline ModuleBase& module()
+        template <class T = ModuleBase>
+        inline T& module()
         {
-            return *_module;
+            return dynamic_cast<T&>(*_module);
         }
         
         inline const std::vector<ModuleNodeRc>& get_inputs() const {
@@ -181,7 +182,7 @@ namespace audiomod
         const int num_channels;
         const int frames_per_buffer;
 
-        inline ModuleNodeRc destination() {
+        inline ModuleNodeRc& destination() {
             return _dest;
         }
 
@@ -189,7 +190,7 @@ namespace audiomod
         ModuleNodeRc create(Args&&... args)
         {
             std::unique_ptr<T> module = std::make_unique<T>(args...);
-            ModuleNodeRc node = std::make_shared<ModuleNode>(*this, module);
+            ModuleNodeRc node = std::make_shared<ModuleNode>(*this, std::move(module));
             nodes.push_back(node);
             return node;
         }

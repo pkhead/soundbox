@@ -182,20 +182,20 @@ void ui::ui_init(SongEditor& editor)
     // copy+paste
     // TODO use system clipboard
     user_actions.set_callback("copy", [&]() {
-        Channel* channel = song.channels[editor.selected_channel];
+        auto& channel = song.channels[editor.selected_channel];
         int pattern_id = channel->sequence[editor.selected_bar];
         if (pattern_id > 0) {
-            Pattern* pattern = channel->patterns[pattern_id - 1];
+            auto& pattern = channel->patterns[pattern_id - 1];
             editor.note_clipboard = pattern->notes;
         }
     });
 
     user_actions.set_callback("paste", [&]() {
         if (!editor.note_clipboard.empty()) {
-            Channel* channel = song.channels[editor.selected_channel];
+            auto& channel = song.channels[editor.selected_channel];
             int pattern_id = channel->sequence[editor.selected_bar];
             if (pattern_id > 0) {
-                Pattern* pattern = channel->patterns[pattern_id - 1];
+                auto& pattern = channel->patterns[pattern_id - 1];
                 pattern->notes = editor.note_clipboard;
             }
         }
@@ -249,13 +249,14 @@ void ui::ui_init(SongEditor& editor)
 
     // mute selected channel
     user_actions.set_callback("mute_channel", [&]() {
-        Channel* ch = editor.song->channels[editor.selected_channel];
-        ch->vol_mod.mute = !ch->vol_mod.mute;
+        auto& ch = editor.song->channels[editor.selected_channel];
+        auto& vol_mod = ch->vol_mod->module<audiomod::VolumeModule>();
+        vol_mod.mute = !vol_mod.mute;
     });
 
     // solo selected channel
     user_actions.set_callback("solo_channel", [&]() {
-        Channel* ch = song.channels[editor.selected_channel];
+        auto& ch = song.channels[editor.selected_channel];
         ch->solo = !ch->solo;
     });
 
@@ -528,10 +529,11 @@ EffectsInterfaceAction ui::effect_rack_ui(
 
         static int swap_start = 0;
 
-        for (audiomod::ModuleBase* module : effects_rack->modules) {
-            ImGui::PushID(module);
+        for (auto& mnode : effects_rack->modules) {
+            audiomod::ModuleBase& module = mnode->module();
+            ImGui::PushID(&module);
             
-            ImGui::Selectable(module->name.c_str(), module->interface_shown());
+            ImGui::Selectable(module.name.c_str(), module.interface_shown());
 
             // record swaps
             if (ImGui::IsItemActivated())
@@ -557,7 +559,7 @@ EffectsInterfaceAction ui::effect_rack_ui(
                     // swap n and n_next
                     int min = i > n_next ? n_next : i;
                     mutex.lock();
-                    audiomod::ModuleBase* m = effects_rack->remove(min);
+                    auto m = effects_rack->remove(min);
                     effects_rack->insert(m, min + 1);
                     mutex.unlock();
                     ImGui::ResetMouseDragDelta();
@@ -581,7 +583,7 @@ EffectsInterfaceAction ui::effect_rack_ui(
 
                 if (swap_instrument)
                 {
-                    if (audiomod::is_module_instrument(module->id, editor->plugin_manager)) {
+                    if (audiomod::is_module_instrument(module.id, editor->plugin_manager)) {
                         if (ImGui::Selectable("Set as Instrument")) {
                             result->target_index = i;
                             action = EffectsInterfaceAction::SwapInstrument;
@@ -770,9 +772,9 @@ void ui::compute_imgui(SongEditor& editor) {
     {
         auto mod = editor.mod_interfaces[i];
         
-        if (mod->render_interface()) i++;
+        if (mod->module().render_interface()) i++;
         else {
-            mod->hide_interface();
+            mod->module().hide_interface();
             editor.mod_interfaces.erase(editor.mod_interfaces.begin() + i);
         }
     }

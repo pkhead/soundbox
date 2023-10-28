@@ -107,8 +107,8 @@ void LadspaPlugin::scan_plugins(const std::vector<std::string>& ladspa_paths, st
 }
 
 // constructor
-LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& plugin_data)
-    : PluginModule(dest, plugin_data)
+LadspaPlugin::LadspaPlugin(audiomod::ModuleContext& modctx, const PluginData& plugin_data)
+    : PluginModule(modctx, plugin_data)
 {
     if (plugin_data.type != PluginType::Ladspa)
         throw std::runtime_error("mismatched plugin types");
@@ -136,7 +136,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
         throw std::runtime_error(std::string("no plugin at index ") + std::to_string(plugin_data.index) + " of " + plugin_data.file_path);
     }
 
-    instance = descriptor->instantiate(descriptor, dest.sample_rate);
+    instance = descriptor->instantiate(descriptor, modctx.sample_rate);
     if (instance == nullptr)
     {
         sys::dl_close(lib);
@@ -175,13 +175,13 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
                 if (LADSPA_IS_HINT_BOUNDED_BELOW(hint_descriptor))
                     control->min =
                         range_hint.LowerBound *
-                        (control->is_sample_rate ? dest.sample_rate : 1) - // if control describes sample rate
+                        (control->is_sample_rate ? modctx.sample_rate : 1) - // if control describes sample rate
                         (control->is_integer ? -0.01f : 0.0f); // avoid floating point rounding errors
 
                 if (LADSPA_IS_HINT_BOUNDED_ABOVE(hint_descriptor))
                     control->max =
                         range_hint.UpperBound *
-                        (control->is_sample_rate ? dest.sample_rate : 1) + // if control describes sample rate
+                        (control->is_sample_rate ? modctx.sample_rate : 1) + // if control describes sample rate
                         (control->is_integer ? 0.01f : 0.0f); // avoid floating point rounding errors
 
                 // default value
@@ -249,7 +249,7 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             // input buffer
             if (LADSPA_IS_PORT_INPUT(port))
             {
-                float* input_buf = new float[dest.frames_per_buffer * 2];
+                float* input_buf = new float[modctx.frames_per_buffer * 2];
                 input_buffers.push_back(input_buf);
                 descriptor->connect_port(instance, port_i, input_buf);
             }
@@ -257,14 +257,14 @@ LadspaPlugin::LadspaPlugin(audiomod::DestinationModule& dest, const PluginData& 
             // output buffer
             else if (LADSPA_IS_PORT_OUTPUT(port))
             {
-                float* output_buf = new float[dest.frames_per_buffer * 2];
+                float* output_buf = new float[modctx.frames_per_buffer * 2];
                 output_buffers.push_back(output_buf);
                 descriptor->connect_port(instance, port_i, output_buf);
             }
         }
     }
 
-    input_combined = new float[dest.frames_per_buffer * 2];
+    input_combined = new float[modctx.frames_per_buffer * 2];
 
     _has_interface = control_value_count() > 0;
     
@@ -361,7 +361,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         input_combined,
         &input_buffers.front(),
         input_buffers.size(),
-        _dest.frames_per_buffer,
+        modctx.frames_per_buffer,
         interleave
     );
 
@@ -372,7 +372,7 @@ void LadspaPlugin::process(float** inputs, float* output, size_t num_inputs, siz
         &output_buffers.front(),
         output,
         output_buffers.size(),
-        _dest.frames_per_buffer,
+        modctx.frames_per_buffer,
         interleave
     );
 }

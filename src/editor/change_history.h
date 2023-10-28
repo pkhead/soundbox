@@ -46,8 +46,8 @@ namespace change
         const char* type;
         std::string data;
 
-        ModuleData(audiomod::ModuleBase* module);
-        audiomod::ModuleBase* load(SongEditor& editor) const;
+        ModuleData(audiomod::ModuleBase& module);
+        audiomod::ModuleNodeRc load(SongEditor& editor) const;
     };
 
     class Action
@@ -156,7 +156,7 @@ namespace change
     class ChangeRemoveEffect : public Action
     {
     public:
-        ChangeRemoveEffect(int target_index, FXRackTargetType target_type, int index, audiomod::ModuleBase* mod);
+        ChangeRemoveEffect(int target_index, FXRackTargetType target_type, int index, audiomod::ModuleBase& mod);
         int target_index;
         FXRackTargetType target_type;
         int index;
@@ -290,10 +290,10 @@ namespace change
     class ChangeRemoveChannel : public Action
     {
     private:
-        void _save(Channel* channel);
+        void _save(std::unique_ptr<Channel>& channel);
     
     public:
-        ChangeRemoveChannel(int index, Channel* channel);
+        ChangeRemoveChannel(int index, std::unique_ptr<Channel>& channel);
 
         int index;
         int fx_target;

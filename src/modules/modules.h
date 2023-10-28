@@ -71,10 +71,14 @@ namespace audiomod
             float gain = 0.0f;
             bool mute = false;
             bool mute_override = false;
+
+            FaderModule()
+            : ModuleBase(false)
+            {}
         };
         ModuleNodeRc controller;
 
-        inline const std::vector<ModuleNodeRc>& get_modules() const
+        inline std::vector<ModuleNodeRc>& get_modules()
         {
             return rack.modules;
         };

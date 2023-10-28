@@ -23,8 +23,8 @@ using namespace plugins;
 // Plugin Module //
 ///////////////////
 
-PluginModule::PluginModule(audiomod::DestinationModule& dest, const PluginData& plugin_data)
-    : ModuleBase(dest, false), data(plugin_data)
+PluginModule::PluginModule(audiomod::ModuleContext& modctx, const PluginData& plugin_data)
+    : ModuleBase(false), modctx(modctx), data(plugin_data)
 {
     name = plugin_data.name;
     id = plugin_data.id.c_str();
@@ -70,9 +70,9 @@ void PluginModule::_interface_proc()
             ImGuiSliderFlags log_flag = (control_value.is_logarithmic ? ImGuiSliderFlags_Logarithmic : 0);
             
             if (control_value.is_sample_rate) {
-                value /= _dest.sample_rate;
-                min /= _dest.sample_rate;
-                max /= _dest.sample_rate;
+                value /= modctx.sample_rate;
+                min /= modctx.sample_rate;
+                max /= modctx.sample_rate;
             }
 
             if (control_value.is_toggle)
@@ -127,7 +127,7 @@ void PluginModule::_interface_proc()
             }
 
 
-            if (control_value.is_sample_rate) value *= _dest.sample_rate;
+            if (control_value.is_sample_rate) value *= modctx.sample_rate;
 
             if (control_value.value != value)
                 set_control_value(j, value);
@@ -236,23 +236,23 @@ void PluginManager::scan_plugins()
 #endif
 }
 
-PluginModule* PluginManager::instantiate_plugin(
+audiomod::ModuleNodeRc PluginManager::instantiate_plugin(
     const PluginData& plugin_data,
-    audiomod::DestinationModule& audio_dest,
+    audiomod::ModuleContext& modctx,
     WorkScheduler& work_scheduler
 ) {
-    plugins::PluginModule* plugin;
+    audiomod::ModuleNodeRc plugin;
 
     switch (plugin_data.type)
     {
         case plugins::PluginType::Ladspa:
-            plugin = new plugins::LadspaPlugin(audio_dest, plugin_data);
+            plugin = modctx.create<plugins::LadspaPlugin>(modctx, plugin_data);
             break;
 
 #ifdef ENABLE_LV2
         case plugins::PluginType::Lv2:
         try {
-            plugin = new plugins::Lv2Plugin(audio_dest, plugin_data, work_scheduler, window_manager);
+            plugin = new plugins::Lv2Plugin(modctx, plugin_data, work_scheduler, window_manager);
         } catch (plugins::lv2_error& err) {
             throw module_create_error(err.what());
         }
