@@ -55,6 +55,9 @@ UserActionList::UserActionList() {
     add_action("copy", USERMOD_CTRL, ImGuiKey_C);
     add_action("paste", USERMOD_CTRL, ImGuiKey_V);
 
+    add_action("goto_cursor", USERMOD_CTRL, ImGuiKey_H, true);
+    add_action("goto_start", USERMOD_CTRL, ImGuiKey_F, true);
+
     add_action("new_channel", USERMOD_CTRL, ImGuiKey_Enter, true);
     add_action("remove_channel", USERMOD_CTRL, ImGuiKey_Backspace, true);
     add_action("insert_bar", 0, ImGuiKey_Enter, true);

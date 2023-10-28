@@ -305,6 +305,16 @@ void ui::ui_init(SongEditor& editor)
         int pattern_id = song.new_pattern(editor.selected_channel);
         song.channels[editor.selected_channel]->sequence[editor.selected_bar] = pattern_id + 1;
     });
+
+    // move playhead to cursor
+    user_actions.set_callback("goto_cursor", [&]() {
+        song.bar_position = editor.selected_bar;
+    });
+
+    // move playhead to start
+    user_actions.set_callback("goto_start", [&]() {
+        song.bar_position = 0;
+    });
 }
 
 
@@ -650,6 +660,8 @@ void ui::compute_imgui(SongEditor& editor) {
 
             MENU_ITEM("Select All", "select_all");
             MENU_ITEM("Select Channel", "select_channel");
+            MENU_ITEM("Playhead To Cursor", "goto_cursor");
+            MENU_ITEM("Playhead To Start", "goto_start");
 
             ImGui::Separator();
 
@@ -662,9 +674,12 @@ void ui::compute_imgui(SongEditor& editor) {
             MENU_ITEM("Insert Bar", "insert_bar");
             MENU_ITEM("Insert Bar Before", "insert_bar_before");
             MENU_ITEM("Delete Bar", "remove_bar");
+            MENU_ITEM("Duplicate Reused Patterns", "duplicate_patterns");
+
+            ImGui::Separator();
+
             MENU_ITEM("New Channel", "new_channel");
             MENU_ITEM("Delete Channel", "remove_channel");
-            MENU_ITEM("Duplicate Reused Patterns", "duplicate_patterns");
 
             ImGui::Separator();
 
