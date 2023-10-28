@@ -4,6 +4,7 @@
 #include <tomlcpp/tomlcpp.hpp>
 #include <unordered_map>
 #include <vector>
+#include <algorithm>
 #include <imgui.h>
 #include <filesystem>
 #include "../song.h"
@@ -254,6 +255,7 @@ const char PATH_SEP =
 Theme::Theme(const std::string theme_name)
 {
     load(theme_name);
+    custom_directory.clear();
 }
 
 void Theme::load(const std::string theme_name)
@@ -262,11 +264,21 @@ void Theme::load(const std::string theme_name)
     ui_colors.clear();
 
     _name = theme_name;
-    std::string file_name = std::string("styles") + PATH_SEP + theme_name + ".toml";
+    
+    // find custom theme
+    // custom theme can override built-in themes
+    std::filesystem::path file_name;
+
+    if (!custom_directory.empty())
+        file_name = custom_directory / (theme_name + ".toml");
+    
+    // if custom theme doesn't exist, look for themes in built-in
+    if (custom_directory.empty() || !std::filesystem::exists(file_name))
+        file_name = std::filesystem::path("themes") / (theme_name + ".toml");
 
     auto res = toml::parseFile(file_name);
     if (!res.table)
-        throw std::runtime_error("cannot parse " + file_name + ": " + res.errmsg);
+        throw std::runtime_error("cannot parse " + file_name.u8string() + ": " + res.errmsg);
     
     _parse_toml(res.table.get());
 }
@@ -300,11 +312,12 @@ void Theme::set_imgui_colors() const
 // Theme discovery //
 static std::vector<std::string> theme_names;
 
-void Theme::scan_themes()
+void Theme::scan_themes(std::filesystem::path theme_directory)
 {
     theme_names.clear();
 
-    for (const auto& entry : std::filesystem::directory_iterator("styles"))
+    // scan built-in themes
+    for (const auto& entry : std::filesystem::directory_iterator("themes"))
     {
         auto& path = entry.path();
 
@@ -312,6 +325,20 @@ void Theme::scan_themes()
         {
             std::cout << path.stem() << "\n";
             theme_names.push_back(path.stem().string());
+        }
+    }
+
+    // scan custom themes
+    for (const auto& entry : std::filesystem::directory_iterator(theme_directory))
+    {
+        auto& path = entry.path();
+
+        if (path.extension() == ".toml")
+        {
+            std::cout << path.stem() << "\n";
+
+            if (std::find(theme_names.begin(), theme_names.end(), path.stem().string()) == theme_names.end())
+                theme_names.push_back(path.stem().string());
         }
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <filesystem>
 #include "sys.h"
 #include "audio.h"
 #include "sys.h"
@@ -96,11 +97,17 @@ namespace plugins
         std::vector<std::string> _std_lv2;
         std::vector<std::string> _std_dummy; // empty vector
 
+        
+        // user paths
+        std::vector<std::string> user_ladspa_paths;
+        std::vector<std::string> user_lv2_paths;
+
         WindowManager& window_manager;
     public:
+        // app paths
         std::vector<std::string> ladspa_paths;
         std::vector<std::string> lv2_paths;
-        
+
         PluginManager(WindowManager& window_manager);
 
         audiomod::ModuleNodeRc instantiate_plugin(
@@ -110,9 +117,17 @@ namespace plugins
         );
 
         void add_path(PluginType type, const std::string& path);
+        void remove_path(PluginType, const std::string& path);
+
+        /**
+        * Return all the registered plugin paths.
+        **/
+        std::vector<std::string> get_paths(PluginType type) const;
+        const std::vector<std::string>& get_user_paths(PluginType type) const;
+        const std::vector<std::string>& get_system_paths(PluginType type) const;
+        bool is_user_path(PluginType type, const std::string& path) const;
+
         inline const std::vector<PluginData>& get_plugin_data() { return plugin_data; };
         void scan_plugins();
-
-        const std::vector<std::string>& get_standard_plugin_paths(PluginType type) const;
     };
 } // namespace plugin

@@ -2,6 +2,7 @@
 #include "../audio.h"
 #include <imgui.h>
 #include <mutex>
+#include <filesystem>
 #include "theme.h"
 #include "change_history.h"
 #include "../plugins.h"
@@ -55,7 +56,11 @@ private:
 
     std::string last_file_path;
     std::string last_file_name;
-    std::string default_save_dir;
+
+    std::filesystem::path data_directory;
+    std::string data_directory_str;
+
+    void init_directory();
 
     std::unique_ptr<SongExport> song_export;
     bool last_playing;
@@ -89,6 +94,9 @@ public:
     void reset();
     void save_preferences() const;
     void load_preferences();
+    inline const std::filesystem::path& get_data_directory() const {
+        return data_directory;
+    }
 
     bool save_song();
     bool save_song_as();

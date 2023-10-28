@@ -30,7 +30,8 @@ void ui::render_directories_window(SongEditor &editor)
             if (ImGui::Button("Rescan"))
                 plugins.scan_plugins();
 
-            int listbox_size = plugins.ladspa_paths.size();
+            std::vector<std::string> ladspa_plugins = plugins.get_paths(plugins::PluginType::Ladspa);
+            int listbox_size = ladspa_plugins.size();
             if (listbox_size == 0) listbox_size = 1;
 
             if (ImGui::BeginListBox(
@@ -38,25 +39,24 @@ void ui::render_directories_window(SongEditor &editor)
                 ImVec2(-1.0f, ImGui::GetFrameHeight() * listbox_size)
             ))
             {
-                int index_to_delete = -1;
+                std::string path_to_delete;
+                path_to_delete.clear();
 
                 int i = 0;
-                for (const std::string& path : plugins.ladspa_paths)
+                for (const std::string& path : ladspa_plugins)
                 {
                     ImGui::Selectable(path.c_str(), false);
                     
                     if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
                     {
-                        auto std_paths = plugins.get_standard_plugin_paths(plugins::PluginType::Ladspa);
-
                         // tell user they can't remove standard paths
                         // this is only because application adds
                         // standard paths on startup
-                        if (std::find(std_paths.begin(), std_paths.end(), path) != std_paths.end()) {
+                        if (!plugins.is_user_path(plugins::PluginType::Ladspa, path)) {
                             ImGui::TextDisabled("Remove");
                         } else {
                             if (ImGui::Selectable("Remove"))
-                                index_to_delete = i;
+                                path_to_delete = path;
                         }
 
                         ImGui::EndPopup();
@@ -67,8 +67,8 @@ void ui::render_directories_window(SongEditor &editor)
 
                 ImGui::EndListBox();
 
-                if (index_to_delete >= 0)
-                    plugins.ladspa_paths.erase(plugins.ladspa_paths.begin() + index_to_delete);
+                if (!path_to_delete.empty())
+                    plugins.remove_path(plugins::PluginType::Ladspa, path_to_delete);
             }
 
             if (ImGui::BeginPopup("adddirectory"))

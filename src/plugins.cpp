@@ -175,11 +175,9 @@ PluginManager::PluginManager(WindowManager& win_manager) : window_manager(win_ma
 {
     // get standard paths for plugin standards
     _std_ladspa = parse_path_list( LadspaPlugin::get_standard_paths() );
-    ladspa_paths = _std_ladspa;
 
 #ifdef ENABLE_LV2
     _std_lv2 = parse_path_list( Lv2Plugin::get_standard_paths() );
-    lv2_paths = _std_lv2;
 #endif
 }
 
@@ -190,11 +188,11 @@ void PluginManager::add_path(PluginType type, const std::string& path)
     switch (type)
     {
         case PluginType::Ladspa:
-            vec = &ladspa_paths;
+            vec = &user_ladspa_paths;
             break;
 
         case PluginType::Lv2:
-            vec = &lv2_paths;
+            vec = &user_lv2_paths;
             break;
 
         default:
@@ -210,7 +208,45 @@ void PluginManager::add_path(PluginType type, const std::string& path)
     vec->push_back(path);
 }
 
-const std::vector<std::string>& PluginManager::get_standard_plugin_paths(PluginType type) const
+void PluginManager::remove_path(PluginType type, const std::string& path)
+{
+    std::vector<std::string>* vec;
+
+    switch (type)
+    {
+        case PluginType::Ladspa:
+            vec = &user_ladspa_paths;
+            break;
+
+        case PluginType::Lv2:
+            vec = &user_lv2_paths;
+            break;
+
+        default:
+            throw std::runtime_error("unsupported PluginType");
+    }
+
+    auto it = std::find(vec->begin(), vec->end(), path);
+    if (it != vec->end())
+        vec->erase(it);
+}
+
+const std::vector<std::string>& PluginManager::get_user_paths(PluginType type) const
+{
+    switch (type)
+    {
+        case PluginType::Ladspa:
+            return user_ladspa_paths;
+
+        case PluginType::Lv2:
+            return user_lv2_paths;
+
+        default:
+            throw std::runtime_error("unsupported plugin type");
+    }
+}
+
+const std::vector<std::string>& PluginManager::get_system_paths(PluginType type) const
 {
     switch (type)
     {
@@ -220,19 +256,53 @@ const std::vector<std::string>& PluginManager::get_standard_plugin_paths(PluginT
         case PluginType::Lv2:
             return _std_lv2;
 
-        default: {
-            // return empty list
-            return _std_dummy;
-        }
+        default:
+            throw std::runtime_error("unsupported plugin type");
     }
+}
+
+std::vector<std::string> PluginManager::get_paths(PluginType type) const
+{   
+    const std::vector<std::string> *std, *app, *user;
+
+    switch (type)
+    {
+        case PluginType::Ladspa:
+            std = &_std_ladspa;
+            app = &ladspa_paths;
+            user = &user_ladspa_paths;
+            break;
+
+        case PluginType::Lv2:
+            std = &_std_lv2;
+            app = &lv2_paths;
+            user = &user_lv2_paths;
+
+        default:
+            return std::vector<std::string>();
+    }
+
+    assert(std && app && user);
+
+    std::vector<std::string> res = *std;
+    res.insert(res.end(), app->begin(), app->end());
+    res.insert(res.end(), user->begin(), user->end());
+    return res;
+}
+
+bool PluginManager::is_user_path(PluginType type, const std::string& path) const
+{
+    auto& user_paths = get_user_paths(type);
+    return std::find(user_paths.begin(), user_paths.end(), path) != user_paths.end();
 }
 
 void PluginManager::scan_plugins()
 {
     plugin_data.clear();
-    LadspaPlugin::scan_plugins(ladspa_paths, plugin_data);
+
+    LadspaPlugin::scan_plugins(get_paths(PluginType::Ladspa), plugin_data);
 #ifdef ENABLE_LV2
-    Lv2Plugin::scan_plugins(lv2_paths, plugin_data);
+    Lv2Plugin::scan_plugins(get_paths(PluginType::Lv2), plugin_data);
 #endif
 }
 

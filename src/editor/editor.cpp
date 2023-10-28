@@ -1,6 +1,7 @@
 #include <tomlcpp/tomlcpp.hpp>
 #include <stb_image.h>
 #include <fstream>
+#include <filesystem>
 #include <nfd.h>
 
 #include "editor.h"
@@ -133,15 +134,14 @@ SongEditor::SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowMana
         std::cerr << "error: could not find theme \"" << theme_name << "\"\n";
     }
 
+    init_directory();
+    theme.custom_directory = data_directory/"themes";
+
+    plugin_manager.ladspa_paths.push_back(data_directory/"plugins"/"ladspa");
+    plugin_manager.lv2_paths.push_back(data_directory/"plugins"/"lv2");
+
     theme.set_imgui_colors();
     plugin_manager.scan_plugins();
-
-    // TODO: customizable default save dir
-#ifdef _WIN32
-    default_save_dir = std::string(std::getenv("USERPROFILE")) + "\\";
-#else
-    default_save_dir = std::string(std::getenv("HOME")) + "/";
-#endif
 
     ui_actions.set_callback("song_new", [this]() {
         ui::prompt_unsaved_work([&]() {
@@ -170,7 +170,7 @@ SongEditor::SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowMana
     // song open
     ui_actions.set_callback("song_open", [this]() {
         nfdchar_t* out_path;
-        nfdresult_t result = NFD_OpenDialog("box", last_file_path.empty() ? default_save_dir.c_str() : last_file_path.c_str(), &out_path);
+        nfdresult_t result = NFD_OpenDialog("box", last_file_path.empty() ? (data_directory/"projects").c_str() : last_file_path.c_str(), &out_path);
 
         if (result == NFD_OKAY) {
             std::ifstream file;
@@ -363,6 +363,91 @@ void SongEditor::reset()
     last_playing = false;
 }
 
+void SongEditor::init_directory()
+{
+    using namespace std::filesystem;
+
+    char* override = std::getenv("SOUNDBOX_DIRECTORY");
+    
+    if (override)
+    {
+        data_directory = override;
+    }
+    else
+    {
+#ifdef _WIN32
+        data_directory = path(std::getenv("USERPROFILE"))/"Documents"/"soundbox";
+        
+#else // assume unix-based
+        {
+            path docs_path;
+
+            // first, try to read XDG_DOCUMENTS_DIR env variable
+            const char* docs_pathstr = std::getenv("XDG_DOCUMENTS_DIR");
+            if (docs_pathstr)
+            {
+                docs_path = docs_pathstr;
+            }
+
+            // if XDG_DOCUMENTS_DIR was not found, call xdg-user-dir
+            else
+            {
+                bool s = true;
+                char buf[256];
+                int err;
+
+                FILE* pipe = popen("xdg-user-dir DOCUMENTS", "r");
+                
+                if (pipe && fgets(buf, 256, pipe) != nullptr && pclose(pipe) == 0) {
+                    buf[strlen(buf) - 1] = 0; // remove ending newline
+                    docs_path = buf;
+                }
+
+                // if xdg-user-dir query failed, see if $HOME/Documents exists
+                else
+                {
+                    path home = path(std::getenv("HOME"));
+                    path p = home/"Documents";
+
+                    if (exists(p))
+                        docs_path = p;
+
+                    // $HOME/Documents does not exist, just use $HOME
+                    else
+                        docs_path = home;
+                }
+            }
+            
+            // soundbox data directory
+            data_directory = docs_path/"soundbox";
+        }
+#endif
+    }
+
+    // ensure proper directories exist
+    if (!is_directory(data_directory) || !exists(data_directory))
+        create_directory(data_directory);
+    
+    // projects directory
+    if (!is_directory(data_directory/"projects") || !exists(data_directory/"projects"))
+        create_directory(data_directory/"projects");
+
+    // plugins directory
+    if (!is_directory(data_directory/"plugins") || !exists(data_directory/"plugins"))
+        create_directory(data_directory/"plugins");
+
+    if (!is_directory(data_directory/"plugins"/"ladspa") || !exists(data_directory/"plugins"/"ladspa"))
+        create_directory(data_directory/"plugins"/"ladspa");
+
+    // themes directory
+    if (!is_directory(data_directory/"themes") || !exists(data_directory/"themes"))
+        create_directory(data_directory/"themes");
+
+    // imgui ini
+    data_directory_str = (data_directory/"imgui.ini").u8string();
+    ImGui::GetIO().IniFilename = data_directory_str.c_str();
+}
+
 bool SongEditor::undo()
 {
     if (undo_stack.is_empty()) return false;
@@ -444,7 +529,7 @@ void SongEditor::play_note(int channel, int key, float volume, float secs_len)
 
 void SongEditor::save_preferences() const
 {
-    std::ofstream file("user.toml", std::ios_base::out | std::ios_base::trunc);
+    std::ofstream file(data_directory/"user.toml", std::ios_base::out | std::ios_base::trunc);
 
     // write selected theme
     file << "[ui]\n";
@@ -460,21 +545,8 @@ void SongEditor::save_preferences() const
     file << "ladspa = [";
 
     int i = 0;
-    const std::vector<std::string>& system_paths = plugin_manager.get_standard_plugin_paths(plugins::PluginType::Ladspa);
-    for (const std::string& path : plugin_manager.ladspa_paths)
+    for (const std::string& path : plugin_manager.get_user_paths(plugins::PluginType::Ladspa))
     {
-        bool is_system_path = false;
-
-        // exclude system paths
-        for (const std::string& other : system_paths) {
-            if (path == other) {
-                is_system_path = true;
-                break;
-            }
-        }
-
-        if (is_system_path) continue;
-
         if (i == 0)
             file << "\n";
 
@@ -489,7 +561,7 @@ void SongEditor::save_preferences() const
 
 void SongEditor::load_preferences()
 {
-    auto data = toml::parseFile("user.toml");
+    auto data = toml::parseFile(data_directory/"user.toml");
     if (!data.table) {
         std::cerr << "error parsing preferences: " << data.errmsg << "\n";
         return;
@@ -542,7 +614,7 @@ void SongEditor::load_preferences()
 bool SongEditor::save_song_as()
 {
     std::string file_name = last_file_path.empty()
-        ? default_save_dir + this->song->name + ".box"
+        ? (data_directory/"projects").string() + this->song->name + ".box"
         : last_file_path;
     nfdchar_t* out_path = nullptr;
     nfdresult_t result = NFD_SaveDialog("box", file_name.c_str(), &out_path);

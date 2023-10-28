@@ -704,7 +704,7 @@ void ui::compute_imgui(SongEditor& editor) {
                 editor.show_themes_window = !editor.show_themes_window;
 
                 if (editor.show_themes_window)
-                    editor.theme.scan_themes();
+                    editor.theme.scan_themes(editor.get_data_directory()/"themes");
             }
 
             if (ImGui::MenuItem("Directories..."))
