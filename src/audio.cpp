@@ -261,7 +261,8 @@ ModuleBase::ModuleBase(DestinationModule& dest, bool has_interface) :
 {};
 
 ModuleBase::~ModuleBase() {
-    remove_all_connections();
+    assert(_output == nullptr);
+    assert(_inputs.empty());
 
     if (_audio_buffer != nullptr) delete[] _audio_buffer;
 }
@@ -799,6 +800,11 @@ FXBus::FXBus(audiomod::DestinationModule& dest) : controller(dest)
 {
     strcpy(name, "FX Bus");
     rack.connect_output(&controller);
+}
+
+FXBus::~FXBus()
+{
+    controller.remove_all_connections();
 }
 
 ModuleOutputTarget* FXBus::connect_output(ModuleOutputTarget* output)

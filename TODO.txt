@@ -48,6 +48,11 @@
     - phaser
     = reverb
 
+- !! IMPORTANT !! why tf does it crash when i open double-drums.box, export it, then exit the program??
+
+- module garbage collection is kind of stupid (in that it's very memory-unsafe)
+  make a safer one.
+- more memory-safety (prefer std::unique_ptr instead of new directly)
 - don't use native file browser
     (port the file browser i made with imgui/love2d to C++)
 - Importing MIDI tracks

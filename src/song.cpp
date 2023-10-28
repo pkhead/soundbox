@@ -81,7 +81,9 @@ Channel::~Channel() {
     effects_rack.disconnect_output();
 
     fx_mixer[fx_target_idx]->disconnect_input(&vol_mod);
+
     synth_mod->release();
+    vol_mod.remove_all_connections();
 }
 
 void Channel::set_instrument(audiomod::ModuleBase* new_instrument) {

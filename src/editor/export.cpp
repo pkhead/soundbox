@@ -83,6 +83,8 @@ void SongExport::process()
     {
         is_done = true;
         out_file.close();
+        song = nullptr;
+        audiomod::ModuleBase::free_garbage_modules();
     }
 }
 

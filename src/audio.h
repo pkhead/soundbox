@@ -332,6 +332,7 @@ namespace audiomod {
     {
     public:
         FXBus(audiomod::DestinationModule& dest);
+        ~FXBus();
 
         EffectsRack rack;
 
