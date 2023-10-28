@@ -13,7 +13,7 @@ namespace audiomod
     {
     protected:
         std::vector<ModuleNodeRc> inputs;
-        ModuleOutputTargetNodeRc output;
+        ModuleNodeRc output;
 
     public:
         EffectsRack();
@@ -34,7 +34,7 @@ namespace audiomod
         * Connect the effects rack to a module
         * @returns The previous output module
         */
-        ModuleOutputTargetNodeRc connect_output(ModuleOutputTargetNodeRc& output);
+        ModuleNodeRc connect_output(ModuleNodeRc& output);
 
         /**
         * Disconnect the input from effects rack
@@ -46,7 +46,7 @@ namespace audiomod
         * Disconnect the effects rack to its output
         * @returns A reference to the now disconnected output module
         */
-        ModuleOutputTargetNodeRc disconnect_output();
+        ModuleNodeRc disconnect_output();
     };
 
     class FXBus
@@ -57,7 +57,7 @@ namespace audiomod
 
         EffectsRack rack;
 
-        class ControllerModule : public ModuleBase
+        class FaderModule : public ModuleBase
         {
         protected:
             void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
@@ -71,8 +71,6 @@ namespace audiomod
             float gain = 0.0f;
             bool mute = false;
             bool mute_override = false;
-
-            ControllerModule();
         };
         ModuleNodeRc controller;
 
@@ -101,8 +99,8 @@ namespace audiomod
         inline void disconnect_all_inputs() { rack.disconnect_all_inputs(); };
 
         // these implementations aren't one-liners so maybe inlining isn't a good idea
-        ModuleOutputTargetNode connect_output(ModuleOutputTargetNode& output);
-        ModuleOutputTargetNode disconnect_output();
+        ModuleNodeRc connect_output(ModuleNodeRc& output);
+        ModuleNodeRc disconnect_output();
     };
 
     struct ModuleListing
@@ -117,7 +115,7 @@ namespace audiomod
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 
     // define in modules/modules.cpp
-    ModuleBase* create_module(
+    ModuleNodeRc create_module(
         const std::string& mod_id,
         ModuleGraph& graph,
         plugins::PluginManager& plugin_manager,

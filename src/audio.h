@@ -106,48 +106,32 @@ namespace audiomod
     // Handles connections between modules
     class ModuleNode;
     typedef std::shared_ptr<ModuleNode> ModuleNodeRc;
-
+    
     // Handles ModuleNodes
     class ModuleGraph;
-
-    class ModuleOutputTargetNode
-    {
-        friend ModuleGraph;
-
-    protected:
-        std::vector<float*> input_arrays;
-        std::vector<ModuleNodeRc> input_nodes;
-        ModuleGraph& graph;
-
-    public:
-        ModuleOutputTargetNode(ModuleGraph& graph);
-        ~ModuleOutputTargetNode();
-
-        bool remove_input(ModuleNodeRc& module);
-        void add_input(ModuleNodeRc module);
-        inline const std::vector<ModuleNodeRc>& get_inputs() const {
-            return input_nodes;
-        }
-    };
-
-    typedef std::shared_ptr<ModuleOutputTargetNode> ModuleOutputTargetNodeRc;
-
-    class ModuleNode : public ModuleOutputTargetNode, public std::enable_shared_from_this<ModuleNode>
+    class ModuleNode : public std::enable_shared_from_this<ModuleNode>
     {
         friend ModuleGraph;
     
-    protected:
+    private:
         std::unique_ptr<ModuleBase> _module;
+        ModuleGraph& graph;
 
-        ModuleOutputTargetNodeRc output_node;
+        std::vector<float*> input_arrays;
+        std::vector<ModuleNodeRc> input_nodes;
+
+        ModuleNodeRc output_node;
         float* output_array;
+
+        bool remove_input(ModuleNodeRc& module);
+        void add_input(ModuleNodeRc module);
 
     public:
         ModuleNode(ModuleGraph& graph, std::unique_ptr<ModuleBase>&& module);
         ~ModuleNode();
         
         // Connect this module's output to a node's input
-        void connect(ModuleOutputTargetNodeRc& dest);
+        void connect(ModuleNodeRc& dest);
 
         // Disconnect this node from its output
         void disconnect();
@@ -159,6 +143,14 @@ namespace audiomod
         {
             return *_module;
         }
+        
+        inline const std::vector<ModuleNodeRc>& get_inputs() const {
+            return input_nodes;
+        }
+
+        inline ModuleNodeRc& get_output() {
+            return output_node;
+        }
     };
 
     class ModuleGraph
@@ -167,7 +159,7 @@ namespace audiomod
 
     private:
         std::vector<ModuleNodeRc> nodes;
-        ModuleOutputTargetNodeRc _dest;
+        ModuleNodeRc _dest; // does not have outputs
 
         float* audio_buffer;
 
@@ -189,7 +181,7 @@ namespace audiomod
         const int num_channels;
         const int frames_per_buffer;
 
-        inline ModuleOutputTargetNodeRc destination() {
+        inline ModuleNodeRc destination() {
             return _dest;
         }
 

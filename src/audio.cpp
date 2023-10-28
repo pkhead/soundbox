@@ -1,4 +1,5 @@
 #include <iostream>
+#include <memory>
 #include <cstring>
 #include "audio.h"
 
@@ -204,23 +205,26 @@ bool NoteEvent::read_midi(const MidiMessage* in)
 //   MODULE GRAPH   //
 //////////////////////
 
-ModuleOutputTargetNode::ModuleOutputTargetNode(ModuleGraph& graph)
-:   graph(graph)
-{}
-
-ModuleOutputTargetNode::~ModuleOutputTargetNode()
+ModuleNode::ModuleNode(ModuleGraph& graph, std::unique_ptr<ModuleBase>&& mod)
+:   graph(graph), _module(std::move(mod))
 {
+    output_array = new float[graph.frames_per_buffer * graph.num_channels];
+}
+
+ModuleNode::~ModuleNode()
+{
+    delete[] output_array;
     for (float*& ptr : input_arrays)
         delete[] ptr;
 }
 
-void ModuleOutputTargetNode::add_input(ModuleNodeRc module)
+void ModuleNode::add_input(ModuleNodeRc module)
 {
     input_nodes.push_back(std::move(module));
     input_arrays.push_back(new float[graph.frames_per_buffer * graph.num_channels]);
 }
 
-bool ModuleOutputTargetNode::remove_input(ModuleNodeRc& module)
+bool ModuleNode::remove_input(ModuleNodeRc& module)
 {
     for (auto it = input_nodes.begin(); it != input_nodes.end(); it++) {
         if (*it == module) {
@@ -234,22 +238,7 @@ bool ModuleOutputTargetNode::remove_input(ModuleNodeRc& module)
     return true;
 }
 
-
-
-// ModuleNode
-
-ModuleNode::ModuleNode(ModuleGraph& graph, std::unique_ptr<ModuleBase>&& mod)
-:   ModuleOutputTargetNode(graph), _module(std::move(mod))
-{
-    output_array = new float[graph.frames_per_buffer * graph.num_channels];
-}
-
-ModuleNode::~ModuleNode()
-{
-    delete[] output_array;
-}
-
-void ModuleNode::connect(ModuleOutputTargetNodeRc& dest)
+void ModuleNode::connect(ModuleNodeRc& dest)
 {
     disconnect();
     dest->add_input(shared_from_this());
@@ -260,9 +249,9 @@ void ModuleNode::connect(ModuleOutputTargetNodeRc& dest)
 
 void ModuleNode::disconnect()
 {
-    ModuleNodeRc shared = shared_from_this();
+    ModuleNodeRc shared = std::enable_shared_from_this<ModuleNode>::shared_from_this();
 
-    if (!output_node) output_node->remove_input(shared);
+    if (output_node) output_node->remove_input(shared);
     output_node = nullptr;
 
     graph.make_dirty();
@@ -292,6 +281,9 @@ ModuleGraph::~ModuleGraph()
 {
     delete[] audio_buffer;
 }
+
+void ModuleGraph::make_dirty()
+{}
 
 void ModuleGraph::process_node(ModuleNode& node)
 {
