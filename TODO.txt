@@ -50,6 +50,8 @@
 
 - !! IMPORTANT !! why tf does it crash when i open double-drums.box, export it, then exit the program??
 
+- use app-specific NoteEvent for module note events instead of MIDI events
+  (it was changed to MIDI events for plugin support, but i re-realize that's kind of dumb)
 - module garbage collection is kind of stupid (in that it's very memory-unsafe)
   make a safer one.
 - more memory-safety (prefer std::unique_ptr instead of new directly)
