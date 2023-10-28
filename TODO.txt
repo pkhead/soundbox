@@ -5,6 +5,7 @@
 
 - alternative FX mixer ui
     - always once selected FX bus, add another docked window called "FX Bus"
+    - horizontal fx mixer layout
 
 = Unit tests
     = module serialization
@@ -48,23 +49,23 @@
     - phaser
     = reverb
 
-x module garbage collection is kind of stupid (in that it's very memory-unsafe)
-  make a safer one.
-x more memory-safety (prefer std::unique_ptr instead of new directly)
-- create default dock layout in code
-- horizontal fx mixer layout
-- don't use native file browser
-    (port the file browser i made with imgui/love2d to C++)
+- Automation
 - Importing MIDI tracks
-- figure out why keyboard interactions do not work sometimes with plugin UI embedding enabled
 - mp3 exports
 - Automation
 - Channel for playing audio clips
 - Song change markers (time signature or tuning)
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - metronome
+
+    TEMPORARY TODOS:
+
+x more memory-safety (prefer std::unique_ptr instead of new directly)
+- create default dock layout in code
+- don't use native file browser
+    (port the file browser i made with imgui/love2d to C++)
+- figure out why keyboard interactions do not work sometimes with plugin UI embedding enabled
 - try not to use spinlocks (used for lv2 port subscription)
 x use ring buffer for message queue
-- thin out main.cpp
 - make audio rendering realtime-capable
   (kind of hard, since it's (1.) an extra thread that (2.) can't do memory de/allocation)

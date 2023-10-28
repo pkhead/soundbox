@@ -215,7 +215,7 @@ SongEditor::SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowMana
         nfdchar_t* out_path;
         nfdresult_t result = NFD_OpenDialog(
             "tun,scl,kbm",
-            last_tuning_location.empty() ? nullptr : last_tuning_location.c_str(),
+            data_directory.c_str(),
             &out_path
         );
 
