@@ -46,10 +46,12 @@ namespace audiomod
         float _in_buf[2][BUFFER_SIZE];
         float _out_buf[2][BUFFER_SIZE];
         int _buf_i[2];
+
+        ModuleContext& modctx;
     public:
         void save_state(std::ostream& ostream) override;
         bool load_state(std::istream&, size_t size) override;
 
-        LimiterModule(DestinationModule& dest);
+        LimiterModule(ModuleContext& modctx);
     };
 }

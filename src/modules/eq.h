@@ -21,6 +21,8 @@ namespace audiomod
     protected:
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
+
+        ModuleContext& modctx;
         
         // low-pass & high-pass filters
         Filter2ndOrder filter[2][2];
@@ -41,6 +43,6 @@ namespace audiomod
         void save_state(std::ostream& ostream) override;
         bool load_state(std::istream&, size_t size) override;
 
-        EQModule(DestinationModule& dest);
+        EQModule(ModuleContext& modctx);
     };
 }

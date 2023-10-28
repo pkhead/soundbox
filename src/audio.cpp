@@ -205,10 +205,10 @@ bool NoteEvent::read_midi(const MidiMessage* in)
 //   MODULE GRAPH   //
 //////////////////////
 
-ModuleNode::ModuleNode(ModuleGraph& graph, std::unique_ptr<ModuleBase>&& mod)
-:   graph(graph), _module(std::move(mod))
+ModuleNode::ModuleNode(ModuleContext& modctx, std::unique_ptr<ModuleBase>&& mod)
+:   modctx(modctx), _module(std::move(mod))
 {
-    output_array = new float[graph.frames_per_buffer * graph.num_channels];
+    output_array = new float[modctx.frames_per_buffer * modctx.num_channels];
 }
 
 ModuleNode::~ModuleNode()
@@ -221,7 +221,7 @@ ModuleNode::~ModuleNode()
 void ModuleNode::add_input(ModuleNodeRc module)
 {
     input_nodes.push_back(std::move(module));
-    input_arrays.push_back(new float[graph.frames_per_buffer * graph.num_channels]);
+    input_arrays.push_back(new float[modctx.frames_per_buffer * modctx.num_channels]);
 }
 
 bool ModuleNode::remove_input(ModuleNodeRc& module)
@@ -244,7 +244,7 @@ void ModuleNode::connect(ModuleNodeRc& dest)
     dest->add_input(shared_from_this());
     output_node = dest;
 
-    graph.make_dirty();
+    modctx.make_dirty();
 }
 
 void ModuleNode::disconnect()
@@ -254,7 +254,7 @@ void ModuleNode::disconnect()
     if (output_node) output_node->remove_input(shared);
     output_node = nullptr;
 
-    graph.make_dirty();
+    modctx.make_dirty();
 }
 
 void ModuleNode::remove_all_connections()
@@ -268,7 +268,7 @@ void ModuleNode::remove_all_connections()
 
 
 
-ModuleGraph::ModuleGraph(int sample_rate, int num_channels, size_t buffer_size)
+ModuleContext::ModuleContext(int sample_rate, int num_channels, size_t buffer_size)
 :   sample_rate(sample_rate), num_channels(num_channels), frames_per_buffer(buffer_size)
 {
     audio_buffer = new float[frames_per_buffer * num_channels];
@@ -277,15 +277,15 @@ ModuleGraph::ModuleGraph(int sample_rate, int num_channels, size_t buffer_size)
     memset(dummy_buffer, 0, sizeof(dummy_buffer));
 }
 
-ModuleGraph::~ModuleGraph()
+ModuleContext::~ModuleContext()
 {
     delete[] audio_buffer;
 }
 
-void ModuleGraph::make_dirty()
+void ModuleContext::make_dirty()
 {}
 
-void ModuleGraph::process_node(ModuleNode& node)
+void ModuleContext::process_node(ModuleNode& node)
 {
     // get data in inputs
     for (ModuleNodeRc& input : node.input_nodes)
@@ -303,7 +303,7 @@ void ModuleGraph::process_node(ModuleNode& node)
     );
 }
 
-size_t ModuleGraph::process(float* &buffer)
+size_t ModuleContext::process(float* &buffer)
 {
     for (ModuleNodeRc& input_node : _dest->input_nodes)
     {

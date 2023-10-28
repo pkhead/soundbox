@@ -22,10 +22,10 @@ std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list(
     "synth.waveform", "Waveform"
 });
 
-#define MAP(id, class) if (mod_id == id) return graph.create<class>()
+#define MAP(id, class) if (mod_id == id) return modctx.create<class>(modctx)
 ModuleNodeRc audiomod::create_module(
     const std::string& mod_id,
-    ModuleGraph& graph,
+    ModuleContext& modctx,
     plugins::PluginManager& plugin_manager,
     WorkScheduler& scheduler
 ) {
@@ -59,7 +59,7 @@ ModuleNodeRc audiomod::create_module(
     for (auto& plugin_data : plugin_manager.get_plugin_data())
     {
         if (mod_id == plugin_data.id)
-            return plugin_manager.instantiate_plugin(plugin_data, graph, scheduler);
+            return plugin_manager.instantiate_plugin(plugin_data, modctx, scheduler);
     }
 
     // no module found
@@ -277,9 +277,9 @@ void EffectsRack::disconnect_all_inputs()
 //////////////////////
 //   EFFECTS BUS    //
 //////////////////////
-FXBus::FXBus(ModuleGraph& graph)
+FXBus::FXBus(ModuleContext& modctx)
 {
-    controller = graph.create<FaderModule>();
+    controller = modctx.create<FaderModule>();
     strcpy(name, "FX Bus");
     rack.connect_output(controller);
 }

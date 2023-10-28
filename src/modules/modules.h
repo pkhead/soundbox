@@ -52,7 +52,7 @@ namespace audiomod
     class FXBus
     {
     public:
-        FXBus(ModuleGraph& graph);
+        FXBus(ModuleContext& modctx);
         ~FXBus();
 
         EffectsRack rack;
@@ -117,7 +117,7 @@ namespace audiomod
     // define in modules/modules.cpp
     ModuleNodeRc create_module(
         const std::string& mod_id,
-        ModuleGraph& graph,
+        ModuleContext& modctx,
         plugins::PluginManager& plugin_manager,
         WorkScheduler& work_scheduler
     );

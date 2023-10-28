@@ -63,8 +63,8 @@ static void hadamard(float* arr)
     }
 }
 
-ReverbModule::ReverbModule(DestinationModule& dest)
-    : ModuleBase(dest, true),
+ReverbModule::ReverbModule(ModuleContext& modctx)
+    : ModuleBase(true), modctx(modctx),
       state_queue(sizeof(module_state), 8)
 {
     id = "effect.reverb";
@@ -80,7 +80,7 @@ ReverbModule::ReverbModule(DestinationModule& dest)
     process_state = ui_state;
 
     // create delay buffers
-    size_t buffer_size = (size_t)(dest.sample_rate * MAX_DELAY_LEN);
+    size_t buffer_size = (size_t)(modctx.sample_rate * MAX_DELAY_LEN);
 
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
@@ -149,13 +149,13 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         float f = (float)(i+1) / REVERB_CHANNEL_COUNT;
         float d = f * process_state.echo_delay + f * 0.02;
         assert(d <= MAX_DELAY_LEN);
-        echoes[i].delay = d * _dest.sample_rate;
+        echoes[i].delay = d * modctx.sample_rate;
     }
 
     // setup filters
     for (int i = 0; i < REVERB_CHANNEL_COUNT; i++)
     {
-        shelf_filters[i].high_shelf(_dest.sample_rate, process_state.shelf_freq, process_state.shelf_gain, 0.5f);
+        shelf_filters[i].high_shelf(modctx.sample_rate, process_state.shelf_freq, process_state.shelf_gain, 0.5f);
     }
 
     // setup diffuser
@@ -168,7 +168,7 @@ void ReverbModule::process(float** inputs, float* output, size_t num_inputs, siz
         {
             float delay_len = diffuse_delay_mod[i][k] * range + range_start;
             assert(delay_len <= MAX_DELAY_LEN);
-            diffuse_delays[i][k].delay = (float)_dest.sample_rate * delay_len;
+            diffuse_delays[i][k].delay = (float)modctx.sample_rate * delay_len;
         }
     }
     
@@ -296,7 +296,7 @@ void ReverbModule::_interface_proc()
     
     // shelf freq
     ImGui::SliderFloat(
-        "##shelf_freq", &ui_state.shelf_freq, 20.0f, _dest.sample_rate / 2.5f, "%.0f Hz",
+        "##shelf_freq", &ui_state.shelf_freq, 20.0f, modctx.sample_rate / 2.5f, "%.0f Hz",
         ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoRoundToFormat
     );
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.shelf_freq = 200.0f;

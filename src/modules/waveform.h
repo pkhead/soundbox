@@ -25,8 +25,10 @@ namespace audiomod {
         Voice voices[MAX_VOICES];
         void process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count) override;
         void _interface_proc() override;
+
+        ModuleContext& modctx;
     public:
-        WaveformSynth(DestinationModule& dest);
+        WaveformSynth(ModuleContext& modctx);
 
         enum WaveformType: uint8_t {
             Sine = (uint8_t)0,
@@ -50,7 +52,7 @@ namespace audiomod {
 
         void event(const MidiEvent& event) override;
         void queue_event(const MidiEvent& event) override;
-        void flush_events(ModuleBase* out_module) override;
+        void flush_events() override;
         void save_state(std::ostream& output) override;
         bool load_state(std::istream& input, size_t size) override;
     };

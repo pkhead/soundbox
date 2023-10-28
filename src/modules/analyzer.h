@@ -42,7 +42,7 @@ namespace audiomod
         fftwf_complex *complex_left, *complex_right;
         float            *real_left,    *real_right;
     public:
-        AnalyzerModule(DestinationModule& dest);
+        AnalyzerModule(audiomod::ModuleContext& modctx);
         ~AnalyzerModule();
     };
 }

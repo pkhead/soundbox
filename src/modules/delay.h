@@ -31,7 +31,7 @@ namespace audiomod
         void save_state(std::ostream& ostream) override;
         bool load_state(std::istream&, size_t size) override;
 
-        DelayModule(DestinationModule& dest);
+        DelayModule(ModuleContext& modctx);
         ~DelayModule();
     };
 }

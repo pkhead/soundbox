@@ -7,7 +7,7 @@
 
 using namespace audiomod;
 
-GainModule::GainModule(DestinationModule& dest) : ModuleBase(dest, true) {
+GainModule::GainModule(ModuleContext& modctx) : ModuleBase(true) {
     id = "effect.gain";
     name = "Gain";
 }

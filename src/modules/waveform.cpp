@@ -20,8 +20,8 @@ static const size_t NOISE_DATA_SIZE = 1 << 16;
 static float NOISE_DATA[1 << 16];
 static bool PREPROCESSED_DATA_READY = false;
 
-WaveformSynth::WaveformSynth(DestinationModule& dest)
-:   ModuleBase(dest, true),
+WaveformSynth::WaveformSynth(ModuleContext& modctx)
+:   ModuleBase(true), modctx(modctx),
     event_queue(sizeof(MidiEvent), MAX_VOICES*2)
 {
     id = "synth.waveform";
@@ -82,9 +82,9 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
     float t, env;
     float samples[3][2];
 
-    for (size_t i = 0; i < buffer_size; i += channel_count) {
+    for (size_t i = 0; i < buffer_size; i += modctx.num_channels) {
         // set both channels to zero
-        for (size_t ch = 0; ch < channel_count; ch++) output[i + ch] = 0.0f;
+        for (size_t ch = 0; ch < modctx.num_channels; ch++) output[i + ch] = 0.0f;
 
         // compute all voices
         for (size_t j = 0; j < MAX_VOICES; j++) {
@@ -122,7 +122,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                 float r_mult = (panning[osc] + 1.0f) / 2.0f;
                 float l_mult = 1.0f - r_mult;
 
-                double increment = (PI2 * freq) / sample_rate;
+                double increment = (PI2 * freq) / modctx.sample_rate;
 
                 switch (waveform_types[osc]) {
                     case Sine:
@@ -190,7 +190,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
             output[i] += samples[0][0] + samples[1][0] + samples[2][0];
             output[i + 1] += samples[0][1] + samples[1][1] + samples[2][1];
 
-            voice.time += 1.0 / sample_rate;
+            voice.time += 1.0 / modctx.sample_rate;
         }
     }
 }
@@ -259,7 +259,7 @@ void WaveformSynth::queue_event(const MidiEvent& event)
     event_queue.post(&event, sizeof(event));
 }
 
-void WaveformSynth::flush_events(ModuleBase* out_module)
+void WaveformSynth::flush_events()
 {
     while (true) {
         auto handle = event_queue.read();

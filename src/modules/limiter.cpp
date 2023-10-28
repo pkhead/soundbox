@@ -7,8 +7,8 @@
 
 using namespace audiomod;
 
-LimiterModule::LimiterModule(DestinationModule& dest)
-:   ModuleBase(dest, true),
+LimiterModule::LimiterModule(ModuleContext& modctx)
+:   ModuleBase(true), modctx(modctx),
     process_queue(sizeof(message_t), 8),
     ui_queue(sizeof(message_t), 8)
 {
@@ -119,8 +119,8 @@ void LimiterModule::process(float** inputs, float* output, size_t num_inputs, si
     float out_factor = db_to_mult(state.output_gain);
     float threshold = db_to_mult(state.threshold);
 
-    float a = powf(0.01f, 1.0f / (state.attack * _dest.sample_rate * 0.001f));
-    float r = powf(0.01f, 1.0f / (state.decay * _dest.sample_rate * 0.001f));
+    float a = powf(0.01f, 1.0f / (state.attack * modctx.sample_rate * 0.001f));
+    float r = powf(0.01f, 1.0f / (state.decay * modctx.sample_rate * 0.001f));
     
     for (size_t i = 0; i < buffer_size; i += channel_count) {
         // receive inputs

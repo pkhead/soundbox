@@ -6,15 +6,14 @@
 
 using namespace audiomod;
 
-AnalyzerModule::AnalyzerModule(DestinationModule& dest) :
-    ModuleBase(dest, true),
-    ring_buffer(dest.sample_rate * 0.5) // hold 0.5 seconds of audio
+AnalyzerModule::AnalyzerModule(ModuleContext& modctx)
+:   ModuleBase(true), ring_buffer(modctx.sample_rate * 0.5) // hold 0.5 seconds of audio
 {
     id = "effect.analyzer";
     name = "Analyzer";
 
     size_t arr_size = frames_per_window + window_margin * 2;
-    buf = new float[arr_size * dest.channel_count];
+    buf = new float[arr_size * modctx.num_channels];
 
     for (int i = 0; i < 2; i++) {
         window_left[i] = new float[arr_size];

@@ -4,8 +4,8 @@
 
 using namespace audiomod;
 
-EQModule::EQModule(DestinationModule& dest)
-:   ModuleBase(dest, true),
+EQModule::EQModule(ModuleContext& dest)
+:   ModuleBase(true), modctx(dest),
     queue(sizeof(module_state), 8)
 {
     id = "effect.eq";
@@ -64,7 +64,7 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
 
         if (peak_enable[i])
             for (int c = 0; c < 2; c++)
-                peak_filter[i][c].peak(_dest.sample_rate, peak_freq[i], peak_reso[i], 0.3f);
+                peak_filter[i][c].peak(modctx.sample_rate, peak_freq[i], peak_reso[i], 0.3f);
     }
 
     for (int i = 0; i < buffer_size; i += 2)
@@ -119,7 +119,7 @@ void EQModule::_interface_proc()
         ImGui::Text("Frequency");
         ImGui::SameLine();
         ImGui::SliderFloat(
-            "##frequency", &freq, 20.0f, _dest.sample_rate / 2.5f, "%.0f Hz",
+            "##frequency", &freq, 20.0f, modctx.sample_rate / 2.5f, "%.0f Hz",
             ImGuiSliderFlags_NoRoundToFormat | ImGuiSliderFlags_Logarithmic
         );
 
@@ -165,7 +165,7 @@ void EQModule::_interface_proc()
         ImGui::VSliderFloat(
             "##peak-frequency",
             vslider_size,
-            &freq, 20.0f, _dest.sample_rate / 2.5f,
+            &freq, 20.0f, modctx.sample_rate / 2.5f,
             "F", ImGuiSliderFlags_Logarithmic
         );
 

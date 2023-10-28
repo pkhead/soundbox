@@ -18,7 +18,7 @@ namespace audiomod
         // used for soloing
         bool mute_override = false;
 
-        VolumeModule(DestinationModule& dest);
+        VolumeModule(ModuleContext& modctx);
         void save_state(std::ostream& ostream) override;
         bool load_state(std::istream&, size_t size) override;
     };

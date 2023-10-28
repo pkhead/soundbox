@@ -7,8 +7,9 @@
 
 using namespace audiomod;
 
-CompressorModule::CompressorModule(DestinationModule& dest) :
-    ModuleBase(dest, true),
+CompressorModule::CompressorModule(ModuleContext& modctx) :
+    ModuleBase(true),
+    modctx(modctx),
     process_queue(sizeof(message_t), 8),
     ui_queue(sizeof(message_t), 8)
 {
@@ -115,8 +116,8 @@ void CompressorModule::process(float** inputs, float* output, size_t num_inputs,
     float out_factor = db_to_mult(state.output_gain);
     float threshold = db_to_mult(state.threshold);
 
-    float a = powf(0.01f, 1.0f / (state.attack * _dest.sample_rate * 0.001f));
-    float r = powf(0.01f, 1.0f / (state.decay * _dest.sample_rate * 0.001f));
+    float a = powf(0.01f, 1.0f / (state.attack * modctx.sample_rate * 0.001f));
+    float r = powf(0.01f, 1.0f / (state.decay * modctx.sample_rate * 0.001f));
     
     for (size_t i = 0; i < buffer_size; i += channel_count) {
         // receive inputs

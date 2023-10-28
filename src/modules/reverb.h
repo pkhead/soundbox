@@ -39,8 +39,10 @@ namespace audiomod
 
         void diffuse(int index, float* values);
 
+        ModuleContext& modctx;
+
     public:
-        ReverbModule(DestinationModule& dest);
+        ReverbModule(ModuleContext& dest);
         ~ReverbModule();
 
         void save_state(std::ostream& ostream) override;

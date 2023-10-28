@@ -108,14 +108,14 @@ namespace audiomod
     typedef std::shared_ptr<ModuleNode> ModuleNodeRc;
     
     // Handles ModuleNodes
-    class ModuleGraph;
+    class ModuleContext;
     class ModuleNode : public std::enable_shared_from_this<ModuleNode>
     {
-        friend ModuleGraph;
+        friend ModuleContext;
     
     private:
         std::unique_ptr<ModuleBase> _module;
-        ModuleGraph& graph;
+        ModuleContext& modctx;
 
         std::vector<float*> input_arrays;
         std::vector<ModuleNodeRc> input_nodes;
@@ -127,7 +127,7 @@ namespace audiomod
         void add_input(ModuleNodeRc module);
 
     public:
-        ModuleNode(ModuleGraph& graph, std::unique_ptr<ModuleBase>&& module);
+        ModuleNode(ModuleContext& modctx, std::unique_ptr<ModuleBase>&& module);
         ~ModuleNode();
         
         // Connect this module's output to a node's input
@@ -153,7 +153,7 @@ namespace audiomod
         }
     };
 
-    class ModuleGraph
+    class ModuleContext
     {
     friend ModuleNode;
 
@@ -173,9 +173,9 @@ namespace audiomod
         void process_node(ModuleNode& node);
     
     public:
-        ModuleGraph(const ModuleGraph&) = delete;
-        ModuleGraph(int sample_rate, int num_channels, size_t buffer_size);
-        ~ModuleGraph();
+        ModuleContext(const ModuleContext&) = delete;
+        ModuleContext(int sample_rate, int num_channels, size_t buffer_size);
+        ~ModuleContext();
 
         const int sample_rate;
         const int num_channels;
@@ -237,7 +237,7 @@ namespace audiomod
         * Flush the event queue of the module.
         * @param out_module The module to send possible midi outputs to, if not nullptr
         */
-        virtual void flush_events(ModuleBase& out_module) {};
+        virtual void flush_events() {};
 
         // does this module have an interface?
         bool has_interface() const;

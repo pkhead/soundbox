@@ -4,7 +4,7 @@
 
 using namespace audiomod;
 
-VolumeModule::VolumeModule(DestinationModule& dest) : ModuleBase(dest, false) {
+VolumeModule::VolumeModule(ModuleContext& modctx) : ModuleBase(false) {
     id = "effect.volume";
     cur_volume[0] = volume;
     cur_volume[1] = volume;
