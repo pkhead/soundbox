@@ -221,13 +221,13 @@ namespace audiomod
         * Process a MIDI event, to be called from the audio thread.
         * @param event The event to be processed 
         **/
-        virtual void event(const MidiEvent& event) {};
+        virtual void event(const NoteEvent& event) {};
 
         /**
         * Queue a MIDI event to be processed on the audio thread.
         * @param event The event to queue
         **/
-        virtual void queue_event(const MidiEvent& event) {};
+        virtual void queue_event(const NoteEvent& event) {};
 
         /**
         * Flush the event queue of the module.

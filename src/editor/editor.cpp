@@ -512,14 +512,11 @@ void SongEditor::play_note(int channel, int key, float volume, float secs_len)
 {
     if (song->is_note_playable(key))
     {
-        audiomod::MidiEvent midi_ev;
-        midi_ev.time = modctx.time_in_frames();
-        (audiomod::NoteEvent {
+        song->channels[channel]->synth_mod->module().queue_event(audiomod::NoteEvent {
             audiomod::NoteEventKind::NoteOn,
             key,
             volume
-        }).write_midi(&midi_ev.msg);
-        song->channels[channel]->synth_mod->module().queue_event(midi_ev);
+        });
 
         active_notes.push_back({
             key, volume, channel, (int)(modctx.sample_rate * secs_len)
@@ -700,15 +697,11 @@ void SongEditor::process(AudioDevice& device)
             // if channel still exists
             if (active_note.channel < song->channels.size())
             {
-                audiomod::MidiEvent midi_ev;
-                midi_ev.time = modctx.time_in_frames();
-                (audiomod::NoteEvent {
+                song->channels[active_note.channel]->synth_mod->module().queue_event(audiomod::NoteEvent {
                     audiomod::NoteEventKind::NoteOff,
                     active_note.key,
                     active_note.volume
-                }).write_midi(&midi_ev.msg);
-
-                song->channels[active_note.channel]->synth_mod->module().queue_event(midi_ev);
+                });
             }
 
             active_notes.erase(active_notes.begin() + i);

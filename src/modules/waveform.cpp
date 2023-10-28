@@ -22,7 +22,7 @@ static bool PREPROCESSED_DATA_READY = false;
 
 WaveformSynth::WaveformSynth(ModuleContext& modctx)
 :   ModuleBase(true), modctx(modctx),
-    event_queue(sizeof(MidiEvent), MAX_VOICES*2)
+    event_queue(sizeof(NoteEvent), MAX_VOICES*2)
 {
     id = "synth.waveform";
     name = "Waveform Synth";
@@ -195,10 +195,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
     }
 }
 
-void WaveformSynth::event(const MidiEvent& midi) {
-    NoteEvent event;
-    if (!event.read_midi(&midi.msg)) return;
-    
+void WaveformSynth::event(const NoteEvent& event) {
     if (event.kind == NoteEventKind::NoteOn) {
         // create new voice in first found empty slot
         // if there are no empty slots, replace the first voice in memory
@@ -254,7 +251,7 @@ void WaveformSynth::event(const MidiEvent& midi) {
     }
 }
 
-void WaveformSynth::queue_event(const MidiEvent& event)
+void WaveformSynth::queue_event(const NoteEvent& event)
 {
     event_queue.post(&event, sizeof(event));
 }
@@ -266,9 +263,9 @@ void WaveformSynth::flush_events()
         if (!handle) break;
 
         // ERROR
-        assert(handle.size() == sizeof(MidiEvent));
-        MidiEvent ev;
-        handle.read(&ev, sizeof(MidiEvent));
+        assert(handle.size() == sizeof(NoteEvent));
+        NoteEvent ev;
+        handle.read(&ev, sizeof(NoteEvent));
         event(ev);
     }
 }

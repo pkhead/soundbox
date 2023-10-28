@@ -50,8 +50,8 @@ namespace audiomod {
         float sustain = 1.0f;
         float release = 0.0f;
 
-        void event(const MidiEvent& event) override;
-        void queue_event(const MidiEvent& event) override;
+        void event(const NoteEvent& event) override;
+        void queue_event(const NoteEvent& event) override;
         void flush_events() override;
         void save_state(std::ostream& output) override;
         bool load_state(std::istream& input, size_t size) override;

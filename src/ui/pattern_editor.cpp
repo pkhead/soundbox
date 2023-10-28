@@ -294,7 +294,7 @@ void ui::render_pattern_editor(SongEditor &editor)
 
                         // Preview Added Note
                         if (!song.is_playing && editor.note_preview)
-                            editor.play_note(editor.selected_channel, key, PIANO_KEY_WIDTH, 0.2f);
+                            editor.play_note(editor.selected_channel, key, PIANO_KEY_VELOCITY, 0.2f);
                     }
 
                     note_pattern = selected_pattern;
@@ -306,15 +306,11 @@ void ui::render_pattern_editor(SongEditor &editor)
                 // stop already currently playing note
                 if (play_key && song.is_note_playable(played_key)) {
                     // turn off old note
-                    audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.mod_ctx().time_in_frames();
-                    (audiomod::NoteEvent {
+                    selected_channel->synth_mod->module().queue_event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         played_key,
                         PIANO_KEY_VELOCITY
-                    }).write_midi(&midi_ev.msg);
-
-                    selected_channel->synth_mod->module().queue_event(midi_ev);
+                    });
                 }
 
                 play_key = true;
@@ -322,15 +318,11 @@ void ui::render_pattern_editor(SongEditor &editor)
                 played_key = key;
 
                 if (song.is_note_playable(key)) {
-                    audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.mod_ctx().time_in_frames();
-                    (audiomod::NoteEvent {
+                    selected_channel->synth_mod->module().queue_event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOn,
                         key,
                         PIANO_KEY_VELOCITY
-                    }).write_midi(&midi_ev.msg);
-
-                    selected_channel->synth_mod->module().queue_event(midi_ev);
+                    });
                 }
             }
         }
@@ -345,28 +337,21 @@ void ui::render_pattern_editor(SongEditor &editor)
             // piano key glissando
             } else if (play_key) {
                 if (prev_mouse_cy != mouse_cy) {
-                    audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.mod_ctx().time_in_frames();
-
                     // turn off old note
                     if (song.is_note_playable(played_key)) {
-                        (audiomod::NoteEvent {
+                        selected_channel->synth_mod->module().queue_event(audiomod::NoteEvent {
                             audiomod::NoteEventKind::NoteOff,
                             played_key,
                             PIANO_KEY_VELOCITY
-                        }).write_midi(&midi_ev.msg);
-
-                        selected_channel->synth_mod->module().queue_event(midi_ev);
+                        });
 
                         // turn on new note
                         played_key = scroll - mouse_cy;
-                        (audiomod::NoteEvent {
+                        selected_channel->synth_mod->module().queue_event(audiomod::NoteEvent {
                             audiomod::NoteEventKind::NoteOn,
                             played_key,
                             PIANO_KEY_VELOCITY
-                        }).write_midi(&midi_ev.msg);
-
-                        selected_channel->synth_mod->module().queue_event(midi_ev);
+                        });
                     }
                 }
             }
@@ -440,17 +425,12 @@ void ui::render_pattern_editor(SongEditor &editor)
         // if selected channel changed, turn off currently playing note
         if (selected_channel != prev_channel) {
             if (prev_channel != nullptr && play_key) {
-                audiomod::MidiEvent midi_ev;
-                midi_ev.time = song.mod_ctx().time_in_frames();
-
                 if (song.is_note_playable(played_key)) {
-                    (audiomod::NoteEvent {
+                    prev_channel->synth_mod->module().queue_event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         played_key,
                         PIANO_KEY_VELOCITY
-                    }).write_midi(&midi_ev.msg);
-
-                    prev_channel->synth_mod->module().queue_event(midi_ev);
+                    });
                 }
 
                 play_key = false;
@@ -509,16 +489,11 @@ void ui::render_pattern_editor(SongEditor &editor)
             if (play_key) {
                 // turn off old note
                 if (song.is_note_playable(played_key)) {
-                    audiomod::MidiEvent midi_ev;
-                    midi_ev.time = song.mod_ctx().time_in_frames();
-
-                    (audiomod::NoteEvent {
+                    selected_channel->synth_mod->module().queue_event(audiomod::NoteEvent {
                         audiomod::NoteEventKind::NoteOff,
                         played_key,
                         PIANO_KEY_VELOCITY
-                    }).write_midi(&midi_ev.msg);
-
-                    selected_channel->synth_mod->module().queue_event(midi_ev);
+                    });
                 }
 
                 play_key = false;
