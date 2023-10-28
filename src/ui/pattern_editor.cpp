@@ -613,8 +613,37 @@ void ui::render_pattern_editor(SongEditor &editor)
             }
         }
 
+        // draw pattern notes from other channels
+        if (editor.show_all_channels)
+        {
+            for (int ch_i = 0; ch_i < song.channels.size(); ch_i++)
+            {
+                // don't redraw selected pattern
+                if (ch_i == editor.selected_channel) continue;
+                Channel* channel = song.channels[ch_i];
+
+                // get pattern
+                int p_id = channel->sequence[editor.selected_bar];
+                if (p_id == 0) continue; // don't draw null pattern
+                Pattern* pattern = channel->patterns[p_id - 1];
+
+                // draw notes in pattern
+                for (Note& note : pattern->notes)
+                {
+                    Vec2 cell_pos = draw_origin + CELL_SIZE * Vec2(note.time, scroll - note.key) + Vec2(PIANO_KEY_WIDTH, 0);
+                    Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, 5);
+
+                    draw_list->AddRectFilled(
+                        rect_pos, 
+                        rect_pos + CELL_SIZE * Vec2(note.length, 1.0f) - Vec2(CELL_MARGIN, 0) * 2.0f - Vec2(0, 10),
+                        theme.get_channel_color(ch_i, false)
+                    );
+                }
+            }
+        }
+
         if (selected_pattern != nullptr) {
-            // draw pattern notes
+            // draw notes of currently selected pattern
             for (Note& note : selected_pattern->notes) {
                 Vec2 cell_pos = draw_origin + CELL_SIZE * Vec2(note.time, scroll - note.key) + Vec2(PIANO_KEY_WIDTH, 0);
                 Vec2 rect_pos = cell_pos + Vec2(CELL_MARGIN, 0);
