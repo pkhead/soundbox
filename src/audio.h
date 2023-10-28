@@ -194,7 +194,7 @@ namespace audiomod
         }
 
         inline uint64_t time_in_frames() const { return _frame_time; };
-        inline double time_in_seconds() const { return (double)_frame_time / frames_per_buffer; };
+        inline double time_in_seconds() const { return (double)_frame_time / sample_rate; };
 
         size_t process(float* &buffer);
     };

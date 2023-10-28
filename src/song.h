@@ -124,6 +124,9 @@ private:
     std::vector<NoteData> cur_notes;
     audiomod::ModuleContext& modctx;
 
+    // this variable is solely for debug purpose
+    int notes_playing = 0;
+
 public:
     Song(const Song&) = delete; // disable copy
     Song(int num_channels, int length, int max_patterns, audiomod::ModuleContext& modctx);

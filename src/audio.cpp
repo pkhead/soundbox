@@ -284,7 +284,10 @@ public:
 };
 
 ModuleContext::ModuleContext(int sample_rate, int num_channels, size_t buffer_size)
-:   sample_rate(sample_rate), num_channels(num_channels), frames_per_buffer(buffer_size)
+:   sample_rate(sample_rate),
+    num_channels(num_channels),
+    frames_per_buffer(buffer_size),
+    _frame_time(0)
 {
     audio_buffer = new float[frames_per_buffer * num_channels];
     // fill dummy buffer with zeroes
@@ -310,7 +313,8 @@ void ModuleContext::process_node(ModuleNode& node)
     for (ModuleNodeRc& input : node.input_nodes)
     {
         process_node(*input);
-
+        input->module().flush_events();
+        
         // copy input's output array to my input array
         memcpy(node.input_arrays[i], input->output_array, buf_size * sizeof(float));
         i++;
@@ -334,6 +338,8 @@ size_t ModuleContext::process(float* &buffer)
     for (ModuleNodeRc& input_node : _dest->input_nodes)
     {
         process_node(*input_node);
+        input_node->module().flush_events();
+
         // copy input's output array to my input array
         memcpy(_dest->input_arrays[i], input_node->output_array, buf_size * sizeof(float));
     }
@@ -350,6 +356,7 @@ size_t ModuleContext::process(float* &buffer)
     }
 
     buffer = audio_buffer;
+    _frame_time += frames_per_buffer;
     return buf_size;
 }
 

@@ -643,10 +643,10 @@ void SongEditor::process(AudioDevice& device)
         }
     }
 
-    mutex.unlock();
-
     if (song_export)
         song_export->process();
+
+    mutex.unlock();
 }
 
 void SongEditor::begin_export()

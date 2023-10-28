@@ -443,9 +443,6 @@ bool Song::get_key_frequency(int key, float* freq) const {
     return true;
 }
 
-// this variable is solely for debug purposes
-static int notes_playing = 0;
-
 void Song::play() {
     is_playing = true;
     position = bar_position * beats_per_bar;
