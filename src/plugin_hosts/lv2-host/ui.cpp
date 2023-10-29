@@ -453,7 +453,8 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
 
                             auto port_it = plugin_ctl->ports.find(index);
 
-                            if (port_it != plugin_ctl->ports.end()) {
+                            if (port_it != plugin_ctl->ports.end())
+                            {
                                 plugin_ctl->ports.find(index);
                                 const PortData& port_data = port_it->second; 
 
@@ -463,7 +464,8 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                                 // by the port type 
                                 PortNotificationTarget data;
 
-                                if (port_data.type == PortData::Control) {
+                                if (port_data.type == PortData::Control)
+                                {
                                     auto ptr = std::make_unique<ctl_port_data_t>();
                                     
                                     // initialize port data
@@ -476,7 +478,9 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                                     // TODO: whats the point of using unique_ptr then
                                     data.control = &ptr->value;
                                     ctl_port_data[index] = std::move(ptr);
-                                } else if (port_data.type == PortData::AtomSequence) {
+                                }
+                                else if (port_data.type == PortData::AtomSequence)
+                                {
                                     auto raw_ptr = new SharedData<AtomSequenceBuffer>({
                                         { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
                                         { 0, 0 }
@@ -487,7 +491,9 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                                     
                                     data.atom_sequence = raw_ptr;
                                     seq_port_data[index] = std::move(ptr);
-                                } else {
+                                }
+                                else
+                                {
                                     throw std::runtime_error("Invalid PortData type");
                                 }
 

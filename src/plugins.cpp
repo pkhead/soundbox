@@ -322,7 +322,7 @@ audiomod::ModuleNodeRc PluginManager::instantiate_plugin(
 #ifdef ENABLE_LV2
         case plugins::PluginType::Lv2:
         try {
-            plugin = new plugins::Lv2Plugin(modctx, plugin_data, work_scheduler, window_manager);
+            plugin = modctx.create<plugins::Lv2Plugin>(modctx, plugin_data, work_scheduler, window_manager);
         } catch (plugins::lv2_error& err) {
             throw module_create_error(err.what());
         }

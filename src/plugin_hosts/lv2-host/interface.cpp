@@ -7,11 +7,11 @@ using namespace lv2;
 using namespace plugins;
 
 Lv2Plugin::Lv2Plugin(
-    audiomod::DestinationModule& dest,
+    audiomod::ModuleContext& _modctx,
     const PluginData& data,
     WorkScheduler& scheduler,
     WindowManager& window_manager
-) : PluginModule(dest, data), host(dest, data, scheduler), ui_host(&host, window_manager)
+) : PluginModule(_modctx, data), host(_modctx, data, scheduler), ui_host(&host, window_manager)
 {
     _has_interface = control_value_count() > 0 || ui_host.has_custom_ui();
     host.start();
@@ -244,13 +244,13 @@ void Lv2Plugin::_interface_proc()
 }
 
 
-void Lv2Plugin::event(const audiomod::MidiEvent& event) {
+void Lv2Plugin::event(const audiomod::NoteEvent& event) {
     return host.event(event);
 }
 
-size_t Lv2Plugin::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) {
+/*size_t Lv2Plugin::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) {
     return host.receive_events(handle, buffer, capacity);
-}
+}*/
 
 void Lv2Plugin::flush_events() {
     return host.flush_events();

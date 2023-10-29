@@ -22,7 +22,7 @@ namespace plugins
         void _interface_proc() override;
     
     public:
-        Lv2Plugin(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler, WindowManager& winmgr);
+        Lv2Plugin(audiomod::ModuleContext& dest, const PluginData& data, WorkScheduler& scheduler, WindowManager& winmgr);
         ~Lv2Plugin();
 
         virtual PluginType plugin_type() { return PluginType::Lv2; };
@@ -31,8 +31,8 @@ namespace plugins
         bool render_interface() override;
         void hide_interface() override;
 
-        virtual void event(const audiomod::MidiEvent& event) override;
-        virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override;
+        virtual void event(const audiomod::NoteEvent& event) override;
+        // virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override;
         virtual void flush_events() override;
 
         virtual int control_value_count() const override;

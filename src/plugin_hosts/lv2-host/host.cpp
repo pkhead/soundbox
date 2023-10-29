@@ -20,10 +20,10 @@
 using namespace plugins;
 using namespace lv2;
 
-Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData& plugin_data, WorkScheduler& scheduler)
+Lv2PluginHost::Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& plugin_data, WorkScheduler& scheduler)
     : plugin_data(plugin_data),
       worker_host(scheduler),
-      _dest(dest)
+      _modctx(modctx)
 {
     if (plugin_data.type != PluginType::Lv2)
         throw std::runtime_error("mismatched plugin types");
@@ -61,7 +61,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
     options_feature = {LV2_OPTIONS__options, &options};
 
     // instantiate plugin
-    instance = lilv_plugin_instantiate(plugin, dest.sample_rate, features);
+    instance = lilv_plugin_instantiate(plugin, _modctx.sample_rate, features);
     if (instance == nullptr) {
         dbg("ERROR: plugin instantiation failed!\n");
         throw lv2_error("instantiation failed");
@@ -190,7 +190,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             lilv_port_is_a(plugin, port, URI.lv2_AudioPort) &&
             is_input_port
         ) {
-            float* input_buf = new float[dest.frames_per_buffer * 2];
+            float* input_buf = new float[_modctx.frames_per_buffer * 2];
             audio_input_bufs.push_back(input_buf);
             lilv_instance_connect_port(instance, i, input_buf);
         }
@@ -200,14 +200,16 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
             lilv_port_is_a(plugin, port, URI.lv2_AudioPort) &&
             is_output_port
         ) {
-            float* output_buf = new float[dest.frames_per_buffer * 2];
+            float* output_buf = new float[_modctx.frames_per_buffer * 2];
             audio_output_bufs.push_back(output_buf);
             lilv_instance_connect_port(instance, i, output_buf);
         }
 
         // atom port
-        else if (lilv_port_is_a(plugin, port, URI.atom_AtomPort)) {
-            if (is_input_port || is_output_port) {
+        else if (lilv_port_is_a(plugin, port, URI.atom_AtomPort))
+        {
+            if (is_input_port || is_output_port) 
+            {
                 Lilv_ptr buffer_type_n = lilv_port_get(plugin, port, URI.atom_bufferType);
                 LilvNodes* supports_n = lilv_port_get_value(plugin, port, URI.atom_supports);
 
@@ -389,7 +391,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData
         }
     }
 
-    input_combined = new float[dest.frames_per_buffer * 2];
+    input_combined = new float[_modctx.frames_per_buffer * 2];
 
     // create utility atom forge
     lv2_atom_forge_init(&forge, &map);
@@ -447,7 +449,7 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
         input_combined,
         &audio_input_bufs.front(),
         audio_input_bufs.size(),
-        _dest.frames_per_buffer,
+        _modctx.frames_per_buffer,
         interleave
     );
 
@@ -458,9 +460,16 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
     // copy received events
     for (AtomSequencePort* in : msg_in)
     {
-        auto handle = in->shared.get_handle();
-        in->data = handle.get();
-        lv2_atom_sequence_clear(&handle.get().header);
+        while (true)
+        {
+            auto handle = in->msg_queue.read();
+            if (handle.size() == 0) break;
+
+            
+        }
+        //auto handle = in->shared.get_handle();
+        //in->data = handle.get();
+        //lv2_atom_sequence_clear(&handle.get().header);
     }
 
     // set and monitor required parameters
@@ -575,7 +584,7 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
         &audio_output_bufs.front(),
         output,
         audio_output_bufs.size(),
-        _dest.frames_per_buffer,
+        _modctx.frames_per_buffer,
         interleave
     );
 }
@@ -596,11 +605,14 @@ void Lv2PluginHost::event(const audiomod::MidiEvent& midi_event)
         atom.header.body.type = uri::map(LV2_MIDI__MidiEvent);
         memcpy(&atom.midi, &midi_msg, midi_msg.size());
 
-        auto handle = midi_in->shared.get_handle();
-        lv2_atom_sequence_append_event(&handle.get().header, ATOM_SEQUENCE_CAPACITY, &atom.header);
+        //auto handle = midi_in->shared.get_handle();
+        //lv2_atom_sequence_append_event(&handle.get().header, ATOM_SEQUENCE_CAPACITY, &atom.header);
+
+        lv2_atom_sequence_append_event(&midi_in->data.header, ATOM_SEQUENCE_CAPACITY, &atom.header);
     }
 }
 
+/*
 size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity)
 {
     if (midi_out)
@@ -645,6 +657,7 @@ size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer,
 
     return 0;
 }
+*/
 
 void Lv2PluginHost::flush_events()
 {

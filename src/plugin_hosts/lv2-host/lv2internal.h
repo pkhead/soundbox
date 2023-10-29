@@ -98,7 +98,7 @@ namespace lv2 {
     } extern URI;
 
     /**
-    * A wrapper around a LilvNode* that is
+    * A wrapper around a Lilv pointers that is
     * automatically freed when it goes out of scope
     **/
     template <class T>
@@ -152,6 +152,10 @@ namespace lv2 {
         if (node) lilv_state_free(node);
     }
 
+    /**
+    * Implementation of the URI feature
+    * The URI feature maps IDs to URI strings
+    **/
     namespace uri {
         extern std::vector<std::string> URI_MAP;
 
@@ -163,13 +167,20 @@ namespace lv2 {
         const char* unmap_callback(LV2_URID_Map_Handle handle, LV2_URID urid);
     }
 
-    // logging feature
+    /**
+    * Implementation of the log feature.
+    * It should hopefully be obvious what the logging feature does.
+    **/
     namespace log {
         int printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...);
         int vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list ap);
     }
 
-    // worker feature
+    /**
+    * Implementation of the worker feature.
+    * The worker feature allows execution of code outside of the audio processing context.
+    * (in a different thread)
+    **/
     class WorkerHost
     {
     private:
@@ -295,6 +306,7 @@ namespace lv2 {
     // attempt to write while it is being read will enter a spinlock
     // should be fine, probably, as the read function only copies the memory
     // then releases the lock
+    /*
     template <class T>
     class SharedData {
     private:
@@ -344,6 +356,7 @@ namespace lv2 {
         // this is not thread-safe
         inline T& unsafe_get() { return _data; };
     };
+    */
 
     static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
 
@@ -357,7 +370,7 @@ namespace lv2 {
         const std::string symbol;
 
         AtomSequenceBuffer data;
-        SharedData<AtomSequenceBuffer> shared;
+        MessageQueue msg_queue;
     };
 
     struct ControlPortNotification
@@ -389,10 +402,15 @@ namespace lv2 {
         std::atomic<float>* control;
     };
 
+    /**
+    * This is the LV2 plugin host... obviously
+    * But this class only handles the audio side of plugin hosting.
+    * UI hosting is done in another class.
+    **/
     class Lv2PluginHost
     {
     private:
-        audiomod::DestinationModule& _dest;
+        audiomod::ModuleContext& _modctx;
 
         float song_last_tempo = -1.0f;
         bool song_last_playing = false;
@@ -450,7 +468,7 @@ namespace lv2 {
         );
 
     public:
-        Lv2PluginHost(audiomod::DestinationModule& dest, const PluginData& data, WorkScheduler& scheduler);
+        Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& data, WorkScheduler& scheduler);
         ~Lv2PluginHost();
         void destroy();
 
@@ -498,15 +516,18 @@ namespace lv2 {
             int channel_count
         );
         void event(const audiomod::MidiEvent& event);
-        size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity);
+        void queue_event(const audiomod::MidiEvent& event);
+        //size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity);
         void flush_events();
         void save_state(std::ostream& ostream);
         bool load_state(std::istream& istream, size_t size);
 
         inline bool is_writing_notifications() const { return _writing_notifs; }
-    }; // class Lv2PluginController
+    }; // class Lv2PluginHost
 
-    // ui feature
+    /**
+    * This is the host for the UI feature.
+    **/
     class UIHost
     {
     private:
@@ -633,7 +654,7 @@ namespace lv2 {
         inline bool has_custom_ui() const {
             return _has_custom_ui;
         };
-    };
+    }; // class UIHost
 
 #ifdef ENABLE_GTK2
     void gtk_process();
