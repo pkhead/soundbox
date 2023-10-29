@@ -315,5 +315,14 @@ bool DelayModule::load_state(std::istream& istream, size_t size)
     _feedback = pull_bytesr<float>(istream);
     _mix = pull_bytesr<float>(istream);
 
+    // send state to processing thread
+    module_state_t state;
+    state.delay_time[0] = _delay_mode ? division_to_secs(song->tempo, _tempo_division[0]) : _delay_time[0];
+    state.delay_time[1] = _delay_mode ? division_to_secs(song->tempo, _tempo_division[1]) : _delay_time[1];
+    state.feedback = _feedback;
+    state.mix = _mix;
+
+    msg_queue.post(&state, sizeof(state));
+
     return true;
 }

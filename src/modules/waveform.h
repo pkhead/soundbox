@@ -19,7 +19,30 @@ namespace audiomod {
             double last_sample[3];
         };
 
-        MessageQueue event_queue;
+        enum WaveformType: uint8_t {
+            Sine = (uint8_t)0,
+            Square = (uint8_t)1,
+            Sawtooth = (uint8_t)2,
+            Triangle = (uint8_t)3,
+            Pulse = (uint8_t)4,
+            Noise = (uint8_t)5, // 1/4 pulse wave
+        };
+
+        struct module_state_t
+        {
+            WaveformType waveform_types[3];
+            float volume[3];
+            float panning[3];
+            int coarse[3];
+            float fine[3];
+
+            float attack = 0.0f;
+            float decay = 0.0f;
+            float sustain = 1.0f;
+            float release = 0.0f;
+        } process_state, ui_state;
+
+        MessageQueue event_queue, state_queue;
 
         static constexpr size_t MAX_VOICES = 16;
         Voice voices[MAX_VOICES];
@@ -29,26 +52,6 @@ namespace audiomod {
         ModuleContext& modctx;
     public:
         WaveformSynth(ModuleContext& modctx);
-
-        enum WaveformType: uint8_t {
-            Sine = (uint8_t)0,
-            Square = (uint8_t)1,
-            Sawtooth = (uint8_t)2,
-            Triangle = (uint8_t)3,
-            Pulse = (uint8_t)4,
-            Noise = (uint8_t)5, // 1/4 pulse wave
-        };
-        
-        WaveformType waveform_types[3];
-        float volume[3];
-        float panning[3];
-        int coarse[3];
-        float fine[3];
-
-        float attack = 0.0f;
-        float decay = 0.0f;
-        float sustain = 1.0f;
-        float release = 0.0f;
 
         void event(const NoteEvent& event) override;
         void queue_event(const NoteEvent& event) override;
