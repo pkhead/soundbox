@@ -20,6 +20,16 @@ static const size_t NOISE_DATA_SIZE = 1 << 16;
 static float NOISE_DATA[1 << 16];
 static bool PREPROCESSED_DATA_READY = false;
 
+WaveformSynth::Voice::Voice()
+{
+    phase[0] = phase[1] = phase[2] = 0.0f;
+    last_sample[0] = last_sample[1] = last_sample[2] = 0.0f;
+}
+
+WaveformSynth::Voice::Voice(int key, float freq, float volume)
+:   key(key), freq(freq), volume(volume), active(true)
+{}
+
 WaveformSynth::WaveformSynth(ModuleContext& modctx)
 :   ModuleBase(true), modctx(modctx),
     event_queue(sizeof(NoteEvent), MAX_VOICES*2),
@@ -94,15 +104,17 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
         assert(handle.size() == sizeof(module_state_t));
         handle.read(&process_state, sizeof(module_state_t));
     }
-    
-    float release = process_state.release;
-    float sustain = process_state.sustain;
-    float attack = process_state.attack;
-    float decay = process_state.decay;
-    
-    if (release < 0.001f) release = 0.001f;
-    float t, env;
+
+    ADSR amp_env_params = process_state.amp_env;
+    ADSR filt_env_params = process_state.filt_env;
+
+    if (amp_env_params.release < 0.001f) amp_env_params.release = 0.001f;
+    if (filt_env_params.release < 0.0001f) filt_env_params.release = 0.0001f;
+
     float samples[3][2];
+
+    // setup filter
+    float reso_linear = db_to_mult(process_state.filt_reso);
 
     for (size_t i = 0; i < buffer_size; i += modctx.num_channels) {
         // set both channels to zero
@@ -113,27 +125,37 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
             Voice& voice = voices[j];
             if (!voice.active) continue;
 
-            env = sustain; // envelope value
-
-            if (voice.time < attack) {
-                env = voice.time / attack;
-            } else if (voice.time < decay) {
-                t = (voice.time - attack) / decay;
-                if (t > 1.0f) t = 1.0f;
-                env = (sustain - 1.0f) * t + 1.0f;
+            float amp_env;
+            if (voice.amp_env.compute(voice.time, amp_env, amp_env_params))
+            {
+                // note ended
+                voice.active = false;
+                break;
             }
 
-            // if note is in the release state
-            if (voice.release_time >= 0.0f) {
-                t = (voice.time - voice.release_time) / release;
-                if (t > 1.0f) {
-                    // time has gone past the release envelope, officially end the note
-                    voice.active = false;
-                    continue;
-                }
+            float filt_env;
+            voice.filt_env.compute(voice.time, filt_env, filt_env_params);
 
-                env = (1.0f - t) * voice.release_env;
+            // filter envelope
+
+            /*
+            switch (process_state.filter_type)
+            {
+                case LowPassFilter:
+                    voice.filter[0].low_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
+                    voice.filter[1].low_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
+                    break;
+
+                case HighPassFilter:
+                    voice.filter[0].high_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
+                    voice.filter[1].high_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
+                    break;
+
+                case BandPassFilter:
+                    // TODO: Band pass filter
+                    break;
             }
+            */
 
             for (size_t osc = 0; osc < 3; osc++) {
                 float freq = voice.freq * powf(2.0f, ((float)process_state.coarse[osc] + process_state.fine[osc] / 100.0f) / 12.0f);
@@ -200,7 +222,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                     // a pulse wave: value[w] = (2.0f * _modf(phase / M_2PI + 0.5f, 1.3f) - 1.0f) > 0.0f ? 1.0f : -1.0f;
                 }
 
-                sample *= env * voice.volume * process_state.volume[osc];
+                sample *= amp_env * voice.volume * process_state.volume[osc];
                 samples[osc][0] = sample * l_mult;
                 samples[osc][1] = sample * r_mult;
 
@@ -235,38 +257,15 @@ void WaveformSynth::event(const NoteEvent& event) {
         float key_freq;
         if (song->get_key_frequency(event.key, &key_freq))
         {
-            *voice = {
-                true,
-                event.key,
-                key_freq,
-                event.volume,
-                { 0.0, 0.0, 0.0 },
-                0.0,
-                -1.0f,
-                0.0f,
-                { 0.0, 0.0, 0.0 }
-            };
+            *voice = Voice(event.key, key_freq, event.volume);
         }
     
     } else if (event.kind == NoteEventKind::NoteOff) {
         for (size_t i = 0; i < MAX_VOICES; i++) {
             Voice& voice = voices[i];
 
-            if (voice.active && voice.key == event.key && voice.release_time < 0.0f) {
-                voice.release_time = voice.time;
-
-                // calculate envelope at release time
-                voice.release_env = process_state.sustain;
-                float t;
-
-                if (voice.time < process_state.attack) {
-                    voice.release_env = voice.time / process_state.attack;
-                } else if (voice.time < process_state.decay) {
-                    t = (voice.time - process_state.attack) / process_state.decay;
-                    if (t > 1.0f) t = 1.0f;
-                    voice.release_env = (process_state.sustain - 1.0f) * t + 1.0f;
-                }
-
+            if (voice.active && voice.key == event.key && !voice.amp_env.is_released()) {
+                voice.amp_env.release(voice.time, process_state.amp_env);
                 break;
             }
         }
@@ -396,23 +395,25 @@ void WaveformSynth::_interface_proc() {
     ImGui::Text("Amplitude Envelope");
     ImGui::PushItemWidth(slider_width);
 
+    ADSR& amp_emv = ui_state.amp_env;
+
     // Attack slider
-    render_slider("##attack", "Atk", &ui_state.attack, 5.0f, true, "%.3f s");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
+    render_slider("##attack", "Atk", &amp_emv.attack, 5.0f, true, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) amp_emv.attack = 0.0f;
 
     // Decay slider
     ImGui::SameLine();
-    render_slider("##decay", "Dky", &ui_state.decay, 5.0f, true, "%.3f s");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
+    render_slider("##decay", "Dky", &amp_emv.decay, 5.0f, true, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) amp_emv.attack = 0.0f;
 
     // Sustain slider
-    render_slider("##sustain", "Sus", &ui_state.sustain, 1.0f, false, "%.3f");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 1.0f;
+    render_slider("##sustain", "Sus", &amp_emv.sustain, 1.0f, false, "%.3f");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) amp_emv.attack = 1.0f;
 
     // Release slider
     ImGui::SameLine();
-    render_slider("##release", "Rls", &ui_state.release, 5.0f, true, "%.3f s", 0.001f);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.001f;
+    render_slider("##release", "Rls", &amp_emv.release, 5.0f, true, "%.3f s", 0.001f);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) amp_emv.attack = 0.001f;
 
     // Filter Envelope //
 
@@ -420,23 +421,25 @@ void WaveformSynth::_interface_proc() {
     ImGui::Text("Filter Envelope");
     ImGui::PushItemWidth(slider_width);
 
+    ADSR& filt_env = ui_state.filt_env;
+
     // Attack slider
-    render_slider("##filt-attack", "Atk", &ui_state.attack, 5.0f, true, "%.3f s");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
+    render_slider("##filt-attack", "Atk", &filt_env.attack, 5.0f, true, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) filt_env.attack = 0.0f;
 
     // Decay slider
     ImGui::SameLine();
-    render_slider("##filt-decay", "Dky", &ui_state.decay, 5.0f, true, "%.3f s");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
+    render_slider("##filt-decay", "Dky", &filt_env.decay, 5.0f, true, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) filt_env.attack = 0.0f;
 
     // Sustain slider
-    render_slider("##filt-sustain", "Sus", &ui_state.sustain, 1.0f, false, "%.3f");
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 1.0f;
+    render_slider("##filt-sustain", "Sus", &filt_env.sustain, 1.0f, false, "%.3f");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) filt_env.attack = 1.0f;
 
     // Release slider
     ImGui::SameLine();
-    render_slider("##filt-release", "Rls", &ui_state.release, 5.0f, true, "%.3f s", 0.001f);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.001f;
+    render_slider("##filt-release", "Rls", &filt_env.release, 5.0f, true, "%.3f s", 0.001f);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) filt_env.attack = 0.001f;
 
     // Filter Settings //
     ImGui::AlignTextToFramePadding();
@@ -474,7 +477,7 @@ void WaveformSynth::_interface_proc() {
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Env");
     ImGui::SameLine();
-    ImGui::SliderFloat("##filter-env", &ui_state.filt_envelope, 0.0f, 1.0f);
+    ImGui::SliderFloat("##filter-env", &ui_state.filt_amount, 0.0f, 1.0f);
 
     ImGui::EndGroup();
 
@@ -499,10 +502,14 @@ void WaveformSynth::save_state(std::ostream& ostream) {
     }
 
     // write envelope config
-    push_bytes<float>(ostream, ui_state.attack);
-    push_bytes<float>(ostream, ui_state.decay);
-    push_bytes<float>(ostream, ui_state.sustain);
-    push_bytes<float>(ostream, ui_state.release);
+    ADSR& amp_params = ui_state.amp_env;
+
+    push_bytes<float>(ostream, amp_params.attack);
+    push_bytes<float>(ostream, amp_params.decay);
+    push_bytes<float>(ostream, amp_params.sustain);
+    push_bytes<float>(ostream, amp_params.release);
+
+    // TODO: more stuff
 }
 
 bool WaveformSynth::load_state(std::istream& istream, size_t size)
@@ -522,10 +529,10 @@ bool WaveformSynth::load_state(std::istream& istream, size_t size)
     }
 
     // read envelope config
-    ui_state.attack = pull_bytesr<float>(istream);
-    ui_state.decay = pull_bytesr<float>(istream);
-    ui_state.sustain = pull_bytesr<float>(istream);
-    ui_state.release = pull_bytesr<float>(istream);
+    ui_state.amp_env.attack = pull_bytesr<float>(istream);
+    ui_state.amp_env.decay = pull_bytesr<float>(istream);
+    ui_state.amp_env.sustain = pull_bytesr<float>(istream);
+    ui_state.amp_env.release = pull_bytesr<float>(istream);
     
     state_queue.post(&ui_state, sizeof(ui_state));
 

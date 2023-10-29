@@ -86,6 +86,69 @@ void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t fr
 }
 
 /*
+* ADSR
+* Attack. Decay. Sustain. Release.
+**/
+ADSR::ADSR() {}
+
+ADSR::ADSR(float a, float d, float s, float r)
+:   attack(a), decay(d), sustain(s), release(r)
+{}
+
+bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
+{
+    float t;
+
+    out = adsr.sustain;
+
+    // if note is in the release state
+    if (is_released())
+    {
+        t = (time - release_time) / adsr.release;
+        if (t > 1.0f) {
+            // time has gone past the release envelope, officially end the note
+            out = 0.0f;
+            return true;
+        }
+
+        out = (1.0f - t) * release_env;
+    }
+
+    // note is in attack state
+    else if (time < adsr.attack)
+    {
+        out = time / adsr.attack;
+    }
+
+    // note is in decay state
+    else if (time < adsr.decay + adsr.attack)
+    {
+        t = (time - adsr.attack) / adsr.decay;
+        if (t > 1.0f) t = 1.0f;
+        out = (adsr.sustain - 1.0f) * t + 1.0f;
+    }
+
+    return false;
+}
+
+void ADSR::Instance::release(float time, const ADSR& params)
+{
+    release_time = time;
+
+    // calculate envelope at release time
+    release_env = params.sustain;
+    float t;
+
+    if (time < params.attack) {
+        release_env = time / params.attack;
+    } else if (time < params.decay + params.attack) {
+        t = (time - params.attack) / params.decay;
+        if (t > 1.0f) t = 1.0f;
+        release_env = (params.sustain - 1.0f) * t + 1.0f;
+    }
+}
+
+/*
  Filters
  Thanks to https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt
 */

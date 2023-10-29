@@ -31,6 +31,43 @@ public:
     float attenuation(float hz, float sample_rate);
 };
 
+class ADSR
+{
+public:
+    float attack = 0.0f;
+    float decay = 0.0f;
+    float sustain = 1.0f;
+    float release = 0.0f;
+
+    ADSR();
+    ADSR(float a, float d, float s, float r);
+
+    class Instance
+    {
+    private:
+        float release_time = -1.0f;
+        float release_env = 0.0f;
+
+    public:
+        inline bool is_released() const {
+            return release_time >= 0.0f;
+        }
+
+        /**
+        * Computes an envelope
+        * @param adsr Envelope parameters
+        * @param out Output envelope value
+        * @returns True if the note ended
+        **/
+        bool compute(float time, float& out, const ADSR& params);
+
+        /**
+        * Release the note
+        **/
+        void release(float time, const ADSR& params); 
+    };
+};
+
 template <class T = float>
 class DelayLine
 {
