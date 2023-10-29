@@ -40,6 +40,10 @@ Note::Note(float time, int key, float length) :
     id(new_note_id++)
 {}
 
+void Note::new_id()
+{
+    id = new_note_id++;
+}
 
 Note& Pattern::add_note(float time, int key, float length) {
     notes.push_back(Note(time, key, length));

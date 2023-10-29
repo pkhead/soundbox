@@ -218,6 +218,7 @@ void ui::ui_init(SongEditor& editor)
                 }
 
                 note.key = std::clamp(note.key, 0, 96);
+                note.new_id(); // this is so song player doesn't indefinitely play the old key
             }
         }
     };

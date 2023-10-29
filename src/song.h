@@ -31,6 +31,8 @@ struct Note {
     Note();
     Note(float time, int key, float length);
 
+    void new_id();
+
     inline bool operator==(const Note& other) const noexcept {
         return id == other.id;
     }
