@@ -111,6 +111,7 @@ set(SOURCES
     src/ui/track_editor.cpp
     src/ui/fx_mixer.cpp
 
+    src/ui/file_browser.cpp
     src/ui/plugin_list.cpp
     src/ui/directories.cpp
     src/ui/tunings.cpp
