@@ -111,7 +111,7 @@ set(SOURCES
     src/ui/track_editor.cpp
     src/ui/fx_mixer.cpp
 
-    src/ui/file_browser.cpp
+    # src/ui/file_browser.cpp
     src/ui/plugin_list.cpp
     src/ui/directories.cpp
     src/ui/tunings.cpp
@@ -283,7 +283,7 @@ endif()
 
 # copy directories to binary directory, mainly for easy use in Visual Studio
 file(COPY ${CMAKE_SOURCE_DIR}/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY ${CMAKE_SOURCE_DIR}/styles DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/themes DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/imgui.ini DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/logo.png DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 

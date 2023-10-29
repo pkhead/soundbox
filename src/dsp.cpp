@@ -225,3 +225,39 @@ void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
     b[2] = (1.0f - alpha * sqrt_gain) / a0;
     a[2] = (1.0f - alpha / sqrt_gain) / a0;
 }
+
+// filter analysis
+// copied from beepbox source code,
+// although i probably should try to
+// understand more of the theory
+// behind this
+void Filter2ndOrder::analyze(float hz, float sample_rate, std::complex<float>& out, float& denom)
+{
+    float corner_rad_per_sample = 2.0f * M_PI * hz / sample_rate;
+    float real = cosf(corner_rad_per_sample);
+    float imag = sinf(corner_rad_per_sample);
+
+    const float z1_r = real;
+    const float z1_i = -imag;
+    float num_r = b[0] + b[1] * z1_r;
+    float num_i = b[1] * z1_i;
+    float denom_r = 1.0 + a[1] * z1_r;
+    float denom_i = a[1] * z1_i;
+    float z_r = z1_r;
+    float z_i = z1_i;
+
+    for (int i = 2; i <= 2; i++) {
+        const float realTemp = z_r * z1_r - z_i * z1_i;
+        const float imagTemp = z_r * z1_i + z_i * z1_r;
+        z_r = realTemp;
+        z_i = imagTemp;
+        num_r += b[i] * z_r;
+        num_i += b[i] * z_i;
+        denom_r += a[i] * z_r;
+        denom_i += a[i] * z_i;
+    }
+
+    denom = denom_r * denom_r + denom_i * denom_i;
+    out.real(num_r * denom_r + num_i * denom_i);
+    out.imag(num_i * denom_r - num_r * denom_i);
+}

@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include <cmath>
 #include "eq.h"
 #include "../sys.h"
 
@@ -200,12 +201,40 @@ void EQModule::_interface_proc()
     }
     ImGui::EndGroup();
 
+    std::complex<float> result;
+    float denom;
+
+    // TODO: analysis should be done in audio thread
+    std::vector<float> response;
+    size_t graph_w = modctx.sample_rate / 2.0f;
+    response.reserve(graph_w);
+    Filter2ndOrder lp_filter = filter[0][0];
+
+    for (float hz = 20; hz < graph_w; hz *= 1.1)
+    {
+        lp_filter.analyze(hz, modctx.sample_rate, result, denom);
+        float m = std::abs(result) / denom;
+        response.push_back(10 * logf(m));
+    }
+
+    ImGui::PlotLines(
+        "##res",
+        response.data(),
+        response.size(),
+        0,
+        nullptr,
+        -10.0f,
+        30.0f,
+        ImVec2(0, ImGui::GetTextLineHeight() * 4)
+    );
+
     // send updated module state to audio thread
     if (!sent_state.test_and_set()) {
         if (queue.post(&ui_state, sizeof(ui_state))) {
             dbg("WARNING: LimiterModule process queue is full!\n");
         }
     }
+
 }
 
 // TODO: test this function
