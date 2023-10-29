@@ -27,6 +27,7 @@ void ui::render_channel_settings(SongEditor &editor)
             ImGui::Text("Volume");
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_volume", &volume, 0.0f, 100.0f, "%.0f");
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) volume = 50.0f;
             vol_mod.volume = volume / 100.0f;
 
             // change detection
@@ -48,6 +49,7 @@ void ui::render_channel_settings(SongEditor &editor)
             ImGui::Text("Panning");
             ImGui::SameLine();
             ImGui::SliderFloat("##channel_panning", &vol_mod.panning, -1, 1, "%.2f");
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) vol_mod.panning = 50.0f;
             
             // change detection
             {

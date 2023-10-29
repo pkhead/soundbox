@@ -41,7 +41,8 @@
     x limiter
     x compressor
     = equalizer
-        - show frequency response, configurable bandwidth
+        x show frequency response
+        - configurable bandwidth
     - distortion
     - bitcrusher/downsampler
     - chrous

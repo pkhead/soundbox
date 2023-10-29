@@ -17,7 +17,7 @@ EQModule::EQModule(ModuleContext& dest)
     ui_state.resonance[0] = 0.0f;
 
     // high pass
-    ui_state.frequency[1] = 2.0f;
+    ui_state.frequency[1] = 20.0f;
     ui_state.resonance[1] = 0.0f;
 
     // peaks
@@ -123,14 +123,18 @@ void EQModule::_interface_proc()
             "##frequency", &freq, 20.0f, modctx.sample_rate / 2.5f, "%.0f Hz",
             ImGuiSliderFlags_NoRoundToFormat | ImGuiSliderFlags_Logarithmic
         );
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+            freq = i == 0 ? modctx.sample_rate / 2.5f : 20.0f;
 
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Resonance");
         ImGui::SameLine();
         ImGui::SliderFloat(
-            "##resonance", &reso, -10.0f, 10.0f, "%.3f dB",
+            "##resonance", &reso, -10.0f, 10.0f, "%.3f",
             ImGuiSliderFlags_NoRoundToFormat
         );
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+            reso = 0.0f;
 
         ui_state.frequency[i] = freq;
         ui_state.resonance[i] = reso;
@@ -179,9 +183,10 @@ void EQModule::_interface_proc()
         ImGui::VSliderFloat(
             "##peak-resonance",
             vslider_size,
-            &reso, -40.0f, 40.0f,
+            &reso, -60.0f, 60.0f,
             "R"
         );
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) reso = 0;
 
         if ((ImGui::IsItemHovered() || ImGui::IsItemActive()) && ImGui::BeginTooltip()) {
             ImGui::Text("Resonance: %.3f dB", reso);
@@ -233,7 +238,7 @@ void EQModule::_interface_proc()
         nullptr,
         -30.0f,
         30.0f,
-        ImVec2(0, ImGui::GetTextLineHeight() * 4)
+        ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 12)
     );
 
     // send updated module state to audio thread
