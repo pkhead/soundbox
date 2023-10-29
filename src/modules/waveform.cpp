@@ -109,7 +109,7 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
     ADSR filt_env_params = process_state.filt_env;
 
     if (amp_env_params.release < 0.001f) amp_env_params.release = 0.001f;
-    if (filt_env_params.release < 0.0001f) filt_env_params.release = 0.0001f;
+    if (filt_env_params.release < 0.001f) filt_env_params.release = 0.001f;
 
     float samples[3][2];
 
@@ -132,30 +132,32 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                 voice.active = false;
                 break;
             }
+            amp_env *= amp_env; // square envelope amount so it sounds smoother
 
             float filt_env;
             voice.filt_env.compute(voice.time, filt_env, filt_env_params);
+            filt_env *= filt_env; // same for filter
 
-            // filter envelope
+            // setup filter
+            float filt_freq = util::lerp(process_state.filt_freq, process_state.filt_freq * filt_env, process_state.filt_amount);
+            if (filt_freq < 20.0f) filt_freq = 20.0f; // going too low on frequency will do... Something
 
-            /*
             switch (process_state.filter_type)
             {
                 case LowPassFilter:
-                    voice.filter[0].low_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
-                    voice.filter[1].low_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
+                    voice.filter[0].low_pass(modctx.sample_rate, filt_freq, reso_linear);
+                    voice.filter[1].low_pass(modctx.sample_rate, filt_freq, reso_linear);
                     break;
 
                 case HighPassFilter:
-                    voice.filter[0].high_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
-                    voice.filter[1].high_pass(modctx.sample_rate, process_state.filt_freq, reso_linear);
+                    voice.filter[0].high_pass(modctx.sample_rate, filt_freq, reso_linear);
+                    voice.filter[1].high_pass(modctx.sample_rate, filt_freq, reso_linear);
                     break;
 
                 case BandPassFilter:
                     // TODO: Band pass filter
                     break;
             }
-            */
 
             for (size_t osc = 0; osc < 3; osc++) {
                 float freq = voice.freq * powf(2.0f, ((float)process_state.coarse[osc] + process_state.fine[osc] / 100.0f) / 12.0f);
@@ -233,6 +235,9 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
 
             output[i] += samples[0][0] + samples[1][0] + samples[2][0];
             output[i + 1] += samples[0][1] + samples[1][1] + samples[2][1];
+
+            voice.filter[0].process(&output[i]);
+            voice.filter[1].process(&output[i+1]);
 
             voice.time += 1.0 / modctx.sample_rate;
         }
@@ -489,7 +494,7 @@ void WaveformSynth::_interface_proc() {
 
 void WaveformSynth::save_state(std::ostream& ostream) {
     // write version
-    push_bytes<uint8_t>(ostream, 0);
+    push_bytes<uint8_t>(ostream, 1);
 
     // write oscillator config
     for (size_t osc = 0; osc < 3; osc++)
@@ -501,22 +506,31 @@ void WaveformSynth::save_state(std::ostream& ostream) {
         push_bytes<float>(ostream, ui_state.fine[osc]);
     }
 
-    // write envelope config
+    // write amp envelope params
     ADSR& amp_params = ui_state.amp_env;
-
     push_bytes<float>(ostream, amp_params.attack);
     push_bytes<float>(ostream, amp_params.decay);
     push_bytes<float>(ostream, amp_params.sustain);
     push_bytes<float>(ostream, amp_params.release);
 
-    // TODO: more stuff
+    // write filter params
+    push_bytes<uint8_t>(ostream, ui_state.filter_type);
+    push_bytes<float>(ostream, ui_state.filt_freq);
+    push_bytes<float>(ostream, ui_state.filt_reso);
+    push_bytes<float>(ostream, ui_state.filt_amount);
+
+    ADSR& filt_params = ui_state.filt_env;
+    push_bytes<float>(ostream, filt_params.attack);
+    push_bytes<float>(ostream, filt_params.decay);
+    push_bytes<float>(ostream, filt_params.sustain);
+    push_bytes<float>(ostream, filt_params.release);
 }
 
 bool WaveformSynth::load_state(std::istream& istream, size_t size)
 {
     // get version
     uint8_t version = pull_bytesr<uint8_t>(istream);
-    if (version != 0) return false; // invalid version
+    if (version > 1) return false; // invalid version
 
     // read oscillator config
     for (size_t osc = 0; osc < 3; osc++)
@@ -528,13 +542,36 @@ bool WaveformSynth::load_state(std::istream& istream, size_t size)
         ui_state.fine[osc] = pull_bytesr<float>(istream);
     }
 
-    // read envelope config
+    // read amplitude envelope config
     ui_state.amp_env.attack = pull_bytesr<float>(istream);
     ui_state.amp_env.decay = pull_bytesr<float>(istream);
     ui_state.amp_env.sustain = pull_bytesr<float>(istream);
     ui_state.amp_env.release = pull_bytesr<float>(istream);
     
-    state_queue.post(&ui_state, sizeof(ui_state));
+    // read filter params
+    if (version >= 1)
+    {
+        ui_state.filter_type = static_cast<FilterType>( pull_bytesr<uint8_t>(istream) );
+        ui_state.filt_freq = pull_bytesr<float>(istream);
+        ui_state.filt_reso = pull_bytesr<float>(istream);
+        ui_state.filt_amount = pull_bytesr<float>(istream);
 
+        ui_state.filt_env.attack = pull_bytesr<float>(istream);
+        ui_state.filt_env.decay = pull_bytesr<float>(istream);
+        ui_state.filt_env.sustain = pull_bytesr<float>(istream);
+        ui_state.filt_env.release = pull_bytesr<float>(istream);
+    }
+
+    // version 0 has no filter params
+    else
+    {
+        ui_state.filter_type = LowPassFilter;
+        ui_state.filt_freq = modctx.sample_rate / 2.5f;
+        ui_state.filt_reso = 0.0f;
+        ui_state.filt_amount = 0.0f;
+        ui_state.filt_env = ADSR();
+    }
+
+    state_queue.post(&ui_state, sizeof(ui_state));
     return true;
 }
