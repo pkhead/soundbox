@@ -14,11 +14,11 @@ EQModule::EQModule(ModuleContext& dest)
     
     // low pass
     ui_state.frequency[0] = dest.sample_rate / 2.5f;
-    ui_state.resonance[0] = 1.0f;
+    ui_state.resonance[0] = 0.0f;
 
     // high pass
     ui_state.frequency[1] = 2.0f;
-    ui_state.resonance[1] = 1.0f;
+    ui_state.resonance[1] = 0.0f;
 
     // peaks
     for (int i = 0; i < NUM_PEAKS; i++)
@@ -49,8 +49,8 @@ void EQModule::process(float** inputs, float* output, size_t num_inputs, size_t 
     module_state& state = process_state;
 
     for (int c = 0; c < 2; c++) {
-        filter[0][c].low_pass(sample_rate, state.frequency[0], state.resonance[0]);
-        filter[1][c].high_pass(sample_rate, state.frequency[1], state.resonance[1]);
+        filter[0][c].low_pass(sample_rate, state.frequency[0], db_to_mult(state.resonance[0]));
+        filter[1][c].high_pass(sample_rate, state.frequency[1], db_to_mult(state.resonance[1]));
     }
 
     float peak_freq[NUM_PEAKS];
@@ -128,7 +128,7 @@ void EQModule::_interface_proc()
         ImGui::Text("Resonance");
         ImGui::SameLine();
         ImGui::SliderFloat(
-            "##resonance", &reso, 0.001f, 10.0f, "%.3f",
+            "##resonance", &reso, -10.0f, 10.0f, "%.3f dB",
             ImGuiSliderFlags_NoRoundToFormat
         );
 
@@ -179,7 +179,7 @@ void EQModule::_interface_proc()
         ImGui::VSliderFloat(
             "##peak-resonance",
             vslider_size,
-            &reso, -20.0f, 20.0f,
+            &reso, -40.0f, 40.0f,
             "R"
         );
 
@@ -201,19 +201,27 @@ void EQModule::_interface_proc()
     }
     ImGui::EndGroup();
 
-    std::complex<float> result;
-    float denom;
-
     // TODO: analysis should be done in audio thread
     std::vector<float> response;
     size_t graph_w = modctx.sample_rate / 2.0f;
     response.reserve(graph_w);
     Filter2ndOrder lp_filter = filter[0][0];
+    Filter2ndOrder hp_filter = filter[1][0];
 
     for (float hz = 20; hz < graph_w; hz *= 1.1)
     {
-        lp_filter.analyze(hz, modctx.sample_rate, result, denom);
-        float m = std::abs(result) / denom;
+        float m = 1;
+        m *= lp_filter.attenuation(hz, modctx.sample_rate);
+        m *= hp_filter.attenuation(hz, modctx.sample_rate);
+
+        for (int i = 0; i < NUM_PEAKS; i++)
+        {
+            if (ui_state.peak_enabled[i]) {
+                Filter2ndOrder peak = peak_filter[i][0];
+                m *= peak.attenuation(hz, modctx.sample_rate);
+            }
+        }
+
         response.push_back(10 * logf(m));
     }
 
@@ -223,7 +231,7 @@ void EQModule::_interface_proc()
         response.size(),
         0,
         nullptr,
-        -10.0f,
+        -30.0f,
         30.0f,
         ImVec2(0, ImGui::GetTextLineHeight() * 4)
     );

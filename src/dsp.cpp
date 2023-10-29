@@ -231,7 +231,7 @@ void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
 // although i probably should try to
 // understand more of the theory
 // behind this
-void Filter2ndOrder::analyze(float hz, float sample_rate, std::complex<float>& out, float& denom)
+float Filter2ndOrder::attenuation(float hz, float sample_rate)
 {
     float corner_rad_per_sample = 2.0f * M_PI * hz / sample_rate;
     float real = cosf(corner_rad_per_sample);
@@ -257,7 +257,9 @@ void Filter2ndOrder::analyze(float hz, float sample_rate, std::complex<float>& o
         denom_i += a[i] * z_i;
     }
 
-    denom = denom_r * denom_r + denom_i * denom_i;
-    out.real(num_r * denom_r + num_i * denom_i);
-    out.imag(num_i * denom_r - num_r * denom_i);
+    float denom = denom_r * denom_r + denom_i * denom_i;
+    real = num_r * denom_r + num_i * denom_i;
+    imag = num_i * denom_r - num_r * denom_i;
+
+    return sqrtf(real*real + imag*imag) / denom;
 }

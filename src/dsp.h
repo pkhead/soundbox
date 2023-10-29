@@ -1,5 +1,4 @@
 #pragma once
-#include <complex>
 #include "util.h"
 
 size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
@@ -29,7 +28,7 @@ public:
 
     void process(float* sample);
 
-    void analyze(float hz, float sample_rate, std::complex<float>& result, float& denom);
+    float attenuation(float hz, float sample_rate);
 };
 
 template <class T = float>
