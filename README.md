@@ -6,7 +6,7 @@ A free and cross-platform tool for making music. Essentially [BeepBox](https://w
 ## Features
 - Pattern-based grid sequencer
 - Variable-length patterns
-- Support for VST, LADSPA, LV2, and CLAP plugins
+- Support for LADSPA, LV2, and CLAP plugins
 - FX Mixer
 - Custom tuning
 - Automation
