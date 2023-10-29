@@ -84,8 +84,7 @@ static audiomod::ModuleNodeRc load_module(
     std::string* error_msg
 ) {
     // read mod type
-    uint8_t id_size;
-    pull_bytes(input, id_size);
+    uint8_t id_size = pull_bytesr<uint8_t>(input);
     char* inst_id = new char[id_size + 1];
     input.read(inst_id, id_size);
     inst_id[id_size] = 0;
@@ -99,11 +98,21 @@ static audiomod::ModuleNodeRc load_module(
     }
 
     // load state
-    uint64_t mod_state_size;
-    pull_bytes(input, mod_state_size);
+    uint64_t mod_state_size = pull_bytesr<uint64_t>(input);
 
     if (mod_state_size > 0)
-        mod->module().load_state(input, mod_state_size);
+    {
+        // copy N bytes of input stream to temp stream
+        // N = mod_state_size
+        std::stringstream temp;
+        char* buf = new char[mod_state_size];
+        input.read(buf, mod_state_size);
+        temp.write(buf, mod_state_size);
+
+        mod->module().load_state(temp, mod_state_size);
+
+        delete[] buf;
+    }
 
     delete[] inst_id;
     return mod;

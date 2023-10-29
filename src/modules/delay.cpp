@@ -10,35 +10,32 @@
 
 using namespace audiomod;
 
-DelayModule::DelayModule(ModuleContext& modctx) : ModuleBase(true)
+DelayModule::DelayModule(ModuleContext& modctx)
+:   ModuleBase(true),
+    msg_queue(sizeof(module_state_t), 2)
 {
     id = "effect.delay";
     name = "Delay";
 
-    delay_time = 0.25;
-    tempo_division = 0;
-    stereo_offset = 0.0f;
-    delay_mode = false;
-    feedback = 0.6f;
-    mix = -0.0f;
-
-    delay_line_index[0] = 0;
-    delay_line_index[1] = 0;
-    delay_line_size = modctx.sample_rate * 5; // maximum delay of 5 seconds
-    delay_line[0] = new float[delay_line_size];
-    delay_line[1] = new float[delay_line_size];
-
-    for (size_t i = 0; i < delay_line_size; i++)
+    for (int i = 0; i < 2; i++)
     {
-        delay_line[0][i] = 0.0f;
-        delay_line[1][i] = 0.0f;
+        _delay_time[i] = 0.25;
+        _tempo_division[i] = 0;
     }
-}
 
-DelayModule::~DelayModule()
-{
-    delete[] delay_line[0];
-    delete[] delay_line[1];
+    _delay_mode = false;
+    _feedback = 0.6f;
+    _mix = 0.0f;
+    _lock = true;
+
+    process_state.delay_time[0] = _delay_time[0];
+    process_state.delay_time[1] = _delay_time[1];
+    process_state.feedback = _feedback;
+    process_state.mix = _mix;
+
+    size_t delay_line_size = (size_t)(modctx.sample_rate * 5); // maximum delay of 5 seconds
+    delay_line[0].resize(delay_line_size);
+    delay_line[1].resize(delay_line_size);
 }
 
 static double division_to_secs(float tempo, int division_enum)
@@ -66,45 +63,41 @@ void DelayModule::process(float** inputs, float* output, size_t num_inputs, size
     {
         this->panic = false;
 
-        for (size_t i = 0; i < delay_line_size; i++)
-        {
-            delay_line[0][i] = 0.0f;
-            delay_line[1][i] = 0.0f;
-        }
+        delay_line[0].clear();
+        delay_line[1].clear();
     }
 
-    // cache atomic variables
-    float mix = this->mix;
-    float feedback = this->feedback;
-    double delay_time = this->delay_time;
-    float stereo_offset = this->stereo_offset;
+    // receive module state
+    {
+        auto handle = msg_queue.read();
+        if (handle.size() > 0)
+        {
+            assert(handle.size() == sizeof(module_state_t));
+            handle.read(&process_state, sizeof(module_state_t));
+        }    
+    }
 
-    if (delay_mode)
-        delay_time = division_to_secs(song->tempo, tempo_division);
+    float delay_time_left = process_state.delay_time[0];
+    float delay_time_right = process_state.delay_time[1];
 
-    double delay_time_left = delay_time;
-    double delay_time_right = delay_time;
-
-    if (stereo_offset > 0.0f)
-        delay_time_right += stereo_offset;
-    else
-        delay_time_left += -stereo_offset;
-    
     // convert time sample index from sample rate
     float delay_in_samples[2];
     delay_in_samples[0] = delay_time_left * sample_rate;
     delay_in_samples[1] = delay_time_right * sample_rate;
 
-    float wet_mix = (mix + 1.0f) / 2.0f;
+    float wet_mix = (process_state.mix + 1.0f) / 2.0f;
     float dry_mix = 1.0f - wet_mix;
 
     float input_frame[2];
     float delay_frame[2];
 
+    delay_line[0].delay = delay_in_samples[0];
+    delay_line[1].delay = delay_in_samples[1];
+
     for (size_t i = 0; i < buffer_size; i += 2)
     {
-        delay_frame[0] = delay_line[0][delay_line_index[0]];
-        delay_frame[1] = delay_line[1][delay_line_index[1]];
+        delay_frame[0] = delay_line[0].read();
+        delay_frame[1] = delay_line[1].read();
 
         // get data from inputs
         input_frame[0] = 0.0f;
@@ -120,14 +113,8 @@ void DelayModule::process(float** inputs, float* output, size_t num_inputs, size
         output[i + 1] = (input_frame[1] * dry_mix) + (delay_frame[1] * wet_mix);
 
         // update delay line
-        delay_line[0][delay_line_index[0]] = feedback * (delay_frame[0] + input_frame[0]);
-        delay_line[1][delay_line_index[1]] = feedback * (delay_frame[1] + input_frame[1]);
-        
-        if (delay_line_index[0]++ >= delay_in_samples[0])
-            delay_line_index[0] = 0;
-
-        if (delay_line_index[1]++ >= delay_in_samples[1])
-            delay_line_index[1] = 0;
+        delay_line[0].write(process_state.feedback * (delay_frame[0] + input_frame[0]));
+        delay_line[1].write(process_state.feedback * (delay_frame[1] + input_frame[1]));
     }
 }
 
@@ -166,12 +153,18 @@ static const char* DIVISION_NAMES[] = {
 
 void DelayModule::_interface_proc()
 {
-    float mix = this->mix;
-    float feedback = this->feedback;
-    double delay_time = this->delay_time;
-    float stereo_offset = this->stereo_offset;
-    bool delay_mode = this->delay_mode;
+    float mix = _mix;
+    float feedback = _feedback;
+    bool delay_mode = _delay_mode;
+    
+    float delay_time[2];
+    delay_time[0] = _delay_time[0];
+    delay_time[1] = _delay_time[1];
 
+    int tempo_division[2];
+    tempo_division[0] = _tempo_division[0];
+    tempo_division[1] = _tempo_division[1];
+    
     // labels
     ImGui::BeginGroup();
     ImGui::AlignTextToFramePadding();
@@ -179,9 +172,9 @@ void DelayModule::_interface_proc()
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Feedback");
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Delay");
+    ImGui::Text("Delay L");
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Stereo Offset");
+    ImGui::Text("Delay R");
     ImGui::EndGroup();
 
     // values
@@ -199,34 +192,41 @@ void DelayModule::_interface_proc()
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
         feedback = 0.5f;
 
-    if (delay_mode)
+    for (int c = 0; c < 2; c++)
     {
-        // delay time in beats
-        int tempo_division = this->tempo_division;
-        ImGui::SliderInt("###tempo_division", &tempo_division, 0, (10 * 3) - 1, DIVISION_NAMES[tempo_division]);  
-        this->tempo_division = tempo_division;
-    }
-    else
-    {
-        // delay time in seconds
-        float delay_time_float = delay_time;
-        ImGui::SliderFloat("###delay", &delay_time_float, 0.0f, 4.0f);
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
-            delay_time_float = 0.2f;
-        delay_time = delay_time_float;
-    }
+        ImGui::PushID(c);
 
-    // stereo offset
-    ImGui::SliderFloat("###delay_r", &stereo_offset, -1.0f, 1.0f);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
-        stereo_offset = 0.0f;
+        if (delay_mode)
+        {
+            // delay time in beats
+            int temp = tempo_division[c];
+            ImGui::SliderInt("###tempo_division", &temp, 0, (10 * 3) - 1, DIVISION_NAMES[temp]);
+            tempo_division[c] = temp;
+        }
+        else
+        {
+            // delay time in seconds
+            float delay_time_float = delay_time[c];
+            ImGui::SliderFloat("###delay", &delay_time_float, 0.0f, 4.0f);
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+                delay_time_float = 0.2f;
+            delay_time[c] = delay_time_float;
+        }
+
+        // channel lock behavior
+        if (_lock && (ImGui::IsItemActive() || ImGui::IsItemClicked(ImGuiMouseButton_Middle)))
+        {
+            tempo_division[1-c] = tempo_division[c];
+            delay_time[1-c] = delay_time[c];
+        }
+
+        ImGui::PopID();
+    }
 
     ImGui::PopItemWidth();
     ImGui::EndGroup();
 
-    if (ImGui::Button("Stop"))
-        panic = true;
-    ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
     ImGui::Text("Use Tempo");
     ImGui::SameLine();
     if (ImGui::Checkbox("###mode", &delay_mode))
@@ -237,49 +237,83 @@ void DelayModule::_interface_proc()
 
         }
         else
-            delay_time = division_to_secs(song->tempo, tempo_division);
+        {
+            delay_time[0] = division_to_secs(song->tempo, tempo_division[0]);
+            delay_time[1] = division_to_secs(song->tempo, tempo_division[1]);
+        }
+    }
+    ImGui::SameLine();
+    ImGui::Text("Lock");
+    ImGui::SameLine();
+    if (ImGui::Checkbox("##lock", &_lock) && _lock)
+    {
+        delay_time[1] = delay_time[0];
+        tempo_division[1] = tempo_division[0];
     }
 
-    this->delay_mode = delay_mode;
-    this->mix = mix;
-    this->feedback = feedback;
-    this->delay_time = delay_time;
-    this->stereo_offset = stereo_offset;
+    this->_delay_mode = delay_mode;
+    this->_mix = mix;
+    this->_feedback = feedback;
+    this->_delay_time[0] = delay_time[0];
+    this->_delay_time[1] = delay_time[1];
+    this->_tempo_division[0] = tempo_division[0];
+    this->_tempo_division[1] = tempo_division[1];
+
+    // send state to processing thread
+    module_state_t state;
+    state.delay_time[0] = _delay_mode ? division_to_secs(song->tempo, _tempo_division[0]) : _delay_time[0];
+    state.delay_time[1] = _delay_mode ? division_to_secs(song->tempo, _tempo_division[1]) : _delay_time[1];
+    state.feedback = _feedback;
+    state.mix = _mix;
+
+    msg_queue.post(&state, sizeof(state));
 }
 
 void DelayModule::save_state(std::ostream& ostream)
 {
     push_bytes<uint8_t>(ostream, 0); // write version
 
-    bool delay_mode = this->delay_mode;
+    bool delay_mode = this->_delay_mode;
     push_bytes<uint8_t>(ostream, delay_mode);
     
-    if (delay_mode)
-        push_bytes<uint32_t>(ostream, tempo_division);
-    else
-        push_bytes<float>(ostream, delay_time);
-    
-    push_bytes<float>(ostream, stereo_offset);
-    push_bytes<float>(ostream, feedback);
-    push_bytes<float>(ostream, mix);
+    for (int c = 0; c < 2; c++)
+    {
+        if (delay_mode)
+            push_bytes<uint32_t>(ostream, _tempo_division[c]);
+        else
+            push_bytes<float>(ostream, _delay_time[c]);
+    }
+
+    push_bytes<float>(ostream, _feedback);
+    push_bytes<float>(ostream, _mix);
 }
 
 bool DelayModule::load_state(std::istream& istream, size_t size)
-{
+{ 
     uint8_t version = pull_bytesr<uint8_t>(istream);
     if (version != 0) return false;
     
     bool delay_mode = pull_bytesr<uint8_t>(istream);
-    this->delay_mode = delay_mode;
+    _delay_mode = delay_mode;
     
-    if (delay_mode)
-        tempo_division = pull_bytesr<uint32_t>(istream);
-    else
-        delay_time = pull_bytesr<float>(istream);
+    for (int c = 0; c < 2; c++)
+    {
+        if (delay_mode)
+            _tempo_division[c] = pull_bytesr<uint32_t>(istream);
+        else
+            _delay_time[c] = pull_bytesr<float>(istream);
 
-    stereo_offset = pull_bytesr<float>(istream);
-    feedback = pull_bytesr<float>(istream);
-    mix = pull_bytesr<float>(istream);
+        // in case of erroneous tempo division
+        // really i only check this because i changed the parameters of the delay ui
+        // one day, and was too lazy to make a new version #
+        if (_tempo_division[c] >= sizeof(DIVISION_NAMES) / sizeof(*DIVISION_NAMES))
+        {
+            _tempo_division[c] = 0;
+        }
+    }
+
+    _feedback = pull_bytesr<float>(istream);
+    _mix = pull_bytesr<float>(istream);
 
     return true;
 }

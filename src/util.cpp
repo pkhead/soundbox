@@ -22,9 +22,9 @@ inline size_t pad_align(T a, T b)
 
 int MessageQueue::post(const void* data, size_t size)
 {
-    if (size > ringbuf.writable()) return 1;
-
     size_t data_size = pad_align(sizeof(size_t) + size, sizeof(size_t));
+    if (data_size > ringbuf.writable()) return 1;
+    
     std::byte* msg_data = new std::byte[data_size];
 
     *((size_t*) msg_data) = size; // write message size

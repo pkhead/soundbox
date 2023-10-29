@@ -50,6 +50,7 @@ public:
     {}
 
     DelayLine(size_t max_size)
+    : DelayLine()
     {
         resize(max_size);
     }
@@ -71,6 +72,11 @@ public:
 
         // create new zero-initialized array
         buf = new float[_max_size];
+        memset(buf, 0, _max_size * sizeof(float));
+    }
+
+    void clear()
+    {
         memset(buf, 0, _max_size * sizeof(float));
     }
 
