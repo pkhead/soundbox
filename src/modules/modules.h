@@ -114,7 +114,7 @@ namespace audiomod
     };
 
     constexpr size_t NUM_EFFECTS = 7;
-    constexpr size_t NUM_INSTRUMENTS = 1;
+    constexpr size_t NUM_INSTRUMENTS = 2;
     extern std::array<ModuleListing, NUM_EFFECTS> effects_list;
     extern std::array<ModuleListing, NUM_INSTRUMENTS> instruments_list;
 
@@ -139,3 +139,4 @@ namespace audiomod
 #include "limiter.h"
 #include "compressor.h"
 #include "reverb.h"
+#include "omnisynth.h"
