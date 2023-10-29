@@ -201,6 +201,43 @@ void ui::ui_init(SongEditor& editor)
         }
     });
 
+    // TODO: add undo/redo
+    auto move_notes = [&editor](int steps, int sign) {
+        auto& channel = editor.song->channels[editor.selected_channel];
+        int pattern_id = channel->sequence[editor.selected_bar];
+        if (pattern_id > 0) {
+            auto& pattern = channel->patterns[pattern_id - 1];
+            
+            for (auto& note : pattern->notes)
+            {
+                for (int i = 0; i < steps; i++)
+                {
+                    if (editor.song->is_note_playable(note.key + sign))
+                        note.key += sign;
+                    
+                }
+
+                note.key = std::clamp(note.key, 0, 96);
+            }
+        }
+    };
+
+    user_actions.set_callback("move_notes_up", [move_notes]() {
+        move_notes(1, 1);
+    });
+
+    user_actions.set_callback("move_notes_down", [move_notes]() {
+        move_notes(1, -1);
+    });
+
+    user_actions.set_callback("move_notes_up_oct", [move_notes]() {
+        move_notes(12, 1);
+    });
+
+    user_actions.set_callback("move_notes_down_oct", [move_notes]() {
+        move_notes(12, -1);
+    });
+
     // undo/redo
     user_actions.set_callback("undo", [&]()
     {
@@ -659,6 +696,8 @@ void ui::compute_imgui(SongEditor& editor) {
             MENU_ITEM("Copy Pattern", "copy");
             MENU_ITEM("Paste Pattern", "paste");
             MENU_ITEM("Paste Pattern Numbers", "paste_pattern_numbers");
+            MENU_ITEM("Move Notes Up", "move_notes_up");
+            MENU_ITEM("Move Notes Down", "move_notes_down");
 
             ImGui::Separator();
 

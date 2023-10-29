@@ -55,9 +55,14 @@ UserActionList::UserActionList() {
 #endif
     add_action("copy", USERMOD_CTRL, ImGuiKey_C);
     add_action("paste", USERMOD_CTRL, ImGuiKey_V);
+    // paste pattern numbers
+    add_action("move_notes_up", 0, ImGuiKey_Equal, true);
+    add_action("move_notes_down", 0, ImGuiKey_Minus, true);
+    add_action("move_notes_up_oct", USERMOD_SHIFT, ImGuiKey_Equal, true);
+    add_action("move_notes_down_oct", USERMOD_SHIFT, ImGuiKey_Minus, true);
 
-    add_action("goto_cursor", USERMOD_CTRL, ImGuiKey_H, true);
-    add_action("goto_start", USERMOD_CTRL, ImGuiKey_F, true);
+    add_action("goto_cursor", 0, ImGuiKey_H, true);
+    add_action("goto_start", 0, ImGuiKey_F, true);
 
     add_action("new_channel", USERMOD_CTRL, ImGuiKey_Enter, true);
     add_action("remove_channel", USERMOD_CTRL, ImGuiKey_Backspace, true);
