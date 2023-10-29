@@ -57,6 +57,10 @@ WaveformSynth::WaveformSynth(ModuleContext& modctx)
     ui_state.fine[2] = 0.0f;
     ui_state.panning[2] = 0.0f;
 
+    ui_state.filter_type = LowPassFilter;
+    ui_state.filt_freq = modctx.sample_rate / 2.5f;
+    ui_state.filt_reso = 0.0f;
+
     process_state = ui_state;
 
     for (size_t i = 0; i < MAX_VOICES; i++)
@@ -308,10 +312,18 @@ void WaveformSynth::_interface_proc() {
         "Noise",
     };
 
+    static const char* FILTER_NAMES[] = {
+        "Low Pass",
+        "High Pass",
+        "Band Pass"
+    };
+
     ImGuiStyle& style = ImGui::GetStyle();
     
     const float slider_width = ImGui::GetTextLineHeight() * 6.0f;
-    char sep_text[] = "Oscillator 1";
+    const float combo_width = 2 * (ImGui::CalcTextSize("XXX").x + style.ItemSpacing.x + slider_width);
+
+    char sep_text[] = "Osc X";
 
     ImGui::AlignTextToFramePadding();
     ImGui::BeginGroup();
@@ -320,12 +332,13 @@ void WaveformSynth::_interface_proc() {
         ImGui::PushID(osc);
         
         ImGui::AlignTextToFramePadding();
-        snprintf(sep_text, 13, "Osc %i", osc + 1);
+        snprintf(sep_text, sizeof(sep_text), "Osc %i", osc + 1);
         ImGui::Text("%s", sep_text);
 
         // waveform dropdown
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(slider_width * 2 + style.ItemSpacing.x);
+        ImGui::SetNextItemWidth(combo_width - ImGui::CalcTextSize("Osc X").x);
+
         if (ImGui::BeginCombo("##channel_bus", WAVEFORM_NAMES[ui_state.waveform_types[osc]]))
         {
             for (int i = 0; i < 6; i++) {
@@ -379,16 +392,17 @@ void WaveformSynth::_interface_proc() {
     ImGui::SameLine();
     ImGui::BeginGroup();
 
+    ImGui::AlignTextToFramePadding();
     ImGui::Text("Amplitude Envelope");
     ImGui::PushItemWidth(slider_width);
 
     // Attack slider
-    render_slider("##attack", "Atk", &ui_state.attack, 5.0f, false, "%.3f s");
+    render_slider("##attack", "Atk", &ui_state.attack, 5.0f, true, "%.3f s");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
 
     // Decay slider
     ImGui::SameLine();
-    render_slider("##decay", "Dky", &ui_state.decay, 5.0f, false, "%.3f s");
+    render_slider("##decay", "Dky", &ui_state.decay, 5.0f, true, "%.3f s");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
 
     // Sustain slider
@@ -397,8 +411,70 @@ void WaveformSynth::_interface_proc() {
 
     // Release slider
     ImGui::SameLine();
-    render_slider("##release", "Rls", &ui_state.release, 5.0f, false, "%.3f s", 0.001f);
+    render_slider("##release", "Rls", &ui_state.release, 5.0f, true, "%.3f s", 0.001f);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.001f;
+
+    // Filter Envelope //
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Filter Envelope");
+    ImGui::PushItemWidth(slider_width);
+
+    // Attack slider
+    render_slider("##filt-attack", "Atk", &ui_state.attack, 5.0f, true, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
+
+    // Decay slider
+    ImGui::SameLine();
+    render_slider("##filt-decay", "Dky", &ui_state.decay, 5.0f, true, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.0f;
+
+    // Sustain slider
+    render_slider("##filt-sustain", "Sus", &ui_state.sustain, 1.0f, false, "%.3f");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 1.0f;
+
+    // Release slider
+    ImGui::SameLine();
+    render_slider("##filt-release", "Rls", &ui_state.release, 5.0f, true, "%.3f s", 0.001f);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.attack = 0.001f;
+
+    // Filter Settings //
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Filter");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(combo_width - ImGui::CalcTextSize("Filter").x);
+    if (ImGui::BeginCombo("##filter-type", FILTER_NAMES[ui_state.filter_type]))
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            if (ImGui::Selectable(FILTER_NAMES[i], i == ui_state.filter_type)) ui_state.filter_type = (FilterType) i;
+
+            if (i == ui_state.filter_type) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Frq");
+    ImGui::SameLine();
+    ImGui::SliderFloat(
+        "##filter-freq", &ui_state.filt_freq, 20.0f, modctx.sample_rate / 2.5f, "%.0f Hz",
+        ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp
+    );
+    
+    ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Res");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##filter-q", &ui_state.filt_reso, -20.0f, 20.0f, "%.3f dB");
+    
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Env");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##filter-env", &ui_state.filt_envelope, 0.0f, 1.0f);
 
     ImGui::EndGroup();
 

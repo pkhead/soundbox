@@ -28,6 +28,12 @@ namespace audiomod {
             Noise = (uint8_t)5, // 1/4 pulse wave
         };
 
+        enum FilterType: uint8_t {
+            LowPassFilter = 0,
+            HighPassFilter = 1,
+            BandPassFilte = 2,
+        };
+
         struct module_state_t
         {
             WaveformType waveform_types[3];
@@ -40,6 +46,17 @@ namespace audiomod {
             float decay = 0.0f;
             float sustain = 1.0f;
             float release = 0.0f;
+
+            FilterType filter_type;
+            float filt_freq = 440.0f;
+            float filt_reso = 0.0f;
+
+            float filt_attack = 0.0f;
+            float filt_decay = 0.0f;
+            float filt_sustain = 1.0f;
+            float filt_release = 0.0f;
+            float filt_envelope = 0.0f;
+
         } process_state, ui_state;
 
         MessageQueue event_queue, state_queue;
