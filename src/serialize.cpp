@@ -77,7 +77,7 @@ static void save_module(std::ostream& out, audiomod::ModuleBase& mod)
 }
 
 static audiomod::ModuleNodeRc load_module(
-    std::istream& input,
+    std::istream& input, Song* song,
     audiomod::ModuleContext& modctx,
     plugins::PluginManager& plugin_manager,
     WorkScheduler& work_scheduler,
@@ -109,6 +109,7 @@ static audiomod::ModuleNodeRc load_module(
         input.read(buf, mod_state_size);
         temp.write(buf, mod_state_size);
 
+        mod->module().song = song;
         mod->module().load_state(temp, mod_state_size);
 
         delete[] buf;
@@ -461,12 +462,11 @@ std::unique_ptr<Song> Song::from_file(
             for (uint8_t j = 0; j < mod_count; j++)
             {
                 // read mod type
-                audiomod::ModuleNodeRc mod = load_module(input, modctx, plugin_manager, work_scheduler, error_msg);
+                audiomod::ModuleNodeRc mod = load_module(input, song.get(), modctx, plugin_manager, work_scheduler, error_msg);
                 if (mod == nullptr) {
                     return nullptr;
                 }
 
-                mod->module().song = song.get();
                 mod->module().parent_name = bus->name;
                 bus->insert(mod);
             }
@@ -519,12 +519,11 @@ std::unique_ptr<Song> Song::from_file(
 
         // instrument data
         {
-            auto mod = load_module(input, modctx, plugin_manager, work_scheduler, error_msg);
+            auto mod = load_module(input, song.get(), modctx, plugin_manager, work_scheduler, error_msg);
             if (mod == nullptr) {
                 return nullptr;
             }
 
-            mod->module().song = song.get();
             mod->module().parent_name = channel->name;
             channel->set_instrument(mod);
         }
@@ -536,12 +535,11 @@ std::unique_ptr<Song> Song::from_file(
 
             for (uint8_t modi = 0; modi < num_mods; modi++)
             {
-                audiomod::ModuleNodeRc mod = load_module(input, modctx, plugin_manager, work_scheduler, error_msg);
+                audiomod::ModuleNodeRc mod = load_module(input, song.get(), modctx, plugin_manager, work_scheduler, error_msg);
                 if (mod == nullptr) {
                     return nullptr;
                 }
 
-                mod->module().song = song.get();
                 mod->module().parent_name = channel->name;
                 channel->effects_rack.insert(mod);
             }

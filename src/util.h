@@ -75,6 +75,15 @@ inline double db_to_mult(double db) {
     return powf(10.0f, db / 10.0);
 }
 
+// TODO: move all util functions under this namespace
+namespace util
+{
+    template <typename T>
+    constexpr inline T lerp(T a, T b, T t) {
+        return (b - a) * t + a;
+    }
+}
+
 /*
 * Single-writer, single-reader ring buffer 
 */

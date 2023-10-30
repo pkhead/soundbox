@@ -139,3 +139,4 @@ namespace audiomod
 #include "limiter.h"
 #include "compressor.h"
 #include "reverb.h"
+#include "omnisynth.h"

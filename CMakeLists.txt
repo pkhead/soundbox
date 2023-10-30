@@ -131,6 +131,7 @@ set(SOURCES
     src/modules/limiter.cpp
     src/modules/compressor.cpp
     src/modules/reverb.cpp
+    src/modules/omnisynth.cpp
 )
 
 set(LIBRARIES

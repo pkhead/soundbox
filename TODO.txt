@@ -24,16 +24,18 @@
         - work scheduling uses a redundant class - please use MessageQueue
         - toggle between plugin ui and control ui
         - pretty sure there are some bugs
-    - VST
+    - VST3
     - CLAP
 
 - Synths
     x basic waveform
-    - "synthbox" synthesizer
-        waveform + fm
+    - omnisynth
+        essentially goldbox's advanced fm
+    - fluidsynth (.sf2 support)
+    - (possibly?) port ZynAddSubFx
     - harmonics
     - spectrum
-    - noise (although probably part of synthbox)
+    - noise (although probably part of omnisybth)
     - sampler
     - slicer
 
@@ -62,6 +64,7 @@
 - Song change markers (time signature or tuning)
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - metronome
+- presets
 
 x more memory-safety (prefer std::unique_ptr instead of new directly)
 - create default dock layout in code
@@ -70,6 +73,7 @@ x more memory-safety (prefer std::unique_ptr instead of new directly)
 - figure out why keyboard interactions do not work sometimes with plugin UI embedding enabled
 - try not to use spinlocks (used for lv2 port subscription)
 x use ring buffer for message queue
+- move all util classes/functions into a util namespace
 - make audio rendering realtime-capable
   (kind of hard, since it's (1.) an extra thread that (2.) can't do memory de/allocation)
 - logs. used for plugins and debugging (including debugging for file loading)
