@@ -20,16 +20,18 @@
     = LV2
         - serialization
         - pretty sure there are some bugs
-    - VST
+    - VST3
     - CLAP
 
 - Synths
     x basic waveform
-    - "synthbox" synthesizer
-        waveform + fm
+    - omnisynth
+        essentially goldbox's advanced fm
+    - fluidsynth (.sf2 support)
+    - (possibly?) port ZynAddSubFx
     - harmonics
     - spectrum
-    - noise (although probably part of synthbox)
+    - noise (although probably part of omnisybth)
     - sampler
     - slicer
 
@@ -58,6 +60,7 @@
 - Song change markers (time signature or tuning)
 - Variable-length patterns (useful mainly for audio clips/sampling)
 - metronome
+- presets
 
     TEMPORARY TODOS:
 
