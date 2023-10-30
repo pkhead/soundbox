@@ -109,7 +109,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& 
         pprops:logarithmic
         */
 
-        // input control port
+        // INPUT CONTROL PORT
         if (
             lilv_port_is_a(plugin, port, URI.lv2_ControlPort) &&
             is_input_port
@@ -154,7 +154,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& 
             input_displays.push_back(display);
         }
 
-        // output control port
+        // OUTPUT CONTROL PORT
         else if (
             lilv_port_is_a(plugin, port, URI.lv2_ControlPort) &&
             is_output_port
@@ -185,7 +185,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& 
             output_displays.push_back(display);
         }
 
-        // input audio port
+        // INPUT AUDIO PORT
         else if (
             lilv_port_is_a(plugin, port, URI.lv2_AudioPort) &&
             is_input_port
@@ -195,7 +195,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& 
             lilv_instance_connect_port(instance, i, input_buf);
         }
 
-        // output audio port
+        // OUTPUT AUDIO PORT
         else if (
             lilv_port_is_a(plugin, port, URI.lv2_AudioPort) &&
             is_output_port
@@ -205,7 +205,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& 
             lilv_instance_connect_port(instance, i, output_buf);
         }
 
-        // atom port
+        // ATOM PORT
         else if (lilv_port_is_a(plugin, port, URI.atom_AtomPort))
         {
             if (is_input_port || is_output_port) 
@@ -407,6 +407,8 @@ void Lv2PluginHost::destroy()
 
 Lv2PluginHost::~Lv2PluginHost()
 {
+    // TODO: stop using raw pointers
+
     delete[] input_combined;
     FREE_ARRAY(audio_input_bufs, delete[]);
     FREE_ARRAY(audio_output_bufs, delete[]);
@@ -429,7 +431,7 @@ void Lv2PluginHost::stop()
 
 void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
 {
-    bool interleave = false; // TODO add ui checkbox to toggle this
+    bool interleave = false; // TODO when i make mono/stereo converters, remove this
 
     // initialize input buffers
     for (size_t i = 0; i < buffer_size; i += 2) {
@@ -663,32 +665,34 @@ size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer,
 
 void Lv2PluginHost::flush_events()
 {
-    // TODO: i don't know what this does
-    
-    /*
     // port notifications
     // copy port values to the UIHost
     _writing_notifs = true;
 
-    for (auto& [ index, target ] : port_notification_targets)
+    for (auto& [ index, queue ] : port_notification_targets)
     {
         const PortData& port_data = ports[index];
 
         switch (port_data.type) {
             case PortData::Control: {
-                *target.control = port_data.is_output ? port_data.ctl_out->value : port_data.ctl_in->value;
+                float value = port_data.is_output ? port_data.ctl_out->value : port_data.ctl_in->value;
+                queue->post(&value, sizeof(float));
                 break;
             }
 
             case PortData::AtomSequence: {
-                auto out = target.atom_sequence;
                 AtomSequencePort* in = port_data.sequence;
 
-                auto write_handle = out->get_handle();
+                LV2_ATOM_SEQUENCE_FOREACH(&in->data.header, ev)
+                {
+                    queue->post(ev, sizeof(*ev) + ev->body.size);
+                }
+
+                /*auto write_handle = out->get_handle();
                 AtomSequenceBuffer& buf = write_handle.get();
 
                 LV2_ATOM_SEQUENCE_FOREACH (&in->data.header, ev)
-                    lv2_atom_sequence_append_event(&buf.header, ATOM_SEQUENCE_CAPACITY, ev);
+                    lv2_atom_sequence_append_event(&buf.header, ATOM_SEQUENCE_CAPACITY, ev);*/
                 
                 break;
 
@@ -730,17 +734,16 @@ void Lv2PluginHost::flush_events()
             }
         }
     }
-    */
 }
 
-void Lv2PluginHost::port_subscribe(uint32_t port_index, PortNotificationTarget out)
+void Lv2PluginHost::port_subscribe(uint32_t port_index, std::shared_ptr<MessageQueue>& queue)
 {
     auto it = ports.find(port_index);
     if (it == ports.end()) return;
     auto& [ index, port_data ] = *it;
     assert(index == port_index);
 
-    port_notification_targets[index] = out;
+    port_notification_targets[index] = queue;
 }
 
 void Lv2PluginHost::port_unsubscribe(uint32_t port_index)

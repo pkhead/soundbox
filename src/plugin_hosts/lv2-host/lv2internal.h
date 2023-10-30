@@ -230,6 +230,9 @@ namespace lv2 {
         dB
     };
 
+    /**
+    * This is a control editable by the user
+    **/
     struct ControlInputPort
     {
         std::string name;
@@ -244,6 +247,9 @@ namespace lv2 {
         float default_value;
     };
 
+    /**
+    * This is used for analysis probably.
+    **/
     struct ControlOutputPort
     {
         std::string name;
@@ -253,6 +259,10 @@ namespace lv2 {
         float value;
     };
 
+    /**
+    * "Used to assign meaning to controls"
+    * for example, EnvelopeControls, FilterControls, CompressorControls, e.t.c.
+    **/
     class Parameter
     {
     public:
@@ -300,66 +310,13 @@ namespace lv2 {
             Parameter* param;
         };
     };
-    
-    // a lock-free buffer to be shared by two threads. Takes
-    // ownership of the pointer passed in the constructor.
-    // attempt to write while it is being read will enter a spinlock
-    // should be fine, probably, as the read function only copies the memory
-    // then releases the lock
-    /*
-    template <class T>
-    class SharedData {
-    private:
-        std::atomic<bool> _lock = {0};
-        
-        void lock() noexcept
-        {
-            for (;;) {
-                if (!_lock.exchange(true, std::memory_order_acquire))
-                    return;
-   
-                while (_lock.load(std::memory_order_relaxed))
-                    __builtin_ia32_pause(); // i think msvc uses a different function
-            }
-        }
-
-        void unlock() noexcept
-        {
-            _lock.store(false, std::memory_order_release);
-        }
-
-        T _data;
-    public:
-        SharedData(T&& data) : _data(data) {};
-        
-        class data_handle_t {
-        private:
-            SharedData<T>& self;
-        public:
-            inline data_handle_t(SharedData<T>& self) : self(self) {
-                self.lock();
-            };
-            
-            inline ~data_handle_t() {
-                self.unlock();
-            };
-
-            inline T& get() { return self._data; };
-        };
-        
-        // DO NOT DO ANY NON-REALTIME SAFE OPERATIONS
-        // WHILE THE HANDLE IS ACTIVE !!!!!
-        inline data_handle_t get_handle() {
-            return data_handle_t(*this);
-        };
-
-        // this is not thread-safe
-        inline T& unsafe_get() { return _data; };
-    };
-    */
 
     static constexpr size_t ATOM_SEQUENCE_CAPACITY = 1024;
 
+    /**
+    * Buffer for an Atom sequence. Atom sequences are the primary
+    * method of communicating messages to and from plugins.
+    **/
     struct AtomSequenceBuffer {
         LV2_Atom_Sequence header;
         uint8_t data[ATOM_SEQUENCE_CAPACITY];
@@ -376,6 +333,10 @@ namespace lv2 {
         MessageQueue shared_queue;
     };
 
+    /**
+    * Struct used to send control port notifications to the
+    * plugin's UI
+    **/
     struct ControlPortNotification
     {
         uint32_t port_index;
@@ -390,19 +351,16 @@ namespace lv2 {
             AtomSequence
         } type;
         bool is_output;
-        const char* symbol; // this is owned by the underlying port struture
+
+        // this is owned by the underlying ControlInputPort or ControlOutputPort
+        // using a char* easier than a string& here
+        const char* symbol;
 
         union {
             ControlInputPort* ctl_in;
             ControlOutputPort* ctl_out;
             AtomSequencePort* sequence;
         };
-    };
-    
-    union PortNotificationTarget {
-        //SharedData<AtomSequenceBuffer>* atom_sequence;
-        //SharedData<std::vector<uint8_t>>* buffer;
-        std::atomic<float>* control;
     };
 
     /**
@@ -500,8 +458,8 @@ namespace lv2 {
 
         Parameter* find_parameter(LV2_URID id) const;
         
-        std::unordered_map<int, PortNotificationTarget> port_notification_targets;
-        void port_subscribe(uint32_t port_index, PortNotificationTarget out);
+        std::unordered_map<int, std::shared_ptr<MessageQueue>> port_notification_targets;
+        void port_subscribe(uint32_t port_index, std::shared_ptr<MessageQueue>& queue);
         void port_unsubscribe(uint32_t port_index);
         
         // function to get shared atom sequence buffer
@@ -600,11 +558,11 @@ namespace lv2 {
         // plugin in a thread-safe manner
         struct ctl_port_data_t {
             float previous;
-            std::atomic<float> value;
+            float value;
         };
 
-        std::unordered_map<int, std::unique_ptr<ctl_port_data_t>> ctl_port_data;
-        //std::unordered_map<int, std::unique_ptr<SharedData<AtomSequenceBuffer>>> seq_port_data;
+        std::unordered_map<int, ctl_port_data_t> ctl_port_data;
+        std::unordered_map<int, std::shared_ptr<MessageQueue>> port_queues;
 
         // features
         LV2_URID_Map map = {nullptr, uri::map_callback};

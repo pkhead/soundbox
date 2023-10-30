@@ -43,7 +43,7 @@ uint32_t UIHost::suil_port_index_func(SuilController controller, const char* por
 
     for (const auto& [ index, port_data ] : self->plugin_ctl->ports)
     {
-        if (strcmp(port_data.symbol, port_symbol) == 0)
+        if (port_data.symbol == port_symbol)
             return index;
     }
 
@@ -391,7 +391,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                             );
                         }
 #elif def(UI_WINDOWS)
-                        abort(); // TODO
+                        abort(); // TODO: support for windows plugin ui embedding
 #endif
                     }
 
@@ -460,45 +460,37 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
 
                                 dbg("subscribe to port %i\n", index);
 
-                                // the valid union member will be determined
-                                // by the port type 
-                                PortNotificationTarget data;
+                                // TODO: figure out if i can make this not a shared_ptr
+                                std::shared_ptr<MessageQueue> queue;
 
                                 if (port_data.type == PortData::Control)
                                 {
-                                    auto ptr = std::make_unique<ctl_port_data_t>();
-                                    
+                                    ctl_port_data_t data;
+
                                     // initialize port data
-                                    ptr->value = port_data.is_output ?
+                                    data.value = port_data.is_output ?
                                         port_data.ctl_out->value :
                                         port_data.ctl_in->value;
+                                    data.previous = data.value;
 
-                                    ptr->previous = ptr->value;
-                                    
-                                    // TODO: whats the point of using unique_ptr then
-                                    data.control = &ptr->value;
-                                    ctl_port_data[index] = std::move(ptr);
+                                    ctl_port_data[index] = data;
+
+                                    // since it will only receive floats, the queue not need
+                                    // that much memory allocated
+                                    queue = std::make_shared<MessageQueue>(sizeof(float), 2);
                                 }
                                 else if (port_data.type == PortData::AtomSequence)
                                 {
-                                    // TODO: what is this
-                                    /*auto raw_ptr = new SharedData<AtomSequenceBuffer>({
-                                        { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
-                                        { 0, 0 }
-                                    });
-
-                                    std::unique_ptr ptr =
-                                        std::unique_ptr<SharedData<AtomSequenceBuffer>>(raw_ptr);
-                                    
-                                    data.atom_sequence = raw_ptr;
-                                    seq_port_data[index] = std::move(ptr);*/
+                                    // however, atom sequences need more memory allocated
+                                    queue = std::make_shared<MessageQueue>(1, 1024);
                                 }
                                 else
                                 {
                                     throw std::runtime_error("Invalid PortData type");
                                 }
 
-                                plugin_ctl->port_subscribe(index, data);
+                                port_queues[index] = std::move(queue);
+                                plugin_ctl->port_subscribe(index, port_queues[index]);
                             } else {
                                 dbg("WARNING: plugin request to subscribe to invalid port %i\n", index);
                             }
@@ -567,8 +559,8 @@ void UIHost::show() {
         }
     } else
 #endif
-    // use glfw show window if gtk2 is not enabled
-    glfwShowWindow(ui_window);
+        // use glfw show window if gtk2 is not enabled
+        glfwShowWindow(ui_window);
     
 #ifdef COMPOSITING
     if (window_manager.can_composite()) {
@@ -647,53 +639,62 @@ bool UIHost::render()
     // receive port notifications
     if (!plugin_ctl->is_writing_notifications())
     {
+        // read queues
+        for (auto& [index, queue] : port_queues)
+        {
+            PortData& port_data = plugin_ctl->ports[index];
+            
+            while (true)
+            {
+                auto handle = queue->read();
+                if (handle.size() == 0) break;
+
+                switch (port_data.type)
+                {
+                    case PortData::Control: {
+                        assert(handle.size() == sizeof(float));
+                        auto& data = ctl_port_data[index];
+                        handle.read(&data.value, sizeof(float));
+                        break;
+                    }
+
+                    case PortData::AtomSequence: {
+                        dbg("received atom data with size %lu\n", handle.size());
+
+                        std::byte ev_buf[256];
+                        assert(handle.size() < sizeof(ev_buf));
+
+                        LV2_Atom_Event* event = (LV2_Atom_Event*) &ev_buf;
+                        handle.read(&ev_buf, handle.size());
+
+                        int event_transfer_urid = uri::map(LV2_ATOM__eventTransfer);
+                        suil_instance_port_event(
+                            suil_instance,
+                            index,
+                            event->body.size + sizeof(event->body),
+                            event_transfer_urid,
+                            &event->body
+                        );
+                    }
+                }
+            }
+        }
+
         // controls
         for (auto& [index, data] : ctl_port_data)
         {
-            if (data->value != data->previous) {
-                data->previous = data->value;
+            if (data.value != data.previous) {
+                data.previous = data.value;
 
                 suil_instance_port_event(
                     suil_instance,
                     index,
                     sizeof(float),
                     0,
-                    &data->value
+                    &data.value
                 );
             }
         }
-
-        // atom sequences
-        // TODO: what is this
-        /*
-        for (auto& [index, sequence] : seq_port_data)
-        {
-            // get events and clear buffer
-            AtomSequenceBuffer events; {
-                auto handle = sequence->get_handle();
-                events = handle.get(); // copy
-                lv2_atom_sequence_clear(&handle.get().header);
-            };
-
-            if (events.header.atom.size > sizeof(LV2_Atom_Sequence_Body))
-            {
-                dbg("received data: %i\n", events.header.atom.size);
-
-                int event_transfer_urid = uri::map(LV2_ATOM__eventTransfer);
-
-                LV2_ATOM_SEQUENCE_FOREACH (&events.header, ev)
-                {
-                    suil_instance_port_event(
-                        suil_instance,
-                        index,
-                        ev->body.size + sizeof(ev->body),
-                        event_transfer_urid,
-                        &ev->body
-                    );
-                }
-            }
-        }
-        */
     }
 
     if (idle_interface)
