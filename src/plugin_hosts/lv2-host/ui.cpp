@@ -110,12 +110,12 @@ void UIHost::suil_port_write_func(
                 payload.time = 0;
                 memcpy(&payload.data, data, data_size);
 
-                auto handle = port.sequence->shared.get_handle();
-                lv2_atom_sequence_append_event(
+                auto handle = port.sequence->shared_queue.post(&payload, sizeof(payload.time) + data_size);
+                /*lv2_atom_sequence_append_event(
                     &handle.get().header,
                     ATOM_SEQUENCE_CAPACITY,
                     (LV2_Atom_Event*) &payload
-                );
+                );*/
             } else {
                 dbg("WARNING: Needed %i bytes for event transfer, but can only hold 128\n", data_size);
             }
@@ -481,7 +481,8 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                                 }
                                 else if (port_data.type == PortData::AtomSequence)
                                 {
-                                    auto raw_ptr = new SharedData<AtomSequenceBuffer>({
+                                    // TODO: what is this
+                                    /*auto raw_ptr = new SharedData<AtomSequenceBuffer>({
                                         { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
                                         { 0, 0 }
                                     });
@@ -490,7 +491,7 @@ UIHost::UIHost(Lv2PluginHost* __plugin_controller, WindowManager& _win_manager) 
                                         std::unique_ptr<SharedData<AtomSequenceBuffer>>(raw_ptr);
                                     
                                     data.atom_sequence = raw_ptr;
-                                    seq_port_data[index] = std::move(ptr);
+                                    seq_port_data[index] = std::move(ptr);*/
                                 }
                                 else
                                 {
@@ -663,6 +664,8 @@ bool UIHost::render()
         }
 
         // atom sequences
+        // TODO: what is this
+        /*
         for (auto& [index, sequence] : seq_port_data)
         {
             // get events and clear buffer
@@ -690,6 +693,7 @@ bool UIHost::render()
                 }
             }
         }
+        */
     }
 
     if (idle_interface)

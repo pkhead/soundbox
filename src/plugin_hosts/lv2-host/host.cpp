@@ -228,10 +228,7 @@ Lv2PluginHost::Lv2PluginHost(audiomod::ModuleContext& modctx, const PluginData& 
                             { 0, 0 }
                         },
 
-                        SharedData<AtomSequenceBuffer>({
-                            { sizeof(LV2_Atom_Sequence_Body), uri::map(LV2_ATOM__Sequence) },
-                            { 0, 0 }
-                        })
+                        MessageQueue(1, ATOM_SEQUENCE_CAPACITY)
                     };
 
                     // if control designation is not specified, plugin will
@@ -462,10 +459,15 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
     {
         while (true)
         {
-            auto handle = in->msg_queue.read();
-            if (handle.size() == 0) break;
+            std::byte ev_buf[256];
 
-            
+            auto handle = in->shared_queue.read();
+            if (handle.size() == 0) break;
+            assert(handle.size() < sizeof(ev_buf));
+
+            handle.read(ev_buf, handle.size());
+
+            lv2_atom_sequence_append_event(&in->data.header, ATOM_SEQUENCE_CAPACITY, (LV2_Atom_Event*) ev_buf);
         }
         //auto handle = in->shared.get_handle();
         //in->data = handle.get();
@@ -661,6 +663,9 @@ size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer,
 
 void Lv2PluginHost::flush_events()
 {
+    // TODO: i don't know what this does
+    
+    /*
     // port notifications
     // copy port values to the UIHost
     _writing_notifs = true;
@@ -725,6 +730,7 @@ void Lv2PluginHost::flush_events()
             }
         }
     }
+    */
 }
 
 void Lv2PluginHost::port_subscribe(uint32_t port_index, PortNotificationTarget out)

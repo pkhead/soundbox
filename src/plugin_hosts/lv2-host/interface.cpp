@@ -245,7 +245,9 @@ void Lv2Plugin::_interface_proc()
 
 
 void Lv2Plugin::event(const audiomod::NoteEvent& event) {
-    return host.event(event);
+    audiomod::MidiMessage midi_msg;
+    event.write_midi(&midi_msg);
+    return host.event({ 0, midi_msg });
 }
 
 /*size_t Lv2Plugin::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) {

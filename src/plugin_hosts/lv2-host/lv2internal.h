@@ -370,7 +370,10 @@ namespace lv2 {
         const std::string symbol;
 
         AtomSequenceBuffer data;
-        MessageQueue msg_queue;
+
+        // this MessageQueue is used to pass data
+        // from the UI thread to the processing thread
+        MessageQueue shared_queue;
     };
 
     struct ControlPortNotification
@@ -397,8 +400,8 @@ namespace lv2 {
     };
     
     union PortNotificationTarget {
-        SharedData<AtomSequenceBuffer>* atom_sequence;
-        SharedData<std::vector<uint8_t>>* buffer;
+        //SharedData<AtomSequenceBuffer>* atom_sequence;
+        //SharedData<std::vector<uint8_t>>* buffer;
         std::atomic<float>* control;
     };
 
@@ -601,7 +604,7 @@ namespace lv2 {
         };
 
         std::unordered_map<int, std::unique_ptr<ctl_port_data_t>> ctl_port_data;
-        std::unordered_map<int, std::unique_ptr<SharedData<AtomSequenceBuffer>>> seq_port_data;
+        //std::unordered_map<int, std::unique_ptr<SharedData<AtomSequenceBuffer>>> seq_port_data;
 
         // features
         LV2_URID_Map map = {nullptr, uri::map_callback};
