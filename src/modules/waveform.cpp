@@ -117,7 +117,6 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
     if (filt_env_params.release < 0.001f) filt_env_params.release = 0.001f;
 
     float samples[3][2];
-
     // setup filter
     float reso_linear = db_to_mult(process_state.filt_reso);
 
@@ -165,8 +164,10 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                     break;
             }
 
+            float vibrato_amt = sinf(voice.vibrato_phase) * process_state.vibrato_amount;
+
             for (size_t osc = 0; osc < 3; osc++) {
-                float freq = voice.freq * powf(2.0f, ((float)process_state.coarse[osc] + process_state.fine[osc] / 100.0f) / 12.0f);
+                float freq = voice.freq * powf(2.0f, ((float)process_state.coarse[osc] + (process_state.fine[osc] + vibrato_amt) / 100.0f) / 12.0f);
                 double phase = voice.phase[osc];
                 double period = 1.0 / freq;
                 float sample;
@@ -239,6 +240,17 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                     voice.phase[osc] -= PI2;
             }
 
+            // update vibrato
+            if (voice.time >= process_state.vibrato_delay)
+            {
+                voice.vibrato_phase += (PI2 * process_state.vibrato_speed) / modctx.sample_rate;
+                
+                if (voice.vibrato_phase > PI2) {
+                    voice.vibrato_phase -= PI2;
+                }
+            }
+
+            // apply filter
             float voice_l = samples[0][0] + samples[1][0] + samples[2][0];
             float voice_r = samples[0][1] + samples[1][1] + samples[2][1];
             voice.filter[0].process(&voice_l);
@@ -279,6 +291,7 @@ void WaveformSynth::event(const NoteEvent& event) {
 
             if (voice.active && voice.key == event.key && !voice.amp_env.is_released()) {
                 voice.amp_env.release(voice.time, process_state.amp_env);
+                voice.filt_env.release(voice.time, process_state.filt_env);
                 break;
             }
         }
@@ -400,6 +413,32 @@ void WaveformSynth::_interface_proc() {
         ImGui::PopID();
     }
 
+    // Vibrato Settings //
+    ImGui::Text("Vibrato");
+    ImGui::PushItemWidth(slider_width);
+    
+    // delay
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Dly");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##vibrato-delay", &ui_state.vibrato_delay, 0.0f, 2.0f, "%.3f s");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.vibrato_delay = 0.0f;
+
+    // speed
+    ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Spd");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##vibrato-speed", &ui_state.vibrato_speed, 0.0f, 20.0f, "%.3f Hz");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.vibrato_speed = 1.0f;
+
+    // amount
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Pow");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##vibrato-amount", &ui_state.vibrato_amount, 0.0f, 100.0f, "%.0f cents");
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) ui_state.vibrato_speed = 10.0f;
+
     ImGui::EndGroup();
     ImGui::SameLine();
     ImGui::BeginGroup();
@@ -486,11 +525,13 @@ void WaveformSynth::_interface_proc() {
     ImGui::Text("Res");
     ImGui::SameLine();
     ImGui::SliderFloat("##filter-q", &ui_state.filt_reso, -20.0f, 20.0f, "%.3f dB");
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) ui_state.filt_reso = 0.0f;
     
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Env");
     ImGui::SameLine();
     ImGui::SliderFloat("##filter-env", &ui_state.filt_amount, 0.0f, 1.0f);
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) ui_state.filt_amount = 0.0f;
 
     ImGui::EndGroup();
 
@@ -532,6 +573,11 @@ void WaveformSynth::save_state(std::ostream& ostream) {
     push_bytes<float>(ostream, filt_params.decay);
     push_bytes<float>(ostream, filt_params.sustain);
     push_bytes<float>(ostream, filt_params.release);
+
+    // write vibrato params
+    push_bytes<float>(ostream, ui_state.vibrato_amount);
+    push_bytes<float>(ostream, ui_state.vibrato_delay);
+    push_bytes<float>(ostream, ui_state.vibrato_speed);
 }
 
 bool WaveformSynth::load_state(std::istream& istream, size_t size)
@@ -556,9 +602,9 @@ bool WaveformSynth::load_state(std::istream& istream, size_t size)
     ui_state.amp_env.sustain = pull_bytesr<float>(istream);
     ui_state.amp_env.release = pull_bytesr<float>(istream);
     
-    // read filter params
     if (version >= 1)
     {
+        // read filter params
         ui_state.filter_type = static_cast<FilterType>( pull_bytesr<uint8_t>(istream) );
         ui_state.filt_freq = pull_bytesr<float>(istream);
         ui_state.filt_reso = pull_bytesr<float>(istream);
@@ -568,9 +614,14 @@ bool WaveformSynth::load_state(std::istream& istream, size_t size)
         ui_state.filt_env.decay = pull_bytesr<float>(istream);
         ui_state.filt_env.sustain = pull_bytesr<float>(istream);
         ui_state.filt_env.release = pull_bytesr<float>(istream);
+
+        // read vibrato params
+        ui_state.vibrato_amount = pull_bytesr<float>(istream);
+        ui_state.vibrato_delay = pull_bytesr<float>(istream);
+        ui_state.vibrato_speed = pull_bytesr<float>(istream);
     }
 
-    // version 0 has no filter params
+    // version 0 has no filter and vibrato
     else
     {
         ui_state.filter_type = LowPassFilter;

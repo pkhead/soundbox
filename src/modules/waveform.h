@@ -14,6 +14,7 @@ namespace audiomod {
             float freq = 0.0f;
             float volume = 0.0f;
             double phase[3];
+            float vibrato_phase = 0.0f;
             double time = 0.0f;
 
             ADSR::Instance amp_env;
@@ -57,6 +58,10 @@ namespace audiomod {
 
             ADSR filt_env;
             float filt_amount = 0.0f;
+
+            float vibrato_delay = 0.0f;
+            float vibrato_speed = 1.0f;
+            float vibrato_amount = 0.0f;
         } process_state, ui_state;
 
         MessageQueue event_queue, state_queue;
