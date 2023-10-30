@@ -26,9 +26,14 @@ WaveformSynth::Voice::Voice()
     last_sample[0] = last_sample[1] = last_sample[2] = 0.0f;
 }
 
-WaveformSynth::Voice::Voice(int key, float freq, float volume)
-:   key(key), freq(freq), volume(volume), active(true)
-{}
+WaveformSynth::Voice::Voice(int _key, float _freq, float _volume)
+:   Voice()
+{
+    key = _key;
+    freq = _freq;
+    volume = _volume;
+    active = true;
+}
 
 WaveformSynth::WaveformSynth(ModuleContext& modctx)
 :   ModuleBase(true), modctx(modctx),
@@ -130,8 +135,9 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
             {
                 // note ended
                 voice.active = false;
-                break;
+                continue;
             }
+
             amp_env *= amp_env; // square envelope amount so it sounds smoother
 
             float filt_env;
@@ -233,11 +239,13 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
                     voice.phase[osc] -= PI2;
             }
 
-            output[i] += samples[0][0] + samples[1][0] + samples[2][0];
-            output[i + 1] += samples[0][1] + samples[1][1] + samples[2][1];
+            float voice_l = samples[0][0] + samples[1][0] + samples[2][0];
+            float voice_r = samples[0][1] + samples[1][1] + samples[2][1];
+            voice.filter[0].process(&voice_l);
+            voice.filter[1].process(&voice_r);
 
-            voice.filter[0].process(&output[i]);
-            voice.filter[1].process(&output[i+1]);
+            output[i] += voice_l;
+            output[i + 1] += voice_r;
 
             voice.time += 1.0 / modctx.sample_rate;
         }
