@@ -666,25 +666,39 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
     }
 }
 
+struct midi_atom_event_t
+{
+    LV2_Atom_Event header;
+    audiomod::MidiMessage midi;
+};
+
+midi_atom_event_t create_midi_atom(const audiomod::MidiEvent& midi_event)
+{
+    midi_atom_event_t atom;
+    const audiomod::MidiMessage& midi_msg = midi_event.msg;
+
+    atom.header.time.frames = midi_event.time;
+    atom.header.body.size = midi_msg.size();
+    atom.header.body.type = uri::map(LV2_MIDI__MidiEvent);
+    memcpy(&atom.midi, &midi_msg, midi_msg.size());
+    
+    return atom;
+} 
+
+void Lv2PluginHost::queue_event(const audiomod::MidiEvent& midi_event)
+{
+    if (midi_in)
+    {
+        auto atom = create_midi_atom(midi_event);
+        midi_in->shared_queue.post(&atom, sizeof(atom));
+    }
+}
+
 void Lv2PluginHost::event(const audiomod::MidiEvent& midi_event)
 {
     if (midi_in)
     {
-        struct {
-            LV2_Atom_Event header;
-            audiomod::MidiMessage midi;
-        } atom;
-
-        const audiomod::MidiMessage& midi_msg = midi_event.msg;
-
-        atom.header.time.frames = 0;
-        atom.header.body.size = midi_msg.size();
-        atom.header.body.type = uri::map(LV2_MIDI__MidiEvent);
-        memcpy(&atom.midi, &midi_msg, midi_msg.size());
-
-        //auto handle = midi_in->shared.get_handle();
-        //lv2_atom_sequence_append_event(&handle.get().header, ATOM_SEQUENCE_CAPACITY, &atom.header);
-
+        auto atom = create_midi_atom(midi_event);
         lv2_atom_sequence_append_event(&midi_in->data.header, ATOM_SEQUENCE_CAPACITY, &atom.header);
     }
 }
