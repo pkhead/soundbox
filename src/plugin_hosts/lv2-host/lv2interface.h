@@ -33,7 +33,7 @@ namespace plugins
 
         virtual void event(const audiomod::NoteEvent& event) override;
         // virtual size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity) override;
-        virtual void flush_events() override;
+        virtual void send_events(audiomod::ModuleBase& target) override;
 
         virtual int control_value_count() const override;
         virtual int output_value_count() const override;

@@ -429,9 +429,12 @@ void Lv2PluginHost::stop()
     lilv_instance_deactivate(instance);
 }
 
+// TODO: i feel like this function is too long
+// it could be broken up into seperate functions, e.g.
+// update_events, write_events
 void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, size_t buffer_size, int sample_rate, int channel_count)
 {
-    bool interleave = false; // TODO when i make mono/stereo converters, remove this
+    bool interleave = false;
 
     // initialize input buffers
     for (size_t i = 0; i < buffer_size; i += 2) {
@@ -591,80 +594,7 @@ void Lv2PluginHost::process(float** inputs, float* output, size_t num_inputs, si
         _modctx.frames_per_buffer,
         interleave
     );
-}
 
-void Lv2PluginHost::event(const audiomod::MidiEvent& midi_event)
-{
-    if (midi_in)
-    {
-        struct {
-            LV2_Atom_Event header;
-            audiomod::MidiMessage midi;
-        } atom;
-
-        const audiomod::MidiMessage& midi_msg = midi_event.msg;
-
-        atom.header.time.frames = 0;
-        atom.header.body.size = midi_msg.size();
-        atom.header.body.type = uri::map(LV2_MIDI__MidiEvent);
-        memcpy(&atom.midi, &midi_msg, midi_msg.size());
-
-        //auto handle = midi_in->shared.get_handle();
-        //lv2_atom_sequence_append_event(&handle.get().header, ATOM_SEQUENCE_CAPACITY, &atom.header);
-
-        lv2_atom_sequence_append_event(&midi_in->data.header, ATOM_SEQUENCE_CAPACITY, &atom.header);
-    }
-}
-
-/*
-size_t Lv2PluginHost::receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity)
-{
-    if (midi_out)
-    {
-        LV2_Atom_Event** it = (LV2_Atom_Event**) handle;
-
-        LV2_Atom_Sequence& seq = midi_out->data.header;
-
-        if (*it == nullptr)
-            *it = lv2_atom_sequence_begin(&seq.body);
-
-        size_t count = 0;
-
-        while (true)
-        {
-            // ran out of buffer space, yield "coroutine"
-            if (count >= capacity)
-                break;
-
-            // reached end of sequence, "coroutine" is finished
-            if (lv2_atom_sequence_is_end(&seq.body, seq.atom.size, *it)) {
-                break;
-            }
-
-            // if event is a midi event
-            LV2_Atom_Event* &ev = *it;
-            if (ev->body.type == uri::map(LV2_MIDI__MidiEvent))
-            {
-                const audiomod::MidiMessage* const midi_ev = (const audiomod::MidiMessage*) (ev + 1);
-                
-                buffer[count++] = {
-                    (uint64_t) ev->time.frames,
-                    *midi_ev
-                };
-            }
-
-            *it = lv2_atom_sequence_next(*it);
-        }
-
-        return count;
-    }
-
-    return 0;
-}
-*/
-
-void Lv2PluginHost::flush_events()
-{
     // port notifications
     // copy port values to the UIHost
     _writing_notifs = true;
@@ -731,6 +661,50 @@ void Lv2PluginHost::flush_events()
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+void Lv2PluginHost::event(const audiomod::MidiEvent& midi_event)
+{
+    if (midi_in)
+    {
+        struct {
+            LV2_Atom_Event header;
+            audiomod::MidiMessage midi;
+        } atom;
+
+        const audiomod::MidiMessage& midi_msg = midi_event.msg;
+
+        atom.header.time.frames = 0;
+        atom.header.body.size = midi_msg.size();
+        atom.header.body.type = uri::map(LV2_MIDI__MidiEvent);
+        memcpy(&atom.midi, &midi_msg, midi_msg.size());
+
+        //auto handle = midi_in->shared.get_handle();
+        //lv2_atom_sequence_append_event(&handle.get().header, ATOM_SEQUENCE_CAPACITY, &atom.header);
+
+        lv2_atom_sequence_append_event(&midi_in->data.header, ATOM_SEQUENCE_CAPACITY, &atom.header);
+    }
+}
+
+void Lv2PluginHost::send_events(audiomod::ModuleBase& target)
+{
+    if (midi_out)
+    {
+        LV2_ATOM_SEQUENCE_FOREACH(&midi_out->data.header, ev)
+        {
+            // if event is a midi event
+            if (ev->body.type == uri::map(LV2_MIDI__MidiEvent))
+            {
+                // get midi message written after the end of the event
+                const audiomod::MidiMessage* const midi_ev = (const audiomod::MidiMessage*) (ev + 1);
+
+                // convert it to a NoteEvent and send it to the target module
+                audiomod::NoteEvent note_ev;
+                note_ev.read_midi(midi_ev);
+                target.event(note_ev);
             }
         }
     }

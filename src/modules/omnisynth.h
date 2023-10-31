@@ -83,7 +83,6 @@ namespace audiomod {
 
         void event(const NoteEvent& event) override;
         void queue_event(const NoteEvent& event) override;
-        void flush_events() override;
         void save_state(std::ostream& output) override;
         bool load_state(std::istream& input, size_t size) override;
     };

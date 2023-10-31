@@ -478,8 +478,7 @@ namespace lv2 {
         );
         void event(const audiomod::MidiEvent& event);
         void queue_event(const audiomod::MidiEvent& event);
-        //size_t receive_events(void** handle, audiomod::MidiEvent* buffer, size_t capacity);
-        void flush_events();
+        void send_events(audiomod::ModuleBase& target);
         void save_state(std::ostream& ostream);
         bool load_state(std::istream& istream, size_t size);
 

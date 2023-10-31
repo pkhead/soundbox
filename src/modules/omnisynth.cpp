@@ -79,26 +79,23 @@ void OmniSynth::process(float** inputs, float* output, size_t num_inputs, size_t
         handle.read(&process_state, sizeof(module_state_t));
     }
 
+    // then, read queued note events
+    while (true) {
+        auto handle = event_queue.read();
+        if (!handle) break;
+
+        assert(handle.size() == sizeof(NoteEvent));
+        NoteEvent ev;
+        handle.read(&ev, sizeof(NoteEvent));
+        event(ev);
+    }
+
     memset(output, 0, buffer_size * sizeof(float));
 }
 
 void OmniSynth::queue_event(const NoteEvent& event)
 {
     event_queue.post(&event, sizeof(event));
-}
-
-void OmniSynth::flush_events()
-{
-    NoteEvent ev;
-
-    while (true) {
-        auto handle = event_queue.read();
-        if (!handle) break;
-
-        assert(handle.size() == sizeof(NoteEvent));
-        handle.read(&ev, sizeof(NoteEvent));
-        event(ev);
-    }
 }
 
 void OmniSynth::event(const NoteEvent& event) {

@@ -254,8 +254,8 @@ void Lv2Plugin::event(const audiomod::NoteEvent& event) {
     return host.receive_events(handle, buffer, capacity);
 }*/
 
-void Lv2Plugin::flush_events() {
-    return host.flush_events();
+void Lv2Plugin::send_events(audiomod::ModuleBase& target) {
+    return host.send_events(target);
 }
 
 void Lv2Plugin::process(

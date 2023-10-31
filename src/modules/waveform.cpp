@@ -110,6 +110,17 @@ void WaveformSynth::process(float** inputs, float* output, size_t num_inputs, si
         handle.read(&process_state, sizeof(module_state_t));
     }
 
+    // read queued note events
+    while (true) {
+        auto handle = event_queue.read();
+        if (!handle) break;
+
+        assert(handle.size() == sizeof(NoteEvent));
+        NoteEvent ev;
+        handle.read(&ev, sizeof(NoteEvent));
+        event(ev);
+    }
+
     ADSR amp_env_params = process_state.amp_env;
     ADSR filt_env_params = process_state.filt_env;
 
@@ -301,20 +312,6 @@ void WaveformSynth::event(const NoteEvent& event) {
 void WaveformSynth::queue_event(const NoteEvent& event)
 {
     event_queue.post(&event, sizeof(event));
-}
-
-void WaveformSynth::flush_events()
-{
-    while (true) {
-        auto handle = event_queue.read();
-        if (!handle) break;
-
-        // ERROR
-        assert(handle.size() == sizeof(NoteEvent));
-        NoteEvent ev;
-        handle.read(&ev, sizeof(NoteEvent));
-        event(ev);
-    }
 }
 
 static void render_slider(const char* id, const char* label, float* var, float max, bool log, const char* fmt, float start = 0.0f) {

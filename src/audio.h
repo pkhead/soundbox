@@ -230,10 +230,10 @@ namespace audiomod
         virtual void queue_event(const NoteEvent& event) {};
 
         /**
-        * Flush the event queue of the module.
-        * @param out_module The module to send possible midi outputs to, if not nullptr
+        * Send queued events to another module.
+        * @param out_module The module to send possible events to
         */
-        virtual void flush_events() {};
+        virtual void send_events(ModuleBase& target) {};
 
         // does this module have an interface?
         bool has_interface() const;

@@ -313,7 +313,7 @@ void ModuleContext::process_node(ModuleNode& node)
     for (ModuleNodeRc& input : node.input_nodes)
     {
         process_node(*input);
-        input->module().flush_events();
+        input->module().send_events(node.module());
         
         // copy input's output array to my input array
         memcpy(node.input_arrays[i], input->output_array, buf_size * sizeof(float));
@@ -338,7 +338,7 @@ size_t ModuleContext::process(float* &buffer)
     for (ModuleNodeRc& input_node : _dest->input_nodes)
     {
         process_node(*input_node);
-        input_node->module().flush_events();
+        input_node->module().send_events(_dest->module());
 
         // copy input's output array to my input array
         memcpy(_dest->input_arrays[i], input_node->output_array, buf_size * sizeof(float));
