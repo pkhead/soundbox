@@ -198,6 +198,7 @@ bool EffectsRack::disconnect_input(ModuleNodeRc& input) {
     {
         if (*it == input)
         {
+            input->disconnect();
             inputs.erase(it);
             return true;
         }

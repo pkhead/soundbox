@@ -21,8 +21,7 @@
         - serialization
         - Exampler crashes when press "Request Sample"
           (this is because i did not implement the request value feature)
-        - investigate memory leak when loading Calf audio plugins
-          (could be any lv2 plugin, but i only tested calf)
+        - investigate memory leak when loading lv2 plugins
         - investigate why Exampler ui doesn't update with ui embedding enabled
         - toggle between plugin ui and control ui
         - pretty sure there are some bugs
