@@ -409,7 +409,7 @@ namespace lv2 {
         lv2::WorkerHost worker_host;
 
         void _set_port_value(const char* port_symbol, const void* value, uint32_t size, uint32_t type);
-        const void* _get_port_value(const char* port_symbol, uint32_t* size, uint32_t type);
+        const void* _get_port_value(const char* port_symbol, uint32_t* size, uint32_t* type);
 
         std::atomic<bool> _writing_notifs = false;
         
@@ -425,7 +425,7 @@ namespace lv2 {
             const char* port_symbol,
             void* user_data,
             uint32_t* size,
-            uint32_t type
+            uint32_t* type
         );
 
     public:

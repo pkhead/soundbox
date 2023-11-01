@@ -18,12 +18,12 @@
 
 - Plugin support
     = LV2
-        - serialization
+        x serialization
+        - toggle between plugin ui and control ui
         - Exampler crashes when press "Request Sample"
           (this is because i did not implement the request value feature)
         - investigate memory leak when loading lv2 plugins
         - investigate why Exampler ui doesn't update with ui embedding enabled
-        - toggle between plugin ui and control ui
         - pretty sure there are some bugs
     - VST3
     - CLAP
@@ -69,6 +69,7 @@
 
     TEMPORARY TODOS:
 
+- LV2 String and Path parameters
 - use std::filesystem::path for all path types, instead of std::string
 - RingBuffer/MessageQueue can make write handles(?)
 x more memory-safety (prefer std::unique_ptr instead of new directly)

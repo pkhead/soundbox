@@ -739,14 +739,35 @@ void Lv2PluginHost::port_unsubscribe(uint32_t port_index)
     port_notification_targets.erase(port_index);
 }
 
-// TODO
 void Lv2PluginHost::save_state(std::ostream& ostream)
 {
+    // TODO: figure out what to do with the directories
+    Lilv_ptr state = lilv_state_new_from_instance(
+        lv2_plugin_data,
+        instance,
+        &map,
+        NULL, NULL, NULL, NULL,
+        &get_port_value_callback, this, 0, features
+    );
+
+    // i don't really know what to put here lol
+    const char* uri = "https://pkhead.neocities.org/soundbox#save";
+    std::string state_str = lilv_state_to_string(LILV_WORLD, &map, &unmap, state, uri, nullptr);
+    ostream << state_str;
+
     return;
 }
 
-// TODO
 bool Lv2PluginHost::load_state(std::istream& istream, size_t size)
 {
-    return false;
+    std::string state_str;
+    state_str.reserve(size);
+    istream.read(state_str.data(), size);
+
+    Lilv_ptr state = lilv_state_new_from_string(LILV_WORLD, &map, state_str.c_str());
+
+    // TODO: what state flags do i put?
+    lilv_state_restore(state, instance, set_port_value_callback, this, 0, features);
+    
+    return (void*)state != nullptr;
 }

@@ -45,6 +45,9 @@ namespace plugins
 
         virtual void control_value_change(int index) override;
 
+        virtual void save_state(std::ostream& ostream) override;
+        virtual bool load_state(std::istream& istream, size_t size) override;
+
         static const char* get_standard_paths();
         static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
 

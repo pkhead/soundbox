@@ -265,6 +265,14 @@ void Lv2Plugin::send_events(audiomod::ModuleBase& target) {
     return host.send_events(target);
 }
 
+void Lv2Plugin::save_state(std::ostream& ostream) {
+    return host.save_state(ostream);
+}
+
+bool Lv2Plugin::load_state(std::istream& istream, size_t size) {
+    return host.load_state(istream, size); 
+}
+
 void Lv2Plugin::process(
     float** inputs,
     float* output,

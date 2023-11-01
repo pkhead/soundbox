@@ -96,6 +96,7 @@ static audiomod::ModuleNodeRc load_module(
         delete[] inst_id;
         return nullptr;
     }
+    mod->module().song = song;
 
     // load state
     uint64_t mod_state_size = pull_bytesr<uint64_t>(input);
@@ -109,7 +110,6 @@ static audiomod::ModuleNodeRc load_module(
         input.read(buf, mod_state_size);
         temp.write(buf, mod_state_size);
 
-        mod->module().song = song;
         mod->module().load_state(temp, mod_state_size);
 
         delete[] buf;

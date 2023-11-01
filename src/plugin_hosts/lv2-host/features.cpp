@@ -566,7 +566,7 @@ void Lv2PluginHost::_set_port_value(
 const void* Lv2PluginHost::_get_port_value(
     const char* port_symbol,
     uint32_t* size,
-    uint32_t type
+    uint32_t* type
 ) {
     // TODO support for types other than float?
     // also check correct type
@@ -574,6 +574,7 @@ const void* Lv2PluginHost::_get_port_value(
     for (ControlInputPort* port : ctl_in) {
         if (port->symbol == port_symbol) {
             *size = sizeof(float);
+            *type = uri::map(LV2_ATOM__Float);
             return &port->value;
         }
     }
@@ -596,7 +597,7 @@ const void* Lv2PluginHost::get_port_value_callback(
     const char* port_symbol,
     void* user_data,
     uint32_t* size,
-    uint32_t type
+    uint32_t* type
 ) {
     Lv2PluginHost* plug = (Lv2PluginHost*) user_data;
     return plug->_get_port_value(port_symbol, size, type);
