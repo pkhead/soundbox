@@ -276,7 +276,7 @@ void Theme::load(const std::string theme_name)
     if (custom_directory.empty() || !std::filesystem::exists(file_name))
         file_name = std::filesystem::path("themes") / (theme_name + ".toml");
 
-    auto res = toml::parseFile(file_name);
+    auto res = toml::parseFile(file_name.u8string());
     if (!res.table)
         throw std::runtime_error("cannot parse " + file_name.u8string() + ": " + res.errmsg);
     

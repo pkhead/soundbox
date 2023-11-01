@@ -68,6 +68,9 @@
 - metronome
 - presets
 
+    TEMPORARY TODOS:
+
+- use std::filesystem::path for all path types, instead of std::string
 x more memory-safety (prefer std::unique_ptr instead of new directly)
 - create default dock layout in code
 - don't use native file browser
