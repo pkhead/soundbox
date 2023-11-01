@@ -341,7 +341,8 @@ const char* uri::unmap_callback(LV2_URID_Map_Handle handle, LV2_URID urid)
 ////////////////////////
 
 WorkerHost::WorkerHost(WorkScheduler& work_scheduler) :
-    work_scheduler(work_scheduler)
+    work_scheduler(work_scheduler),
+    response_queue(sizeof(WorkerResponse), RESPONSE_QUEUE_CAPACITY)
 {}
 
 LV2_Worker_Status WorkerHost::_schedule_work(LV2_Worker_Schedule_Handle handle, uint32_t size, const void* userdata)
@@ -392,39 +393,34 @@ LV2_Worker_Status WorkerHost::_worker_respond(
         return LV2_WORKER_ERR_UNKNOWN;
     }
 
-    for (int i = 0; i < RESPONSE_QUEUE_CAPACITY; i++)
-    {
-        WorkerResponse& response = self->worker_responses[i];
-        if (response.active) continue;
+    WorkerResponse response;
+    response.size = size;
+    if (data && response.size)
+        memcpy(response.data, data, size);
 
-        response.size = size;
-        if (data && response.size) {
-            memcpy(response.data, data, size);
-        }
+    if (self->response_queue.post(&response, sizeof(WorkerResponse)) == 0)
+        return LV2_WORKER_ERR_NO_SPACE;
 
-        response.active = true;
-        return LV2_WORKER_SUCCESS;
-    }
-
-    return LV2_WORKER_ERR_NO_SPACE;
+    return LV2_WORKER_SUCCESS;
 }
 
 void WorkerHost::process_responses()
 {
     if (worker_interface)
     {
-        for (int i = 0; i < RESPONSE_QUEUE_CAPACITY; i++)
+        while (true)
         {
-            WorkerResponse& response = worker_responses[i];
-            if (!response.active) continue;
+            auto handle = response_queue.read();
+            if (!handle) break;
+            assert(handle.size() == sizeof(WorkerResponse));
 
+            WorkerResponse response;
+            handle.read(&response, sizeof(WorkerResponse));
             worker_interface->work_response(
                 instance,
                 response.size,
                 response.data
             );
-
-            response.active = false;
         }
     }
 }

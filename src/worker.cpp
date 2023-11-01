@@ -1,32 +1,37 @@
 #include <cstring>
+#include <cassert>
 #include "worker.h"
+
+WorkScheduler::WorkScheduler()
+:   schedule_queue(DATA_CAPACITY, QUEUE_CAPACITY)
+{}
 
 bool WorkScheduler::schedule(WorkProcedure proc, void* userdata, size_t size)
 {
-    if (size >= DATA_CAPACITY || num_queued >= QUEUE_CAPACITY)
-        return false;
-    
-    ScheduleCall& slot = schedule_queue[num_queued++];
-
-    slot.proc = proc;
-
+    ScheduleCall call;
+    call.proc = proc;
     if (userdata == nullptr)
-        slot.data_size = 0;
-    else {
-        slot.data_size = size; 
-        memcpy(slot.data, userdata, size);
-    }
+        call.data_size = 0;
+    else
+    {
+        call.data_size = size;
+        memcpy(call.data, userdata, size);
+    }   
 
-    return true;
+    return schedule_queue.post(&call, sizeof(call));
 }
 
 void WorkScheduler::run()
 {
-    for (int i = 0; i < num_queued; i++)
-    {
-        ScheduleCall& slot = schedule_queue[i];
-        slot.proc(slot.data, slot.data_size);
-    }
+    ScheduleCall call_slot;
 
-    num_queued = 0;
+    while (true)
+    {
+        auto handle = schedule_queue.read();
+        if (!handle) break;
+        assert(handle.size() == sizeof(ScheduleCall));
+
+        handle.read(&call_slot, sizeof(ScheduleCall));
+        call_slot.proc(call_slot.data, call_slot.data_size);
+    }
 }

@@ -195,11 +195,11 @@ namespace lv2 {
         };
 
         struct WorkerResponse {
-            std::atomic<bool> active = false;
             size_t size;
             uint8_t data[USERDATA_CAPACITY];
-        } worker_responses[RESPONSE_QUEUE_CAPACITY];
-
+        };
+        
+        MessageQueue response_queue;
     
     public:
         WorkerHost(WorkScheduler& work_scheduler);
