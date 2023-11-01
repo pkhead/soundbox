@@ -142,8 +142,8 @@ SongEditor::SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowMana
     init_directory();
     theme.custom_directory = data_directory/"themes";
 
-    plugin_manager.ladspa_paths.push_back(data_directory/"plugins"/"ladspa");
-    plugin_manager.lv2_paths.push_back(data_directory/"plugins"/"lv2");
+    plugin_manager.ladspa_paths.push_back((data_directory/"plugins"/"ladspa").u8string());
+    plugin_manager.lv2_paths.push_back((data_directory/"plugins"/"lv2").u8string());
 
     theme.set_imgui_colors();
     plugin_manager.scan_plugins();
@@ -175,7 +175,11 @@ SongEditor::SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowMana
     // song open
     ui_actions.set_callback("song_open", [this]() {
         nfdchar_t* out_path;
-        nfdresult_t result = NFD_OpenDialog("box", last_file_path.empty() ? (data_directory/"projects").c_str() : last_file_path.c_str(), &out_path);
+        nfdresult_t result = NFD_OpenDialog(
+            "box",
+            last_file_path.empty() ? (data_directory/"projects").u8string().c_str() : last_file_path.c_str(),
+            &out_path
+        );
 
         if (result == NFD_OKAY) {
             std::ifstream file;
@@ -220,7 +224,7 @@ SongEditor::SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowMana
         nfdchar_t* out_path;
         nfdresult_t result = NFD_OpenDialog(
             "tun,scl,kbm",
-            data_directory.c_str(),
+            data_directory.u8string().c_str(),
             &out_path
         );
 
@@ -563,7 +567,7 @@ void SongEditor::save_preferences() const
 
 void SongEditor::load_preferences()
 {
-    auto data = toml::parseFile(data_directory/"user.toml");
+    auto data = toml::parseFile((data_directory/"user.toml").u8string());
     if (!data.table) {
         std::cerr << "error parsing preferences: " << data.errmsg << "\n";
         return;
