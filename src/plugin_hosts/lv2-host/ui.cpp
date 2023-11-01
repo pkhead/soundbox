@@ -43,7 +43,7 @@ uint32_t UIHost::suil_port_index_func(SuilController controller, const char* por
 
     for (const auto& [ index, port_data ] : self->plugin_ctl->ports)
     {
-        if (port_data.symbol == port_symbol)
+        if (strcmp(port_data.symbol, port_symbol) == 0)
             return index;
     }
 

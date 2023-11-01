@@ -20,10 +20,10 @@
     = LV2
         - serialization
         - Exampler crashes when press "Request Sample"
-        - write Lv2Plugin::queue_event
+          (this is because i did not implement the request value feature)
         - investigate memory leak when loading Calf audio plugins
           (could be any lv2 plugin, but i only tested calf)
-        - work scheduling uses a redundant class - please use MessageQueue
+        - investigate why Exampler ui doesn't update with ui embedding enabled
         - toggle between plugin ui and control ui
         - pretty sure there are some bugs
     - VST3
@@ -71,7 +71,7 @@
     TEMPORARY TODOS:
 
 - use std::filesystem::path for all path types, instead of std::string
-- RingBuffer/MessageQueue can make write handles
+- RingBuffer/MessageQueue can make write handles(?)
 x more memory-safety (prefer std::unique_ptr instead of new directly)
 - create default dock layout in code
 - don't use native file browser
