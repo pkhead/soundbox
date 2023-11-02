@@ -59,6 +59,7 @@ public:
 };
 
 class Song;
+class SongEditor;
 
 namespace plugins
 {
@@ -239,7 +240,7 @@ namespace audiomod
         bool has_interface() const;
         
         // render the ImGui interface
-        virtual bool render_interface();
+        virtual bool render_interface(SongEditor& editor);
 
         virtual bool show_interface();
         virtual void hide_interface();

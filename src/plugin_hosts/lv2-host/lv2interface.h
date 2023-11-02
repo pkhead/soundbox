@@ -28,7 +28,7 @@ namespace plugins
         virtual PluginType plugin_type() { return PluginType::Lv2; };
 
         bool show_interface() override;
-        bool render_interface() override;
+        bool render_interface(SongEditor& editor) override;
         void hide_interface() override;
 
         virtual void event(const audiomod::NoteEvent& event) override;

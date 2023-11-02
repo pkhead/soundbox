@@ -664,6 +664,22 @@ bool SongEditor::save_song()
     }
 }
 
+void SongEditor::set_module_clipboard(const char* id, const std::string& data)
+{
+    mod_clipboard.id = id;
+    mod_clipboard.data = data;
+}
+
+bool SongEditor::get_module_clipboard(const char* id, std::string& out_data)
+{
+    if (mod_clipboard.id.empty()) return false;
+    if (mod_clipboard.id != id)
+        return false;
+
+    out_data = mod_clipboard.data;
+    return true;
+}
+
 void SongEditor::process(AudioDevice& device)
 {
     mutex.lock();

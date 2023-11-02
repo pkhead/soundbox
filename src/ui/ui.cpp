@@ -801,7 +801,7 @@ void ui::compute_imgui(SongEditor& editor) {
     {
         auto mod = editor.mod_interfaces[i];
         
-        if (mod->module().render_interface()) i++;
+        if (mod->module().render_interface(editor)) i++;
         else {
             mod->module().hide_interface();
             editor.mod_interfaces.erase(editor.mod_interfaces.begin() + i);

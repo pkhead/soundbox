@@ -220,9 +220,9 @@ void Lv2Plugin::hide_interface() {
 
 // override render_interface to not show an ImGui window
 // if it is showing a non-embedded plugin ui
-bool Lv2Plugin::render_interface() {
+bool Lv2Plugin::render_interface(SongEditor& editor) {
     if (ui_host.has_custom_ui() && ui_host.is_embedded()) {
-        return PluginModule::render_interface();
+        return PluginModule::render_interface(editor);
     } else {
         // ui is an external window
         if (!_interface_shown) return false;
@@ -230,7 +230,7 @@ bool Lv2Plugin::render_interface() {
         if (ui_host.has_custom_ui()) {
             return ui_host.render();
         } else {
-            return PluginModule::render_interface();
+            return PluginModule::render_interface(editor);
         }
     }
 }

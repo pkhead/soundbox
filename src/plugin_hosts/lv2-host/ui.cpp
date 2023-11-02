@@ -723,19 +723,17 @@ bool UIHost::render()
         XWindowAttributes attr;
         XGetWindowAttributes(xdisplay, wid, &attr);
         
-        //ImGui::SetCursorPos(ImVec2(0.0f, ImGui::GetFrameHeight()));
+        //ImGui::SetCursorPos(ImVec2(0.0f, ImGui::GetFrameHeight() * 2.0f));
         ImVec2 cursor = ImGui::GetCursorPos();
         ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
-        ImVec2 mouse_pos = ImGui::GetMousePos();
 
-        ImGuiStyle& style = ImGui::GetStyle();
         ImGui::Image((void*)(size_t)window_texture->texture_id(), ImVec2(attr.width, attr.height));
         ImGui::SetCursorPos(cursor);
-        ImGui::InvisibleButton("ui-area", ImVec2(attr.width, attr.height));
         
         // if button is hovered over, the plugin window is active
         // can't use ImGui::IsItemHovered(), because
         // it only returns true if the root window is in focus
+        ImGui::InvisibleButton("ui-area", ImVec2(attr.width, attr.height));
         if (window_manager.is_item_hovered()) {
             window_manager.focused_window = wid;
             XMoveWindow(xdisplay, wid, cursor_screen.x, cursor_screen.y);

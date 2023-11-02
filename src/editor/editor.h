@@ -74,6 +74,12 @@ private:
     };
 
     std::vector<active_note_t> active_notes;
+
+    // TODO: use system clipboard
+    struct {
+        std::string id;
+        std::string data;
+    } mod_clipboard;
 public:
     SongEditor(AudioDevice& device, size_t audio_buffer_size, WindowManager& winmgr);
     ~SongEditor();
@@ -103,6 +109,9 @@ public:
 
     void play_note(int channel, int key, float volume, float secs_len);
     void process(AudioDevice& device);
+
+    void set_module_clipboard(const char* id, const std::string& data);
+    bool get_module_clipboard(const char* id, std::string& out_data);
 
     // view preferences
     bool follow_playhead = false; // Keep Current Pattern Selected

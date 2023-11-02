@@ -1,8 +1,10 @@
 #include <iostream>
 #include <memory>
 #include <cstring>
+#include <sstream>
 #include <imgui.h>
 #include "audio.h"
+#include "editor/editor.h"
 
 int AudioDevice::_pa_stream_callback_raw(
     const void* input_buffer,
@@ -387,13 +389,53 @@ void ModuleBase::hide_interface() {
     _interface_shown = false;
 }
 
-bool ModuleBase::render_interface() {
+bool ModuleBase::render_interface(SongEditor& editor) {
     if (!_interface_shown) return false;
 
     char window_name[128];
     snprintf(window_name, 128, "%s - %s###%p", name.c_str(), parent_name == nullptr ? "" : parent_name, this);
 
-    if (ImGui::Begin(window_name, &_interface_shown, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::Begin(window_name, &_interface_shown,
+        ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking |
+        ImGuiWindowFlags_AlwaysAutoResize
+    )) {
+        if (ImGui::BeginMenuBar())
+        {
+            if (ImGui::BeginMenu("Module"))
+            {
+                if (ImGui::MenuItem("Copy"))
+                {
+                    std::stringstream stream;
+                    save_state(stream);
+                    editor.set_module_clipboard(id, stream.str());
+                }
+
+                if (ImGui::MenuItem("Paste"))
+                {
+                    std::string data_str;
+                    if (editor.get_module_clipboard(id, data_str))
+                    {
+                        std::stringstream data;
+                        data << data_str;
+                        load_state(data, data_str.size());
+                    }
+                }
+
+                ImGui::MenuItem("Save Preset");
+
+                if (ImGui::BeginMenu("Presets"))
+                {
+                    ImGui::MenuItem("(none)", nullptr, false, false);
+                    ImGui::EndMenu();
+                }
+                
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMenuBar();
+        }
+
         if (has_interface())
             _interface_proc();
         else
