@@ -33,7 +33,7 @@
     - omnisynth
         essentially goldbox's advanced fm
     - fluidsynth (.sf2 support)
-    - (possibly?) port ZynAddSubFx
+    - similar to audiokit's SynthOne
     - harmonics
     - spectrum
     - noise (although probably part of omnisybth)
