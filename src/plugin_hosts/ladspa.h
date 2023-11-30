@@ -1,6 +1,7 @@
 #pragma once
-#include "../plugins.h"
 #include <plugins/ladspa.h>
+#include <filesystem>
+#include "../plugins.h"
 
 namespace plugins
 {
@@ -59,7 +60,7 @@ namespace plugins
         bool load_state(std::istream& istream, size_t size) override;
 
         static const char* get_standard_paths();
-        static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
+        static void scan_plugins(const std::vector<std::filesystem::path>& paths, std::vector<PluginData>& data_out);
 
         virtual int control_value_count() const override;
         virtual int output_value_count() const override;

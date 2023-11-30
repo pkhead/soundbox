@@ -79,7 +79,7 @@ static std::vector<PluginData> get_plugin_data(const char *path)
     return output;
 }
 
-void LadspaPlugin::scan_plugins(const std::vector<std::string>& ladspa_paths, std::vector<PluginData> &plugin_data)
+void LadspaPlugin::scan_plugins(const std::vector<std::filesystem::path>& ladspa_paths, std::vector<PluginData> &plugin_data)
 {
     for (const std::string& directory : ladspa_paths)
     {
@@ -133,7 +133,7 @@ LadspaPlugin::LadspaPlugin(audiomod::ModuleContext& modctx, const PluginData& pl
     if (descriptor == nullptr)
     {
         sys::dl_close(lib);
-        throw std::runtime_error(std::string("no plugin at index ") + std::to_string(plugin_data.index) + " of " + plugin_data.file_path);
+        throw std::runtime_error(std::string("no plugin at index ") + std::to_string(plugin_data.index) + " of " + plugin_data.file_path.u8string());
     }
 
     instance = descriptor->instantiate(descriptor, modctx.sample_rate);

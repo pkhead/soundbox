@@ -8,8 +8,8 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" OFF)
-option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" OFF)
+option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" ON)
+option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" ON)
 option(SBOX_DISABLE_LV2 "Do not support LV2 plugins" ON)
 option(UNIT_TESTS "Compile unit tests" ON)
 

@@ -115,7 +115,7 @@ public:
 
     // view preferences
     bool follow_playhead = false; // Keep Current Pattern Selected
-    bool note_preview = false; // Preview Added Note
+    bool note_preview = true; // Preview Added Note
     bool show_all_channels = false; // Show All Channels
     
     int selected_channel = 0;
@@ -178,7 +178,7 @@ private:
     int _step;
 
 public:
-    SongExport(SongEditor& editor, const char* file_name, int sample_rate);
+    SongExport(SongEditor& editor, const std::filesystem::path file_name, int sample_rate);
 
     float get_progress() const;
     inline std::string error() const { return _error; };

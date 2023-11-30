@@ -1,6 +1,6 @@
 #include "editor.h"
 
-SongExport::SongExport(SongEditor& editor, const char* file_name, int sample_rate)
+SongExport::SongExport(SongEditor& editor, const std::filesystem::path file_name, int sample_rate)
 :   editor(editor),
     _error(),
     is_done(false),
@@ -36,7 +36,7 @@ SongExport::SongExport(SongEditor& editor, const char* file_name, int sample_rat
 
     // if could not open file?
     if (!out_file.is_open()) {
-        _error = std::string("Could not save to ") + file_name;
+        _error = std::string("Could not save to ") + file_name.u8string();
         return;
     }
 

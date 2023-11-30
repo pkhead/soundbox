@@ -26,7 +26,7 @@ namespace plugins
 
     struct PluginData
     {
-        std::string file_path;
+        std::filesystem::path file_path;
         PluginType type;
         int index;
 
@@ -93,20 +93,20 @@ namespace plugins
     private:
         std::vector<PluginData> plugin_data;
 
-        std::vector<std::string> _std_ladspa;
-        std::vector<std::string> _std_lv2;
-        std::vector<std::string> _std_dummy; // empty vector
+        std::vector<std::filesystem::path> _std_ladspa;
+        std::vector<std::filesystem::path> _std_lv2;
+        std::vector<std::filesystem::path> _std_dummy; // empty vector
 
         
         // user paths
-        std::vector<std::string> user_ladspa_paths;
-        std::vector<std::string> user_lv2_paths;
+        std::vector<std::filesystem::path> user_ladspa_paths;
+        std::vector<std::filesystem::path> user_lv2_paths;
 
         WindowManager& window_manager;
     public:
         // app paths
-        std::vector<std::string> ladspa_paths;
-        std::vector<std::string> lv2_paths;
+        std::vector<std::filesystem::path> ladspa_paths;
+        std::vector<std::filesystem::path> lv2_paths;
 
         PluginManager(WindowManager& window_manager);
 
@@ -116,16 +116,16 @@ namespace plugins
             WorkScheduler& work_scheduler
         );
 
-        void add_path(PluginType type, const std::string& path);
-        void remove_path(PluginType, const std::string& path);
+        void add_path(PluginType type, const std::filesystem::path& path);
+        void remove_path(PluginType, const std::filesystem::path& path);
 
         /**
         * Return all the registered plugin paths.
         **/
-        std::vector<std::string> get_paths(PluginType type) const;
-        const std::vector<std::string>& get_user_paths(PluginType type) const;
-        const std::vector<std::string>& get_system_paths(PluginType type) const;
-        bool is_user_path(PluginType type, const std::string& path) const;
+        std::vector<std::filesystem::path> get_paths(PluginType type) const;
+        const std::vector<std::filesystem::path>& get_user_paths(PluginType type) const;
+        const std::vector<std::filesystem::path>& get_system_paths(PluginType type) const;
+        bool is_user_path(PluginType type, const std::filesystem::path& path) const;
 
         inline const std::vector<PluginData>& get_plugin_data() { return plugin_data; };
         void scan_plugins();

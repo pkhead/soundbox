@@ -33,7 +33,7 @@
     - omnisynth
         essentially goldbox's advanced fm
     - fluidsynth (.sf2 support)
-    - (possibly?) port ZynAddSubFx
+    - similar to audiokit's SynthOne
     - harmonics
     - spectrum
     - noise (although probably part of omnisybth)
@@ -70,7 +70,6 @@
     TEMPORARY TODOS:
 
 - LV2 String and Path parameters
-- use std::filesystem::path for all path types, instead of std::string
 - RingBuffer/MessageQueue can make write handles(?)
 x more memory-safety (prefer std::unique_ptr instead of new directly)
 - create default dock layout in code
