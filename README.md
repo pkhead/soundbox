@@ -18,6 +18,9 @@ A free and cross-platform tool for making music. Essentially [BeepBox](https://w
 To see which features are not currently implemented, consult [TODO.txt](TODO.txt).
 Most features aren't implemented as this is still fairly early into development.
 
+### Screenshots
+[Here are some screenshots of Soundbox](screenshots/README.md)
+
 ## Building
 Dependencies:
 - [FFTW3](http://www.fftw.org/index.html)
