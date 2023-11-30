@@ -69,7 +69,6 @@
 
     TEMPORARY TODOS:
 
-- use std::filesystem::path for all path types, instead of std::string
 - RingBuffer/MessageQueue can make write handles(?)
 x more memory-safety (prefer std::unique_ptr instead of new directly)
 - create default dock layout in code

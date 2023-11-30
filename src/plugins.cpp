@@ -151,9 +151,9 @@ void PluginModule::_interface_proc()
 // Plugin Manager //
 ////////////////////
 
-static std::vector<std::string> parse_path_list(const std::string list_string)
+static std::vector<std::filesystem::path> parse_path_list(const std::string list_string)
 {
-    std::vector<std::string> list;
+    std::vector<std::filesystem::path> list;
     std::stringstream stream(list_string);
     std::string item;
 
@@ -181,9 +181,9 @@ PluginManager::PluginManager(WindowManager& win_manager) : window_manager(win_ma
 #endif
 }
 
-void PluginManager::add_path(PluginType type, const std::string& path)
+void PluginManager::add_path(PluginType type, const std::filesystem::path& path)
 {
-    std::vector<std::string>* vec;
+    std::vector<std::filesystem::path>* vec;
 
     switch (type)
     {
@@ -200,7 +200,7 @@ void PluginManager::add_path(PluginType type, const std::string& path)
     }
 
     // don't add path if path is already in list
-    for (std::string& v : *vec)
+    for (std::filesystem::path& v : *vec)
     {
         if (v == path) return;
     }
@@ -208,9 +208,9 @@ void PluginManager::add_path(PluginType type, const std::string& path)
     vec->push_back(path);
 }
 
-void PluginManager::remove_path(PluginType type, const std::string& path)
+void PluginManager::remove_path(PluginType type, const std::filesystem::path& path)
 {
-    std::vector<std::string>* vec;
+    std::vector<std::filesystem::path>* vec;
 
     switch (type)
     {
@@ -231,7 +231,7 @@ void PluginManager::remove_path(PluginType type, const std::string& path)
         vec->erase(it);
 }
 
-const std::vector<std::string>& PluginManager::get_user_paths(PluginType type) const
+const std::vector<std::filesystem::path>& PluginManager::get_user_paths(PluginType type) const
 {
     switch (type)
     {
@@ -246,7 +246,7 @@ const std::vector<std::string>& PluginManager::get_user_paths(PluginType type) c
     }
 }
 
-const std::vector<std::string>& PluginManager::get_system_paths(PluginType type) const
+const std::vector<std::filesystem::path>& PluginManager::get_system_paths(PluginType type) const
 {
     switch (type)
     {
@@ -261,9 +261,9 @@ const std::vector<std::string>& PluginManager::get_system_paths(PluginType type)
     }
 }
 
-std::vector<std::string> PluginManager::get_paths(PluginType type) const
+std::vector<std::filesystem::path> PluginManager::get_paths(PluginType type) const
 {   
-    const std::vector<std::string> *std, *app, *user;
+    const std::vector<std::filesystem::path> *std, *app, *user;
 
     switch (type)
     {
@@ -279,18 +279,18 @@ std::vector<std::string> PluginManager::get_paths(PluginType type) const
             user = &user_lv2_paths;
 
         default:
-            return std::vector<std::string>();
+            return std::vector<std::filesystem::path>();
     }
 
     assert(std && app && user);
 
-    std::vector<std::string> res = *std;
+    std::vector<std::filesystem::path> res = *std;
     res.insert(res.end(), app->begin(), app->end());
     res.insert(res.end(), user->begin(), user->end());
     return res;
 }
 
-bool PluginManager::is_user_path(PluginType type, const std::string& path) const
+bool PluginManager::is_user_path(PluginType type, const std::filesystem::path& path) const
 {
     auto& user_paths = get_user_paths(type);
     return std::find(user_paths.begin(), user_paths.end(), path) != user_paths.end();

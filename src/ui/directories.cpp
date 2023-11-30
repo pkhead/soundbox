@@ -30,7 +30,7 @@ void ui::render_directories_window(SongEditor &editor)
             if (ImGui::Button("Rescan"))
                 plugins.scan_plugins();
 
-            std::vector<std::string> ladspa_plugins = plugins.get_paths(plugins::PluginType::Ladspa);
+            std::vector<std::filesystem::path> ladspa_plugins = plugins.get_paths(plugins::PluginType::Ladspa);
             int listbox_size = ladspa_plugins.size();
             if (listbox_size == 0) listbox_size = 1;
 
@@ -43,9 +43,9 @@ void ui::render_directories_window(SongEditor &editor)
                 path_to_delete.clear();
 
                 int i = 0;
-                for (const std::string& path : ladspa_plugins)
+                for (const std::filesystem::path& path : ladspa_plugins)
                 {
-                    ImGui::Selectable(path.c_str(), false);
+                    ImGui::Selectable(path.u8string().c_str(), false);
                     
                     if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
                     {

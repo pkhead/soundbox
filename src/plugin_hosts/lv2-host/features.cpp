@@ -129,7 +129,7 @@ const char* Lv2Plugin::get_standard_paths()
     return list_str;
 }
 
-void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<PluginData> &data_out)
+void Lv2Plugin::scan_plugins(const std::vector<std::filesystem::path> &paths, std::vector<PluginData> &data_out)
 {
     assert(LILV_WORLD);
 
@@ -144,7 +144,7 @@ void Lv2Plugin::scan_plugins(const std::vector<std::string> &paths, std::vector<
 
     for (int i = 0; i < paths.size(); i++) {
         if (i != 0) path_str += delim;
-        path_str += paths[i];
+        path_str += paths[i].u8string();
     }
 
     Lilv_ptr lv2_path = lilv_new_file_uri(LILV_WORLD, NULL, "/usr/lib/lv2");

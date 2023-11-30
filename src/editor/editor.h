@@ -169,7 +169,7 @@ private:
     int _step;
 
 public:
-    SongExport(SongEditor& editor, const char* file_name, int sample_rate);
+    SongExport(SongEditor& editor, const std::filesystem::path file_name, int sample_rate);
 
     float get_progress() const;
     inline std::string error() const { return _error; };

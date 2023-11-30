@@ -1,3 +1,7 @@
+/**
+* This file provides the class that the rest of the application uses to talk to the LV2 plugin
+**/
+
 #pragma once
 #include "lv2internal.h"
 
@@ -46,7 +50,7 @@ namespace plugins
         virtual void control_value_change(int index) override;
 
         static const char* get_standard_paths();
-        static void scan_plugins(const std::vector<std::string>& paths, std::vector<PluginData>& data_out);
+        static void scan_plugins(const std::vector<std::filesystem::path>& paths, std::vector<PluginData>& data_out);
 
         void process(
             float** inputs,
