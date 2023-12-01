@@ -174,6 +174,8 @@ static void render_slider(const char* id, const char* label, float* var, float m
 }
 
 void OmniSynth::_interface_proc() {
+    ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 6.0f);
+
     if (ImGui::BeginTabBar("omnisynth-tabs"))
     {
         if (ImGui::BeginTabItem("Main"))
@@ -182,19 +184,19 @@ void OmniSynth::_interface_proc() {
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Env"))
+        if (ImGui::BeginTabItem("Envelopes"))
         {
             tab_env();
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("FX"))
+        if (ImGui::BeginTabItem("Effects"))
         {
             tab_fx();
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Seq"))
+        if (ImGui::BeginTabItem("Sequencer/Appregiator"))
         {
             tab_seq();
             ImGui::EndTabItem();
@@ -202,13 +204,13 @@ void OmniSynth::_interface_proc() {
 
         ImGui::EndTabBar();
     }
+    
+    ImGui::PopItemWidth();
 }
 
 void OmniSynth::tab_main()
 {
     module_state_t& state = ui_state;
-
-    ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 6.0f);
 
     for (int osc = 0; osc < 2; osc++)
     {
@@ -373,8 +375,6 @@ void OmniSynth::tab_main()
     ImGui::Checkbox("##mono", &state.mono);
 
     ImGui::EndGroup();
-
-    ImGui::PopItemWidth();
 }
 
 void OmniSynth::tab_env()
@@ -384,7 +384,80 @@ void OmniSynth::tab_env()
 
 void OmniSynth::tab_fx()
 {
+    module_state_t& state = ui_state;
 
+    static const char* TARGET_NAMES[] = {
+        "Cutoff",
+        "Reso",
+        "Osc Mix",
+        "Reverb",
+        "Decay",
+        "Noise",
+        "FM Mod",
+        "Filter Env",
+        "Pitch",
+        "Bitcrush",
+        "Tremolo",
+    };
+
+    // mod route labels
+    ImGui::BeginGroup();
+    for (int i = 0; i < FX_MOD_TARGET_COUNT; i++)
+    {
+        ImGui::Text("%s", TARGET_NAMES[i]);
+    }
+    ImGui::EndGroup();
+
+    // mod route buttons
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    for (int i = 0; i < FX_MOD_TARGET_COUNT; i++)
+    {
+        ImGui::SmallButton("1");
+        ImGui::SameLine();
+        ImGui::SmallButton("2");
+        ImGui::SameLine();
+        ImGui::SmallButton("E");
+    }
+    ImGui::EndGroup();
+
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+
+    // lfos
+    for (int i = 0; i < 2; i++)
+    {
+        if (i > 0) ImGui::SameLine();
+
+        ImGui::PushID(i);
+        ImGui::BeginGroup();
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("LFO %i", i+1);
+
+        int shape = state.lfo_shape[i];
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Shp");
+        ImGui::SameLine();
+        ImGui::SliderInt("##lfo-shape", &shape, 0, 4); // TODO: combobox
+        state.lfo_shape[i] = static_cast<LFOShape>(shape);
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Frq");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##lfo-rate", &state.lfo_rate[i], 0.0f, 80.0f);
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Amt");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##lfo-rate", &state.lfo_amp[i], 0.0f, 80.0f);
+
+        ImGui::PopID();
+        ImGui::EndGroup();
+    }
+
+    ImGui::EndGroup();
 }
 
 void OmniSynth::tab_seq()

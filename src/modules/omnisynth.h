@@ -31,10 +31,11 @@ namespace audiomod {
             Reverb,
             Decay,
             Noise,
-            FM1, FM2,
+            FM,
             FilterEnv,
             Pitch,
-            Bitcrush
+            Bitcrush,
+            Tremolo
         };
 
         enum ArpeggioDirection: uint8_t {
