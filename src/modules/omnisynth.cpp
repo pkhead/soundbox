@@ -16,6 +16,84 @@ static double _mod(double a, double b) {
 static constexpr double PI = M_PI;
 static constexpr double PI2 = 2.0f * PI;
 
+OmniSynth::module_state_t::module_state_t()
+{
+    global_volume = 1.0f;
+
+    for (int osc = 0; osc < 3; osc++)
+    {
+        osc_shapes[osc] = 0.0f;
+        osc_coarse[osc] = 0;
+        osc_fine[osc] = 0.0f;
+    }
+
+    osc12_mix = 0.5f;
+    osc12_volume = 1.0f;
+    osc3_volume = 1.0f;
+
+    sub_volume = 0.0f;
+    sub_lower = false;
+    sub_square = false;
+
+    filter_type = FilterType::LowPass;
+    filter_freq = 19200.0f;
+    filter_reso = 0.0f;
+
+    noise_volume = false;
+
+    for (int i = 0; i < FX_MOD_TARGET_COUNT; i++)
+    {
+        fx_target_lfo1[i] = false;
+        fx_target_lfo2[i] = false;
+        fx_target_env[i] = false;
+    }
+
+    bitcrush = 0.0f;
+    reverb_size = 0.61f;
+    reverb_lowcut = 300.0f;
+    reverb_mix = 0.0f;
+    delay_time = 0.05f;
+    delay_feedback = 0.8f;
+    delay_mix = 0.0f;
+
+    autopan_rate = 0.25f;
+    autopan_amt = 0.0f;
+
+    phaser_rate = 0.0f;
+    phaser_mix = 0.0f;
+    phaser_taps = 0.0f;
+    phaser_notch = 0.0f;
+
+    enable_seq = false;
+    arp_or_seq = false;
+    seq_steps = 8;
+    seq_division = 0.25f;
+
+    arp_octave = 1;
+    arp_dir = ArpeggioDirection::Up;
+
+    for (int i = 0; i < SEQUENCER_STEP_COUNT; i++)
+    {
+        seq_semitone[i] = 0;
+        seq_note_on[i] = false;
+    }
+}
+
+OmniSynth::Voice::Voice()
+{
+    phase[0] = phase[1] = phase[2] = 0.0f;
+    last_sample[0] = last_sample[1] = last_sample[2] = 0.0f;
+}
+
+OmniSynth::Voice::Voice(int _key, float _freq, float _volume)
+:   Voice()
+{
+    key = _key;
+    freq = _freq;
+    volume = _volume;
+    active = true;
+}
+
 OmniSynth::OmniSynth(ModuleContext& modctx)
 :   ModuleBase(true), modctx(modctx),
     event_queue(sizeof(NoteEvent), MAX_VOICES*2),
@@ -24,27 +102,7 @@ OmniSynth::OmniSynth(ModuleContext& modctx)
     id = "synth.omnisynth";
     name = "Omnisynth";
     
-    // set up initial state
-    for (int i = 0; i < 6; i++)
-    {
-        ui_state.waveforms[i] = Sine;
-        ui_state.volume[i] = 0.0f;
-        ui_state.freq[i] = 1.0f;
-    }
-    ui_state.volume[0] = 1.0f;
-
-    ui_state.amp_envelope.attack = 0.0f;
-    ui_state.amp_envelope.decay = 0.0f;
-    ui_state.amp_envelope.sustain = 1.0f;
-    ui_state.amp_envelope.release = 0.0f;
-
-    ui_state.filter_envelope = ui_state.amp_envelope;
-    ui_state.filter_envelope_amt = 0.0f;
-    
-    ui_state.filter_type = LowPass;
-    ui_state.filter_freq = modctx.sample_rate / 2.5f;
-    ui_state.filter_reso = 0.0f;
-
+    ui_state = module_state_t();
     process_state = ui_state;
 
     for (size_t i = 0; i < MAX_VOICES; i++)
@@ -99,61 +157,7 @@ void OmniSynth::queue_event(const NoteEvent& event)
 }
 
 void OmniSynth::event(const NoteEvent& event) {
-    if (event.kind == NoteEventKind::NoteOn) {
-        // create new voice in first found empty slot
-        // if there are no empty slots, replace the first voice in memory
-        Voice* voice = voices+0;
-
-        for (size_t i = 0; i < MAX_VOICES; i++)
-        {
-            if (!voices[i].active)
-            {
-                voice = voices+i;
-                break;
-            }
-        }
-
-        float key_freq;
-        if (song->get_key_frequency(event.key, &key_freq))
-        {
-            voice->active = true;
-            voice->key = event.key;
-            voice->freq = key_freq;
-            voice->volume = event.volume;
-            voice->time = 0.0f;
-            voice->release_time = -1.0f;
-            voice->release_env = 0.0f;
-
-            for (int i = 0; i < 6; i++)
-            {
-                voice->phase[i] = 0.0f;
-                voice->last_sample[i] = 0.0f;
-            }
-        }
     
-    } else if (event.kind == NoteEventKind::NoteOff) {
-        for (size_t i = 0; i < MAX_VOICES; i++) {
-            Voice& voice = voices[i];
-
-            if (voice.active && voice.key == event.key && voice.release_time < 0.0f) {
-                voice.release_time = voice.time;
-
-                // calculate envelope at release time
-                voice.release_env = sustain;
-                float t;
-
-                if (voice.time < attack) {
-                    voice.release_env = voice.time / attack;
-                } else if (voice.time < decay) {
-                    t = (voice.time - attack) / decay;
-                    if (t > 1.0f) t = 1.0f;
-                    voice.release_env = (sustain - 1.0f) * t + 1.0f;
-                }
-
-                break;
-            }
-        }
-    }
 }
 
 static void render_slider(const char* id, const char* label, float* var, float max, bool log, const char* fmt, float start = 0.0f) {
@@ -167,100 +171,86 @@ static void render_slider(const char* id, const char* label, float* var, float m
 }
 
 void OmniSynth::_interface_proc() {
-    static const char* WAVEFORM_NAMES[] = {
-        "Sine",
-        "Square",
-        "Sawtooth",
-        "Triangle",
-        "Pulse",
-        "Noise",
-    };
+    if (ImGui::BeginTabBar("omnisynth-tabs"))
+    {
+        if (ImGui::BeginTabItem("Main"))
+        {
+            tab_main();
+            ImGui::EndTabItem();
+        }
 
-    ImGuiStyle& style = ImGui::GetStyle();
+        if (ImGui::BeginTabItem("Env"))
+        {
+            tab_env();
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("FX"))
+        {
+            tab_fx();
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Seq"))
+        {
+            tab_seq();
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
+    }
+}
+
+void OmniSynth::tab_main()
+{
+    constexpr int OSC_COUNT = 3;
     
-    const float vslider_width = ImGui::GetFrameHeight();
-    const float vslider_height = ImGui::GetTextLineHeight() * 8;
+    static float osc1_shape = 0.0f;
+    static int osc1_coarse = 0;
+    static float osc1_fine = 0.0f;
+    static float osc2_shape = 0.0f;
+    static int osc2_coarse = 0;
+    static float osc2_fine = 0.0f;
+
+    ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 6.0f);
+
+    ImGui::BeginGroup();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Osc 1");
 
     ImGui::AlignTextToFramePadding();
-    ImGui::BeginGroup();
-
-    ImGui::Text("Operators");
-
-    for (int osc = 0; osc < 6; osc++) {
-        ImGui::PushID(osc);
-
-        //ImGui::PushItemWidth(slider_width);
-        if (osc > 0)
-            ImGui::SameLine();
-
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(style.ItemSpacing.x / 2.0f, style.ItemSpacing.y));
-        
-        ImGui::VSliderFloat("##freq", ImVec2(vslider_width, vslider_height), ui_state.freq+osc, 0.25f, 20.0f, "F");
-        ui_state.freq[osc] = (int)(ui_state.freq[osc] + 0.5f);
-        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
-            ImGui::SetTooltip("Frequency: %.3fx", ui_state.freq[osc]);
-
-        ImGui::SameLine();
-        ImGui::VSliderFloat("##amp", ImVec2(vslider_width, vslider_height), ui_state.volume+osc, 0.0f, 1.0f, "A");
-        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
-            ImGui::SetTooltip("Amplitude: %.3f", ui_state.volume[osc]);
-
-        ImGui::PopStyleVar();
-        
-        ImGui::PopID();
-    }
-
-    ImGui::EndGroup();
+    ImGui::Text("Wav");
     ImGui::SameLine();
-
-    ImGui::BeginGroup();
-
-    // AMPLITUDE ENVELOPE //
-    ImGui::Text("Amplitude Envelope");
-    {
-        ImGui::PushID("ampenv");
-
-        ImGui::PushItemWidth(ImGui::CalcTextSize("A: 9.999 s").x);
-        
-        ImGui::SliderFloat("##attack", &ui_state.amp_envelope.attack, 0.0f, 10.0f, "A: %.3f", ImGuiSliderFlags_Logarithmic);
-        ImGui::SameLine();
-        ImGui::SliderFloat("##decay", &ui_state.amp_envelope.decay, 0.0f, 10.0f, "D: %.3f", ImGuiSliderFlags_Logarithmic);
-        ImGui::SliderFloat("##sustain", &ui_state.amp_envelope.sustain, 0.0f, 1.0f, "S: %.3f");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##release", &ui_state.amp_envelope.release, 0.0f, 10.0f, "R: %.3f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("##osc1-shape", &osc1_shape, 0.0f, 1.0f);
     
-        ImGui::PopID();
-    }
-
-    // FILTER ENVELOPE //
-    ImGui::Text("Filter Envelope");
-    {
-        ImGui::PushID("filtenv");
-
-        ImGui::PushItemWidth(ImGui::CalcTextSize("A: 9.999 s").x);
-        
-        ImGui::BeginGroup();
-        ImGui::SliderFloat("##attack", &ui_state.filter_envelope.attack, 0.0f, 10.0f, "A: %.3f", ImGuiSliderFlags_Logarithmic);
-        ImGui::SameLine();
-        ImGui::SliderFloat("##decay", &ui_state.filter_envelope.decay, 0.0f, 10.0f, "D: %.3f", ImGuiSliderFlags_Logarithmic);
-        ImGui::SliderFloat("##sustain", &ui_state.filter_envelope.sustain, 0.0f, 1.0f, "S: %.3f");
-        ImGui::SameLine();
-        ImGui::SliderFloat("##release", &ui_state.filter_envelope.release, 0.0f, 10.0f, "R: %.3f", ImGuiSliderFlags_Logarithmic);
-        ImGui::EndGroup();
-
-        ImGui::SameLine();
-
-        float vslider_w = ImGui::GetFrameHeight();
-        float vslider_h = ImGui::GetFrameHeightWithSpacing() + ImGui::GetFrameHeight();
-        ImGui::VSliderFloat("##filter-amount",
-            ImVec2(vslider_w, vslider_h), &ui_state.filter_envelope_amt, 0.0f, 1.0f,
-            "", ImGuiSliderFlags_NoRoundToFormat | ImGuiSliderFlags_AlwaysClamp);
-
-        ImGui::PopItemWidth();
-        ImGui::PopID();
-    }
-
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Crs");
+    ImGui::SameLine();
+    ImGui::SliderInt("##osc1-coarse", &osc1_coarse, -12, 12);
+    
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Fne");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##osc1-fine", &osc1_fine, -100.0f, 100.0f);
+    
     ImGui::EndGroup();
+
+    ImGui::PopItemWidth();
+}
+
+void OmniSynth::tab_env()
+{
+
+}
+
+void OmniSynth::tab_fx()
+{
+
+}
+
+void OmniSynth::tab_seq()
+{
+
 }
 
 void OmniSynth::save_state(std::ostream& ostream) {

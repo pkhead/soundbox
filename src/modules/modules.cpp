@@ -20,6 +20,7 @@ std::array<audiomod::ModuleListing, NUM_EFFECTS> audiomod::effects_list({
 
 std::array<audiomod::ModuleListing, NUM_INSTRUMENTS> audiomod::instruments_list({
     "synth.waveform", "Waveform",
+    "synth.omnisynth", "Omnisynth"
 });
 
 #define MAP(id, class) if (mod_id == id) return modctx.create<class>(modctx)
@@ -31,7 +32,7 @@ ModuleNodeRc audiomod::create_module(
 ) {
     // synthesizers
     MAP("synth.waveform", WaveformSynth); // TODO: add fourth oscillator and allow FM modulation
-    //MAP("synth.omnisynth", OmniSynth);
+    MAP("synth.omnisynth", OmniSynth);
 
     // TODO: harmonics synth
     // TODO: noise synth
