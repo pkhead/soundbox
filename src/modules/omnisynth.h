@@ -51,13 +51,15 @@ namespace audiomod {
             // from main tab
             float global_volume;
 
-            float osc_shapes[3];
-            float osc_coarse[3];
-            float osc_fine[3];
+            float osc_shapes[2];
+            int osc_coarse[2];
+            float osc_fine[2];
 
-            float osc12_mix;
-            float osc12_volume;
-            float osc3_volume;
+            float osc_volume[2];
+            float osc_mix;
+
+            float fm_vol;
+            float fm_mod;
 
             float sub_volume;
             bool sub_lower;  // sub oscillator is -24st instead of -12st
@@ -68,6 +70,8 @@ namespace audiomod {
             float filter_reso;
 
             float noise_volume;
+            float glide;
+            bool mono;
 
             // from env tab
             ADSR amp_env;

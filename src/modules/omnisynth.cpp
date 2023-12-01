@@ -20,16 +20,17 @@ OmniSynth::module_state_t::module_state_t()
 {
     global_volume = 1.0f;
 
-    for (int osc = 0; osc < 3; osc++)
+    for (int osc = 0; osc < 2; osc++)
     {
         osc_shapes[osc] = 0.0f;
         osc_coarse[osc] = 0;
         osc_fine[osc] = 0.0f;
+        osc_volume[osc] = 0.33f;
     }
+    osc_mix = 0.0f;
 
-    osc12_mix = 0.5f;
-    osc12_volume = 1.0f;
-    osc3_volume = 1.0f;
+    fm_vol = 0.0f;
+    fm_mod = 0.0f;
 
     sub_volume = 0.0f;
     sub_lower = false;
@@ -40,6 +41,8 @@ OmniSynth::module_state_t::module_state_t()
     filter_reso = 0.0f;
 
     noise_volume = false;
+    glide = 0.0f;
+    mono = false;
 
     for (int i = 0; i < FX_MOD_TARGET_COUNT; i++)
     {
@@ -203,36 +206,172 @@ void OmniSynth::_interface_proc() {
 
 void OmniSynth::tab_main()
 {
-    constexpr int OSC_COUNT = 3;
-    
-    static float osc1_shape = 0.0f;
-    static int osc1_coarse = 0;
-    static float osc1_fine = 0.0f;
-    static float osc2_shape = 0.0f;
-    static int osc2_coarse = 0;
-    static float osc2_fine = 0.0f;
+    module_state_t& state = ui_state;
 
     ImGui::PushItemWidth(ImGui::GetTextLineHeight() * 6.0f);
 
+    for (int osc = 0; osc < 2; osc++)
+    {
+        if (osc > 0) ImGui::SameLine();
+
+        ImGui::PushID(osc);
+
+        ImGui::BeginGroup();
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Osc %i", osc+1);
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Wav");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##osc1-shape", &state.osc_shapes[osc], 0.0f, 1.0f);
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Crs");
+        ImGui::SameLine();
+        ImGui::SliderInt("##osc1-coarse", &state.osc_coarse[osc], -12, 12);
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Fne");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##osc1-fine", &state.osc_fine[osc], -100.0f, 100.0f);
+        
+        ImGui::EndGroup();
+
+        ImGui::PopID();
+    }
+
+    // fm oscillator
+    ImGui::SameLine();
     ImGui::BeginGroup();
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Osc 1");
+    ImGui::Text("FM");
 
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Wav");
+    ImGui::Text("Vol");
     ImGui::SameLine();
-    ImGui::SliderFloat("##osc1-shape", &osc1_shape, 0.0f, 1.0f);
+    ImGui::SliderFloat("##fm-volume", &state.fm_vol, 0.0f, 1.0f);
     
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Crs");
+    ImGui::Text("Mod");
     ImGui::SameLine();
-    ImGui::SliderInt("##osc1-coarse", &osc1_coarse, -12, 12);
+    ImGui::SliderFloat("##fm-mod", &state.fm_mod, 0.0f, 1.0f);
+    
+    ImGui::EndGroup();
+
+    // sub oscillator
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Sub");
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Vol");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##sub-volume", &state.sub_volume, 0.0f, 1.0f);
     
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Fne");
+    ImGui::Text("-24");
     ImGui::SameLine();
-    ImGui::SliderFloat("##osc1-fine", &osc1_fine, -100.0f, 100.0f);
+    ImGui::Checkbox("##sub-lower", &state.sub_lower);
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Sqr");
+    ImGui::SameLine();
+    ImGui::Checkbox("##sub-square", &state.sub_square);
     
+    ImGui::EndGroup();
+
+    // NEW LINE
+
+    // osc volume & mix
+    ImGui::BeginGroup();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Volume");
+
+    for (int osc = 0; osc < 2; osc++)
+    {
+        ImGui::PushID(osc);
+        
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Osc%i", osc+1);
+        ImGui::SameLine();
+        ImGui::SliderFloat("##osc-vol", &state.osc_volume[osc], 0.0f, 1.0f);
+
+        ImGui::PopID();
+    }
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Mix ");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##12-mix", &state.osc_mix, -1.0f, 1.0f);
+    ImGui::EndGroup();
+
+    // filter
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Filter");
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Type");
+    ImGui::SameLine();
+
+    // filter type
+    static const char* FILTER_TYPES[] = {
+        "Low Pass", "High Pass", "Band Pass"
+    };
+
+    int filter_type = state.filter_type;
+    if (ImGui::BeginCombo("##noise-type", FILTER_TYPES[filter_type]))
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            bool selected = filter_type == i;
+            if (ImGui::Selectable(FILTER_TYPES[i], selected))
+                filter_type = i;
+
+            if (selected)
+                ImGui::SetItemDefaultFocus();
+        }
+
+        ImGui::EndCombo();
+    }
+    state.filter_type = static_cast<FilterType>(filter_type);
+
+    // filter config
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Freq");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##filter-freq", &state.filter_freq, 20.0f, modctx.sample_rate / 2.5f);
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Reso");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##filter-reso", &state.filter_reso, 0.0f, 10.0f);
+
+    ImGui::EndGroup();
+
+    // more options
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Other");
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Noise");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##noise-vol", &state.noise_volume, 0.0f, 1.0f);
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Glide");
+    ImGui::SameLine();
+    ImGui::SliderFloat("##glide", &state.glide, 0.0f, 0.15f);
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Mono ");
+    ImGui::SameLine();
+    ImGui::Checkbox("##mono", &state.mono);
+
     ImGui::EndGroup();
 
     ImGui::PopItemWidth();
