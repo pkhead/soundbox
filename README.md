@@ -24,6 +24,8 @@ Most features aren't implemented as this is still fairly early into development.
 ## Building
 Dependencies:
 - [FFTW3](http://www.fftw.org/index.html)
+- Xlib (Linux)
+- libasound (Linux)
 
 Optional dependencies:
 - [lilv](http://drobilla.net/software/lilv.html) and [suil](http://drobilla.net/software/suil.html) for LV2 plugin support
@@ -32,7 +34,7 @@ Optional dependencies:
 Install dependencies:
 ```bash
 # ubuntu
-apt install cmake liblilv-dev libsuil-dev libfftw3-dev
+apt install cmake liblilv-dev libsuil-dev libfftw3-dev xorg-dev libasound-dev
 ```
 
 Clone repository and build the project
