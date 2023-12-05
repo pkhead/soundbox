@@ -8,7 +8,7 @@
 #include <mutex>
 #include <sstream>
 
-#include <glad/gl.h>
+#include <glad/glad.h>
 #include <imgui.h>
 #include "editor/theme.h"
 #include <backends/imgui_impl_glfw.h>
@@ -130,7 +130,7 @@ int main(int argc, char** argv)
 #endif
 
     // load glad
-    gladLoadGL(glfwGetProcAddress);
+    gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 
     float screen_xscale, screen_yscale;
     glfwGetWindowContentScale(draw_window, &screen_xscale, &screen_yscale);

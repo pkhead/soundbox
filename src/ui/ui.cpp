@@ -6,7 +6,7 @@
 #include <imgui.h>
 #include <nfd.h>
 #include <stb_image.h>
-#include <glad/gl.h>
+#include <glad/glad.h>
 #include "../audio.h"
 #include "../editor/change_history.h"
 #include "../modules/modules.h"

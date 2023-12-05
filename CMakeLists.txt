@@ -79,7 +79,7 @@ set(SOURCES
     deps/tomlcpp/tomlcpp.cpp
 
     # glad
-    deps/gl/glad/gl.c
+    deps/gl/glad/glad.c
 
     # app sources
     src/main.cpp
