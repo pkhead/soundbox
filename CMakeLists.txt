@@ -8,6 +8,8 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 option(SBOX_DISABLE_GTK2 "Do not support GTK2 plugin UIs" ON)
 option(SBOX_DISABLE_COMPOSITE "Do not support embedded plugin UIs" ON)
 option(SBOX_DISABLE_LV2 "Do not support LV2 plugins" ON)
@@ -19,24 +21,20 @@ option(UNIT_TESTS "Compile unit tests" ON)
 # some improvements to the software not pertinent to plugins.
 
 # find packages required for lv2 support on system
-find_library(LILV_LIBRARIES lilv-0)
-find_path(LILV_INCLUDE lilv/lilv.h PATH_SUFFIXES lilv-0)
-find_library(SUIL_LIBRARIES suil-0)
-find_path(SUIL_INCLUDE suil/suil.h PATH_SUFFIXES suil-0)
+find_package(lilv)
+find_package(suil)
 find_library(FFTW3_LIBRARIES fftw3f REQUIRED)
 find_path(FFTW3_INCLUDE fftw3.h REQUIRED)
 
 if (SBOX_DISABLE_LV2 OR
-    (LILV_LIBRARIES STREQUAL "LILV_LIBRARIES-NOTFOUND") OR
-    (LILV_INCLUDE STREQUAL "LILV_INCLUDE-NOTFOUND") OR
-    (SUIL_LIBRARIES STREQUAL "SUIL_LIBRARIES-NOTFOUND") OR
-    (SUIL_INCLUDE STREQUAL "SUIL_INCLUDE-NOTFOUND")
+    (NOT ${lilv_FOUND}) OR
+    (NOT ${suil_FOUND})
 )
     set(LV2_FOUND 0)
-    set(LILV_LIBRARIES "")
-    set(LILV_INCLUDE "")
-    set(SUIL_LIBRARIES "")
-    set(SUIL_INCLUDE "")
+    set(lilv_LIBRARIES "")
+    set(lilv_INCLUDE_DIRS "")
+    set(suil_LIBRARIES "")
+    set(suil_INCLUDE_DIRS "")
 else()
     set(LV2_FOUND 1)
 endif()
@@ -137,8 +135,8 @@ set(SOURCES
 set(LIBRARIES
     glfw
     portaudio_static
-    ${LILV_LIBRARIES}
-    ${SUIL_LIBRARIES}
+    ${lilv_LIBRARIES}
+    ${suil_LIBRARIES}
     ${GTK2_LIBRARIES}
     ${FFTW3_LIBRARIES}
 )
@@ -160,7 +158,7 @@ set(COMPILE_FLAGS "")
 
 # include lv2 plugins
 if (LV2_FOUND)
-    set(INCLUDES ${INCLUDES} ${LILV_INCLUDE} ${SUIL_INCLUDE})
+    set(INCLUDES ${INCLUDES} ${lilv_INCLUDE_DIRS} ${suil_INCLUDE_DIRS})
     set(SOURCES ${SOURCES}
         src/plugin_hosts/lv2-host/features.cpp
         src/plugin_hosts/lv2-host/host.cpp
@@ -322,9 +320,5 @@ mark_as_advanced(GLFW_BUILD_TESTS)
 mark_as_advanced(GLFW_BUILD_EXAMPLES)
 mark_as_advanced(LV2_FOUND)
 mark_as_advanced(GTK2_FOUND)
-mark_as_advanced(LILV_LIBRARIES)
-mark_as_advanced(LILV_INCLUDE)
-mark_as_advanced(SUIL_LIBRARIES)
-mark_as_advanced(SUIL_INCLUDE)
 mark_as_advanced(LIB_XFIXES)
 mark_as_advanced(LIB_XCOMPOSITE)
