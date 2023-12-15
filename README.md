@@ -29,12 +29,15 @@ Dependencies:
 
 Optional dependencies:
 - [lilv](http://drobilla.net/software/lilv.html) and [suil](http://drobilla.net/software/suil.html) for LV2 plugin support
+- GTK2 to support plugin UIs that require GTK2
 
 ### Linux
 Install dependencies:
 ```bash
-# ubuntu
-apt install cmake liblilv-dev libsuil-dev libfftw3-dev xorg-dev libasound-dev
+# debian/ubuntu
+apt install cmake libfftw3-dev xorg-dev libasound-dev \
+    liblilv-dev libsuil-dev \
+    libgtk-2.0-dev
 ```
 
 Clone repository and build the project
