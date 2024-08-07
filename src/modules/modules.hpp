@@ -41,6 +41,12 @@ namespace modx
         bool disconnect_message_input(unsigned int in_index) { return _engine.disconnect_message_input(_id, in_index); }
         bool connect_message(ModuleHandle &other_module, unsigned int out_index, unsigned int in_index) { return _engine.connect_message(_id, other_module._id, out_index, in_index); }
 
+        template <typename T>
+        T control_get_value(unsigned int index) { return _engine.control_get_value<T>(_id, index); }
+        
+        template <typename T>
+        bool control_set_value(unsigned int index, T value) { return _engine.control_set_value(_id, index, value); }
+
         inline modules::AudioEngine& engine() const { return _engine; }
         inline modules::ModuleID id() const { return _id; }
     }; // class ModuleRef

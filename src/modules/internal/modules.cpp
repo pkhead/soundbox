@@ -26,29 +26,22 @@ MidiInputModule::MidiInputModule(modules::ModuleCreator &create) :
 
 void MidiInputModule::process(modules::ModuleProcessor &proc)
 {
-    std::byte msg_buf[MIDI_QUEUE_SIZE];
+    std::byte msg_buf[sizeof(midi::MidiEvent)];
 
-    while (true)
+    while (midi_queue.read(msg_buf, sizeof(midi::MidiEvent)))
     {
-        unsigned int read = proc.read_message(0, msg_buf, MIDI_QUEUE_SIZE);
-        if (read == 0) break;
-        proc.send_message(0, msg_buf, read);
+        proc.send_message(0, (std::byte*) &msg_buf, sizeof(midi::MidiEvent));
     }
 }
 
 /////////////////
 // sbox::fader //
 /////////////////
-enum FaderControl
-{
-    FADER_CONTROL_GAIN,
-    FADER_CONTROL_PAN
-};
-
 FaderModule::FaderModule(modules::ModuleCreator &create) : modx::ModuleBase(create)
 {
     create.add_control<float>(FADER_CONTROL_GAIN, "gain", 0.0f);
     create.add_control<float>(FADER_CONTROL_PAN, "pan", 0.0f);
+    create.add_control<bool>(FADER_CONTROL_MUTE, "mute", false);
 
     create.add_audio_input(2);
     create.add_audio_output(2);
@@ -64,10 +57,13 @@ void FaderModule::process(modules::ModuleProcessor &proc)
 
     float gain = proc.get_control_value<float>(FADER_CONTROL_GAIN);
     float pan = proc.get_control_value<float>(FADER_CONTROL_PAN);
+    bool mute = proc.get_control_value<bool>(FADER_CONTROL_MUTE);
     
     float linear_gain = db_to_mult(gain);
     float right = (pan + 1.0f) / 2.0f;
     float left = 1.0f - right;
+
+    if (mute) linear_gain = 0.0f;
 
     for (size_t i = 0; i < proc.buffer_frame_count; i++)
     {
@@ -82,29 +78,99 @@ void FaderModule::process(modules::ModuleProcessor &proc)
 
 OscModule::OscModule(modules::ModuleCreator &create) : modx::ModuleBase(create)
 {
-    phase = 0.0f;
-    freq = 440.0f;
-
+    create.add_message_input();
     create.add_audio_output(2);
+
+    for (int i = 0; i < MAX_VOICES; i++)
+    {
+        voices[i].phase = 0.0f;
+        voices[i].active = false;
+    }
+}
+
+static float poly_blep(float t, float inc)
+{
+    float dt = inc / (2 * M_PI);
+    // 0 <= t < 1
+    if (t < dt) {
+        t /= dt;
+        return t+t - t*t - 1.0;
+    }
+    // -1 < t < 0
+    else if (t > 1.0 - dt) {
+        t = (t - 1.0) / dt;
+        return t*t + t+t + 1.0;
+    }
+    // 0 otherwise
+    else return 0.0;
 }
 
 void OscModule::process(modules::ModuleProcessor &proc)
 {
-    uint8_t channels = proc.audio_output_channels(0);
-    float *output = proc.audio_output(0);
+    // process midi input
+    midi::MidiEvent midi_event;
 
-    for (size_t i = 0; i < proc.buffer_frame_count; i++)
+    while (true)
     {
-        float sample = sinf(phase) * 0.4f;
-
-        phase += (2.0f * M_PIf * freq) / proc.sample_rate;
-        if (phase >= 2.0f * M_PIf)
-            phase -= 2.0f * M_PIf;
-
-        for (uint8_t j = 0; j < channels; j++)
+        unsigned int read = proc.read_message(0, &midi_event, sizeof(midi_event));
+        if (read == 0) break;
+        assert(read == sizeof(midi_event));
+        
+        if (midi::is_note_on(midi_event))
         {
-            *output++ = sample;
+            logger::log_debug("note on key %i", midi_event.note.key);
+            for (int i = 0; i < MAX_VOICES; i++)
+            {
+                if (!voices[i].active)
+                {
+                    voices[i].key = midi_event.note.key;
+                    voices[i].freq = powf(2.0f, (float)(midi_event.note.key - 69) / 12.0f) * 440.0f;
+                    voices[i].volume = (float)midi_event.note.velocity / 127.0f;
+                    voices[i].active = true;
+                    break;
+                }
+            }
         }
+        else if (midi::is_note_off(midi_event))
+        {
+            logger::log_debug("note off key %i", midi_event.note.key);
+            for (int i = 0; i < MAX_VOICES; i++)
+            {
+                if (voices[i].active && voices[i].key == midi_event.note.key)
+                {
+                    voices[i].active = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    float* out_samples = proc.audio_output(0);
+    unsigned int channel_count = proc.audio_output_channels(0);
+
+    float vol = 0.4f;
+
+    for (unsigned int i = 0; i < proc.buffer_frame_count; i++)
+    {
+        float sample = 0.0f;
+        for (int i = 0; i < MAX_VOICES; i++)
+        {
+            if (!voices[i].active) continue;
+
+            float increment = (2.0f * M_PIf * voices[i].freq) / proc.sample_rate;
+            sample += voices[i].phase < M_PIf ? 1.0f : -1.0f;
+            sample += poly_blep(voices[i].phase / (2.0f * M_PIf), increment);
+            sample -= poly_blep(fmod(voices[i].phase / (2.0f * M_PIf) + 0.5f, 1.0f), increment);
+
+            //sample += sin(voices[i].phase);
+            sample *= voices[i].volume;
+            voices[i].phase += increment;
+            if (voices[i].phase >= 2.0f * M_PIf)
+                voices[i].phase -= 2.0f * M_PIf;
+        }
+
+        for (unsigned int j = 0; j < channel_count; j++)
+            *out_samples++ = sample * vol;
     }
 }
 

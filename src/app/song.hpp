@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "../modules/modules.hpp"
+#include "../modules/internal/midi.hpp"
 
 namespace sbox
 {
@@ -58,15 +59,15 @@ namespace sbox
             return _modules[index];
         }
         
-        void insert(modx::ModuleRc& module, size_t index);
+        void insert(const modx::ModuleRc& module, size_t index);
         modx::ModuleRc remove(size_t index);
 
-        void connect_input(modx::ModuleRc &new_input);
+        void connect_input(const modx::ModuleRc &new_input);
         inline const modx::ModuleRc& input() const {
             return _in;
         }
 
-        void connect_output(modx::ModuleRc &new_output);
+        void connect_output(const modx::ModuleRc &new_output);
         inline const modx::ModuleRc& output() const {
             return _out;
         }
@@ -88,7 +89,11 @@ namespace sbox
         modx::ModuleRc output_fader;
         ModuleRack rack;
 
+        bool mute, solo;
+
         inline unsigned int effect_channel() const { return _effect_channel; }
+
+        void send_midi(const midi::MidiEvent &event);
 
         friend class Song;
     }; // struct InstrumentChannel
@@ -104,6 +109,8 @@ namespace sbox
         modx::ModuleRc input_mixer;
         modx::ModuleRc output_fader;
         ModuleRack rack;
+
+        bool mute, solo;
 
         /**
         * Get the effect channel this channel is routed to.
@@ -126,7 +133,7 @@ namespace sbox
 
         modx::ModuleRc _audio_out;
 
-        static std::unique_ptr<InstrumentChannel> create_instrument_channel(modules::AudioEngine &engine, unsigned int index, unsigned int seq_length);
+        std::unique_ptr<InstrumentChannel> create_instrument_channel(modules::AudioEngine &engine, unsigned int index);
         static std::unique_ptr<EffectChannel> create_effect_channel(modules::AudioEngine &engine, unsigned int name_number);
 
     public:
@@ -140,6 +147,8 @@ namespace sbox
         unsigned int bar_position;
         float position;
         bool do_loop;
+
+        bool is_playing;
 
         inline unsigned int length() const { return _length; }
         inline unsigned int max_patterns() const { return _max_patterns; }
@@ -189,7 +198,7 @@ namespace sbox
         /**
         * Obtain a reference to the channel structure.
         **/
-        inline const InstrumentChannel& get_channel(unsigned int index) const {
+        inline InstrumentChannel& get_channel(unsigned int index) {
             assert(index < _channels.size());
             return *_channels[index];
         }
@@ -216,7 +225,7 @@ namespace sbox
         /**
         * Obtain a reference to the effect channel structure.
         **/
-        inline const EffectChannel& get_effect_channel(unsigned int index) const {
+        inline EffectChannel& get_effect_channel(unsigned int index) {
             assert(index < _fx_channels.size());
             return *_fx_channels[index];
         }
@@ -240,5 +249,7 @@ namespace sbox
         * @param channel_index The index of the effect channel to route. Cannot be 0, as that is the master channel.
         **/
         void disconnect_effect(unsigned int channel_index);
+
+        bool is_note_playable(int key);
     }; // class Song
 }

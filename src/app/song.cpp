@@ -1,7 +1,9 @@
-#include "song.hpp"
+#include <cassert>
 #include <climits>
 #include <memory>
 #include <vector>
+#include "song.hpp"
+#include "../modules/internal/modules.hpp"
 
 using namespace sbox;
 
@@ -41,34 +43,34 @@ ModuleRack::ModuleRack()
     _out = nullptr;
 }
 
-static void connect(modx::ModuleRc &mod_a, modx::ModuleRc &mod_b)
+static void connect(const modx::ModuleRc &mod_a, const modx::ModuleRc &mod_b)
 {
     // connect first audio output to first audio input
-    if (mod_a->audio_input_count() > 0 && (mod_b->audio_input_count() > 0 || mod_b->class_name() == modules::AudioEngine::MODULE_CLASS_STEREO_MIXER))
+    if (mod_a->audio_output_count() > 0 && (mod_b->audio_input_count() > 0 || mod_b->class_name() == modules::AudioEngine::MODULE_CLASS_STEREO_MIXER))
     {
         mod_a->connect_audio(*mod_b, 0, 0);
     }
 
     // connect first message output to first message input
-    if (mod_a->message_input_count() > 0 && mod_b->message_input_count() > 0)
+    if (mod_a->message_output_count() > 0 && mod_b->message_input_count() > 0)
     {
-        mod_b->connect_message(*mod_b, 0, 0);
+        mod_a->connect_message(*mod_b, 0, 0);
     }
 }
 
-static void disconnect_output(modx::ModuleRc &mod)
+static void disconnect_output(const modx::ModuleRc &mod)
 {
     if (mod->audio_output_count() > 0) mod->disconnect_audio_output(0);
     if (mod->message_output_count() > 0) mod->disconnect_message_output(0);
 }
 
-static void disconnect_input(modx::ModuleRc &mod)
+static void disconnect_input(const modx::ModuleRc &mod)
 {
     if (mod->audio_input_count() > 0) mod->disconnect_audio_input(0);
     if (mod->message_input_count() > 0) mod->disconnect_message_input(0);
 }
 
-void ModuleRack::insert(modx::ModuleRc &module, size_t index)
+void ModuleRack::insert(const modx::ModuleRc &module, size_t index)
 {
     assert(index <= _modules.size());
     if (index > _modules.size())
@@ -165,20 +167,24 @@ modx::ModuleRc ModuleRack::remove(size_t index)
     }
 }
 
-void ModuleRack::connect_input(modx::ModuleRc &new_input)
+void ModuleRack::connect_input(const modx::ModuleRc &new_input)
 {
     _in = new_input;
 
     if (_modules.size() > 0)
         connect(_in, _modules.front());
+    else if (_out)
+        connect(_in, _out);
 }
 
-void ModuleRack::connect_output(modx::ModuleRc &new_output)
+void ModuleRack::connect_output(const modx::ModuleRc &new_output)
 {
     _out = new_output;
 
     if (_modules.size() > 0)
         connect(_modules.back(), _out);
+    else if (_in)
+        connect(_in, _out);
 }
 
 
@@ -186,18 +192,27 @@ void ModuleRack::connect_output(modx::ModuleRc &new_output)
 ////////////////////
 // Song, Channels //
 ////////////////////
-std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::AudioEngine &engine, unsigned int index, unsigned int seq_length)
+std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::AudioEngine &engine, unsigned int index)
 {
     std::unique_ptr<InstrumentChannel> channel = std::make_unique<InstrumentChannel>();
-    channel->name = "Channel " + std::to_string(seq_length);
+    channel->name = "Channel " + std::to_string(index + 1);
+    channel->mute = false;
+    channel->solo = false;
+
     channel->output_fader = modx::create_module(engine, "sbox::fader");
     channel->input_midi = modx::create_module(engine, "sbox::midi_in");
     channel->rack.connect_input(channel->input_midi);
     channel->rack.connect_output(channel->output_fader);
 
-    channel->sequence.resize(seq_length);
-    for (unsigned int j = 0; j < seq_length; j++)
+    channel->rack.insert(modx::create_module(engine, "sbox::osc"), 0);
+
+    channel->sequence.resize(_length);
+    for (unsigned int j = 0; j < _length; j++)
         channel->sequence[j] = 0;
+
+    channel->patterns.resize(_max_patterns);
+    for (unsigned int j = 0; j < _max_patterns; j++)
+        channel->patterns[j] = std::make_unique<Pattern>();
 
     channel->_effect_channel = (uint)-1;
     return channel;
@@ -207,13 +222,30 @@ std::unique_ptr<EffectChannel> Song::create_effect_channel(modules::AudioEngine 
 {
     std::unique_ptr<EffectChannel> channel = std::make_unique<EffectChannel>();
     channel->name = name_number == 0 ? "Master" : ("Channel " + std::to_string(name_number));
+    channel->mute = false;
+    channel->solo = false;
+
     channel->input_mixer = modx::create_module(engine, modules::AudioEngine::MODULE_CLASS_STEREO_MIXER);
     channel->output_fader = modx::create_module(engine, "sbox::fader");
     channel->rack.connect_input(channel->input_mixer);
     channel->rack.connect_output(channel->output_fader);
-    channel->_output_channel = (uint)-1;
 
+    channel->_output_channel = (uint)-1;
     return channel;
+}
+
+void InstrumentChannel::send_midi(const midi::MidiEvent &event)
+{
+    hosts::internal::MidiInputModule* midi_mod = dynamic_cast<hosts::internal::MidiInputModule*>(modx::ModuleHost::get_module(input_midi->id()));
+
+    assert(midi_mod != nullptr);
+    if (midi_mod == nullptr)
+    {
+        logger::log_error("InstrumentChannel::send_midi: could not cast module '%s' userdata to MidiInputModule", input_midi->class_name().c_str());
+        return;
+    }
+
+    midi_mod->midi_queue.write((std::byte*) &event, sizeof(event));
 }
 
 Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patterns, modules::AudioEngine &audio_engine) :
@@ -228,6 +260,7 @@ Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patt
     bar_position = 0;
     position = 0.0f;
     do_loop = true;
+    is_playing = false;
 
     _audio_out = modx::create_module(audio_engine, modules::AudioEngine::MODULE_CLASS_AUDIO_OUT);
 
@@ -242,7 +275,7 @@ Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patt
     _channels.resize(num_channels);
     for (unsigned int i = 0; i < num_channels; i++)
     {
-        _channels[i] = create_instrument_channel(_audio_engine, i, _length);
+        _channels[i] = create_instrument_channel(_audio_engine, i);
         route_instrument(i, 0);
     }
 }
@@ -271,9 +304,25 @@ unsigned int Song::new_pattern(unsigned int channel)
     assert(channel < _channels.size());
     std::unique_ptr<InstrumentChannel> &ch = _channels[channel];
 
-    ch->patterns.push_back(std::make_unique<Pattern>());
-    assert(ch->patterns.size() + 1 <= UINT_MAX);
-    return (unsigned int) ch->patterns.size() + 1;
+    unsigned int empty_pattern = first_empty_pattern(channel);
+
+    // no more empty patterns for this channel, so increase the max
+    // pattern count by one.
+    if (empty_pattern == 0)
+    {
+        _max_patterns++;
+        for (auto &ch : _channels)
+        {
+            ch->patterns.push_back(std::make_unique<Pattern>());
+            assert(ch->patterns.size() == _max_patterns);
+        }
+
+        return _max_patterns;
+    }
+    else
+    {
+        return empty_pattern;
+    }
 }
 
 void Song::insert_bar(unsigned int bar_position)
@@ -368,7 +417,7 @@ void Song::insert_channel(unsigned int index)
         return;
     }
 
-    _channels.insert(_channels.begin() + index, create_instrument_channel(_audio_engine, index, _length));
+    _channels.insert(_channels.begin() + index, create_instrument_channel(_audio_engine, index));
 }
 
 void Song::remove_channel(unsigned int index)
@@ -390,7 +439,7 @@ unsigned int Song::first_empty_pattern(unsigned int channel_index) const
     assert(channel_index < _channels.size());
     const std::unique_ptr<InstrumentChannel> &ch = _channels[channel_index];
 
-    unsigned int i = 0;
+    unsigned int i = 1;
     for (auto &p : ch->patterns)
     {
         if (p->is_empty()) return i;
@@ -519,4 +568,11 @@ void Song::disconnect_effect(unsigned int channel_index)
     auto &fx = _fx_channels[channel_index];
     disconnect_output(fx->output_fader);
     fx->_output_channel = (uint)-1;
+}
+
+bool Song::is_note_playable(int key)
+{
+    if (key < 0) return false;
+    // TODO: microtones
+    return true;
 }

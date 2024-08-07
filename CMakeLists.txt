@@ -61,6 +61,7 @@ set(SOURCES
     deps/imgui/imgui_tables.cpp
     deps/imgui/imgui_widgets.cpp
     deps/imgui/imgui.cpp
+    deps/imgui/misc/cpp/imgui_stdlib.cpp
     deps/imgui/backends/imgui_impl_glfw.cpp
     deps/imgui/backends/imgui_impl_opengl3.cpp
 
@@ -90,6 +91,8 @@ set(SOURCES
     src/log.cpp
     src/app/app.cpp
     src/app/song.cpp
+    src/app/song_editor.cpp
+    src/app/theme.cpp
 
     # stock plugins
     src/modules/internal/host.cpp

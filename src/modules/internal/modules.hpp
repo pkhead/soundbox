@@ -21,6 +21,13 @@ namespace hosts::internal
     class FaderModule : public modx::ModuleBase
     {
     public:
+        enum FaderControl
+        {
+            FADER_CONTROL_GAIN,
+            FADER_CONTROL_PAN,
+            FADER_CONTROL_MUTE,
+        };
+        
         FaderModule(modules::ModuleCreator &create);
         void process(modules::ModuleProcessor &proc) override;
     };
@@ -31,9 +38,19 @@ namespace hosts::internal
     class OscModule : public modx::ModuleBase
     {
     private:
-        float phase;
-        float freq;
+        static constexpr unsigned int MAX_VOICES = 8;
+        
+        struct Voice
+        {
+            bool active;
+            int key;
+            float freq;
+            float volume;
 
+            float phase;
+        };
+
+        Voice voices[MAX_VOICES];
     public:
         OscModule(modules::ModuleCreator &create);
 
