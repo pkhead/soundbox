@@ -79,57 +79,23 @@ set(SOURCES
     # glad
     deps/gl/glad/glad.c
 
+    # audio/module engine
+    src/audio_engine/audio_engine.cpp
+    src/audio_engine/module_host.cpp
+    src/modules/modules.cpp
+
     # app sources
     src/main.cpp
     src/winmgr.cpp
-    src/song.cpp
-    src/serialize.cpp
-    src/audio.cpp
-    src/sys.cpp
-    src/audiofile.cpp
-    src/plugins.cpp
-    src/worker.cpp
-    src/util.cpp
-    src/dsp.cpp
+    src/log.cpp
+    src/app/app.cpp
+    src/app/song.cpp
 
-    # ladspa plugins
-    src/plugin_hosts/ladspa.cpp
-    
-    # editor
-    src/editor/editor.cpp
-    src/editor/change_history.cpp
-    src/editor/theme.cpp
-    src/editor/export.cpp
-    
-    # app user interface
-    src/ui/ui.cpp
-    src/ui/song_settings.cpp
-    src/ui/channel_settings.cpp
-    src/ui/pattern_editor.cpp
-    src/ui/track_editor.cpp
-    src/ui/fx_mixer.cpp
-
-    # src/ui/file_browser.cpp
-    src/ui/plugin_list.cpp
-    src/ui/directories.cpp
-    src/ui/tunings.cpp
-    src/ui/themes_ui.cpp
-    src/ui/export.cpp
-
-    src/ui/imgui_stdlib.cpp
-
-    # audio modules
-    src/modules/modules.cpp
-    src/modules/analyzer.cpp
-    src/modules/gain.cpp
-    src/modules/volume.cpp
-    src/modules/waveform.cpp
-    src/modules/delay.cpp
-    src/modules/eq.cpp
-    src/modules/limiter.cpp
-    src/modules/compressor.cpp
-    src/modules/reverb.cpp
-    src/modules/omnisynth.cpp
+    # stock plugins
+    src/modules/internal/host.cpp
+    src/modules/internal/modules.cpp
+    src/modules/internal/midi.cpp
+    src/modules/internal/dsp.cpp
 )
 
 set(LIBRARIES

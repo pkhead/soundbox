@@ -10,6 +10,7 @@
 
 #include <glad/glad.h>
 #include <imgui.h>
+#include "app/app.hpp"
 #include "editor/theme.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -18,7 +19,7 @@
 #include "sys.h"
 
 #ifdef ENABLE_LV2
-#include "plugin_hosts/lv2-host/lv2interface.h"
+//#include "plugin_hosts/lv2-host/lv2interface.h"
 #endif
 
 #ifdef _WIN32
@@ -40,13 +41,14 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#include "audiofile.h"
-#include "ui/ui.h"
-#include "song.h"
-#include "editor/editor.h"
-#include "audio.h"
-#include "sys.h"
-#include "util.h"
+
+//#include "audiofile.h"
+//#include "ui/ui.h"
+//#include "song.h"
+//#include "editor/editor.h"
+//#include "audio.h"
+//#include "sys.h"
+//#include "util.h"
 #include "winmgr.h"
 
 bool IS_BIG_ENDIAN;
@@ -135,11 +137,6 @@ int main(int argc, char** argv)
     float screen_xscale, screen_yscale;
     glfwGetWindowContentScale(draw_window, &screen_xscale, &screen_yscale);
 
-    // setup LV2 plugin host
-#ifdef ENABLE_LV2
-    lv2::lv2_init(&argc, &argv);
-#endif
-
     // setup dear imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -161,113 +158,28 @@ int main(int argc, char** argv)
 
     ImGui::StyleColorsClassic();
 
-    // setup audio backend
-    AudioDevice::_pa_start();
-
-    ui::show_demo_window = false;
-
-    AudioDevice device(-1);
-
     {
-        const size_t BUFFER_SIZE = 128;
-
-        // initialize song editor
-        SongEditor song_editor(
-            device, BUFFER_SIZE,
-            window_manager
-        );
-        song_editor.load_preferences();
-
-        // application quit
-        song_editor.ui_actions.set_callback("quit", [&root_window]() {
-            glfwSetWindowShouldClose(root_window, 1);
-        });
-
-        ui::ui_init(song_editor);
-
         static const double FRAME_LENGTH = 1.0 / 240.0;
 
         double next_time = glfwGetTime();
         double prev_time = next_time;
 
-        bool run_app = true;
-
-        // song processing thread
-        sys::interval_t* audioaux_interval = sys::set_interval(5, [&]() {
-            song_editor.process(device);
-        });
+        sbox::Application app;
 
         // TODO: run all application logic in another thread (renderer)
         // so that window doesn't freeze when it is being dragged.
         // use glfwWaitEvents(false) on main thread and poll on renderer thread
         glfwShowWindow(root_window);
-        while (run_app)
+        while (app.running)
         {
-            std::unique_ptr<Song>& song = song_editor.song;
             double now_time = glfwGetTime();
-
             next_time = glfwGetTime() + FRAME_LENGTH;
             
             glfwPollEvents();
 
             if (glfwWindowShouldClose(root_window)) {
                 glfwSetWindowShouldClose(root_window, 0);
-                //glfwFocusWindow(draw_window);
-                ui::prompt_unsaved_work([&]() {
-                    run_app = false;
-                });
-            }
-#if defined(ENABLE_GTK2) & defined(ENABLE_LV2)
-            lv2::gtk_process();
-#endif
-
-            // key input
-            if (!io.WantTextInput) {
-                if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
-                    ui::show_demo_window = !ui::show_demo_window;
-                }
-
-                // for each user action in the user action list struct
-                for (const UserAction& action : song_editor.ui_actions.actions) {
-                    if (ImGui::IsKeyPressed(action.key, action.do_repeat)) {
-                        // check if all required modifiers are pressed or not pressed
-                        if (
-                            (ImGui::IsKeyDown(ImGuiMod_Ctrl) == ((action.modifiers & USERMOD_CTRL) != 0) &&
-                            ImGui::IsKeyDown(ImGuiMod_Shift) == ((action.modifiers & USERMOD_SHIFT) != 0) &&
-                            ImGui::IsKeyDown(ImGuiMod_Alt) == ((action.modifiers & USERMOD_ALT) != 0))
-                        ) {
-                            if (action.callback)
-                            {
-                                song_editor.mutex.lock();
-                                action.callback();
-                                song_editor.mutex.unlock();
-                            }
-                            else
-                                std::cout << "no callback set for " << action.name << "\n";                    
-                        }
-                    }
-                }
-
-                // track editor controls: arrow keys
-                if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-                    song_editor.selected_bar++;
-                    song_editor.selected_bar %= song->length();
-                }
-
-                if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-                    song_editor.selected_bar--;
-                    if (song_editor.selected_bar < 0) song_editor.selected_bar = song->length() - 1;
-                }
-
-                if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-                    song_editor.selected_channel++;
-                    song_editor.selected_channel %= song->channels.size();
-                }
-
-                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-                    song_editor.selected_channel--;
-                    if (song_editor.selected_channel < 0) song_editor.selected_channel = song->channels.size() - 1;
-                }
+                app.request_close();
             }
 
             int display_w, display_h;
@@ -275,18 +187,16 @@ int main(int argc, char** argv)
             
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
 
-            song_editor.mutex.lock();
-            ui::compute_imgui(song_editor);
-            song_editor.mutex.unlock();
-
-            // run worker scheduler
-            song->work_scheduler.run();
+            app.update(1.0 / FRAME_LENGTH);
 
             ImGui::Render();
             window_manager.update();
 
             glViewport(0, 0, display_w, display_h);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             glfwSwapBuffers(draw_window);
@@ -294,17 +204,10 @@ int main(int argc, char** argv)
             prev_time = glfwGetTime();
         }
 
-        sys::clear_interval(audioaux_interval);
-        song_editor.save_preferences();
+        //sys::clear_interval(audioaux_interval);
+        //song_editor.save_preferences();
     }
-
-    device.stop();
-    AudioDevice::_pa_stop();
-
-#ifdef ENABLE_LV2
-    // TODO: interface this function in the PluginManager
-    lv2::lv2_fini();
-#endif
+    
     return 0;
 }
 #endif

@@ -1,8 +1,10 @@
+#include <cstring>
+#include <cmath>
 #include "dsp.h"
 
-#include <cstring>
+using namespace hosts::internal;
 
-size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave)
+/*size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave)
 {
     size_t sample_count;
     size_t buffer_size = frames_per_buffer * 2;
@@ -83,7 +85,7 @@ void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t fr
     {
         memset(dest, 0, buffer_size * sizeof(float));
     }
-}
+}*/
 
 /*
 * ADSR
@@ -152,7 +154,7 @@ void ADSR::Instance::release(float time, const ADSR& params)
  Filters
  Thanks to https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt
 */
-Filter2ndOrder::Filter2ndOrder()
+FilterIIR2ndOrder::FilterIIR2ndOrder()
 {
     for (int i = 0; i < 3; i++)
     {
@@ -163,7 +165,7 @@ Filter2ndOrder::Filter2ndOrder()
     }
 }
 
-void Filter2ndOrder::process(float* value)
+void FilterIIR2ndOrder::process(float* value)
 {
         x[0] = *value;
         y[0] = b[0] * x[0] + b[1] * x[1] + b[2] * x[2]
@@ -177,7 +179,7 @@ void Filter2ndOrder::process(float* value)
         *value = y[0];
 }
 
-void Filter2ndOrder::low_pass(float Fs, float f0, float Q)
+void FilterIIR2ndOrder::low_pass(float Fs, float f0, float Q)
 {
     // Fs: sample rate
     // f0: frequency
@@ -197,7 +199,7 @@ void Filter2ndOrder::low_pass(float Fs, float f0, float Q)
     a[2] = (1.0f - alpha) / a0;
 }
 
-void Filter2ndOrder::high_pass(float Fs, float f0, float Q)
+void FilterIIR2ndOrder::high_pass(float Fs, float f0, float Q)
 {
     float w0 = 2.0f * M_PI * f0 / Fs;
     float si = sinf(w0);
@@ -214,7 +216,7 @@ void Filter2ndOrder::high_pass(float Fs, float f0, float Q)
     a[2] =  (1.0f - alpha) / a0;
 }
 
-void Filter2ndOrder::all_pass(float Fs, float f0, float Q)
+void FilterIIR2ndOrder::all_pass(float Fs, float f0, float Q)
 {
     float w0 = 2.0f * M_PI * f0 / Fs;
     float si = sinf(w0);
@@ -227,7 +229,7 @@ void Filter2ndOrder::all_pass(float Fs, float f0, float Q)
     b[2] = a[0] = 1.0f;
 }
 
-void Filter2ndOrder::low_shelf(float Fs, float f0, float gain, float slope)
+void FilterIIR2ndOrder::low_shelf(float Fs, float f0, float gain, float slope)
 {
     float A = sqrtf(powf(10.0f, gain / 40.0f));
     float w0 = 2.0f * M_PI * f0 / Fs;
@@ -246,7 +248,7 @@ void Filter2ndOrder::low_shelf(float Fs, float f0, float gain, float slope)
     a[2] =       (         (A + 1.0f) + (A - 1.0f) * co - sqrt_alpha)  / a0;
 }
 
-void Filter2ndOrder::high_shelf(float Fs, float f0, float gain, float slope)
+void FilterIIR2ndOrder::high_shelf(float Fs, float f0, float gain, float slope)
 {
     float A = sqrtf(powf(10.0f, gain / 40.0f));
     float w0 = 2.0f * M_PI * f0 / Fs;
@@ -265,7 +267,7 @@ void Filter2ndOrder::high_shelf(float Fs, float f0, float gain, float slope)
     a[2] =       (          (A + 1.0f) - (A - 1.0f) * co - sqrt_alpha)  / a0;
 }
 
-void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
+void FilterIIR2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
 {
     // Fs: sample rate
     // f0: frequency
@@ -294,7 +296,7 @@ void Filter2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
 // although i probably should try to
 // understand more of the theory
 // behind this
-float Filter2ndOrder::attenuation(float hz, float sample_rate)
+float FilterIIR2ndOrder::attenuation(float hz, float sample_rate)
 {
     float corner_rad_per_sample = 2.0f * M_PI * hz / sample_rate;
     float real = cosf(corner_rad_per_sample);
