@@ -3,6 +3,7 @@
 */
 #pragma once
 #include <memory>
+#include <imguiext/imgui-knobs.h>
 #include "../audio_engine/audio_engine.hpp"
 
 namespace modx
@@ -67,6 +68,43 @@ namespace modx
     {
     private:
         modules::ModuleID _id;
+    
+    protected:
+        bool ui_knob(
+            const char *label,
+            unsigned int control_index,
+            float v_min,
+            float v_max,
+            const char *fmt = "%.3f",
+            ImGuiKnobFlags flags = 0,
+            float speed = 0.0f,
+            ImGuiKnobVariant variant = ImGuiKnobVariant_Dot,
+            float size = 0,
+            int steps = 10
+        );
+
+        bool ui_knob_int(
+            const char *label,
+            unsigned int control_index,
+            int v_min,
+            int v_max,
+            const char *fmt = "%.3f",
+            ImGuiKnobFlags flags = 0,
+            float speed = 0.0f,
+            ImGuiKnobVariant variant = ImGuiKnobVariant_Dot,
+            float size = 0,
+            int steps = 10
+        );
+
+        template <typename T>
+        T get_control_value(unsigned int index) const {
+            return engine->control_get_value<T>(id(), index);
+        }
+
+        template <typename T>
+        bool set_control_value(unsigned int index, T v) const {
+            return engine->control_set_value(id(), index, v);
+        }
     public:
         ModuleBase(modules::ModuleCreator& creator) : _id(creator.id), engine(&creator.engine) {}
         virtual ~ModuleBase() {}

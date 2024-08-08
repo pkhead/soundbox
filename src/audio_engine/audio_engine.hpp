@@ -182,6 +182,10 @@ namespace modules
         **/
         static const char* MODULE_CLASS_STEREO_MIXER;
 
+        inline unsigned int sample_rate() const {
+            return _sample_rate;
+        }
+
         /// Register a host.
         /// @returns True if host registration was successful, false if not.
         bool register_host(std::unique_ptr<ModuleHost> &&host);

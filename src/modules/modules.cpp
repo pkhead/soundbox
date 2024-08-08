@@ -1,4 +1,5 @@
 #include <cassert>
+#include "imguiext/imgui-knobs.h"
 #include "modules.hpp"
 
 using namespace modx;
@@ -48,4 +49,70 @@ void ModuleHost::mod_process(modules::ModuleProcessor& process)
 {
     ModuleBase* mod = static_cast<ModuleBase*>(process.userdata);
     mod->process(process);
+}
+
+
+
+
+
+
+
+////////////////
+// ui helpers //
+////////////////
+
+bool ModuleBase::ui_knob(
+    const char *label,
+    unsigned int control_index,
+    float v_min,
+    float v_max,
+    const char *fmt,
+    ImGuiKnobFlags flags,
+    float speed,
+    ImGuiKnobVariant variant,
+    float size ,
+    int steps
+)
+{
+    if (size == 0.0f)
+    {
+        size = ImGui::GetFontSize() * 3.0f;
+    }
+
+    float v = engine->control_get_value<float>(id(), control_index);
+    if (ImGuiKnobs::Knob(label, &v, v_min, v_max, speed, fmt, variant, size, flags, steps))
+    {
+        engine->control_set_value<float>(id(), control_index, v);
+        return true;
+    }
+
+    return false;
+}
+
+bool ModuleBase::ui_knob_int(
+    const char *label,
+    unsigned int control_index,
+    int v_min,
+    int v_max,
+    const char *fmt,
+    ImGuiKnobFlags flags,
+    float speed,
+    ImGuiKnobVariant variant,
+    float size,
+    int steps
+)
+{
+    if (size == 0.0f)
+    {
+        size = ImGui::GetFontSize() * 3.0f;
+    }
+    
+    int v = engine->control_get_value<int>(id(), control_index);
+    if (ImGuiKnobs::KnobInt(label, &v, v_min, v_max, speed, fmt, variant, size, flags, steps))
+    {
+        engine->control_set_value<int>(id(), control_index, v);
+        return true;
+    }
+
+    return false;
 }

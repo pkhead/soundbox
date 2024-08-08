@@ -55,7 +55,7 @@ namespace sbox
         }
 
         inline modx::ModuleRc& at(size_t index) {
-            assert(index < 0 || index >= _modules.size());
+            assert(index >= 0 && index < _modules.size());
             return _modules[index];
         }
         

@@ -3,6 +3,7 @@
 #include "app.hpp"
 #include "imgui.h"
 #include "../modules/internal/host.hpp"
+#include "mod_editor.hpp"
 #include "shortcuts.hpp"
 
 using namespace sbox;
@@ -19,6 +20,7 @@ Application::Application()
     _audio_engine.register_host(std::make_unique<hosts::internal::InternalModuleHost>());
     _song = std::make_unique<Song>(4, 4, 4, _audio_engine);
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
+    _module_editor = std::make_unique<ModuleEditor>(*_song, shortcut_ctx);
 
     theme.set_imgui_colors();
 }
@@ -177,6 +179,10 @@ void Application::draw_interface()
     }
 
     _song_editor->draw();
+    
+    _module_editor->selected_channel = _song_editor->selected_channel;
+    _module_editor->selected_channel_type = ModuleEditor::CHANNEL_TYPE_INSTRUMENT;
+    _module_editor->draw();
 
     if (ImGui::IsKeyPressed(ImGuiKey_F1))
     {

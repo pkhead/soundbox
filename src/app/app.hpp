@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include "../audio_engine/audio_engine.hpp"
 #include "imgui.h"
+#include "mod_editor.hpp"
 #include "theme.hpp"
 #include "song.hpp"
 #include "song_editor.hpp"
@@ -18,6 +19,7 @@ namespace sbox
         modules::AudioEngine _audio_engine;
         std::unique_ptr<Song> _song;
         std::unique_ptr<SongEditor> _song_editor;
+        std::unique_ptr<ModuleEditor> _module_editor;
 
         bool _show_imgui_demo_window;
 

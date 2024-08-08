@@ -65,6 +65,9 @@ set(SOURCES
     deps/imgui/backends/imgui_impl_glfw.cpp
     deps/imgui/backends/imgui_impl_opengl3.cpp
 
+    # imgui extensions
+    deps/imguiext/imgui-knobs.cpp
+
     # native file dialog
     deps/nativefiledialog/src/nfd_common.c
 
@@ -92,6 +95,7 @@ set(SOURCES
     src/app/app.cpp
     src/app/song.cpp
     src/app/song_editor.cpp
+    src/app/mod_editor.cpp
     src/app/theme.cpp
 
     # stock plugins
@@ -99,6 +103,7 @@ set(SOURCES
     src/modules/internal/modules.cpp
     src/modules/internal/midi.cpp
     src/modules/internal/dsp.cpp
+    src/modules/internal/ui.cpp
 )
 
 set(LIBRARIES
@@ -119,8 +124,9 @@ set(INCLUDES
     deps/portaudio-19.7.0/include
     deps/nativefiledialog/src/include
     deps/tuning-library/include
-
+    
     ${FFTW3_INCLUDE}
+    src
 )
 
 set(COMPILE_FLAGS "")
