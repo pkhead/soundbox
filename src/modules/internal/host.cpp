@@ -17,13 +17,13 @@ const char* InternalModuleHost::host_id() const
     return "sbox";
 }
 
-const std::vector<std::string> InternalModuleHost::scan_modules()
+const std::vector<modules::ModuleInfo> InternalModuleHost::scan_modules()
 {
-    std::vector<std::string> list;
-    list.push_back("sbox::osc");
-    list.push_back("sbox::midi_in");
-    list.push_back("sbox::fader");
-    list.push_back("sbox::gain");
+    std::vector<modules::ModuleInfo> list;
+    list.push_back(modules::ModuleInfo("sbox::osc", "Waveform Synth", false));
+    list.push_back(modules::ModuleInfo("sbox::midi_in", "MIDI Input"));
+    list.push_back(modules::ModuleInfo("sbox::fader", "Fader"));
+    list.push_back(modules::ModuleInfo("sbox::gain", "Gain"));
     return list;
 }
 

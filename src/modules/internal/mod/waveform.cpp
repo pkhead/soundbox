@@ -26,9 +26,7 @@ OscModule::Voice::Voice(int _key, float _freq, float _volume) :
 
 OscModule::OscModule(modules::ModuleCreator &create) : modx::ModuleBase(create)
 {
-    // setup module i/o and controls
-    create.name = "Waveform Synth";
-    
+    // setup module i/o and controls    
     create.add_message_input();
     create.add_audio_output(2);
 

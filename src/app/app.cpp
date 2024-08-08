@@ -23,11 +23,6 @@ Application::Application()
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
     _module_editor = std::make_unique<ModuleEditor>(*_song, shortcut_ctx);
 
-    for (unsigned int i = 0; i < 7; i++)
-    {
-        _song->get_channel(0).rack.insert(modx::create_module(_audio_engine, "sbox::gain"));
-    }
-
     theme.set_imgui_colors();
 }
 

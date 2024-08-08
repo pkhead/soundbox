@@ -24,6 +24,19 @@ namespace modules
     class ModuleCreator;
     class ModuleProcessor;
 
+    /**
+    * Holds information about a module class.
+    **/
+    struct ModuleInfo
+    {
+        std::string class_name;
+        std::string name;
+        bool has_midi_input;
+        bool has_audio_input;
+
+        ModuleInfo(const std::string &class_name, const std::string &name, bool has_audio_input = true);
+    }; // struct ModuleInfo
+
     #define CHECK_CONTROL_TYPE(T) static_assert( \
         std::is_same<T, float>() || std::is_same<T, double>() || std::is_same<T, std::int32_t>() || std::is_same<T, std::int64_t>() || std::is_same<T, bool>(), \
         "unsupported data type" \
@@ -133,7 +146,7 @@ namespace modules
         std::atomic_bool _is_engine_runnning;
 
         std::unordered_map<std::string, std::unique_ptr<ModuleHost>> _hosts;
-        std::vector<std::string> _available_module_classes;
+        std::vector<ModuleInfo> _available_module_classes;
 
         PaStream* _pa_stream;
         unsigned int _sample_rate;
@@ -201,7 +214,7 @@ namespace modules
         void destroy_module(ModuleID mod_id);
 
         std::vector<ModuleID> list_modules() const;
-        const inline std::vector<std::string>& available_module_classes() const
+        const inline std::vector<ModuleInfo>& available_module_classes() const
         {
             return _available_module_classes;
         }
@@ -401,7 +414,7 @@ namespace modules
         /// @returns True if successful, false if not.
         virtual bool initialize() = 0;
         
-        virtual const std::vector<std::string> scan_modules() = 0;
+        virtual const std::vector<ModuleInfo> scan_modules() = 0;
 
         /// Create a module.
         /// @returns True on success, false on failure.

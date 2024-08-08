@@ -5,6 +5,7 @@
 #include <vector>
 #include "../modules/modules.hpp"
 #include "../modules/internal/midi.hpp"
+#include "audio_engine/audio_engine.hpp"
 
 namespace sbox
 {
@@ -140,6 +141,7 @@ namespace sbox
     public:
         Song(const Song&) = delete; // disable copy
         Song(unsigned int num_channels, unsigned int length, unsigned int max_patterns, modules::AudioEngine &audio_engine);
+        inline modules::AudioEngine &audio_engine() { return _audio_engine; }
 
         std::string name;
         std::string project_notes;

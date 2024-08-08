@@ -105,7 +105,7 @@ void ModuleRack::insert(const modx::ModuleRc &module, size_t index)
     }
     else
     {
-        _modules.insert(_modules.begin(), module);
+        _modules.insert(_modules.begin() + index, module);
         connect(*(_modules.begin() + (index - 1)), module);
         connect(module, *(_modules.begin() + (index + 1)));
     }
@@ -204,7 +204,7 @@ std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::Audi
     channel->rack.connect_input(channel->input_midi);
     channel->rack.connect_output(channel->output_fader);
 
-    channel->rack.insert(modx::create_module(engine, "sbox::osc"), 0);
+    //channel->rack.insert(modx::create_module(engine, "sbox::osc"), 0);
 
     channel->sequence.resize(_length);
     for (unsigned int j = 0; j < _length; j++)

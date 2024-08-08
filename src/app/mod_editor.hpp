@@ -8,7 +8,7 @@ namespace sbox
     class ModuleEditor
     {
     private:
-
+        
     public:
         enum ChannelType
         {

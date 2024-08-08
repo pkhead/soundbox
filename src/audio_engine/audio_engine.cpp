@@ -161,11 +161,11 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     ModuleID this_id = _next_module_id;
     std::shared_ptr<ModuleInstance> instance = std::make_shared<ModuleInstance>();
     instance->class_name = mod_class;
-    instance->name = mod_class;
     instance->is_stereo_mixer = false;
 
     if (mod_class == MODULE_CLASS_AUDIO_OUT)
     {
+        instance->name = "Audio Output";
         instance->input_audio_ports.resize(1);
 
         for (unsigned int i = 0; i < 1; i++)
@@ -183,6 +183,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     }
     else if (mod_class == MODULE_CLASS_STEREO_MIXER)
     {
+        instance->name = "Stereo Mixer";
         instance->output_audio_ports.resize(1);
         instance->output_audio_ports[0] = ModuleAudioPort
         {
@@ -196,6 +197,23 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     }
     else
     {
+        modules::ModuleInfo *mod_class_info = nullptr;
+        for (auto &v : _available_module_classes)
+        {
+            if (v.class_name == mod_class)
+            {
+                mod_class_info = &v;
+            }
+        }
+
+        if (mod_class_info == nullptr)
+        {
+            logger::log_warning("module '%s' could not be created: class not recognized", mod_class.c_str());
+            return 0;
+        }
+
+        instance->name = mod_class_info->name;
+
         // get host id from module id
         size_t sep_index = mod_class.find_first_of("::");
         if (sep_index == std::string::npos) return 0; // module id had no :: separator, return unknown module

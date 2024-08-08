@@ -3,6 +3,12 @@
 
 using namespace modules;
 
+ModuleInfo::ModuleInfo(const std::string &class_name, const std::string &name, bool has_audio_input) :
+    class_name(class_name),
+    name(name),
+    has_audio_input(has_audio_input)
+{}
+
 
 
 

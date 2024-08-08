@@ -8,10 +8,12 @@ Contains implementations for all "control" modules:
 #include <cfloat>
 #include <cmath>
 #include <cassert>
+#include <numutil.hpp>
 #include "../modules.hpp"
 #include "../midi.hpp"
 #include "audio_engine/audio_engine.hpp"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "modules/internal/dsp.h"
 #include "modules/modules.hpp"
 
@@ -108,7 +110,13 @@ void GainModule::process(modules::ModuleProcessor &proc)
 void GainModule::ui()
 {
     float gain = get_control_value<float>(0);
-    bool is_changed = ImGui::VSliderFloat("##Gain", ImGui::GetContentRegionAvail(), &gain, -20.0f, 20.0f, "");
+
+    // center slider
+    float slider_width = ImGui::GetFrameHeight() * 1.2f;
+    ImGui::SetCursorPos(Vec2(ImGui::GetCursorPos()) + Vec2(((ImGui::GetContentRegionAvail().x - (slider_width)) / 2.0f), 0.0f));
+    //ImGui::SameLine((ImGui::GetContentRegionAvail().x - (slider_width + ImGui::GetStyle().ItemSpacing.x)) / 2.0f);
+
+    bool is_changed = ImGui::VSliderFloat("##Gain", ImVec2(slider_width, ImGui::GetContentRegionAvail().y), &gain, -20.0f, 20.0f, "");
 
     if (ImGui::IsItemHovered() || ImGui::IsItemActive())
         ImGui::SetTooltip("%.2f dB", gain);
