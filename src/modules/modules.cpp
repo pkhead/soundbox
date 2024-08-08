@@ -1,4 +1,5 @@
 #include <cassert>
+#include <widgets.hpp>
 #include "imguiext/imgui-knobs.h"
 #include "modules.hpp"
 
@@ -74,13 +75,8 @@ bool ModuleBase::ui_knob(
     int steps
 )
 {
-    if (size == 0.0f)
-    {
-        size = ImGui::GetFontSize() * 3.0f;
-    }
-
     float v = engine->control_get_value<float>(id(), control_index);
-    if (ImGuiKnobs::Knob(label, &v, v_min, v_max, speed, fmt, variant, size, flags, steps))
+    if (widgets::knob(label, &v, v_min, v_max, fmt, flags, speed, variant, size, steps))
     {
         engine->control_set_value<float>(id(), control_index, v);
         return true;
@@ -104,11 +100,11 @@ bool ModuleBase::ui_knob_int(
 {
     if (size == 0.0f)
     {
-        size = ImGui::GetFontSize() * 3.0f;
+        size = ImGui::GetFontSize() * 2.5f;
     }
     
     int v = engine->control_get_value<int>(id(), control_index);
-    if (ImGuiKnobs::KnobInt(label, &v, v_min, v_max, speed, fmt, variant, size, flags, steps))
+    if (widgets::knob_int(label, &v, v_min, v_max, fmt, flags, speed, variant, size, steps))
     {
         engine->control_set_value<int>(id(), control_index, v);
         return true;

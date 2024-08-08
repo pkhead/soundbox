@@ -1,6 +1,7 @@
 #include <cfloat>
 #include <imgui.h>
 #include <imgui/misc/cpp/imgui_stdlib.h>
+#include <numutil.hpp>
 #include "shortcuts.hpp"
 #include "song.hpp"
 #include "song_editor.hpp"
@@ -13,12 +14,6 @@ using namespace sbox;
 //////////////////////
 // HELPER FUNCTIONS //
 //////////////////////
-
-template <typename T>
-T min(T a, T b)
-{
-    return a < b ? a : b;    
-}
 
 inline unsigned int vec4_color(ImVec4 vec4)
 {
@@ -512,8 +507,8 @@ void SongEditor::render_track_editor()
             true
         );
 
-        for (int ch = row_start; ch < min(row_end + 2, num_channels); ch++) {
-            for (int bar = col_start; bar < min(col_end + 2, num_bars); bar++) {
+        for (int ch = row_start; ch < util::min(row_end + 2, num_channels); ch++) {
+            for (int bar = col_start; bar < util::min(col_end + 2, num_bars); bar++) {
                 Vec2 rect_pos = Vec2(canvas_p0.x + bar * CELL_SIZE.x + CELL_MARGIN + CHANNEL_COLUMN_WIDTH, canvas_p0.y + CELL_SIZE.y * ch + CELL_MARGIN);
                 int pattern_num = song.get_channel(ch).sequence[bar];
                 bool is_selected = selected_bar == bar && selected_channel == ch;
@@ -561,7 +556,7 @@ void SongEditor::render_track_editor()
         }
 
         // draw channel info
-        for (int ch = row_start; ch < min(row_end + 2, num_channels); ch++) {
+        for (int ch = row_start; ch < util::min(row_end + 2, num_channels); ch++) {
             ImGui::PushID(ch);
 
             Vec2 row_start = Vec2(

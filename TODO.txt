@@ -1,3 +1,8 @@
+== MINOR REWRITE!!! ==
+- smoother ADSR
+- ADSR ui non-linear scale
+======================
+
 = Undo/redo
     - Undo/redo on text fields (imgui has its own undo/redo for that so conflict?)
       names also don't affect song output so undo/redo for that is possibly undesirable

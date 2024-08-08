@@ -90,8 +90,10 @@ set(SOURCES
 
     # app sources
     src/main.cpp
-    src/winmgr.cpp
     src/log.cpp
+    src/numutil.cpp
+    src/widgets.cpp
+    src/winmgr.cpp
     src/app/app.cpp
     src/app/song.cpp
     src/app/song_editor.cpp
@@ -100,10 +102,11 @@ set(SOURCES
 
     # stock plugins
     src/modules/internal/host.cpp
-    src/modules/internal/modules.cpp
     src/modules/internal/midi.cpp
     src/modules/internal/dsp.cpp
-    src/modules/internal/ui.cpp
+
+    src/modules/internal/mod/control.cpp
+    src/modules/internal/mod/waveform.cpp
 )
 
 set(LIBRARIES

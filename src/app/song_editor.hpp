@@ -1,6 +1,6 @@
 #pragma once
 #include <cmath>
-#include <vec2.hpp>
+#include <numutil.hpp>
 #include "shortcuts.hpp"
 #include "song.hpp"
 

@@ -1,3 +1,6 @@
+/**
+* Numeric utilities
+**/
 #pragma once
 #include <imgui.h>
 #include <cmath>
@@ -55,3 +58,27 @@ struct Vec2 {
 
     operator ImVec2() const { return ImVec2(x, y); }
 };
+
+namespace util
+{
+    template <typename T>
+    constexpr T min(T a, T b)
+    {
+        return a < b ? a : b;
+    }
+
+    template <typename T>
+    constexpr T max(T a, T b)
+    {
+        return a > b ? a : b;
+    }
+
+    template <typename T>
+    constexpr T lerp(T a, T b, T t)
+    {
+        return (b - a) * t + a;
+    }
+
+    float modf(float a, float b);
+    double mod(double a, double b);
+}

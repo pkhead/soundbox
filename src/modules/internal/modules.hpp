@@ -1,5 +1,7 @@
 #pragma once
 #include "../modules.hpp"
+#include "dsp.h"
+#include "modules/internal/midi.hpp"
 
 namespace hosts::internal
 {
@@ -38,22 +40,38 @@ namespace hosts::internal
     class OscModule : public modx::ModuleBase
     {
     private:
-        static constexpr unsigned int MAX_VOICES = 8;
+        static constexpr unsigned int MAX_VOICES = 16;
         static constexpr unsigned int OSC_COUNT = 3;
         
-        struct Voice
-        {
-            bool active;
-            int key;
-            float freq;
-            float volume;
+        struct Voice {
+            bool active = 0.0f;
+            int key = 0.0f;
+            float freq = 0.0f;
+            float volume = 0.0f;
+            double phase[3];
+            float vibrato_phase = 0.0f;
+            double time = 0.0f;
 
-            float phase;
+            ADSR::Instance amp_env;
+            ADSR::Instance filt_env;
+            
+            double last_sample[3];
+            FilterIIR2ndOrder filter[2];
+
+            Voice();
+            Voice(int key, float freq, float volume);
         };
 
-        Voice voices[MAX_VOICES];
+        struct
+        {
+            Voice voices[MAX_VOICES];
+            ADSR amp_env;
+            ADSR filt_env;
+        } audio_state;
 
         int ui_selected_osc;
+
+        void event(const midi::MidiEvent &ev);
     public:
         static constexpr unsigned int OSC_CONTROL_COUNT = 5;
         const unsigned int OSC_CONTROL_START[OSC_CONTROL_COUNT] = {
@@ -83,7 +101,11 @@ namespace hosts::internal
             CONTROL_FILTER_TYPE,
             CONTROL_FILTER_FREQ,
             CONTROL_FILTER_RESO,
-            CONTROL_FILTER_ENV
+            CONTROL_FILTER_ENV,
+
+            CONTROL_VIBRATO_DELAY,
+            CONTROL_VIBRATO_SPEED,
+            CONTROL_VIBRATO_AMOUNT
         };
 
         enum FilterType
@@ -96,7 +118,7 @@ namespace hosts::internal
         {
             WAVE_SQUARE,
             WAVE_SAWTOOTH,
-            WAVE_PULSE,
+            WAVE_PULSE, // 1/4 pulse wave
             WAVE_TRIANGLE,
             WAVE_SINE,
         };

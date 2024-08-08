@@ -463,7 +463,7 @@ const char* ui::module_selection_popup(SongEditor& editor, bool instruments)
         ImGui::GetFrameHeightWithSpacing() * 2;
     
     ImGui::BeginChild("###scrollarea", ImVec2(0.0f,
-        min(size_y, ImGui::GetTextLineHeight() * 30.0f)
+        util::min(size_y, ImGui::GetTextLineHeight() * 30.0f)
     ));
 
     ImGui::SeparatorText("Built-in");

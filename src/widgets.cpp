@@ -1,12 +1,54 @@
+#include "widgets.hpp"
+
 #include <algorithm>
 #include <imgui.h>
-#include <vec2.hpp>
+#include <numutil.hpp>
 #include "imgui_internal.h"
-#include "ui.hpp"
+#include "widgets.hpp"
 
-using namespace hosts::internal;
+bool widgets::knob(
+    const char *label,
+    float *p_value,
+    float v_min,
+    float v_max,
+    const char *fmt,
+    ImGuiKnobFlags flags,
+    float speed,
+    ImGuiKnobVariant variant,
+    float size ,
+    int steps
+)
+{
+    if (size == 0.0f)
+    {
+        size = ImGui::GetFontSize() * 2.5f;
+    }
 
-ui::adsr_ui_struct::adsr_ui_struct(float a, float d, float s, float r)
+    return ImGuiKnobs::Knob(label, p_value, v_min, v_max, speed, fmt, variant, size, flags, steps);
+}
+
+bool widgets::knob_int(
+    const char *label,
+    int *p_value,
+    int v_min,
+    int v_max,
+    const char *fmt,
+    ImGuiKnobFlags flags,
+    float speed,
+    ImGuiKnobVariant variant,
+    float size,
+    int steps
+)
+{
+    if (size == 0.0f)
+    {
+        size = ImGui::GetFontSize() * 2.5f;
+    }
+    
+    return ImGuiKnobs::KnobInt(label, p_value, v_min, v_max, speed, fmt, variant, size, flags, steps);
+}
+
+widgets::adsr_ui_struct::adsr_ui_struct(float a, float d, float s, float r)
 {
     attack = a;
     decay = d;
@@ -18,12 +60,17 @@ ui::adsr_ui_struct::adsr_ui_struct(float a, float d, float s, float r)
     release_max = 5.0f;
 }
 
-bool ui::adsr_ui(const std::string &id, ImVec2 size, adsr_ui_struct *data)
+bool widgets::adsr_ui(const std::string &id, ImVec2 size, widgets::adsr_ui_struct *data)
 {
     enum class DragTarget
     {
         NONE, ATTACK, DECAY, SUSTAIN, RELEASE
     };
+
+    if (size.y == 0.0f)
+    {
+        size.y = ImGui::GetFrameHeight() * 1.5f;
+    }
 
     uint32_t sep_color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
     uint32_t graph_color = ImGui::GetColorU32(ImGuiCol_Button);
