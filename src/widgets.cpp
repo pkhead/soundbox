@@ -24,7 +24,10 @@ bool widgets::knob(
         size = ImGui::GetFontSize() * 2.5f;
     }
 
-    return ImGuiKnobs::Knob(label, p_value, v_min, v_max, speed, fmt, variant, size, flags, steps);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, 0.0f));
+    bool changed = ImGuiKnobs::Knob(label, p_value, v_min, v_max, speed, fmt, variant, size, flags, steps);
+    ImGui::PopStyleVar();
+    return changed;
 }
 
 bool widgets::knob_int(
@@ -45,7 +48,10 @@ bool widgets::knob_int(
         size = ImGui::GetFontSize() * 2.5f;
     }
     
-    return ImGuiKnobs::KnobInt(label, p_value, v_min, v_max, speed, fmt, variant, size, flags, steps);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, 0.0f));
+    bool changed = ImGuiKnobs::KnobInt(label, p_value, v_min, v_max, speed, fmt, variant, size, flags, steps);
+    ImGui::PopStyleVar();
+    return changed;
 }
 
 widgets::adsr_ui_struct::adsr_ui_struct(float a, float d, float s, float r)
@@ -62,6 +68,8 @@ widgets::adsr_ui_struct::adsr_ui_struct(float a, float d, float s, float r)
 
 bool widgets::adsr_ui(const std::string &id, ImVec2 size, widgets::adsr_ui_struct *data)
 {
+    ImGui::BeginGroup();
+
     enum class DragTarget
     {
         NONE, ATTACK, DECAY, SUSTAIN, RELEASE
@@ -201,6 +209,7 @@ bool widgets::adsr_ui(const std::string &id, ImVec2 size, widgets::adsr_ui_struc
         ImGui::Text("%s", id.c_str());
     }
     ImGui::SetCursorPos(end_cursor);
+    ImGui::EndGroup();
 
     return changed;
 }

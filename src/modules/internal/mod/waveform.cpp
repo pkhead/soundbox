@@ -27,6 +27,8 @@ OscModule::Voice::Voice(int _key, float _freq, float _volume) :
 OscModule::OscModule(modules::ModuleCreator &create) : modx::ModuleBase(create)
 {
     // setup module i/o and controls
+    create.name = "Waveform Synth";
+    
     create.add_message_input();
     create.add_audio_output(2);
 
@@ -333,23 +335,23 @@ void OscModule::process(modules::ModuleProcessor &proc)
 
 void OscModule::ui()
 {
-    ImGui::SeparatorText("Simple Oscillator");
-
     float knob_size = ImGui::GetFontSize() * 3.0f;
     ImGuiKnobFlags knob_flags = 0;
+    ImVec2 frame_padding_thin = ImVec2(ImGui::GetStyle().FramePadding.x, 0.0f);
 
-    ImGuiChildFlags group_child_flags = ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize;
-    
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    ImGui::SliderInt("##SelectedOsc", &ui_selected_osc, 1, 3, "%d", ImGuiSliderFlags_AlwaysClamp);
-
+    ImGuiChildFlags group_child_flags = ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_Border;
     {
         int i = ui_selected_osc - 1;
 
-        ImGui::BeginChild("osc", ImVec2(-FLT_MIN, 0.0f), group_child_flags);
+        ImGui::BeginChild("osc", ImVec2(0.0f, -FLT_MIN), group_child_flags);
+
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::SliderInt("##SelectedOsc", &ui_selected_osc, 1, 3, "%d", ImGuiSliderFlags_AlwaysClamp);
+        
         ImGui::TextDisabled("Oscillator %i", i+1);
 
         // waveform combobox
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, frame_padding_thin);
         int waveform = engine->control_get_value<int>(id(), OSC_CONTROL_START[i] + CONTROL_OSC_TYPE);
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Waveform");
@@ -357,6 +359,7 @@ void OscModule::ui()
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0f);
         if (ImGui::Combo("##waveform", &waveform, "Square\0Sawtooth\0Pulse\0Triangle\0Sine\0"))
             engine->control_set_value<int>(id(), OSC_CONTROL_START[i] + CONTROL_OSC_TYPE, waveform);
+        ImGui::PopStyleVar();
 
         // control knobs
         float vol = get_control_value<float>(OSC_CONTROL_START[i] + CONTROL_OSC_VOL) * 100.0f;
@@ -370,22 +373,24 @@ void OscModule::ui()
         ImGui::SameLine();
         ui_knob("Fine", OSC_CONTROL_START[i] + CONTROL_OSC_FINE, -100.0f, 100.0f, "%.0fc");
         ImGui::EndChild();
-        ImGui::Separator();
     }
 
     // filter options
-    ImGui::BeginChild("filter", ImVec2(-FLT_MIN, 0.0f), group_child_flags);
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::BeginChild("filter", ImVec2(0.0f, 0.0f), group_child_flags | ImGuiChildFlags_AutoResizeY);
     {
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, 0.0f));
+        ImGui::AlignTextToFramePadding();
         ImGui::TextDisabled("Filter");
 
         // filter type combobox
         int filter_type = engine->control_get_value<int>(id(), CONTROL_FILTER_TYPE);
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Type");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0f);
         if (ImGui::Combo("##filter_type", &filter_type, "Low Pass\0High Pass\0"))
             engine->control_set_value<int>(id(), CONTROL_FILTER_TYPE, filter_type);
+        ImGui::PopStyleVar();
 
         ImGuiKnobFlags flags = ImGuiKnobFlags_NoInput;
         ui_knob("Freq", CONTROL_FILTER_FREQ, 20.0f, engine->sample_rate() * 0.4f, "%.3f", flags);
@@ -395,10 +400,10 @@ void OscModule::ui()
         ui_knob("Env", CONTROL_FILTER_ENV, 0.0f, 1.0f, "%.3f", flags);
     }
     ImGui::EndChild();
-    ImGui::Separator();
 
     // vibrato options
-    ImGui::BeginChild("vibrato", ImVec2(-FLT_MIN, 0.0f), group_child_flags);
+    ImGui::SameLine();
+    ImGui::BeginChild("vibrato", ImVec2(0.0f, 0.0f), group_child_flags | ImGuiChildFlags_AutoResizeY);
     {
         ImGui::TextDisabled("Vibrato");
 
@@ -410,7 +415,6 @@ void OscModule::ui()
         ui_knob("Amt", CONTROL_VIBRATO_AMOUNT, -100.0f, 100.0f, "%.0fc");
     }
     ImGui::EndChild();
-    ImGui::Separator();
 
     // amplitude envelope
     {
@@ -421,7 +425,7 @@ void OscModule::ui()
             get_control_value<float>(CONTROL_AMP_RELEASE)
         );
 
-        if (widgets::adsr_ui("Amplitude Envelope", ImVec2(ImGui::GetContentRegionAvail().x, 0.0f), &adsr_struct))
+        if (widgets::adsr_ui("Amplitude Envelope", ImVec2(ImGui::GetFontSize() * 12.0f, 0.0f), &adsr_struct))
         {
             set_control_value<float>(CONTROL_AMP_ATTACK, adsr_struct.attack);
             set_control_value<float>(CONTROL_AMP_DECAY, adsr_struct.decay);
@@ -430,6 +434,7 @@ void OscModule::ui()
         }
     }
 
+    ImGui::SameLine();
     // filter envelope
     {
         widgets::adsr_ui_struct adsr_struct(
@@ -439,7 +444,7 @@ void OscModule::ui()
             get_control_value<float>(CONTROL_FILTER_RELEASE)
         );
 
-        if (widgets::adsr_ui("Filter Envelope", ImVec2(ImGui::GetContentRegionAvail().x, 0.0f), &adsr_struct))
+        if (widgets::adsr_ui("Filter Envelope", ImVec2(ImGui::GetFontSize() * 12.0f, 0.0f), &adsr_struct))
         {
             set_control_value<float>(CONTROL_FILTER_ATTACK, adsr_struct.attack);
             set_control_value<float>(CONTROL_FILTER_DECAY, adsr_struct.decay);
@@ -458,5 +463,6 @@ void OscModule::ui()
     ImGui::SameLine();
     ui_knob("Rls", CONTROL_AMP_RELEASE, 0.0f, 10.0f, 0.0f, "%.2f s");
     ImGui::EndChild();*/
+    ImGui::EndGroup();
 }    
 

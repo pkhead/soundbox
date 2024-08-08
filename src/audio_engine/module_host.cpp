@@ -15,7 +15,7 @@ using namespace modules;
 ///////////////////////////
 
 ModuleCreator::ModuleCreator(ModuleID id, AudioEngine& engine, std::string class_name, AudioEngine::ModuleInstance& instance) :
-    instance(instance), engine(engine), id(id), class_name(class_name)
+    instance(instance), engine(engine), id(id), class_name(class_name), name(instance.name)
 {}
 
 void ModuleCreator::add_audio_input(uint8_t channels)

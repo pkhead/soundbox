@@ -71,6 +71,7 @@ namespace modules
 
         struct ModuleInstance
         {
+            std::string name;
             std::string class_name;
 
             // i think having to check the class name everytime is a bit inefficient,
@@ -210,8 +211,8 @@ namespace modules
         /// @returns True if the module exists, false if not.
         bool module_exists(ModuleID mod_id) const;
 
-        const std::string module_class_name(ModuleID mod_id) const;
-        const std::string module_name(ModuleID mod_id) const;
+        const std::string& module_class_name(ModuleID mod_id) const;
+        const std::string& module_name(ModuleID mod_id) const;
 
         // module audio i/o
         unsigned int audio_input_count(ModuleID mod_id) const;
@@ -300,6 +301,7 @@ namespace modules
         AudioEngine &engine;
         const ModuleID id;
         const std::string class_name;
+        std::string &name;
         void* userdata = nullptr;
         void (*processor)(ModuleProcessor& processor) = nullptr;
         

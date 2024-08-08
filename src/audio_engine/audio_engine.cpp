@@ -161,6 +161,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     ModuleID this_id = _next_module_id;
     std::shared_ptr<ModuleInstance> instance = std::make_shared<ModuleInstance>();
     instance->class_name = mod_class;
+    instance->name = mod_class;
     instance->is_stereo_mixer = false;
 
     if (mod_class == MODULE_CLASS_AUDIO_OUT)
@@ -211,6 +212,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
 
         // ask host to setup module data
         ModuleCreator creator(this_id, *this, mod_class, *instance);
+
         if (!host.create_module(creator))
         {
             logger::log_warning("module '%s' could not be created", mod_class.c_str());
@@ -303,24 +305,26 @@ bool AudioEngine::module_exists(ModuleID mod_id) const
     return it != _modules.end();
 }
 
-const std::string AudioEngine::module_class_name(ModuleID mod_id) const
+static std::string EMPTY_STRING = "";
+
+const std::string& AudioEngine::module_class_name(ModuleID mod_id) const
 {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end())
-        return "";
+        return EMPTY_STRING;
     
     const ModuleInstance &mod = *it->second;
     return mod.class_name;
 }
 
-const std::string AudioEngine::module_name(ModuleID mod_id) const
+const std::string& AudioEngine::module_name(ModuleID mod_id) const
 {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end())
-        return "";
+        return EMPTY_STRING;
     
     const ModuleInstance &mod = *it->second;
-    return mod.class_name;
+    return mod.name;
 }
 
 

@@ -24,6 +24,7 @@ namespace modx
 
         inline bool valid() const { return _id != 0; }
 
+        const std::string name() const { return _engine.module_name(_id); }
         std::string class_name() const { return _engine.module_class_name(_id); }
 
         unsigned int audio_input_count() const { return _engine.audio_input_count(_id); };
