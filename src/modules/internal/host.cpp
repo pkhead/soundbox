@@ -23,6 +23,7 @@ const std::vector<std::string> InternalModuleHost::scan_modules()
     list.push_back("sbox::osc");
     list.push_back("sbox::midi_in");
     list.push_back("sbox::fader");
+    list.push_back("sbox::gain");
     return list;
 }
 
@@ -33,5 +34,6 @@ bool InternalModuleHost::create_module(modules::ModuleCreator &create)
     ASSOC_MODULE("sbox::osc", OscModule);
     ASSOC_MODULE("sbox::midi_in", MidiInputModule);
     ASSOC_MODULE("sbox::fader", FaderModule);
+    ASSOC_MODULE("sbox::gain", GainModule);
     return false;
 }

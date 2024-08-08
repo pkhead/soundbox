@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "../modules/internal/host.hpp"
 #include "mod_editor.hpp"
+#include "modules/modules.hpp"
 #include "shortcuts.hpp"
 
 using namespace sbox;
@@ -21,6 +22,11 @@ Application::Application()
     _song = std::make_unique<Song>(4, 4, 4, _audio_engine);
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
     _module_editor = std::make_unique<ModuleEditor>(*_song, shortcut_ctx);
+
+    for (unsigned int i = 0; i < 7; i++)
+    {
+        _song->get_channel(0).rack.insert(modx::create_module(_audio_engine, "sbox::gain"));
+    }
 
     theme.set_imgui_colors();
 }

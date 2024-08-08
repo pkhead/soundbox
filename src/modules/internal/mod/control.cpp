@@ -2,6 +2,7 @@
 Contains implementations for all "control" modules:
  - sbox::midi_in
  - sbox::fader
+ - sbox::gain
 */
 
 #include <cfloat>
@@ -9,6 +10,10 @@ Contains implementations for all "control" modules:
 #include <cassert>
 #include "../modules.hpp"
 #include "../midi.hpp"
+#include "audio_engine/audio_engine.hpp"
+#include "imgui.h"
+#include "modules/internal/dsp.h"
+#include "modules/modules.hpp"
 
 using namespace hosts::internal;
 
@@ -70,4 +75,50 @@ void FaderModule::process(modules::ModuleProcessor &proc)
         *audio_out++ = (*audio_in++) * left * linear_gain;
         *audio_out++ = (*audio_in++) * right * linear_gain;
     }
+}
+
+////////////////
+// sbox::gain //
+////////////////
+GainModule::GainModule(modules::ModuleCreator &creator) : modx::ModuleBase(creator)
+{
+    creator.name = "Gain";
+    creator.add_audio_input(2);
+    creator.add_audio_output(2);
+    creator.add_control<float>(0, "Gain", 0.0f);
+}
+
+void GainModule::process(modules::ModuleProcessor &proc)
+{
+    float *in = proc.audio_input(0);
+    float *out = proc.audio_output(0);
+    float gain = proc.get_control_value<float>(0);
+    float linear_gain = db_to_mult(gain);
+
+    assert(proc.audio_input_channels(0) == 2);
+    assert(proc.audio_output_channels(0) == 2);
+
+    for (unsigned int i = 0; i < proc.buffer_frame_count; i++)
+    {
+        *out++ = *in++ * linear_gain;
+        *out++ = *in++ * linear_gain;
+    }
+}
+
+void GainModule::ui()
+{
+    float gain = get_control_value<float>(0);
+    bool is_changed = ImGui::VSliderFloat("##Gain", ImGui::GetContentRegionAvail(), &gain, -20.0f, 20.0f, "");
+
+    if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+        ImGui::SetTooltip("%.2f dB", gain);
+
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+    {
+        gain = 0.0f;
+        is_changed = true;
+    }
+
+    if (is_changed)
+            set_control_value<float>(0, gain);
 }

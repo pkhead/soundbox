@@ -137,8 +137,6 @@ int main(int argc, char** argv)
     float screen_xscale, screen_yscale;
     glfwGetWindowContentScale(draw_window, &screen_xscale, &screen_yscale);
 
-    screen_yscale = 1.25f;
-
     // setup dear imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

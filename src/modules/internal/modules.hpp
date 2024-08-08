@@ -34,6 +34,20 @@ namespace hosts::internal
         void process(modules::ModuleProcessor &proc) override;
     };
 
+    ////////////////
+    // sbox::gain //
+    ////////////////
+    class GainModule : public modx::ModuleBase
+    {
+    private:
+
+    public:
+        GainModule(modules::ModuleCreator &create);
+
+        void process(modules::ModuleProcessor &proc) override;
+        void ui() override;
+    }; // class GainModule
+
     ///////////////
     // sbox::osc //
     ///////////////
@@ -127,5 +141,6 @@ namespace hosts::internal
 
         void process(modules::ModuleProcessor &proc) override;
         void ui() override;
+        bool has_presets() override { return true; };
     }; // class OscModule
 }

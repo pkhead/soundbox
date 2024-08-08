@@ -114,6 +114,7 @@ namespace modx
         inline modules::ModuleID id() const { return _id; }
         virtual void process(modules::ModuleProcessor& processor) = 0;
         virtual void ui() {}
+        virtual bool has_presets() { return false; } // TODO: actual preset system...
     }; // class ModuleBase
 
     /**

@@ -395,7 +395,7 @@ void OscModule::ui()
         ImGuiKnobFlags flags = ImGuiKnobFlags_NoInput;
         ui_knob("Freq", CONTROL_FILTER_FREQ, 20.0f, engine->sample_rate() * 0.4f, "%.3f", flags);
         ImGui::SameLine();
-        ui_knob("Reso", CONTROL_FILTER_RESO, 0.1f, 2.0f, "%.3f", flags);
+        ui_knob("Reso", CONTROL_FILTER_RESO, 0.0f, 16.0f, "%.3f", flags);
         ImGui::SameLine();
         ui_knob("Env", CONTROL_FILTER_ENV, 0.0f, 1.0f, "%.3f", flags);
     }

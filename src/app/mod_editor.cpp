@@ -1,5 +1,7 @@
 #include <cfloat>
 #include <imgui.h>
+#include <numutil.hpp>
+#include <imgui_internal.h>
 #include "audio_engine/audio_engine.hpp"
 #include "log.hpp"
 #include "mod_editor.hpp"
@@ -19,21 +21,34 @@ void ModuleEditor::draw()
 
     //ImGui::SetNextWindowSizeConstraints(ImVec2(0.0fmod_ui_width, 0.0f), ImVec2(mod_ui_width, FLT_MAX));
 
-    if (ImGui::Begin("Module Editor", nullptr))
+    if (ImGui::Begin("Module Editor", nullptr, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar))
     {
         assert(selected_channel_type == CHANNEL_TYPE_INSTRUMENT);
         InstrumentChannel &channel = song.get_channel(selected_channel);
 
+        if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::GetIO().MouseWheel != 0.0f)
+        {
+            ImGuiWindow *window = ImGui::GetCurrentWindow();
+            float max_step = window->InnerRect.GetWidth() * 0.67f;
+            float scroll_step = ImTrunc(ImMin(2 * window->CalcFontSize(), max_step));
+            ImGui::SetScrollX(window, window->Scroll.x - ImGui::GetIO().MouseWheel * scroll_step);
+            //float sx = ImGui::GetScrollX();
+            //ImGui::SetScrollX(sx - ImGui::GetIO().MouseWheel * 30.0f);
+        }
+
         for (unsigned int i = 0; i < channel.rack.size(); i++)
         {
-            modx::ModuleRc &mod = channel.rack.at(0);
+            modx::ModuleRc &mod = channel.rack.at(i);
             modx::ModuleBase *mod_data = modx::ModuleHost::get_module(mod->id());
             assert(mod_data != nullptr);
 
             ImGui::PushID(i);
 
+            if (i > 0) ImGui::SameLine();
+
             ImGuiChildFlags child_flags = ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_Border;
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetColorU32(ImGuiCol_PopupBg, 0.4f));
+            
             ImGui::BeginChild("module ui", ImVec2(0.0f, mod_ui_height), child_flags, ImGuiWindowFlags_MenuBar);
             ImGui::PopStyleColor();
 
@@ -41,28 +56,13 @@ void ModuleEditor::draw()
             {
                 ImVec2 start_cursor = ImGui::GetCursorPos();
 
-                ImGui::Text("%s", mod->name().c_str());
-                ImGui::Separator();
-                if (ImGui::BeginMenu("Presets"))
-                {
-                    ImGui::MenuItem("Save Preset...");
-                    if (ImGui::BeginMenu("Load Preset"))
-                    {
-                        for (int i = 0; i < 30; i++)
-                        {
-                            ImGui::MenuItem("Preset");
-                        }
-                        ImGui::EndMenu();
-                    }
-                    ImGui::EndMenu();
-                }
-
-                //ImGui::SetCursorPos(start_cursor);
+                ImGui::SetNextItemAllowOverlap();
                 ImVec2 drag_area_size = ImGui::GetContentRegionAvail();
+                drag_area_size.x = util::max(drag_area_size.x, 2.0f);
 
                 if (drag_area_size.x > 0.0f && drag_area_size.y > 0.0f)
                 {
-                    ImGui::Button("##DragArea", drag_area_size);
+                    ImGui::InvisibleButton("##DragArea", drag_area_size);
 
                     if (ImGui::IsItemHovered())
                     {
@@ -75,6 +75,29 @@ void ModuleEditor::draw()
                         logger::log_debug("begin module drag");
                     }
                 }
+
+                ImGui::SetCursorPos(start_cursor);
+                ImGui::Text("%s", mod->name().c_str());
+
+                if (mod_data->has_presets())
+                {
+                    ImGui::Separator();
+                    if (ImGui::BeginMenu("Presets"))
+                    {
+                        ImGui::MenuItem("Save Preset...");
+                        if (ImGui::BeginMenu("Load Preset"))
+                        {
+                            for (int i = 0; i < 30; i++)
+                            {
+                                ImGui::MenuItem("Preset");
+                            }
+                            ImGui::EndMenu();
+                        }
+                        ImGui::EndMenu();
+                    }
+                }
+
+                //ImGui::SetCursorPos(start_cursor);
 
                 ImGui::EndMenuBar();
             }

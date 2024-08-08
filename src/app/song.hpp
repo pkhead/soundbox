@@ -60,6 +60,7 @@ namespace sbox
         }
         
         void insert(const modx::ModuleRc& module, size_t index);
+        void insert(const modx::ModuleRc &module) { insert(module, size()); }
         modx::ModuleRc remove(size_t index);
 
         void connect_input(const modx::ModuleRc &new_input);
