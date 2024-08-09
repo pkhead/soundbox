@@ -1,6 +1,7 @@
 == MINOR REWRITE!!! ==
 - smoother ADSR
 - ADSR ui non-linear scale
+- waveform pulse has a dc offset when combined? why?
 ======================
 
 = Undo/redo
