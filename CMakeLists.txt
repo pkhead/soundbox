@@ -107,6 +107,7 @@ set(SOURCES
     src/modules/internal/mod/control.cpp
     src/modules/internal/mod/waveform.cpp
     src/modules/internal/mod/analyzer.cpp
+    src/modules/internal/mod/channel_control.cpp
 )
 
 set(TEST_SOURCES

@@ -2,6 +2,8 @@
 #include <climits>
 #include <memory>
 #include <vector>
+#include "log.hpp"
+#include "modules/internal/mod/channel_control.hpp"
 #include "modules/modules.hpp"
 #include "song.hpp"
 #include "../modules/internal/modules.hpp"
@@ -200,6 +202,7 @@ InstrumentChannel::InstrumentChannel(const std::string &name) :
     mute = false;
     solo = false;
     _effect_channel = (unsigned int)-1;
+    _is_dirty = true;
 }
 
 EffectChannel::EffectChannel(const std::string &name) :
@@ -216,8 +219,8 @@ std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::Audi
     std::unique_ptr<InstrumentChannel> channel = std::make_unique<InstrumentChannel>("Channel " + std::to_string(index + 1));
 
     channel->output_fader = modx::create_module(engine, "sbox::fader");
-    channel->input_midi = modx::create_module(engine, "sbox::midi_in");
-    channel->rack.connect_input(channel->input_midi);
+    channel->input_controller = modx::create_module(engine, "sbox::channel_controller");
+    channel->rack.connect_input(channel->input_controller);
     channel->rack.connect_output(channel->output_fader);
 
     //channel->rack.insert(modx::create_module(engine, "sbox::osc"), 0);
@@ -248,16 +251,16 @@ std::unique_ptr<EffectChannel> Song::create_effect_channel(modules::AudioEngine 
 
 void InstrumentChannel::send_event(const modx::TrackEvent &event)
 {
-    hosts::internal::MidiInputModule* midi_mod = dynamic_cast<hosts::internal::MidiInputModule*>(modx::ModuleHost::get_module(input_midi->id()));
+    hosts::internal::ChannelControllerModule* control = dynamic_cast<hosts::internal::ChannelControllerModule*>(modx::ModuleHost::get_module(input_controller->id()));
 
-    assert(midi_mod != nullptr);
-    if (midi_mod == nullptr)
+    assert(control != nullptr);
+    if (control == nullptr)
     {
-        logger::log_error("InstrumentChannel::send_midi: could not cast module '%s' userdata to MidiInputModule", input_midi->class_name().c_str());
+        logger::log_error("InstrumentChannel::send_midi: could not cast module '%s' userdata to ChannelControllerModule", input_controller->class_name().c_str());
         return;
     }
 
-    midi_mod->midi_queue.write((std::byte*) &event, sizeof(event));
+    control->send_event(event);
 }
 
 Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patterns, modules::AudioEngine &audio_engine) :
@@ -272,8 +275,11 @@ Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patt
     position = 0.0f;
     do_loop = true;
     is_playing = false;
+
+    last_frame_time = audio_engine.frame_time();
     _was_playing = is_playing;
-    _time_accum = 0.0f;
+    _old_pos = position;
+    _old_tempo = tempo;
 
     _audio_out = modx::create_module(audio_engine, modules::AudioEngine::MODULE_CLASS_AUDIO_OUT);
 
@@ -601,122 +607,71 @@ static InstrumentChannel* get_channel_with_uid(Song &song, unsigned int uid)
     return nullptr;
 }
 
-// Update song notes at a fixed interval
-void Song::tick()
+void Song::update_instrument_channel(unsigned int channel_index)
 {
-    float old_position = position;
+    assert(channel_index >= 0 && channel_index < _channels.size());
+    auto &ch = _channels[channel_index];
+    ch->_is_dirty = true;
 
-    float beat_delta = (tempo / 60.0f) * TICK_LENGTH;
-    position = fmodf(position + beat_delta, length() * beats_per_bar);
-
-    // get the list of active notes
-    std::vector<ActiveNoteInfo> notes;
-    for (auto &ch : _channels)
-    {
-        assert(position >= 0.0f && position < length() * beats_per_bar);
-        float playhead_in_bar = fmodf(position, beats_per_bar);
-
-        unsigned int pattern_index = ch->sequence[bar_position()];
-        if (pattern_index == 0) continue;
-        auto &pattern = ch->patterns[pattern_index - 1];
-
-        for (auto &note : pattern->notes)
-        {
-            const float note_start = note.time;
-            const float note_end = note_start + note.length;
-
-            if (playhead_in_bar >= note_start && playhead_in_bar < note_end)
-            {
-                notes.push_back(ActiveNoteInfo {
-                    .channel_uid = ch->uid,
-                    .note = note,
-                });
-            }
-        }
-    }
-
-    // find new active notes
-    for (auto &new_note : notes)
-    {
-        bool is_pressed = true;
-        for (auto &old_note : _active_notes)
-        {
-            if (new_note.note.id == old_note.note.id)
-            {
-                is_pressed = false;
-                break;
-            }
-        }
-
-        if (!is_pressed) continue;
-        InstrumentChannel *ch = get_channel_with_uid(*this, new_note.channel_uid);
-        assert(ch != nullptr);
-
-        modx::TrackEvent ev = modx::TrackEvent::init_note_on(new_note.note.key, 1.0f);
-        ch->send_event(ev);
-    }
-
-    // find released notes
-    for (auto &old_note : _active_notes)
-    {
-        bool is_released = true;
-        for (auto &new_note : notes)
-        {
-            if (old_note.note.id == new_note.note.id)
-            {
-                is_released = false;
-                break;
-            }
-        }
-
-        if (!is_released) continue;
-        InstrumentChannel *ch = get_channel_with_uid(*this, old_note.channel_uid);
-        if (ch == nullptr) continue;
-
-        modx::TrackEvent ev = modx::TrackEvent::init_note_off(old_note.note.key, 1.0f);
-        ch->send_event(ev);
-    }
-
-    _active_notes = notes;
+    logger::log_debug("queue channel %i update", channel_index);
 }
 
-void Song::update(float dt)
+// TODO: detect beats per bar change
+void Song::update()
 {
-    // playback state changed
-    if (_was_playing != is_playing)
-    {
-        // playback stopped
-        if (!is_playing)
+    bool dirty_play_state = _was_playing != is_playing || _old_tempo != tempo;
+    bool dirty_position = _old_pos != position;
+
+    // update channel controllers
+    unsigned int i = 0;
+    for (auto &ch : _channels)
+    {        
+        auto control = dynamic_cast<hosts::internal::ChannelControllerModule*>(modx::ModuleHost::get_module(ch->input_controller->id()));
+        assert(control != nullptr);
+        if (control == nullptr)
         {
-            // move playhead to the start of the current bar
-            position = bar_position() * beats_per_bar;
-
-            // stop all currently active notes
-            for (auto &active : _active_notes)
-            {
-                InstrumentChannel *ch = get_channel_with_uid(*this, active.channel_uid);
-                if (ch == nullptr) break;
-
-                modx::TrackEvent ev = modx::TrackEvent::init_note_off(active.note.key, 1.0f);
-                ch->send_event(ev);
-            }
-
-            _active_notes.clear();
+            logger::log_error(
+                "Song::update: could not cast module '%s' userdata to ChannelControllerModule",
+                ch->input_controller->class_name().c_str()
+            );
+            continue;
         }
 
-        _was_playing = is_playing;
-        _time_accum = 0.0f;
+        if (ch->_is_dirty)
+        {
+            logger::log_debug("Update channel %i track", i);
+            control->set_track(*ch);
+            ch->_is_dirty = false;
+        }
+
+        if (dirty_position || dirty_play_state)
+            control->set_position(position);
+
+        if (dirty_play_state)
+        {
+            control->set_playing(is_playing);
+            control->set_playback_info(tempo, beats_per_bar);
+        }
+
+        control->idle();
+        i++;
     }
 
-    // TODO: this is probably a very inefficient algorithm.
-    // O(n^2)s everywhere. but does it really matter?
+    uint64_t frame_time = _audio_engine.frame_time();
+
     if (is_playing)
     {
-        _time_accum += dt;
-        while (_time_accum >= TICK_LENGTH)
-        {
-            tick();
-            _time_accum -= TICK_LENGTH;
-        }
+        double dt = (double)(frame_time - last_frame_time) / _audio_engine.sample_rate();
+        position += (tempo / 60.0f) * dt;
+        position = fmod(position, _length * beats_per_bar);
     }
+    else if (dirty_play_state)
+    {
+        position = bar_position() * beats_per_bar;
+    }
+
+    _was_playing = is_playing;
+    _old_pos = position;
+    _old_tempo = tempo;
+    last_frame_time = frame_time;
 }

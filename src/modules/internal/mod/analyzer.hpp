@@ -3,9 +3,11 @@
 
 namespace hosts::internal
 {
-    ////////////////////
-    // sbox::analyzer //
-    ////////////////////
+    /**
+    * ID: sbox::analyzer
+    * Analyzes the input signal and passes it, unmodified, through the output port.
+    * The analysis is shown in its UI.
+    **/
     class AnalyzerModule : public modx::ModuleBase
     {
     private:

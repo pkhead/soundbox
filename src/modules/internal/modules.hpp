@@ -1,22 +1,14 @@
 #pragma once
+#include <atomic>
 #include <dsp.hpp>
 #include "../modules.hpp"
+
+#include "mod/channel_control.hpp"
+#include "mod/analyzer.hpp"
 #include "mod/waveform.hpp"
 
 namespace hosts::internal
 {
-    ///////////////////
-    // sbox::midi_in //
-    ///////////////////
-    class MidiInputModule : public modx::ModuleBase
-    {
-    public:
-        RingBuffer<std::byte> midi_queue;
-
-        MidiInputModule(modules::ModuleCreator &create);
-        void process(modules::ModuleProcessor &proc) override;
-    }; // class MidiInputModule
-
     /////////////////
     // sbox::fader //
     /////////////////

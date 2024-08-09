@@ -642,6 +642,8 @@ void SongEditor::render_track_editor()
                 if (pattern_input <= song.max_patterns())
                 {
                     cell = pattern_input;
+                    if (cell != old_value)
+                        song.update_instrument_channel(selected_channel);
 
                     /*// register change
                     if (cell != old_value)
@@ -917,6 +919,7 @@ void SongEditor::render_pattern_editor()
                         int pattern = song.new_pattern(selected_channel);
                         cur_channel.sequence[selected_bar] = pattern;
                         selected_pattern = cur_channel.patterns[pattern - 1].get();
+                        song.update_instrument_channel(selected_channel);
                     }
                     
                     mouse_start = mouse_px;
@@ -945,6 +948,8 @@ void SongEditor::render_pattern_editor()
                         
                         note_anchor = mouse_cx;
                         note_start_length = cursor_note_length;
+
+                        song.update_instrument_channel(selected_channel);
 
                         // Preview Added Note
                         if (!song.is_playing && note_preview)
@@ -993,9 +998,11 @@ void SongEditor::render_pattern_editor()
                     }
                 }
             }
-
+            
             // mouse note dragging
             if (selected_note != nullptr && did_mouse_move) {
+                song.update_instrument_channel(selected_channel);
+
                 float new_len = (mouse_px - mouse_start) + note_start_length;
                 if (min_step > 0) {
                     float note_end = selected_note->time + new_len;
@@ -1088,6 +1095,7 @@ void SongEditor::render_pattern_editor()
                             ));*/
 
                             note_pattern->notes.erase(it);
+                            song.update_instrument_channel(selected_channel);
                             break;
                         }
                     }

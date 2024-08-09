@@ -112,8 +112,12 @@ namespace modx
 
         modules::AudioEngine *const engine;
         inline modules::ModuleID id() const { return _id; }
+
         virtual void process(modules::ModuleProcessor& processor) = 0;
+
+        /// Draws the UI
         virtual void ui() {}
+
         virtual bool has_presets() { return false; } // TODO: actual preset system...
     }; // class ModuleBase
 
@@ -149,12 +153,23 @@ namespace modx
     {
         enum EventKind
         {
+            /**
+            * A key was released.
+            **/
             NOTE_OFF,
-            NOTE_ON,
-            TEMPO
-        };
 
-        uint32_t timestamp;
+            /**
+            * A key was pressed.
+            **/
+            NOTE_ON,
+
+            /**
+            * Retrieve song tempo.
+            **/
+            TEMPO,
+        };
+        
+        uint64_t timestamp;
         EventKind event_kind;
         
         union

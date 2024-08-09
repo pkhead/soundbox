@@ -128,9 +128,10 @@ AudioEngine::ModuleControl ModuleCreator::_create_module_control<bool>(const std
 // MODULE PROCESSOR HANDLE //
 /////////////////////////////
 
-ModuleProcessor::ModuleProcessor(size_t buffer_frame_count, unsigned int sample_rate, AudioEngine::ModuleGraphNode* node) :
+ModuleProcessor::ModuleProcessor(size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate, AudioEngine::ModuleGraphNode* node) :
     node(node),
     buffer_frame_count(buffer_frame_count),
+    frame_time(frame_time),
     sample_rate(sample_rate),
     class_name(node->module->class_name.c_str()),
     userdata(node->module->userdata)

@@ -4,9 +4,10 @@
 
 namespace hosts::internal
 {
-    ////////////////////
-    // sbox::waveform //
-    ////////////////////
+    /**
+    * ID: sbox::waveform
+    * 3-oscillator synthesizer
+    **/
     class WaveformModule : public modx::ModuleBase
     {
     private:

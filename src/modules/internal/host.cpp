@@ -1,6 +1,5 @@
 #include "host.hpp"
 #include "modules.hpp"
-#include "modules/internal/mod/analyzer.hpp"
 
 using namespace hosts::internal;
 
@@ -22,7 +21,7 @@ const std::vector<modules::ModuleInfo> InternalModuleHost::scan_modules()
 {
     std::vector<modules::ModuleInfo> list;
     list.push_back(modules::ModuleInfo("sbox::waveform", "Waveform Synth", false));
-    list.push_back(modules::ModuleInfo("sbox::midi_in", "MIDI Input"));
+    list.push_back(modules::ModuleInfo("sbox::channel_controller", "Channel Controller", false));
     list.push_back(modules::ModuleInfo("sbox::fader", "Fader"));
     list.push_back(modules::ModuleInfo("sbox::gain", "Gain"));
     list.push_back(modules::ModuleInfo("sbox::analyzer", "Analyzer"));
@@ -34,7 +33,7 @@ const std::vector<modules::ModuleInfo> InternalModuleHost::scan_modules()
 bool InternalModuleHost::create_module(modules::ModuleCreator &create)
 {
     ASSOC_MODULE("sbox::waveform", WaveformModule);
-    ASSOC_MODULE("sbox::midi_in", MidiInputModule);
+    ASSOC_MODULE("sbox::channel_controller", ChannelControllerModule);
     ASSOC_MODULE("sbox::fader", FaderModule);
     ASSOC_MODULE("sbox::gain", GainModule);
     ASSOC_MODULE("sbox::analyzer", AnalyzerModule);

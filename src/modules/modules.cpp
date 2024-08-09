@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstdint>
 #include <widgets.hpp>
 #include <numutil.hpp>
 #include "imguiext/imgui-knobs.h"
@@ -52,8 +53,6 @@ void ModuleHost::mod_process(modules::ModuleProcessor& process)
     ModuleBase* mod = static_cast<ModuleBase*>(process.userdata);
     mod->process(process);
 }
-
-
 
 
 

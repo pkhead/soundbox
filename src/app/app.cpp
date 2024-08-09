@@ -43,7 +43,7 @@ void Application::update(float dt)
 
     handle_shortcuts();
 
-    _song->update(dt);
+    _song->update();
     _audio_engine.update();
 }
 

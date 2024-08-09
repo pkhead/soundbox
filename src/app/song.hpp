@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "../modules/modules.hpp"
+#include <modules/modules.hpp>
 #include "audio_engine/audio_engine.hpp"
 
 namespace sbox
@@ -80,6 +80,7 @@ namespace sbox
     {
     private:
         unsigned int _effect_channel;
+        bool _is_dirty;
     
     public:
         const unsigned int uid;
@@ -88,7 +89,7 @@ namespace sbox
         std::vector<unsigned int> sequence;
         std::vector<std::unique_ptr<Pattern>> patterns;
 
-        modx::ModuleRc input_midi;
+        modx::ModuleRc input_controller;
         modx::ModuleRc output_fader;
         ModuleRack rack;
 
@@ -136,26 +137,20 @@ namespace sbox
         std::vector<std::unique_ptr<EffectChannel>> _fx_channels;
 
         bool _was_playing;
+        double _old_pos;
+        float _old_tempo;
         unsigned int _length;
         unsigned int _max_patterns;
         modules::AudioEngine &_audio_engine;
 
+        // since playback is done in the audio thread, i track the audio engine's
+        // frame time to determine the position of the playhead.
+        unsigned long last_frame_time;
+
         modx::ModuleRc _audio_out;
-
-        struct ActiveNoteInfo
-        {
-            unsigned int channel_uid;
-            Note note;
-        };
-
-        std::vector<ActiveNoteInfo> _active_notes;
 
         std::unique_ptr<InstrumentChannel> create_instrument_channel(modules::AudioEngine &engine, unsigned int index);
         static std::unique_ptr<EffectChannel> create_effect_channel(modules::AudioEngine &engine, unsigned int name_number);
-
-        static constexpr float TICK_LENGTH = 1.0f / 240.0f;
-        float _time_accum;
-        void tick();
 
     public:
         Song(const Song&) = delete; // disable copy
@@ -172,7 +167,7 @@ namespace sbox
         /**
         * Position of the playhead, in beats.
         **/
-        float position;
+        double position;
 
         unsigned int bar_position() const {
             assert(position >= 0.0f);
@@ -291,6 +286,12 @@ namespace sbox
         * Update song playback, sending MIDI events to the first module of every
         * instrument channel whenever a note is played on that channel.
         **/
-        void update(float dt);
+        void update();
+
+        /**
+        * Indicate that the track of a channel was changed. On the next update call,
+        * it will send the updated track info to the channel controller module.
+        **/
+        void update_instrument_channel(unsigned int channel_index);
     }; // class Song
 }

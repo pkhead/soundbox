@@ -19,28 +19,6 @@ Contains implementations for all "control" modules:
 
 using namespace hosts::internal;
 
-///////////////////
-// sbox::midi_in //
-///////////////////
-constexpr size_t MIDI_QUEUE_SIZE = sizeof(modx::TrackEvent) * 32;
-
-MidiInputModule::MidiInputModule(modules::ModuleCreator &create) :
-    modx::ModuleBase(create),
-    midi_queue(MIDI_QUEUE_SIZE)
-{
-    create.add_message_output();
-}
-
-void MidiInputModule::process(modules::ModuleProcessor &proc)
-{
-    modx::TrackEvent buf;
-
-    while (midi_queue.read((std::byte*) &buf, sizeof(buf)))
-    {
-        proc.send_message(0, (std::byte*) &buf, sizeof(buf));
-    }
-}
-
 /////////////////
 // sbox::fader //
 /////////////////

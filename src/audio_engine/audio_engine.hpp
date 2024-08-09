@@ -155,6 +155,7 @@ namespace modules
         std::vector<float> _audio_buffer;
         const size_t _frames_per_buffer;
         bool _is_graph_dirty;
+        std::atomic_uint64_t _frame_time;
 
         static int _pa_stream_callback(
             const void* input_buffer,
@@ -199,6 +200,8 @@ namespace modules
         inline unsigned int sample_rate() const {
             return _sample_rate;
         }
+
+        inline unsigned long frame_time() const { return _frame_time; }
 
         /// Register a host.
         /// @returns True if host registration was successful, false if not.
@@ -344,11 +347,12 @@ namespace modules
     {
     private:
         AudioEngine::ModuleGraphNode* node;
-        ModuleProcessor(size_t buffer_frame_count, unsigned int sample_rate, AudioEngine::ModuleGraphNode* node);
+        ModuleProcessor(size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate, AudioEngine::ModuleGraphNode* node);
 
     public:
         const std::size_t buffer_frame_count;
         const unsigned int sample_rate;
+        const unsigned long frame_time;
         const char* const class_name;
         void* const userdata;
 

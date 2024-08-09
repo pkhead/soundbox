@@ -36,6 +36,7 @@ AudioEngine::AudioEngine() :
     _audio_ring_buffer(4096),
     _frames_per_buffer(256)
 {
+    _frame_time = 0;
     _is_graph_dirty = true;
 
     // initialize port audio
@@ -977,7 +978,7 @@ void AudioEngine::_process_node(ModuleGraphNode& node)
     }
 
     // call processor
-    ModuleProcessor processor(_frames_per_buffer, _sample_rate, &node);
+    ModuleProcessor processor(_frames_per_buffer, _frame_time, _sample_rate, &node);
     assert(node.module->processor != nullptr);
     node.module->processor(processor);
 }
@@ -1023,6 +1024,7 @@ void AudioEngine::_thread_process()
 {
     while (_is_engine_runnning)
     {
+        uint64_t ft = _frame_time;
         while (_audio_ring_buffer.available_for_write() >= _frames_per_buffer * _output_channels)
         {
             /*if (_audio_ring_buffer.available_for_write() < _frames_per_buffer * _output_channels)
@@ -1044,6 +1046,9 @@ void AudioEngine::_thread_process()
                 std::memset(_audio_buffer.data(), 0, _audio_buffer.size() * sizeof(float));
                 _audio_ring_buffer.write(_audio_buffer.data(), _audio_buffer.size());
             }
+
+            ft += _frames_per_buffer;
+            _frame_time = ft;
         }
 
         //std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
