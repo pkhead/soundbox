@@ -1,0 +1,171 @@
+#include <audio_engine/audio_engine.hpp>
+#include <numutil.hpp>
+#include "analyzer.hpp"
+#include "imgui.h"
+#include "log.hpp"
+
+using namespace hosts::internal;
+
+inline bool is_zero_crossing(float prev, float next) {
+    return (prev == 0.0f && next == 0.0f) || (util::sign(prev) != util::sign(next));
+}
+
+AnalyzerModule::AnalyzerModule(modules::ModuleCreator& mod) :
+    ModuleBase(mod),
+    queue_capacity((size_t)(mod.engine.sample_rate() * 0.5f) * 2), // hold 0.5 seconds of audio data
+    audio_queue_left(queue_capacity),
+    audio_queue_right(queue_capacity)
+{
+    mod.add_audio_input(2);
+    mod.add_audio_output(2);
+
+    size_t arr_size = frames_per_window + window_margin * 2;
+    audio_state.buf_left = new float[arr_size * 2];
+    audio_state.buf_right = new float[arr_size * 2];
+
+    ui_state.buf_left = new float[arr_size];
+    ui_state.buf_right = new float[arr_size];
+    ui_state.index = 0;
+
+    memset(ui_state.buf_left, 0, arr_size * sizeof(float));
+    memset(ui_state.buf_right, 0, arr_size * sizeof(float));
+
+    /*complex_left = new fftwf_complex[arr_size];
+    complex_right = new fftwf_complex[arr_size];
+    real_left = new float[arr_size];
+    real_right = new float[arr_size];
+
+    ready = false;
+
+    // create fft data for each channel
+    for (int c = 0; c < 2; c++)
+    {
+        fft_in[c] = (float*) fftwf_malloc(sizeof(float) * arr_size);
+        fft_out[c] = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * arr_size);
+        fft_plan[c] = fftwf_plan_dft_r2c_1d(arr_size, fft_in[c], fft_out[c], FFTW_ESTIMATE);
+    }*/
+}
+
+AnalyzerModule::~AnalyzerModule() {
+    logger::log_debug("AnalyzerModule::~AnalyzerModule() called");
+
+    //ready = false;
+    delete[] audio_state.buf_left;
+    delete[] audio_state.buf_right;
+    delete[] ui_state.buf_left;
+    delete[] ui_state.buf_right;
+
+    /*delete[] complex_left;
+    delete[] complex_right;
+    delete[] real_left;
+    delete[] real_right;
+
+    for (int c = 0; c < 2; c++)
+    {
+        fftwf_free(fft_in[c]);
+        fftwf_free(fft_out[c]);
+        fftwf_destroy_plan(fft_plan[c]);
+    }*/
+}
+
+void AnalyzerModule::process(modules::ModuleProcessor &proc) {
+    constexpr uint8_t channel_count = 2;
+
+    float *input = proc.audio_input(0);
+    float *output = proc.audio_output(0);
+
+    //ring_buffer.write(output, proc.buffer_frame_count * channel_count);
+    size_t samples_per_window = (frames_per_window + window_margin * 2);
+
+    for (size_t i = 0; i < proc.buffer_frame_count * channel_count; i += channel_count) {
+        output[i] = input[i];
+        output[i+1] = input[i+1];
+
+        ui_state.buf_left[ui_state.index] = input[i];
+        ui_state.buf_right[ui_state.index] = input[i+1];
+        
+        if (++ui_state.index > samples_per_window)
+        {
+            audio_queue_left.write(ui_state.buf_left, samples_per_window);
+            audio_queue_left.write(ui_state.buf_right, samples_per_window);
+            ui_state.index = 0;
+        }
+    }
+
+    // write to window
+    /*if (!in_use && ring_buffer.queued() > samples_per_window)
+    {
+        int buf_idx = 1 - window_front;
+        
+        float* left = window_left[buf_idx];
+        float* right = window_right[buf_idx];
+        
+        size_t num_read = ring_buffer.read(buf, samples_per_window);
+        assert(num_read == samples_per_window);
+
+        size_t j = 0;
+
+        for (size_t i = 0; i < samples_per_window; i += channel_count) {
+            left[j] = buf[i];
+            right[j] = buf[i + 1];
+            j++;
+        }
+
+        if (!in_use) window_front = buf_idx;
+    }*/
+
+    //ready = true;
+}
+
+static int offset_zero_crossing(float* buf, size_t buf_size, size_t border)
+{
+    // search both left and right side for a zero crossing
+    int origin = buf_size / 2;
+    float cur[2], prev[2];
+
+    for (int i = 0; i + origin < buf_size - border - 1 && i + origin > border; i++)
+    {
+        cur[0] = buf[origin - i]; // left side
+        prev[0] = buf[origin - i - 1];
+        cur[1] = buf[origin + i]; // right side
+        prev[1] = buf[origin + i - 1];
+
+        // if there is a rising zero crossing on the left side
+        if (is_zero_crossing(prev[0], cur[0]) && cur[0] > prev[0])
+            return -i;
+
+        // if there is rising zero crossing on the right side
+        else if (is_zero_crossing(prev[1], cur[1]) && cur[1] > prev[1])
+            return i;
+    }
+
+    return 0;
+}
+
+void AnalyzerModule::ui() {
+    // use placeholder if audio process isn't ready to show analysis
+    float placeholder[2] = { 0.0f, 0.0f };
+
+    ImVec2 graph_size = ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f);
+    size_t frames_per_buffer = frames_per_window + window_margin * 2;
+    size_t samples_per_buffer = frames_per_buffer * 2;
+
+    // read audio queue
+    if (audio_queue_left.available_for_read() >= frames_per_buffer && audio_queue_right.available_for_read() >= frames_per_buffer)
+    {
+        audio_queue_left.read(ui_state.buf_left, frames_per_buffer);
+        audio_queue_right.read(ui_state.buf_right, frames_per_buffer);
+    }
+    else
+    {
+        //logger::log_warning("AnalyzerModule::ui: not enough audio data");
+        //memset(ui_left, 0, frames_per_buffer * sizeof(float));
+        //memset(ui_right, 0, frames_per_buffer * sizeof(float));
+    }
+
+    int offset_left = offset_zero_crossing(ui_state.buf_left, frames_per_buffer, window_margin);
+    int offset_right = offset_zero_crossing(ui_state.buf_left, frames_per_buffer, window_margin);
+
+    ImGui::PlotLines("Left", ui_state.buf_left + offset_left, frames_per_window, 0, nullptr, -1.0f, 1.0f, graph_size);
+    ImGui::PlotLines("Right", ui_state.buf_right + offset_right, frames_per_window, 0, nullptr, -1.0f, 1.0f, graph_size);
+}

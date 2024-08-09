@@ -81,4 +81,15 @@ namespace util
 
     float modf(float a, float b);
     double mod(double a, double b);
+
+    // binary sign -- returns only two results
+    template <typename T>
+    inline int bsign(T v) {
+        return v >= 0 ? 1 : -1; 
+    }
+
+    template <typename T>
+    int sign(T v) {
+        return v == 0 ? 0 : bsign(v);
+    }
 }

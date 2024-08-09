@@ -2,20 +2,20 @@
 #include <math.h>
 #include <numutil.hpp>
 #include <widgets.hpp>
-#include "../modules.hpp"
+#include "waveform.hpp"
 #include "../midi.hpp"
 #include "imgui.h"
 #include "log.hpp"
 
 using namespace hosts::internal;
 
-OscModule::Voice::Voice()
+WaveformModule::Voice::Voice()
 {
     phase[0] = phase[1] = phase[2] = 0.0f;
     last_sample[0] = last_sample[1] = last_sample[2] = 0.0f;
 }
 
-OscModule::Voice::Voice(int _key, float _freq, float _volume) :
+WaveformModule::Voice::Voice(int _key, float _freq, float _volume) :
     Voice()
 {
     key = _key;
@@ -24,7 +24,7 @@ OscModule::Voice::Voice(int _key, float _freq, float _volume) :
     active = true;
 }
 
-OscModule::OscModule(modules::ModuleCreator &create) : modx::ModuleBase(create)
+WaveformModule::WaveformModule(modules::ModuleCreator &create) : modx::ModuleBase(create)
 {
     // setup module i/o and controls    
     create.add_message_input();
@@ -102,7 +102,7 @@ static float poly_blep(float t, float inc)
     else return 0.0;
 }
 
-void OscModule::event(const midi::MidiEvent& ev) {
+void WaveformModule::event(const midi::MidiEvent& ev) {
     if (midi::is_note_on(ev)) {
         // create new voice in first found empty slot
         // if there are no empty slots, replace the first voice in memory
@@ -133,7 +133,7 @@ void OscModule::event(const midi::MidiEvent& ev) {
     }
 }
 
-void OscModule::process(modules::ModuleProcessor &proc)
+void WaveformModule::process(modules::ModuleProcessor &proc)
 {
     // process midi input
     while (true)
@@ -331,7 +331,7 @@ void OscModule::process(modules::ModuleProcessor &proc)
     }
 }
 
-void OscModule::ui()
+void WaveformModule::ui()
 {
     float knob_size = ImGui::GetFontSize() * 3.0f;
     ImGuiKnobFlags knob_flags = 0;
