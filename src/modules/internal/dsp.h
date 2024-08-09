@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cmath>
+#include <numutil.hpp>
 
 //#include "util.h"
 
@@ -15,6 +16,10 @@ namespace hosts::internal
 
     inline double db_to_mult(double db) {
         return powf(10.0, db / 10.0);
+    }
+
+    inline bool is_zero_crossing(float prev, float next) {
+        return (prev == 0.0f && next == 0.0f) || (util::sign(prev) != util::sign(next));
     }
 
     // 2nd-order IIR filters

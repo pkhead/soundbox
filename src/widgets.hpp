@@ -1,5 +1,5 @@
 /**
-* Extra GUI widgets
+* Extra GUI widgets for DSP
 **/
 #pragma once
 #include <string>

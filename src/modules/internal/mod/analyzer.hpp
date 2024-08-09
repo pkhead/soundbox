@@ -10,8 +10,9 @@ namespace hosts::internal
     class AnalyzerModule : public modx::ModuleBase
     {
     private:
-        const int frames_per_window = 1024;
-        const int window_margin = 512; // in frames
+        const unsigned int frames_per_window = 512;
+        const unsigned int window_margin = 512; // in frames
+        const unsigned int window_buffer_size = frames_per_window + window_margin * 2;
 
         size_t queue_capacity;
         RingBuffer<float> audio_queue_left;
@@ -21,13 +22,13 @@ namespace hosts::internal
         {
             float *buf_left;
             float *buf_right;
-            unsigned int index;
         } ui_state;
 
         struct
         {
             float *buf_left;
             float *buf_right;
+            unsigned int index;
         } audio_state;
 
         // oscilloscope windows

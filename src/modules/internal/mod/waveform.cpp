@@ -37,11 +37,11 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) : modx::ModuleBas
 
         // osc type
         sprintf(buf, "Oscillator %i Type", i);
-        create.add_control<int>(control_start + CONTROL_OSC_TYPE, buf, WAVE_SQUARE);
+        create.add_control<int>(control_start + CONTROL_OSC_TYPE, buf, WAVE_SINE);
 
         // osc vol
         sprintf(buf, "Oscillator %i Volume", i);
-        create.add_control<float>(control_start + CONTROL_OSC_VOL, buf, 0.5f);
+        create.add_control<float>(control_start + CONTROL_OSC_VOL, buf, i == 0 ? 0.5f : 0.0f);
 
         // osc pan
         sprintf(buf, "Oscillator %i Panning", i);

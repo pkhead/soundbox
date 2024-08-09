@@ -1,3 +1,4 @@
+#ifndef UNIT_TESTS
 #include <cassert>
 #include <cstdio>
 #include <iostream>
@@ -90,7 +91,6 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int
 }
 #endif
 
-#ifndef UNIT_TESTS
 int main(int argc, char** argv)
 {
     { // record endianness

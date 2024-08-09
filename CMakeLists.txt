@@ -110,6 +110,10 @@ set(SOURCES
     src/modules/internal/mod/analyzer.cpp
 )
 
+set(TEST_SOURCES
+    tests/dsp.cpp
+)
+
 set(LIBRARIES
     glfw
     portaudio_static
@@ -181,7 +185,7 @@ if (WIN32)
 
     # build unit tests
     if (UNIT_TESTS)
-        add_executable(soundbox-tests ${SOURCES} deps/catch2/catch_amalgamated.cpp)
+        add_executable(soundbox-tests ${SOURCES} ${TEST_SOURCES} deps/catch2/catch_amalgamated.cpp)
         target_compile_definitions(soundbox-tests PUBLIC UI_WINDOWS UNIT_TESTS ${COMPILE_FLAGS})
         target_link_libraries(soundbox-tests ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
     endif()
@@ -196,7 +200,7 @@ else()
     add_executable(soundbox ${SOURCES} src/main.cpp)
 
     if (UNIT_TESTS)
-        add_executable(soundbox-tests ${SOURCES} deps/catch2/catch_amalgamated.cpp)
+        add_executable(soundbox-tests ${SOURCES} ${TEST_SOURCES} deps/catch2/catch_amalgamated.cpp)
     endif()
 
     find_package(OpenGL REQUIRED)

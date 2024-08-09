@@ -184,8 +184,12 @@ unsigned int ModuleProcessor::read_message(unsigned int index, void *buffer, uns
     if (queue.available_for_read() < sizeof(msg_header)) return 0;
     queue.read((std::byte*) &msg_header, sizeof(msg_header));
 
-    // can't fit data into buffer
-    if (msg_header.size > max_length) return 0;
+    // can't fit data into buffer, discard message...
+    if (msg_header.size > max_length)
+    {
+        queue.discard(msg_header.size);
+        return 0;
+    }
 
     queue.read((std::byte*) buffer, msg_header.size);
     return msg_header.size;

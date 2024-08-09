@@ -41,7 +41,9 @@ public:
     /// Returns true on success, and false otherwise.
     bool write(T *src, std::size_t count)
     {
-        std::size_t read = _read_ptr;
+        if (available_for_write() < count) return false;
+        std::size_t write = _write_ptr;
+        /*std::size_t read = _read_ptr;
         std::size_t write = _write_ptr;
         
         std::size_t available;
@@ -51,11 +53,12 @@ public:
             available = _capacity - write + read - 1;
         }
 
-        if (available < count) return false;
+        if (available < count) return false;*/
 
         for (std::size_t i = 0; i < count; i++) {
+            write %= _capacity;
             _data[write] = src[i];
-            write = (write + 1) % _capacity;
+            write++;
         }
 
         _write_ptr = write;
@@ -66,21 +69,28 @@ public:
     /// Returns true on success, and false otherwise.
     bool read(T *dst, std::size_t count)
     {
+        if (available_for_read() < count) return false;
         std::size_t read = _read_ptr;
-        std::size_t write = _write_ptr;
-
-        std::size_t available;
-        if (write >= read) {
-            available = write - read;
-        } else {
-            available = _capacity - read + write;
-        }
-
-        if (available < count) return false;
 
         for (std::size_t i = 0; i < count; i++) {
+            read %= _capacity;
             dst[i] = _data[read];
-            read = (read + 1) % _capacity;
+            read++;
+        }
+
+        _read_ptr = read;
+        return true;
+    }
+
+    /// Discard a number of elements from the ring buffer.
+    /// Returns true on success, and false otherwise.
+    bool discard(std::size_t count)
+    {
+        if (available_for_read() < count) return false;
+        std::size_t read = _read_ptr;
+
+        for (std::size_t i = 0; i < count; i++) {
+            read = (read % _capacity) + 1;
         }
 
         _read_ptr = read;
@@ -97,7 +107,7 @@ public:
         if (read > write) {
             available = read - write - 1;
         } else {
-            available = _capacity - write + read - 1;
+            available = _capacity - write + read;
         }
 
         return available;
