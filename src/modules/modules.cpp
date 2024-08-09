@@ -1,5 +1,6 @@
 #include <cassert>
 #include <widgets.hpp>
+#include <numutil.hpp>
 #include "imguiext/imgui-knobs.h"
 #include "modules.hpp"
 
@@ -56,6 +57,47 @@ void ModuleHost::mod_process(modules::ModuleProcessor& process)
 
 
 
+
+///////////////////////////////
+// song event struct helpers //
+///////////////////////////////
+TrackEvent TrackEvent::init_note_on(uint8_t key, float velocity)
+{
+    velocity = util::clamp<float>(0.0f, 1.0f, velocity);
+    TrackEvent event{};
+    event.event_kind = NOTE_ON;
+    event.timestamp = 0;
+    event.note.key = key;
+    event.note.velocity = (uint8_t)(velocity * UINT8_MAX);
+    return event;
+}
+
+TrackEvent TrackEvent::init_note_off(uint8_t key, float velocity)
+{
+    velocity = util::clamp<float>(0.0f, 1.0f, velocity);
+    TrackEvent event{};
+    event.event_kind = NOTE_OFF;
+    event.timestamp = 0;
+    event.note.key = key;
+    event.note.velocity = (uint8_t)(velocity * UINT8_MAX);
+    return event;
+}
+
+TrackEvent TrackEvent::init_tempo(uint32_t tempo)
+{
+    TrackEvent event{};
+    event.event_kind = TEMPO;
+    event.timestamp = 0;
+    event.tempo = tempo;
+    return event;
+}
+
+TrackEvent TrackEvent::set_timestamp(uint32_t timestamp, const TrackEvent &event)
+{
+    TrackEvent ret = event;
+    ret.timestamp = timestamp;
+    return ret;
+}
 
 
 ////////////////

@@ -163,6 +163,7 @@ int main(int argc, char** argv)
 
         double next_time = glfwGetTime();
         double prev_time = next_time;
+        double dt;
 
         sbox::Application app;
 
@@ -188,8 +189,8 @@ int main(int argc, char** argv)
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
-
-            app.update(1.0 / FRAME_LENGTH);
+            
+            app.update(dt);
 
             ImGui::Render();
             window_manager.update();
@@ -200,8 +201,7 @@ int main(int argc, char** argv)
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             glfwSwapBuffers(draw_window);
-
-            prev_time = glfwGetTime();
+            dt = glfwGetTime() - now_time;
         }
 
         //sys::clear_interval(audioaux_interval);

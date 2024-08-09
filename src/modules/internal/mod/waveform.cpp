@@ -2,10 +2,11 @@
 #include <math.h>
 #include <numutil.hpp>
 #include <widgets.hpp>
+#include <imgui.h>
+#include <log.hpp>
+#include "../host.hpp"
+#include "modules/modules.hpp"
 #include "waveform.hpp"
-#include "../midi.hpp"
-#include "imgui.h"
-#include "log.hpp"
 
 using namespace hosts::internal;
 
@@ -102,8 +103,8 @@ static float poly_blep(float t, float inc)
     else return 0.0;
 }
 
-void WaveformModule::event(const midi::MidiEvent& ev) {
-    if (midi::is_note_on(ev)) {
+void WaveformModule::event(const modx::TrackEvent& ev) {
+    if (ev.event_kind == modx::TrackEvent::NOTE_ON) {
         // create new voice in first found empty slot
         // if there are no empty slots, replace the first voice in memory
         Voice* voice = audio_state.voices+0;
@@ -120,7 +121,7 @@ void WaveformModule::event(const midi::MidiEvent& ev) {
         float key_freq = powf(2.0f, (float)(ev.note.key - 57) / 12.0f) * 440.0f;;
         *voice = Voice(ev.note.key, key_freq, (float)ev.note.velocity / 127.0f);
     
-    } else if (midi::is_note_off(ev)) {
+    } else if (ev.event_kind == modx::TrackEvent::NOTE_OFF) {
         for (size_t i = 0; i < MAX_VOICES; i++) {
             Voice& voice = audio_state.voices[i];
 
@@ -138,11 +139,11 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
     // process midi input
     while (true)
     {
-        midi::MidiEvent midi_event;
-        unsigned int read = proc.read_message(0, &midi_event, sizeof(midi_event));
+        modx::TrackEvent event;
+        unsigned int read = proc.read_message(0, &event, sizeof(event));
         if (read == 0) break;
-        assert(read == sizeof(midi_event));
-        event(midi_event);
+        assert(read == sizeof(event));
+        this->event(event);
     }
     
     dsp::ADSR &amp_env_params = audio_state.amp_env;

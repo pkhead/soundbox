@@ -2,6 +2,7 @@
 #include <imgui.h>
 #include <imgui/misc/cpp/imgui_stdlib.h>
 #include <numutil.hpp>
+#include "modules/modules.hpp"
 #include "shortcuts.hpp"
 #include "song.hpp"
 #include "song_editor.hpp"
@@ -407,6 +408,7 @@ void SongEditor::render_track_editor()
     static int col_start = 0;
     static int col_end = 0;
 
+    // cursor controls
     if (shortcuts.is_activated(ShortcutID::CURSOR_LEFT))
     {
         selected_bar = ((int)selected_bar - 1) % song.length();
@@ -425,6 +427,21 @@ void SongEditor::render_track_editor()
     if (shortcuts.is_activated(ShortcutID::CURSOR_DOWN))
     {
         selected_channel = (selected_channel + 1) % song.channel_count();
+    }
+
+    // playhead controls
+    if (shortcuts.is_activated(ShortcutID::PLAYHEAD_PREV))
+    {
+        song.position -= song.beats_per_bar;
+        while (song.position < 0)
+            song.position += song.length() * song.beats_per_bar;
+    }
+
+    if (shortcuts.is_activated(ShortcutID::PLAYHEAD_NEXT))
+    {
+        song.position += song.beats_per_bar;
+        while (song.position >= song.length() * song.beats_per_bar)
+            song.position -= song.length() * song.beats_per_bar;
     }
     
     if (ImGui::Begin("Track Editor")) {
@@ -539,7 +556,7 @@ void SongEditor::render_track_editor()
         }
 
         // draw playhead
-        double song_pos = song.is_playing ? (song.position / song.beats_per_bar) : (song.bar_position);
+        double song_pos = song.is_playing ? (song.position / song.beats_per_bar) : (song.bar_position());
         Vec2 playhead_pos = canvas_p0 + Vec2(song_pos * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, viewport_scroll.y);
         draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y), vec4_color(style.Colors[ImGuiCol_Text]));
 
@@ -943,7 +960,7 @@ void SongEditor::render_pattern_editor()
                 // stop already currently playing note
                 if (play_key && song.is_note_playable(played_key)) {
                     // turn off old note
-                    cur_channel.send_midi(midi::note_off(0, played_key, PIANO_KEY_VELOCITY));
+                    cur_channel.send_event(modx::TrackEvent::init_note_off(played_key, PIANO_KEY_VELOCITY));
                 }
 
                 play_key = true;
@@ -951,7 +968,7 @@ void SongEditor::render_pattern_editor()
                 played_key = key;
 
                 if (song.is_note_playable(key)) {
-                    cur_channel.send_midi(midi::note_on(0, played_key, PIANO_KEY_VELOCITY));
+                    cur_channel.send_event(modx::TrackEvent::init_note_on(played_key, PIANO_KEY_VELOCITY));
                 }
             }
         }
@@ -968,11 +985,11 @@ void SongEditor::render_pattern_editor()
                 if (prev_mouse_cy != mouse_cy) {
                     if (song.is_note_playable(played_key)) {
                         // turn off old note
-                        cur_channel.send_midi(midi::note_off(0, played_key, PIANO_KEY_VELOCITY));
+                        cur_channel.send_event(modx::TrackEvent::init_note_off(played_key, PIANO_KEY_VELOCITY));
 
                         // turn on new note
                         played_key = scroll - mouse_cy;
-                        cur_channel.send_midi(midi::note_on(0, played_key, PIANO_KEY_VELOCITY));
+                        cur_channel.send_event(modx::TrackEvent::init_note_on(played_key, PIANO_KEY_VELOCITY));
                     }
                 }
             }
@@ -1047,7 +1064,7 @@ void SongEditor::render_pattern_editor()
         if (&cur_channel != prev_channel) {
             if (prev_channel != nullptr && play_key) {
                 if (song.is_note_playable(played_key)) {
-                    prev_channel->send_midi(midi::note_off(0, played_key, PIANO_KEY_VELOCITY));
+                    prev_channel->send_event(modx::TrackEvent::init_note_off(played_key, PIANO_KEY_VELOCITY));
                 }
 
                 play_key = false;
@@ -1106,7 +1123,7 @@ void SongEditor::render_pattern_editor()
             if (play_key) {
                 // turn off old note
                 if (song.is_note_playable(played_key)) {
-                    cur_channel.send_midi(midi::note_off(0, played_key, PIANO_KEY_VELOCITY));
+                    cur_channel.send_event(modx::TrackEvent::init_note_off(played_key, PIANO_KEY_VELOCITY));
                 }
 
                 play_key = false;
@@ -1275,7 +1292,7 @@ void SongEditor::render_pattern_editor()
         }
 
         // draw playhead
-        if (song.is_playing && cur_channel.sequence[song.bar_position] == pattern_id) {
+        if (song.is_playing && cur_channel.sequence[song.bar_position()] == pattern_id) {
             Vec2 playhead_pos = draw_origin + Vec2(PIANO_KEY_WIDTH + fmodf(song.position, song.beats_per_bar) * CELL_SIZE.x, viewport_scroll.y);
             draw_list->AddRectFilled(playhead_pos, playhead_pos + Vec2(1.0f, canvas_size.y + style.WindowPadding.y * 2.0f), vec4_color(style.Colors[ImGuiCol_Text]));
         }

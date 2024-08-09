@@ -1,7 +1,6 @@
 #pragma once
 #include <modules/modules.hpp>
 #include <dsp.hpp>
-#include "../midi.hpp"
 
 namespace hosts::internal
 {
@@ -42,7 +41,7 @@ namespace hosts::internal
 
         int ui_selected_osc;
 
-        void event(const midi::MidiEvent &ev);
+        void event(const modx::TrackEvent &ev);
     public:
         static constexpr unsigned int OSC_CONTROL_COUNT = 5;
         const unsigned int OSC_CONTROL_START[OSC_CONTROL_COUNT] = {

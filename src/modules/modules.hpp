@@ -141,4 +141,36 @@ namespace modx
 
         virtual void destroy_module(const std::string class_name, void *userdata) override;
     }; // class ModuleHost
+
+    /**
+    * Standardized structure used to send song/track events.
+    **/
+    struct TrackEvent
+    {
+        enum EventKind
+        {
+            NOTE_OFF,
+            NOTE_ON,
+            TEMPO
+        };
+
+        uint32_t timestamp;
+        EventKind event_kind;
+        
+        union
+        {
+            struct
+            {
+                uint8_t key;
+                uint8_t velocity;
+            } note;
+            
+            uint32_t tempo;
+        };
+
+        static TrackEvent init_note_on(uint8_t key, float velocity);
+        static TrackEvent init_note_off(uint8_t key, float velocity);
+        static TrackEvent init_tempo(uint32_t tempo);
+        static TrackEvent set_timestamp(uint32_t timestamp, const TrackEvent& event);
+    }; // struct NoteEvent
 } // namespace modx

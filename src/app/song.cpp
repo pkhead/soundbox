@@ -2,6 +2,7 @@
 #include <climits>
 #include <memory>
 #include <vector>
+#include "modules/modules.hpp"
 #include "song.hpp"
 #include "../modules/internal/modules.hpp"
 
@@ -10,7 +11,7 @@ using namespace sbox;
 /////////////////////
 // Notes, Patterns //
 /////////////////////
-static unsigned int new_note_id = 0;
+static unsigned int next_uid = 0;
 
 Note::Note()
     : Note(0.0f, 0, 0.0f)
@@ -20,12 +21,12 @@ Note::Note(float time, int key, float length) :
     time(time),
     key(key),
     length(length),
-    id(new_note_id++)
+    id(next_uid++)
 {}
 
 void Note::new_id()
 {
-    id = new_note_id++;
+    id = next_uid++;
 }
 
 Note& Pattern::add_note(float time, int key, float length) {
@@ -192,12 +193,27 @@ void ModuleRack::connect_output(const modx::ModuleRc &new_output)
 ////////////////////
 // Song, Channels //
 ////////////////////
+InstrumentChannel::InstrumentChannel(const std::string &name) :
+    uid(next_uid++),
+    name(name)
+{
+    mute = false;
+    solo = false;
+    _effect_channel = (unsigned int)-1;
+}
+
+EffectChannel::EffectChannel(const std::string &name) :
+    uid(next_uid++),
+    name(name)
+{
+    mute = false;
+    solo = false;
+    _output_channel = (uint)-1;
+}
+
 std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::AudioEngine &engine, unsigned int index)
 {
-    std::unique_ptr<InstrumentChannel> channel = std::make_unique<InstrumentChannel>();
-    channel->name = "Channel " + std::to_string(index + 1);
-    channel->mute = false;
-    channel->solo = false;
+    std::unique_ptr<InstrumentChannel> channel = std::make_unique<InstrumentChannel>("Channel " + std::to_string(index + 1));
 
     channel->output_fader = modx::create_module(engine, "sbox::fader");
     channel->input_midi = modx::create_module(engine, "sbox::midi_in");
@@ -214,27 +230,23 @@ std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::Audi
     for (unsigned int j = 0; j < _max_patterns; j++)
         channel->patterns[j] = std::make_unique<Pattern>();
 
-    channel->_effect_channel = (uint)-1;
     return channel;
 }
 
 std::unique_ptr<EffectChannel> Song::create_effect_channel(modules::AudioEngine &engine, unsigned int name_number)
 {
-    std::unique_ptr<EffectChannel> channel = std::make_unique<EffectChannel>();
-    channel->name = name_number == 0 ? "Master" : ("Channel " + std::to_string(name_number));
-    channel->mute = false;
-    channel->solo = false;
+    std::string name = name_number == 0 ? "Master" : ("Channel " + std::to_string(name_number));
+    std::unique_ptr<EffectChannel> channel = std::make_unique<EffectChannel>(name);
 
     channel->input_mixer = modx::create_module(engine, modules::AudioEngine::MODULE_CLASS_STEREO_MIXER);
     channel->output_fader = modx::create_module(engine, "sbox::fader");
     channel->rack.connect_input(channel->input_mixer);
     channel->rack.connect_output(channel->output_fader);
 
-    channel->_output_channel = (uint)-1;
     return channel;
 }
 
-void InstrumentChannel::send_midi(const midi::MidiEvent &event)
+void InstrumentChannel::send_event(const modx::TrackEvent &event)
 {
     hosts::internal::MidiInputModule* midi_mod = dynamic_cast<hosts::internal::MidiInputModule*>(modx::ModuleHost::get_module(input_midi->id()));
 
@@ -257,10 +269,11 @@ Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patt
     project_notes = "";
     tempo = 150.0f;
     beats_per_bar = 8;
-    bar_position = 0;
     position = 0.0f;
     do_loop = true;
     is_playing = false;
+    _was_playing = is_playing;
+    _time_accum = 0.0f;
 
     _audio_out = modx::create_module(audio_engine, modules::AudioEngine::MODULE_CLASS_AUDIO_OUT);
 
@@ -575,4 +588,135 @@ bool Song::is_note_playable(int key)
     if (key < 0) return false;
     // TODO: microtones
     return true;
+}
+
+static InstrumentChannel* get_channel_with_uid(Song &song, unsigned int uid)
+{
+    for (size_t i = 0; i < song.channel_count(); i++)
+    {
+        InstrumentChannel *ch = &song.get_channel(i);
+        if (ch->uid == uid) return ch;
+    }
+
+    return nullptr;
+}
+
+// Update song notes at a fixed interval
+void Song::tick()
+{
+    float old_position = position;
+
+    float beat_delta = (tempo / 60.0f) * TICK_LENGTH;
+    position = fmodf(position + beat_delta, length() * beats_per_bar);
+
+    // get the list of active notes
+    std::vector<ActiveNoteInfo> notes;
+    for (auto &ch : _channels)
+    {
+        assert(position >= 0.0f && position < length() * beats_per_bar);
+        float playhead_in_bar = fmodf(position, beats_per_bar);
+
+        unsigned int pattern_index = ch->sequence[bar_position()];
+        if (pattern_index == 0) continue;
+        auto &pattern = ch->patterns[pattern_index - 1];
+
+        for (auto &note : pattern->notes)
+        {
+            const float note_start = note.time;
+            const float note_end = note_start + note.length;
+
+            if (playhead_in_bar >= note_start && playhead_in_bar < note_end)
+            {
+                notes.push_back(ActiveNoteInfo {
+                    .channel_uid = ch->uid,
+                    .note = note,
+                });
+            }
+        }
+    }
+
+    // find new active notes
+    for (auto &new_note : notes)
+    {
+        bool is_pressed = true;
+        for (auto &old_note : _active_notes)
+        {
+            if (new_note.note.id == old_note.note.id)
+            {
+                is_pressed = false;
+                break;
+            }
+        }
+
+        if (!is_pressed) continue;
+        InstrumentChannel *ch = get_channel_with_uid(*this, new_note.channel_uid);
+        assert(ch != nullptr);
+
+        modx::TrackEvent ev = modx::TrackEvent::init_note_on(new_note.note.key, 1.0f);
+        ch->send_event(ev);
+    }
+
+    // find released notes
+    for (auto &old_note : _active_notes)
+    {
+        bool is_released = true;
+        for (auto &new_note : notes)
+        {
+            if (old_note.note.id == new_note.note.id)
+            {
+                is_released = false;
+                break;
+            }
+        }
+
+        if (!is_released) continue;
+        InstrumentChannel *ch = get_channel_with_uid(*this, old_note.channel_uid);
+        if (ch == nullptr) continue;
+
+        modx::TrackEvent ev = modx::TrackEvent::init_note_off(old_note.note.key, 1.0f);
+        ch->send_event(ev);
+    }
+
+    _active_notes = notes;
+}
+
+void Song::update(float dt)
+{
+    // playback state changed
+    if (_was_playing != is_playing)
+    {
+        // playback stopped
+        if (!is_playing)
+        {
+            // move playhead to the start of the current bar
+            position = bar_position() * beats_per_bar;
+
+            // stop all currently active notes
+            for (auto &active : _active_notes)
+            {
+                InstrumentChannel *ch = get_channel_with_uid(*this, active.channel_uid);
+                if (ch == nullptr) break;
+
+                modx::TrackEvent ev = modx::TrackEvent::init_note_off(active.note.key, 1.0f);
+                ch->send_event(ev);
+            }
+
+            _active_notes.clear();
+        }
+
+        _was_playing = is_playing;
+        _time_accum = 0.0f;
+    }
+
+    // TODO: this is probably a very inefficient algorithm.
+    // O(n^2)s everywhere. but does it really matter?
+    if (is_playing)
+    {
+        _time_accum += dt;
+        while (_time_accum >= TICK_LENGTH)
+        {
+            tick();
+            _time_accum -= TICK_LENGTH;
+        }
+    }
 }

@@ -13,16 +13,16 @@ Contains implementations for all "control" modules:
 #include <imgui_internal.h>
 #include <dsp.hpp>
 #include <audio_engine/audio_engine.hpp>
-#include <modules/modules.hpp>
 #include "../modules.hpp"
-#include "../midi.hpp"
+#include "../host.hpp"
+#include "modules/modules.hpp"
 
 using namespace hosts::internal;
 
 ///////////////////
 // sbox::midi_in //
 ///////////////////
-constexpr size_t MIDI_QUEUE_SIZE = sizeof(midi::MidiEvent) * 32;
+constexpr size_t MIDI_QUEUE_SIZE = sizeof(modx::TrackEvent) * 32;
 
 MidiInputModule::MidiInputModule(modules::ModuleCreator &create) :
     modx::ModuleBase(create),
@@ -33,11 +33,11 @@ MidiInputModule::MidiInputModule(modules::ModuleCreator &create) :
 
 void MidiInputModule::process(modules::ModuleProcessor &proc)
 {
-    std::byte msg_buf[sizeof(midi::MidiEvent)];
+    modx::TrackEvent buf;
 
-    while (midi_queue.read(msg_buf, sizeof(midi::MidiEvent)))
+    while (midi_queue.read((std::byte*) &buf, sizeof(buf)))
     {
-        proc.send_message(0, (std::byte*) &msg_buf, sizeof(midi::MidiEvent));
+        proc.send_message(0, (std::byte*) &buf, sizeof(buf));
     }
 }
 

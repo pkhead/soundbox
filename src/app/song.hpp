@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include "../modules/modules.hpp"
-#include "../modules/internal/midi.hpp"
 #include "audio_engine/audio_engine.hpp"
 
 namespace sbox
@@ -83,6 +82,8 @@ namespace sbox
         unsigned int _effect_channel;
     
     public:
+        const unsigned int uid;
+        
         std::string name;
         std::vector<unsigned int> sequence;
         std::vector<std::unique_ptr<Pattern>> patterns;
@@ -95,9 +96,11 @@ namespace sbox
 
         inline unsigned int effect_channel() const { return _effect_channel; }
 
-        void send_midi(const midi::MidiEvent &event);
+        void send_event(const modx::TrackEvent &event);
 
         friend class Song;
+
+        InstrumentChannel(const std::string &name);
     }; // struct InstrumentChannel
 
     class EffectChannel
@@ -106,6 +109,7 @@ namespace sbox
         unsigned int _output_channel;
     
     public:
+        const unsigned int uid;
         std::string name;
 
         modx::ModuleRc input_mixer;
@@ -121,6 +125,8 @@ namespace sbox
         inline unsigned int output_channel() const { return _output_channel; }
 
         friend class Song;
+
+        EffectChannel(const std::string &name);
     }; // struct EffectChannel
 
     class Song
@@ -129,14 +135,27 @@ namespace sbox
         std::vector<std::unique_ptr<InstrumentChannel>> _channels;
         std::vector<std::unique_ptr<EffectChannel>> _fx_channels;
 
+        bool _was_playing;
         unsigned int _length;
         unsigned int _max_patterns;
         modules::AudioEngine &_audio_engine;
 
         modx::ModuleRc _audio_out;
 
+        struct ActiveNoteInfo
+        {
+            unsigned int channel_uid;
+            Note note;
+        };
+
+        std::vector<ActiveNoteInfo> _active_notes;
+
         std::unique_ptr<InstrumentChannel> create_instrument_channel(modules::AudioEngine &engine, unsigned int index);
         static std::unique_ptr<EffectChannel> create_effect_channel(modules::AudioEngine &engine, unsigned int name_number);
+
+        static constexpr float TICK_LENGTH = 1.0f / 240.0f;
+        float _time_accum;
+        void tick();
 
     public:
         Song(const Song&) = delete; // disable copy
@@ -147,10 +166,23 @@ namespace sbox
         std::string project_notes;
         float tempo;
         unsigned int beats_per_bar;
-        unsigned int bar_position;
-        float position;
+        //unsigned int bar_position;
         bool do_loop;
 
+        /**
+        * Position of the playhead, in beats.
+        **/
+        float position;
+
+        unsigned int bar_position() const {
+            assert(position >= 0.0f);
+            return (unsigned int) (position / beats_per_bar);
+        }
+
+        /**
+        * True if the song is playing, false if not.
+        * Toggling this affects the playback state.
+        **/
         bool is_playing;
 
         inline unsigned int length() const { return _length; }
@@ -254,5 +286,11 @@ namespace sbox
         void disconnect_effect(unsigned int channel_index);
 
         bool is_note_playable(int key);
+
+        /**
+        * Update song playback, sending MIDI events to the first module of every
+        * instrument channel whenever a note is played on that channel.
+        **/
+        void update(float dt);
     }; // class Song
 }

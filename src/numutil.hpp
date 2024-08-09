@@ -92,4 +92,12 @@ namespace util
     int sign(T v) {
         return v == 0 ? 0 : bsign(v);
     }
+
+    template <typename T>
+    T clamp(T min, T max, T v)
+    {
+        if (v > max) return max;
+        if (v < min) return min;
+        return v;
+    }
 }

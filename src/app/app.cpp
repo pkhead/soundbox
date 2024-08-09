@@ -42,6 +42,8 @@ void Application::update(float dt)
     draw_interface();
 
     handle_shortcuts();
+
+    _song->update(dt);
     _audio_engine.update();
 }
 

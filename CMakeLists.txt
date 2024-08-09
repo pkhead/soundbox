@@ -104,8 +104,6 @@ set(SOURCES
 
     # stock plugins
     src/modules/internal/host.cpp
-    src/modules/internal/midi.cpp
-
     src/modules/internal/mod/control.cpp
     src/modules/internal/mod/waveform.cpp
     src/modules/internal/mod/analyzer.cpp
