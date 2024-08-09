@@ -9,13 +9,13 @@ Contains implementations for all "control" modules:
 #include <cmath>
 #include <cassert>
 #include <numutil.hpp>
+#include <imgui.h>
+#include <imgui_internal.h>
+#include <dsp.hpp>
+#include <audio_engine/audio_engine.hpp>
+#include <modules/modules.hpp>
 #include "../modules.hpp"
 #include "../midi.hpp"
-#include "audio_engine/audio_engine.hpp"
-#include "imgui.h"
-#include "imgui_internal.h"
-#include "modules/internal/dsp.h"
-#include "modules/modules.hpp"
 
 using namespace hosts::internal;
 
@@ -66,7 +66,7 @@ void FaderModule::process(modules::ModuleProcessor &proc)
     float pan = proc.get_control_value<float>(FADER_CONTROL_PAN);
     bool mute = proc.get_control_value<bool>(FADER_CONTROL_MUTE);
     
-    float linear_gain = db_to_mult(gain);
+    float linear_gain = dsp::db_to_mult(gain);
     float right = (pan + 1.0f) / 2.0f;
     float left = 1.0f - right;
 
@@ -95,7 +95,7 @@ void GainModule::process(modules::ModuleProcessor &proc)
     float *in = proc.audio_input(0);
     float *out = proc.audio_output(0);
     float gain = proc.get_control_value<float>(0);
-    float linear_gain = db_to_mult(gain);
+    float linear_gain = dsp::db_to_mult(gain);
 
     assert(proc.audio_input_channels(0) == 2);
     assert(proc.audio_output_channels(0) == 2);

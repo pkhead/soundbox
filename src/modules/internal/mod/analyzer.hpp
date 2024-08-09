@@ -1,6 +1,5 @@
 #pragma once
 #include <modules/modules.hpp>
-#include "../dsp.h"
 
 namespace hosts::internal
 {

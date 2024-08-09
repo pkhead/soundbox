@@ -1,9 +1,11 @@
 #include <audio_engine/audio_engine.hpp>
 #include <math.h>
 #include <numutil.hpp>
+#include <dsp.hpp>
+#include <imgui.h>
+#include <log.hpp>
+
 #include "analyzer.hpp"
-#include "imgui.h"
-#include "log.hpp"
 
 using namespace hosts::internal;
 
@@ -133,11 +135,11 @@ static int offset_zero_crossing(float* buf, size_t buf_size, size_t border)
         prev[1] = buf[origin + i - 1];
 
         // if there is a rising zero crossing on the left side
-        if (is_zero_crossing(prev[0], cur[0]) && cur[0] > prev[0])
+        if (dsp::is_zero_crossing(prev[0], cur[0]) && cur[0] > prev[0])
             return -i;
 
         // if there is rising zero crossing on the right side
-        else if (is_zero_crossing(prev[1], cur[1]) && cur[1] > prev[1])
+        else if (dsp::is_zero_crossing(prev[1], cur[1]) && cur[1] > prev[1])
             return i;
     }
 

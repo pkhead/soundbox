@@ -145,8 +145,8 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
         event(midi_event);
     }
     
-    ADSR &amp_env_params = audio_state.amp_env;
-    ADSR &filt_env_params = audio_state.filt_env;
+    dsp::ADSR &amp_env_params = audio_state.amp_env;
+    dsp::ADSR &filt_env_params = audio_state.filt_env;
 
     // read control values //
     amp_env_params.attack = proc.get_control_value<float>(CONTROL_AMP_ATTACK);
@@ -162,7 +162,7 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
     int filter_type = proc.get_control_value<int>(CONTROL_FILTER_TYPE);
     float ctl_filter_freq = proc.get_control_value<float>(CONTROL_FILTER_FREQ);
     float filt_amount = proc.get_control_value<float>(CONTROL_FILTER_ENV);
-    float reso_linear = db_to_mult(proc.get_control_value<float>(CONTROL_FILTER_RESO));
+    float reso_linear = dsp::db_to_mult(proc.get_control_value<float>(CONTROL_FILTER_RESO));
 
     float vibrato_amount = proc.get_control_value<float>(CONTROL_VIBRATO_AMOUNT);
     float vibrato_delay = proc.get_control_value<float>(CONTROL_VIBRATO_DELAY);
@@ -250,7 +250,7 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
 
                 switch (osc_data[osc].type) {
                     case WAVE_SINE:
-                        sample = sin(phase);
+                        sample = sinf(phase);
                         break;
 
                     case WAVE_SQUARE:

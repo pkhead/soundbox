@@ -1,91 +1,9 @@
 #include <cstring>
 #include <cmath>
-#include "dsp.h"
+#include <numutil.hpp>
+#include "dsp.hpp"
 
-using namespace hosts::internal;
-
-/*size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave)
-{
-    size_t sample_count;
-    size_t buffer_size = frames_per_buffer * 2;
-
-    if (channel_count == 1)
-    {
-        float* dest_mono = dest[0];
-
-        if (interleave)
-        {
-            // send interleaved buffer
-            sample_count = buffer_size;
-            memcpy(dest_mono, src, buffer_size);
-        }
-        else // convert to mono
-        {
-            sample_count = frames_per_buffer;
-            for (size_t i = 0; i < frames_per_buffer; i++)
-                dest_mono[i] = src[i * 2] + src[i * 2 + 1];
-        }
-    }
-
-    // separate each channel
-    else if (channel_count == 2)
-    {
-        sample_count = frames_per_buffer;
-
-        for (size_t i = 0; i < frames_per_buffer; i++)
-        {
-            dest[0][i] = src[i * 2];
-            dest[1][i] = src[i * 2 + 1];
-        }
-    }
-
-    // unsupported channel count, initialize buffers to 0
-    else
-    {
-        sample_count = frames_per_buffer;
-
-        for (int c = 0; c < channel_count; c++)
-            for (int i = 0; i < frames_per_buffer; i++)
-                dest[c][i] = 0.0f;
-    }
-
-    return sample_count;
-}
-
-void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave)
-{
-    size_t buffer_size = frames_per_buffer * 2;
-
-    // mono
-    if (channel_count == 1)
-    {
-        float* buf = src[0];
-
-        if (interleave) {
-            memcpy(dest, src, buffer_size);
-        } else {
-            for (size_t i = 0; i < frames_per_buffer; i++) {
-                dest[i * 2] = buf[i];
-                dest[i * 2 + 1] = buf[i];
-            }
-        }
-    }
-
-    // stereo
-    else if (channel_count == 2)
-    {
-        for (size_t i = 0; i < frames_per_buffer; i++) {
-            dest[i * 2] = src[0][i];
-            dest[i * 2 + 1] = src[1][i];
-        }
-    }
-
-    // unsupported channel count, set to 0
-    else
-    {
-        memset(dest, 0, buffer_size * sizeof(float));
-    }
-}*/
+using namespace dsp;
 
 /*
 * ADSR

@@ -1,6 +1,6 @@
 #pragma once
 #include <modules/modules.hpp>
-#include "../dsp.h"
+#include <dsp.hpp>
 #include "../midi.hpp"
 
 namespace hosts::internal
@@ -23,11 +23,11 @@ namespace hosts::internal
             float vibrato_phase = 0.0f;
             double time = 0.0f;
 
-            ADSR::Instance amp_env;
-            ADSR::Instance filt_env;
+            dsp::ADSR::Instance amp_env;
+            dsp::ADSR::Instance filt_env;
             
             double last_sample[3];
-            FilterIIR2ndOrder filter[2];
+            dsp::FilterIIR2ndOrder filter[2];
 
             Voice();
             Voice(int key, float freq, float volume);
@@ -36,8 +36,8 @@ namespace hosts::internal
         struct
         {
             Voice voices[MAX_VOICES];
-            ADSR amp_env;
-            ADSR filt_env;
+            dsp::ADSR amp_env;
+            dsp::ADSR filt_env;
         } audio_state;
 
         int ui_selected_osc;

@@ -1,44 +1,43 @@
 #include <catch2/catch_amalgamated.hpp>
 #include <audio_engine/ring_buffer.hpp>
-#include <modules/internal/dsp.h>
+#include <dsp.hpp>
 
 using namespace Catch;
-using namespace hosts::internal;
 
 TEST_CASE("Zero Crossing 1", "[utils]") {
-    REQUIRE(is_zero_crossing(-1.0f, 1.0f));
+    REQUIRE(dsp::is_zero_crossing(-1.0f, 1.0f));
 }
 
 TEST_CASE("Zero Crossing 2", "[utils]") {
-    REQUIRE(is_zero_crossing(1.0f, -1.0f));
+    REQUIRE(dsp::is_zero_crossing(1.0f, -1.0f));
 }
 
 TEST_CASE("Zero Crossing 3", "[utils]") {
-    REQUIRE(is_zero_crossing(0.0f, 0.0f));
+    REQUIRE(dsp::is_zero_crossing(0.0f, 0.0f));
 }
 
 TEST_CASE("Zero Crossing 4", "[utils]") {
-    REQUIRE(is_zero_crossing(0.0f, 2.0f));
+    REQUIRE(dsp::is_zero_crossing(0.0f, 2.0f));
 }
 
 TEST_CASE("Zero Crossing 5", "[utils]") {
-    REQUIRE(is_zero_crossing(-2.0f, 0.0));
+    REQUIRE(dsp::is_zero_crossing(-2.0f, 0.0));
 }
 
 TEST_CASE("Zero Crossing 6", "[utils]") {
-    REQUIRE_FALSE(is_zero_crossing(2.0f, 1.0f));
+    REQUIRE_FALSE(dsp::is_zero_crossing(2.0f, 1.0f));
 }
 
 TEST_CASE("Zero Crossing 7", "[utils]") {
-    REQUIRE_FALSE(is_zero_crossing(-2.0f, -1.0f));
+    REQUIRE_FALSE(dsp::is_zero_crossing(-2.0f, -1.0f));
 }
 
 TEST_CASE("dB to factor 1", "[utils]") {
-    REQUIRE_THAT(db_to_mult(3.0f), Matchers::WithinAbs(1.995262315f, 0.00001f));
+    REQUIRE_THAT(dsp::db_to_mult(3.0f), Matchers::WithinAbs(1.995262315f, 0.00001f));
 }
 
 TEST_CASE("dB to factor 2", "[utils]") {
-    REQUIRE_THAT(db_to_mult(3.0), Matchers::WithinAbs(1.995262315, 0.00001));
+    REQUIRE_THAT(dsp::db_to_mult(3.0), Matchers::WithinAbs(1.995262315, 0.00001));
 }
 
 /*

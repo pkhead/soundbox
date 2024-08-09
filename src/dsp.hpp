@@ -8,7 +8,7 @@
 //size_t convert_from_stereo(float* src, float** dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 //void convert_to_stereo(float** src, float* dest, size_t channel_count, size_t frames_per_buffer, bool interleave);
 
-namespace hosts::internal
+namespace dsp
 {
     inline float db_to_mult(float db) {
         return powf(10.0f, db / 10.0f);

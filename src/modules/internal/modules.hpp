@@ -1,6 +1,6 @@
 #pragma once
+#include <dsp.hpp>
 #include "../modules.hpp"
-#include "dsp.h"
 #include "modules/internal/midi.hpp"
 #include "mod/waveform.hpp"
 
