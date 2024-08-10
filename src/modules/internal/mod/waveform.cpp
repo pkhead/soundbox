@@ -216,8 +216,8 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
             voice.filt_env.compute(voice.time, filt_env, filt_env_params);
 
             // setup filter
-            float filt_freq = util::lerp(ctl_filter_freq, ctl_filter_freq * filt_env, filt_amount);
-            if (filt_freq < 20.0f) filt_freq = 20.0f; // going too low on frequency will do... Something
+            float filt_env_min = 40.0f; // going too low on frequency will do... Something
+            float filt_freq = util::lerp(ctl_filter_freq, util::lerp(filt_env_min, ctl_filter_freq, filt_env), filt_amount);
 
             switch (filter_type)
             {

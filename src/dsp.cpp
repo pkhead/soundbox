@@ -31,13 +31,14 @@ bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
             return true;
         }
 
-        out = (1.0f - t) * release_env;
+        out = (1.0f - t) * (1.0f - t) * release_env;
     }
 
     // note is in attack state
     else if (time < adsr.attack)
     {
         out = time / adsr.attack;
+        out = 1.0f - (1.0f - out) * (1.0f - out); // quad interpolation
     }
 
     // note is in decay state
@@ -45,7 +46,7 @@ bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
     {
         t = (time - adsr.attack) / adsr.decay;
         if (t > 1.0f) t = 1.0f;
-        out = (adsr.sustain - 1.0f) * t + 1.0f;
+        out = (1.0f - adsr.sustain) * (1.0f - t) * (1.0f - t) + adsr.sustain;
     }
 
     return false;
