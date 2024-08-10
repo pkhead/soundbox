@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <modules/modules.hpp>
+#include <module_hosts/modules.hpp>
 #include "audio_engine/audio_engine.hpp"
 
 namespace sbox

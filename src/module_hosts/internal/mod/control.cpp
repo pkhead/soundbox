@@ -15,7 +15,6 @@ Contains implementations for all "control" modules:
 #include <audio_engine/audio_engine.hpp>
 #include "../modules.hpp"
 #include "../host.hpp"
-#include "modules/modules.hpp"
 
 using namespace hosts::internal;
 

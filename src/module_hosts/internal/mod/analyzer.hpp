@@ -1,5 +1,5 @@
 #pragma once
-#include <modules/modules.hpp>
+#include <module_hosts/modules.hpp>
 
 namespace hosts::internal
 {

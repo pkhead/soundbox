@@ -1,9 +1,9 @@
 #include <cassert>
 #include <cmath>
 #include <app/song.hpp>
+#include <module_hosts/modules.hpp>
+#include <audio_engine/audio_engine.hpp>
 #include "channel_control.hpp"
-#include "audio_engine/audio_engine.hpp"
-#include "modules/modules.hpp"
 
 using namespace hosts::internal;
 

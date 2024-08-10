@@ -2,11 +2,11 @@
 #include <imgui.h>
 #include <imgui/misc/cpp/imgui_stdlib.h>
 #include <numutil.hpp>
-#include "modules/modules.hpp"
+#include <module_hosts/modules.hpp>
 #include "shortcuts.hpp"
 #include "song.hpp"
 #include "song_editor.hpp"
-#include "../modules/internal/modules.hpp"
+#include "../module_hosts/internal/modules.hpp"
 #include "app.hpp"
 #include "theme.hpp"
 

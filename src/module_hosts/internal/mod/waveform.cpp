@@ -4,9 +4,9 @@
 #include <widgets.hpp>
 #include <imgui.h>
 #include <log.hpp>
+#include <imguiext/imgui-knobs.h>
+#include <module_hosts/modules.hpp>
 #include "../host.hpp"
-#include "imguiext/imgui-knobs.h"
-#include "modules/modules.hpp"
 #include "waveform.hpp"
 
 using namespace hosts::internal;

@@ -1,6 +1,6 @@
 #pragma once
 #include "audio_engine/audio_engine.hpp"
-#include <modules/modules.hpp>
+#include <module_hosts/modules.hpp>
 #include <app/song.hpp>
 
 namespace hosts::internal

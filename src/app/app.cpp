@@ -1,11 +1,10 @@
 #include <memory>
 #include <sstream>
-#include "app.hpp"
-#include "imgui.h"
-#include "../modules/internal/host.hpp"
+#include <imgui.h>
+#include <module_hosts/internal/host.hpp>
 #include "mod_editor.hpp"
-#include "modules/modules.hpp"
 #include "shortcuts.hpp"
+#include "app.hpp"
 
 using namespace sbox;
 

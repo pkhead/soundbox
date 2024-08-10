@@ -86,7 +86,7 @@ set(SOURCES
     # audio/module engine
     src/audio_engine/audio_engine.cpp
     src/audio_engine/module_host.cpp
-    src/modules/modules.cpp
+    src/module_hosts/modules.cpp
 
     # app sources
     src/main.cpp
@@ -103,11 +103,11 @@ set(SOURCES
     src/app/theme.cpp
 
     # stock plugins
-    src/modules/internal/host.cpp
-    src/modules/internal/mod/control.cpp
-    src/modules/internal/mod/waveform.cpp
-    src/modules/internal/mod/analyzer.cpp
-    src/modules/internal/mod/channel_control.cpp
+    src/module_hosts/internal/host.cpp
+    src/module_hosts/internal/mod/control.cpp
+    src/module_hosts/internal/mod/waveform.cpp
+    src/module_hosts/internal/mod/analyzer.cpp
+    src/module_hosts/internal/mod/channel_control.cpp
 )
 
 set(TEST_SOURCES

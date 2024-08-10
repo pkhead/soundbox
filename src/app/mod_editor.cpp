@@ -5,7 +5,7 @@
 #include <imgui_internal.h>
 #include <log.hpp>
 #include <audio_engine/audio_engine.hpp>
-#include <modules/internal/host.hpp>
+#include <module_hosts/internal/host.hpp>
 #include "mod_editor.hpp"
 #include "shortcuts.hpp"
 
@@ -37,8 +37,6 @@ void ModuleEditor::draw()
             ImGuiWindow *child_window = ImGui::GetCurrentContext()->HoveredWindowUnderMovingWindow;
             while (child_window != window)
             {
-                logger::log_debug("%s", child_window->Name);
-
                 if (child_window->ScrollbarY || child_window->ScrollbarX)
                 {
                     scroll_override = false;

@@ -2,11 +2,9 @@
 #include <climits>
 #include <memory>
 #include <vector>
-#include "log.hpp"
-#include "modules/internal/mod/channel_control.hpp"
-#include "modules/modules.hpp"
+#include <module_hosts/internal/modules.hpp>
+#include <log.hpp>
 #include "song.hpp"
-#include "../modules/internal/modules.hpp"
 
 using namespace sbox;
 
