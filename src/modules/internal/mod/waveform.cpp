@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <log.hpp>
 #include "../host.hpp"
+#include "imguiext/imgui-knobs.h"
 #include "modules/modules.hpp"
 #include "waveform.hpp"
 
@@ -265,7 +266,7 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
                             // though it sounds enough like one. just in case, i'm
                             // keeping the code to make an actual triangle wave, just
                             // commented out
-                            sample = increment * sample + (1 - increment) * voice.last_sample[osc];
+                            sample = increment * sample + (1 - increment * 0.25f) * voice.last_sample[osc];
                             voice.last_sample[osc] = sample;
                         }
 
@@ -390,12 +391,11 @@ void WaveformModule::ui()
             engine->control_set_value<int>(id(), CONTROL_FILTER_TYPE, filter_type);
         ImGui::PopStyleVar();
 
-        ImGuiKnobFlags flags = ImGuiKnobFlags_NoInput;
-        ui_knob("Freq", CONTROL_FILTER_FREQ, 20.0f, engine->sample_rate() * 0.4f, "%.3f", flags);
+        ui_knob("Freq", CONTROL_FILTER_FREQ, 64.0f, engine->sample_rate() * 0.4f, "%.3f", ImGuiKnobFlags_Logarithmic);
         ImGui::SameLine();
-        ui_knob("Reso", CONTROL_FILTER_RESO, 0.0f, 16.0f, "%.3f", flags);
+        ui_knob("Reso", CONTROL_FILTER_RESO, 0.0f, 16.0f, "%.3f dB");
         ImGui::SameLine();
-        ui_knob("Env", CONTROL_FILTER_ENV, 0.0f, 1.0f, "%.3f", flags);
+        ui_knob("Env", CONTROL_FILTER_ENV, 0.0f, 1.0f, "%.2f");
     }
     ImGui::EndChild();
 

@@ -95,8 +95,8 @@ namespace ImGuiKnobs {
 
             knob(const char *_label, ImGuiDataType data_type, DataType *p_value, DataType v_min, DataType v_max, float speed, float _radius, const char *format, ImGuiKnobFlags flags) {
                 radius = _radius;
-                t = ((float) *p_value - v_min) / (v_max - v_min);
                 auto screen_pos = ImGui::GetCursorScreenPos();
+                bool is_logarithmic = (flags & ImGuiKnobFlags_Logarithmic) != 0;
 
                 // Handle dragging
                 ImGui::InvisibleButton(_label, {radius * 2.0f, radius * 2.0f});
@@ -105,6 +105,9 @@ namespace ImGuiKnobs {
                 if (!(flags & ImGuiKnobFlags_DragHorizontal)) {
                     drag_flags |= ImGuiSliderFlags_Vertical;
                 }
+                if (is_logarithmic) {
+                    drag_flags |= ImGuiSliderFlags_Logarithmic;
+                }
                 value_changed = ImGui::DragBehavior(gid, data_type, p_value, speed, &v_min, &v_max, format, drag_flags);
 
                 angle_min = IMGUIKNOBS_PI * 0.75f;
@@ -112,6 +115,26 @@ namespace ImGuiKnobs {
                 center = {screen_pos[0] + radius, screen_pos[1] + radius};
                 is_active = ImGui::IsItemActive();
                 is_hovered = ImGui::IsItemHovered();
+                //angle = angle_min + (angle_max - angle_min) * t;
+                
+                if (is_logarithmic)
+                {
+                    // copied from DragBehavior, imgui_widgets.cpp
+                    float logarithmic_zero_epsilon = 0.0f;
+                    const float zero_deadzone_halfsize = 0.0f;
+
+                    // When using logarithmic sliders, we need to clamp to avoid hitting zero, but our choice of clamp value greatly affects slider precision. We attempt to use the specified precision to estimate a good lower bound.
+                    const int decimal_precision = (data_type == ImGuiDataType_Float || data_type == ImGuiDataType_Double) ? ImParseFormatPrecision(format, 3) : 1;
+                    logarithmic_zero_epsilon = ImPow(0.1f, (float)decimal_precision);
+
+                    // Convert to parametric space
+                    t = ImGui::ScaleRatioFromValueT<DataType, DataType, float>(data_type, *p_value, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize);
+                }
+                else
+                {
+                    t = ((float) *p_value - v_min) / (v_max - v_min);
+                }
+
                 angle = angle_min + (angle_max - angle_min) * t;
                 angle_cos = cosf(angle);
                 angle_sin = sinf(angle);
@@ -204,6 +227,9 @@ namespace ImGuiKnobs {
                 ImGuiSliderFlags drag_flags = 0;
                 if (!(flags & ImGuiKnobFlags_DragHorizontal)) {
                     drag_flags |= ImGuiSliderFlags_Vertical;
+                }
+                if (flags & ImGuiKnobFlags_Logarithmic) {
+                    drag_flags |= ImGuiSliderFlags_Logarithmic;
                 }
                 auto changed = ImGui::DragScalar("###knob_drag", data_type, p_value, speed, &v_min, &v_max, format, drag_flags);
                 if (changed) {
