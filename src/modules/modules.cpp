@@ -41,9 +41,10 @@ void ModuleHost::init_module(ModuleBase* module, modules::ModuleCreator &creator
     _modules[creator.id] = module;
 }
 
-void ModuleHost::destroy_module(const std::string class_name, void* userdata)
+void ModuleHost::destroy_module(const std::string class_name, modules::ModuleID id, void* userdata)
 {
     ModuleBase* mod = static_cast<ModuleBase*>(userdata);
+    assert(mod->id() == id);
     assert(_modules.find(mod->id()) != _modules.end());
     _modules.erase(mod->id());
     delete mod;

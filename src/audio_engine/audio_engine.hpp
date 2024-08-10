@@ -137,8 +137,15 @@ namespace modules
             std::vector<ModuleGraphConnection> message_inputs;
         };
 
+        struct DestroyQueueItem
+        {
+            ModuleID id;
+            std::shared_ptr<ModuleInstance> module;
+        };
+
         static ModuleID _next_module_id;
         std::unordered_map<ModuleID, std::shared_ptr<ModuleInstance>> _modules;
+        std::vector<DestroyQueueItem> _destroy_queue;
         std::mutex _mutex;
 
         std::thread _thread;
@@ -423,7 +430,7 @@ namespace modules
         /// Create a module.
         /// @returns True on success, false on failure.
         virtual bool create_module(ModuleCreator& creator) = 0;
-        virtual void destroy_module(const std::string class_name, void *userdata) = 0;
+        virtual void destroy_module(const std::string class_name, ModuleID id, void *userdata) = 0;
     }; // class ModuleHost
 } // class modules
 

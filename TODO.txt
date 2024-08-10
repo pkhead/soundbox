@@ -1,5 +1,5 @@
 == MINOR REWRITE!!! ==
-- is module destructor called on main thread?
+- module "idle" call - called on AudioEngine::update
 - smoother ADSR
 - ADSR ui non-linear scale
 - waveform pulse has a dc offset when combined? why?

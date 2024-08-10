@@ -157,6 +157,15 @@ bool AudioEngine::register_host(std::unique_ptr<ModuleHost> &&host)
     return true;
 }
 
+static std::string get_host_id(const std::string &mod_class)
+{
+    size_t sep_index = mod_class.find_first_of("::");
+    if (sep_index == std::string::npos) return ""; // module id had no :: separator, return unknown module
+
+    std::string host_id = mod_class.substr(0, sep_index);
+    return host_id;
+}
+
 ModuleID AudioEngine::create_module(const std::string &mod_class)
 {
     ModuleID this_id = _next_module_id;
@@ -216,10 +225,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
         instance->name = mod_class_info->name;
 
         // get host id from module id
-        size_t sep_index = mod_class.find_first_of("::");
-        if (sep_index == std::string::npos) return 0; // module id had no :: separator, return unknown module
-
-        std::string host_id = mod_class.substr(0, sep_index);
+        std::string host_id = get_host_id(mod_class);
         auto it = _hosts.find(host_id);
         if (it == _hosts.end())
         {
@@ -293,18 +299,26 @@ void AudioEngine::destroy_module(ModuleID mod_id)
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return;
 
-    ModuleInstance &mod = *it->second;
+    std::shared_ptr<ModuleInstance>& mod = it->second;
 
-    for (std::size_t i = 0; i < mod.input_audio_ports.size(); i++)
+    for (std::size_t i = 0; i < mod->input_audio_ports.size(); i++)
     {
         disconnect_audio_input(mod_id, i);
     }
 
-    for (std::size_t i = 0; i < mod.output_audio_ports.size(); i++)
+    for (std::size_t i = 0; i < mod->output_audio_ports.size(); i++)
     {
         disconnect_audio_output(mod_id, i);
     }
 
+    // defer calling destroy_module until after update has been called
+    // and the newly updated audio graph, with the module absent, has been
+    // sent to the audio process.
+    _destroy_queue.push_back(DestroyQueueItem
+    {
+        .id = mod_id,
+        .module = std::move(mod)
+    });
     _modules.erase(mod_id);
 }
 
@@ -948,6 +962,22 @@ void AudioEngine::update()
     _mutex.lock();
     _current_graph = std::move(new_graph);
     _mutex.unlock();
+
+    // flush destroy queue
+    for (auto &item : _destroy_queue)
+    {
+        std::string host_id = get_host_id(item.module->class_name);
+        const auto &host_it = _hosts.find(host_id);
+        if (host_it == _hosts.end())
+        {
+            logger::log_warning("module %s could not be destroyed: could not find host", item.module->class_name.c_str());
+            continue;
+        }
+
+        std::unique_ptr<ModuleHost> &host = host_it->second;
+        host->destroy_module(item.module->class_name, item.id, item.module->userdata);
+    }
+    _destroy_queue.clear();
 
     _is_graph_dirty = false;
 }

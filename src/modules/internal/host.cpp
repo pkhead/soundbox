@@ -3,6 +3,11 @@
 
 using namespace hosts::internal;
 
+const std::array<std::string, 2> InternalModuleHost::hidden_mod_classes = {
+    "sbox::channel_controller",
+    "sbox::fader"
+};
+
 //////////////////////////
 // Internal Module Host //
 //////////////////////////
@@ -21,8 +26,8 @@ const std::vector<modules::ModuleInfo> InternalModuleHost::scan_modules()
 {
     std::vector<modules::ModuleInfo> list;
     list.push_back(modules::ModuleInfo("sbox::waveform", "Waveform Synth", false));
-    list.push_back(modules::ModuleInfo("sbox::channel_controller", "Channel Controller", false));
-    list.push_back(modules::ModuleInfo("sbox::fader", "Fader"));
+    list.push_back(modules::ModuleInfo("sbox::channel_controller", "sbox::channel_controller", false));
+    list.push_back(modules::ModuleInfo("sbox::fader", "sbox::fader"));
     list.push_back(modules::ModuleInfo("sbox::gain", "Gain"));
     list.push_back(modules::ModuleInfo("sbox::analyzer", "Analyzer"));
     return list;

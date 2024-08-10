@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include "../modules.hpp"
 
 namespace hosts::internal
@@ -9,6 +10,8 @@ namespace hosts::internal
     class InternalModuleHost : public modx::ModuleHost
     {
     public:
+        static const std::array<std::string, 2> hidden_mod_classes;
+
         const char* host_id() const override;
         bool initialize() override;
         const std::vector<modules::ModuleInfo> scan_modules() override;

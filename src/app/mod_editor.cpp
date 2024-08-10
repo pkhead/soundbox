@@ -1,9 +1,11 @@
 #include <cfloat>
 #include <imgui.h>
+#include <algorithm>
 #include <numutil.hpp>
 #include <imgui_internal.h>
-#include "audio_engine/audio_engine.hpp"
-#include "log.hpp"
+#include <log.hpp>
+#include <audio_engine/audio_engine.hpp>
+#include <modules/internal/host.hpp>
 #include "mod_editor.hpp"
 #include "shortcuts.hpp"
 
@@ -147,7 +149,11 @@ void ModuleEditor::draw()
                     {
                         for (auto &modclass : song.audio_engine().available_module_classes())
                         {
-                            if (modclass.class_name == "sbox::midi_in" || modclass.class_name == "sbox::fader") continue;
+                            // don't show hidden module classes
+                            const auto &hidden_mod_classes = hosts::internal::InternalModuleHost::hidden_mod_classes;
+                            if (std::find(hidden_mod_classes.begin(), hidden_mod_classes.end(), modclass.class_name) != hidden_mod_classes.end())
+                                continue;
+
                             if (!modclass.has_audio_input && i+1 > 0) continue;
 
                             if (ImGui::Selectable(modclass.name.c_str()))

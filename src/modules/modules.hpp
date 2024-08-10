@@ -143,7 +143,7 @@ namespace modx
         **/
         static ModuleBase* get_module(modules::ModuleID id);
 
-        virtual void destroy_module(const std::string class_name, void *userdata) override;
+        virtual void destroy_module(const std::string class_name, modules::ModuleID id, void *userdata) override;
     }; // class ModuleHost
 
     /**
