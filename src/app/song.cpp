@@ -649,8 +649,8 @@ void Song::update()
 
         if (dirty_play_state)
         {
-            control->set_playing(is_playing);
             control->set_playback_info(tempo, beats_per_bar);
+            control->set_playing(is_playing);
         }
 
         control->idle();

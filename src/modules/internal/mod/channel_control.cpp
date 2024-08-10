@@ -66,6 +66,9 @@ void ChannelControllerModule::read_events(modules::ModuleProcessor &proc)
             {
                 _tempo = in_msg.playback_info.tempo;
                 _beats_per_bar = in_msg.playback_info.beats_per_bar;
+
+                modx::TrackEvent ev = modx::TrackEvent::init_tempo(_tempo);
+                proc.send_message(0, &ev, sizeof(ev));
                 break;
             }
             
@@ -120,7 +123,7 @@ void ChannelControllerModule::process(modules::ModuleProcessor &proc)
     if (_track == nullptr) return;
 
     float sample_len = 1.0f / proc.sample_rate;
-    for (unsigned int i = 0; i < proc.buffer_frame_count; i++)
+    for (unsigned int frame = 0; frame < proc.buffer_frame_count; frame++)
     {
         // get the list of active notes
         sbox::Note cur_active_notes[MAX_ACTIVE_NOTES];
@@ -166,7 +169,7 @@ void ChannelControllerModule::process(modules::ModuleProcessor &proc)
             if (!is_released) continue;
 
             modx::TrackEvent ev = modx::TrackEvent::init_note_off(old_note.key, 1.0f);
-            ev.timestamp = i;
+            ev.timestamp = frame;
             proc.send_message(0, &ev, sizeof(ev));
         }
 
@@ -189,7 +192,7 @@ void ChannelControllerModule::process(modules::ModuleProcessor &proc)
             if (!is_pressed) continue;
 
             modx::TrackEvent ev = modx::TrackEvent::init_note_on(new_note.key, 1.0f);
-            ev.timestamp = i;
+            ev.timestamp = frame;
             proc.send_message(0, &ev, sizeof(ev));
         }
 

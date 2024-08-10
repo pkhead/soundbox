@@ -169,7 +169,12 @@ namespace modx
             TEMPO,
         };
         
-        uint64_t timestamp;
+        /**
+        * The timestamp of the event relative to AudioEngine::frame_time.
+        * It is expected that events are sent in sequential order.
+        **/
+        uint32_t timestamp;
+
         EventKind event_kind;
         
         union
@@ -180,12 +185,39 @@ namespace modx
                 uint8_t velocity;
             } note;
             
-            uint32_t tempo;
+            float tempo;
         };
 
         static TrackEvent init_note_on(uint8_t key, float velocity);
         static TrackEvent init_note_off(uint8_t key, float velocity);
-        static TrackEvent init_tempo(uint32_t tempo);
+        static TrackEvent init_tempo(float tempo);
         static TrackEvent set_timestamp(uint32_t timestamp, const TrackEvent& event);
-    }; // struct NoteEvent
+    }; // struct TrackEvent
+
+    /**
+    * Read track events, respecting their timestamp values.
+    **/
+    class TrackEventReader
+    {
+    private:
+        TrackEvent _stored_event;
+        modules::ModuleProcessor *proc;
+        const unsigned int msg_index;
+        unsigned int frame;
+    public:
+        TrackEventReader(const unsigned int input_port_index);
+
+        /**
+        * Called at the start of the process function.
+        **/
+        void new_run(modules::ModuleProcessor *proc);
+
+        /**
+        * Read the next event.
+        * Use like: `while (event_reader.read(&event)) this->event(event);`
+        * @param out_event Output event.
+        * @returns True if there was an event on this frame, false if not.
+        **/
+        bool read(TrackEvent *out_event);
+    }; // class TrackEventReader
 } // namespace modx

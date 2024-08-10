@@ -25,7 +25,9 @@ WaveformModule::Voice::Voice(int _key, float _freq, float _volume) :
     active = true;
 }
 
-WaveformModule::WaveformModule(modules::ModuleCreator &create) : modx::ModuleBase(create)
+WaveformModule::WaveformModule(modules::ModuleCreator &create) :
+    modx::ModuleBase(create),
+    event_reader(0)
 {
     // setup module i/o and controls    
     create.add_message_input();
@@ -83,7 +85,7 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) : modx::ModuleBas
         audio_state.voices[i].active = false;
     }
 
-    ui_selected_osc = 0;
+    ui_selected_osc = 1;
 }
 
 static float poly_blep(float t, float inc)
@@ -135,17 +137,7 @@ void WaveformModule::event(const modx::TrackEvent& ev) {
 }
 
 void WaveformModule::process(modules::ModuleProcessor &proc)
-{
-    // process midi input
-    while (true)
-    {
-        modx::TrackEvent event;
-        unsigned int read = proc.read_message(0, &event, sizeof(event));
-        if (read == 0) break;
-        assert(read == sizeof(event));
-        this->event(event);
-    }
-    
+{    
     dsp::ADSR &amp_env_params = audio_state.amp_env;
     dsp::ADSR &filt_env_params = audio_state.filt_env;
 
@@ -195,7 +187,13 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
     float *output = proc.audio_output(0);
     int channel_count = proc.audio_output_channels(0);
 
+    event_reader.new_run(&proc);
+
     for (size_t i = 0; i < proc.buffer_frame_count * channel_count; i += channel_count) {
+        modx::TrackEvent event;
+        while (event_reader.read(&event))
+            this->event(event);
+
         // set both channels to zero
         for (size_t ch = 0; ch < channel_count; ch++) output[i + ch] = 0.0f;
 

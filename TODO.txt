@@ -1,4 +1,5 @@
 == MINOR REWRITE!!! ==
+- is module destructor called on main thread?
 - smoother ADSR
 - ADSR ui non-linear scale
 - waveform pulse has a dc offset when combined? why?
@@ -6,7 +7,6 @@
   - there are two channel windows: one in the track and another for fx channels
   - in the channel settings window, you can choose to either view the selected
     track channel or the selected fx channel
-- song playback
 - note velocity
 - multi-bar patterns
   - think about rain world tile heads and tile bodies...

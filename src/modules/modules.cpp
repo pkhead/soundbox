@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <widgets.hpp>
 #include <numutil.hpp>
+#include "audio_engine/audio_engine.hpp"
 #include "imguiext/imgui-knobs.h"
 #include "modules.hpp"
 
@@ -57,9 +58,9 @@ void ModuleHost::mod_process(modules::ModuleProcessor& process)
 
 
 
-///////////////////////////////
-// song event struct helpers //
-///////////////////////////////
+//////////////////
+// track events //
+//////////////////
 TrackEvent TrackEvent::init_note_on(uint8_t key, float velocity)
 {
     velocity = util::clamp<float>(0.0f, 1.0f, velocity);
@@ -82,7 +83,7 @@ TrackEvent TrackEvent::init_note_off(uint8_t key, float velocity)
     return event;
 }
 
-TrackEvent TrackEvent::init_tempo(uint32_t tempo)
+TrackEvent TrackEvent::init_tempo(float tempo)
 {
     TrackEvent event{};
     event.event_kind = TEMPO;
@@ -96,6 +97,50 @@ TrackEvent TrackEvent::set_timestamp(uint32_t timestamp, const TrackEvent &event
     TrackEvent ret = event;
     ret.timestamp = timestamp;
     return ret;
+}
+
+
+
+
+
+
+
+TrackEventReader::TrackEventReader(unsigned int input_port_index) :
+    msg_index(input_port_index)
+{
+    proc = nullptr;
+}
+
+void TrackEventReader::new_run(modules::ModuleProcessor *p_proc)
+{
+    frame = 0;
+    this->proc = p_proc;
+
+    unsigned int read = proc->read_message(msg_index, &_stored_event, sizeof(_stored_event));
+    if (read == 0)
+    {
+        _stored_event.timestamp = UINT32_MAX;
+        return;
+    }
+}
+
+bool TrackEventReader::read(TrackEvent *out_event)
+{
+    if (frame < _stored_event.timestamp)
+    {
+        frame++;
+        return false;
+    }
+
+    *out_event = _stored_event;
+
+    unsigned int read = proc->read_message(msg_index, &_stored_event, sizeof(_stored_event));
+    if (read == 0)
+    {
+        _stored_event.timestamp = UINT32_MAX;
+    }
+
+    return true;
 }
 
 

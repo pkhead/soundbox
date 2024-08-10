@@ -54,6 +54,7 @@ SongEditor::SongEditor(Song &song, ShortcutContext &shortcuts) :
     shortcuts(shortcuts)
 {
     selected_channel = 0;
+    selected_bar = 0;
     quantization = 0.25f;
     note_preview = true;
     show_all_channels = true;

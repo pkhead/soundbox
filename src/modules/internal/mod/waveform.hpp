@@ -41,6 +41,7 @@ namespace hosts::internal
         } audio_state;
 
         int ui_selected_osc;
+        modx::TrackEventReader event_reader;
 
         void event(const modx::TrackEvent &ev);
     public:
