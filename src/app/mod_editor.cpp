@@ -31,9 +31,29 @@ void ModuleEditor::draw()
         if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::GetIO().MouseWheel != 0.0f)
         {
             ImGuiWindow *window = ImGui::GetCurrentWindow();
-            float max_step = window->InnerRect.GetWidth() * 0.67f;
-            float scroll_step = ImTrunc(ImMin(2 * window->CalcFontSize(), max_step));
-            ImGui::SetScrollX(window, window->Scroll.x - ImGui::GetIO().MouseWheel * scroll_step);
+
+            // detect that it is not hovered over any scrollable child windows
+            bool scroll_override = true;
+            ImGuiWindow *child_window = ImGui::GetCurrentContext()->HoveredWindowUnderMovingWindow;
+            while (child_window != window)
+            {
+                logger::log_debug("%s", child_window->Name);
+
+                if (child_window->ScrollbarY || child_window->ScrollbarX)
+                {
+                    scroll_override = false;
+                    break;
+                }
+
+                child_window = child_window->ParentWindow;
+            }
+
+            if (scroll_override)
+            {
+                float max_step = window->InnerRect.GetWidth() * 0.67f;
+                float scroll_step = ImTrunc(ImMin(2 * window->CalcFontSize(), max_step));
+                ImGui::SetScrollX(window, window->Scroll.x - ImGui::GetIO().MouseWheel * scroll_step);
+            }
             //float sx = ImGui::GetScrollX();
             //ImGui::SetScrollX(sx - ImGui::GetIO().MouseWheel * 30.0f);
         }
