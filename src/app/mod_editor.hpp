@@ -8,7 +8,16 @@ namespace sbox
     class ModuleEditor
     {
     private:
-        
+        struct ModuleCategory
+        {
+            std::string name;
+            std::vector<modules::ModuleInfo> modules;
+        };
+
+        std::vector<ModuleCategory> _module_list;
+
+        void module_list_by_host();
+        void module_list_by_author();
     public:
         enum ChannelType
         {

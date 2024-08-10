@@ -31,6 +31,8 @@ namespace modules
     {
         std::string class_name;
         std::string name;
+        std::string author;
+
         bool has_midi_input;
         bool has_audio_input;
 
@@ -101,6 +103,7 @@ namespace modules
 
             void* userdata;
             void (*processor)(ModuleProcessor& processor);
+            void (*idle)(AudioEngine &engine, ModuleID id, void *userdata);
 
             struct
             {
@@ -330,7 +333,17 @@ namespace modules
         const std::string class_name;
         std::string &name;
         void* userdata = nullptr;
+
+        /**
+        * Process input audio and/or generate audio buffers.
+        * Called on a separate audio processing thread.
+        **/
         void (*processor)(ModuleProcessor& processor) = nullptr;
+
+        /**
+        * Called on the thread that called AudioEngine::update()
+        **/
+        void (*idle)(AudioEngine &engine, ModuleID id, void *userdata) = nullptr;
         
         void add_audio_input(uint8_t channels);
         void add_audio_output(uint8_t channels);

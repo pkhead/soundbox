@@ -171,7 +171,11 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     ModuleID this_id = _next_module_id;
     std::shared_ptr<ModuleInstance> instance = std::make_shared<ModuleInstance>();
     instance->class_name = mod_class;
+
     instance->is_stereo_mixer = false;
+    instance->processor = nullptr;
+    instance->idle = nullptr;
+    instance->userdata = nullptr;
 
     if (mod_class == MODULE_CLASS_AUDIO_OUT)
     {
@@ -252,6 +256,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
 
         instance->userdata = creator.userdata;
         instance->processor = creator.processor;
+        instance->idle = creator.idle;
     }
 
     _next_module_id++;
@@ -857,6 +862,13 @@ bool AudioEngine::_control_get_ref<bool>(ModuleControl &control, bool** v)
 void AudioEngine::update()
 {
     if (!_is_graph_dirty) return;
+
+    // call module idle processes
+    for (auto& [ id, inst ] : _modules)
+    {
+        if (inst->idle == nullptr) continue;
+        inst->idle(*this, id, inst->userdata);
+    }
 
     // build the entire audio graph starting from the inputs for the AUDIO_OUT module
     // thus, modules that do not contribute to the AUDIO_OUT module do not get processed

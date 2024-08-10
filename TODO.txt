@@ -1,7 +1,7 @@
 == MINOR REWRITE!!! ==
 - module "idle" call - called on AudioEngine::update
+- module rack: check if module connection was successful 
 - sometimes song playback skips forward a bit
-- smoother ADSR
 - channel mute/solo
 - fx channels
   - there are two channel windows: one in the track and another for fx channels
@@ -14,7 +14,6 @@
   - spectrum view, gain bar
   - better display when wave has multiple zero crossings
     - maybe pick the zero crossing with the largest rate of change?
-- ladspa plugins. very simple, why not?
 ======================
 
 = Undo/redo

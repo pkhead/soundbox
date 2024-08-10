@@ -14,7 +14,51 @@ using namespace sbox;
 ModuleEditor::ModuleEditor(Song &song, ShortcutContext &shortcuts) :
     song(song),
     shortcuts(shortcuts)
-{}
+{
+    module_list_by_author();
+}
+
+static bool mod_info_filter(const modules::ModuleInfo &info)
+{
+    const auto &hidden_mod_classes = hosts::internal::InternalModuleHost::hidden_mod_classes;
+    if (std::find(hidden_mod_classes.begin(), hidden_mod_classes.end(), info.class_name) != hidden_mod_classes.end())
+        return false;
+
+    return true;
+}
+
+void ModuleEditor::module_list_by_author()
+{
+    _module_list.clear();
+    std::unordered_map<std::string, unsigned int> author_category_map;
+
+    for (auto &modclass : song.audio_engine().available_module_classes())
+    {
+        ModuleCategory *category = nullptr;
+
+        const auto &map_it = author_category_map.find(modclass.author);
+        if (map_it == author_category_map.end())
+        {
+            author_category_map[modclass.author] = _module_list.size();
+            _module_list.push_back(ModuleCategory {
+                .name = modclass.author
+            });
+            category = &_module_list.back();
+        }
+        else
+        {
+            category = &_module_list[map_it->second];
+        }
+
+        if (mod_info_filter(modclass))
+            category->modules.push_back(modclass);
+    }
+}
+
+void ModuleEditor::module_list_by_host()
+{
+    assert(false);
+}
 
 void ModuleEditor::draw()
 {
@@ -165,19 +209,23 @@ void ModuleEditor::draw()
 
                     if (ImGui::BeginPopup("Create Module"))
                     {
-                        for (auto &modclass : song.audio_engine().available_module_classes())
+                        for (auto &category : _module_list)
                         {
-                            // don't show hidden module classes
-                            const auto &hidden_mod_classes = hosts::internal::InternalModuleHost::hidden_mod_classes;
-                            if (std::find(hidden_mod_classes.begin(), hidden_mod_classes.end(), modclass.class_name) != hidden_mod_classes.end())
-                                continue;
-
-                            if (!modclass.has_audio_input && i+1 > 0) continue;
-
-                            if (ImGui::Selectable(modclass.name.c_str()))
+                            if (ImGui::BeginMenu(category.name.c_str()))
                             {
-                                module_to_add = modclass.class_name;
-                                index_of_module_to_add = i+1;
+                                for (auto &mod_info : category.modules)
+                                {
+                                    if (!mod_info.has_audio_input && i+1 > 0) continue;
+                                    if (mod_info.has_audio_input && i+1 == 0) continue;
+
+                                    if (ImGui::Selectable(mod_info.name.c_str()))
+                                    {
+                                        module_to_add = mod_info.class_name;
+                                        index_of_module_to_add = i+1;
+                                    }
+                                }
+
+                                ImGui::EndMenu();
                             }
                         }
 

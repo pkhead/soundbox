@@ -106,6 +106,7 @@ void Lv1ModuleHost::get_plugin_info(std::filesystem::path dlpath, std::vector<mo
         modules::ModuleInfo mod_info(mod_class_name, plugin_desc->Name);
         mod_info.has_audio_input = has_audio_input;
         mod_info.has_midi_input = false;
+        mod_info.author = plugin_desc->Maker;
 
         out_mod_list.push_back(mod_info);
         assert(_plugin_info.find(mod_class_name) == _plugin_info.end());
