@@ -2,7 +2,6 @@
 - module "idle" call - called on AudioEngine::update
 - smoother ADSR
 - ADSR ui non-linear scale
-- waveform pulse has a dc offset when combined? why?
 - fx channels
   - there are two channel windows: one in the track and another for fx channels
   - in the channel settings window, you can choose to either view the selected

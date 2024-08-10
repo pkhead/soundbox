@@ -88,6 +88,7 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
     ui_selected_osc = 1;
 }
 
+// https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/
 static float poly_blep(float t, float inc)
 {
     float dt = inc / (2 * M_PI);
@@ -290,7 +291,7 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
                         a -= poly_blep(phase / (2*M_PIf), increment);
                         double b = mphase / M_PIf - 1.0;
                         b -= poly_blep(mphase / (2*M_PIf), increment);
-                        sample = a - b - 0.5;
+                        sample = a - b;
                         break;
                     }
 
