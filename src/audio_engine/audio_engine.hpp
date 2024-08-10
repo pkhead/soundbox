@@ -208,6 +208,10 @@ namespace modules
             return _sample_rate;
         }
 
+        inline size_t frames_per_buffer() const {
+            return _frames_per_buffer;
+        }
+
         inline unsigned long frame_time() const { return _frame_time; }
 
         /// Register a host.

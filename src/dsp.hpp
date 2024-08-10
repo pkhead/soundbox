@@ -65,6 +65,7 @@ namespace dsp
         private:
             float release_time = -1.0f;
             float release_env = 0.0f;
+            float last_value = 0.0f;
 
         public:
             inline bool is_released() const {

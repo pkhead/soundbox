@@ -2,6 +2,7 @@
 #include <sstream>
 #include <imgui.h>
 #include <module_hosts/internal/host.hpp>
+#include <module_hosts/lv1/host.hpp>
 #include "mod_editor.hpp"
 #include "shortcuts.hpp"
 #include "app.hpp"
@@ -15,9 +16,11 @@ Application::Application()
     assert(Application::instance == nullptr);
     Application::instance = this;
     running = true;
-
     _show_imgui_demo_window = false;
+
     _audio_engine.register_host(std::make_unique<hosts::internal::InternalModuleHost>());
+    _audio_engine.register_host(std::make_unique<hosts::lv1::Lv1ModuleHost>());
+    
     _song = std::make_unique<Song>(4, 4, 4, _audio_engine);
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
     _module_editor = std::make_unique<ModuleEditor>(*_song, shortcut_ctx);

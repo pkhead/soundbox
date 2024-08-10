@@ -49,24 +49,14 @@ bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
         out = (1.0f - adsr.sustain) * (1.0f - t) * (1.0f - t) + adsr.sustain;
     }
 
+    last_value = out;
     return false;
 }
 
 void ADSR::Instance::release(float time, const ADSR& params)
 {
     release_time = time;
-
-    // calculate envelope at release time
-    release_env = params.sustain;
-    float t;
-
-    if (time < params.attack) {
-        release_env = time / params.attack;
-    } else if (time < params.decay + params.attack) {
-        t = (time - params.attack) / params.decay;
-        if (t > 1.0f) t = 1.0f;
-        release_env = (params.sustain - 1.0f) * t + 1.0f;
-    }
+    release_env = last_value;
 }
 
 /*

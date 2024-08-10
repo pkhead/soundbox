@@ -95,6 +95,7 @@ set(SOURCES
     src/numutil.cpp
     src/widgets.cpp
     src/winmgr.cpp
+    src/sys.cpp
 
     src/app/app.cpp
     src/app/song.cpp
@@ -102,12 +103,14 @@ set(SOURCES
     src/app/mod_editor.cpp
     src/app/theme.cpp
 
-    # stock plugins
+    # module hosts
     src/module_hosts/internal/host.cpp
     src/module_hosts/internal/mod/control.cpp
     src/module_hosts/internal/mod/waveform.cpp
     src/module_hosts/internal/mod/analyzer.cpp
     src/module_hosts/internal/mod/channel_control.cpp
+
+    src/module_hosts/lv1/host.cpp
 )
 
 set(TEST_SOURCES

@@ -1,112 +1,69 @@
-#include <algorithm>
-#include <chrono>
 #include <iostream>
+#include <cassert>
 #include <atomic>
-#include "sys.h"
+#include "sys.hpp"
 
 using namespace sys;
 
 #ifdef _WIN32
 #include <windows.h>
 
-static void lp_time_proc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2)
+dl_handle::dl_handle(const std::filesystem::path &file_path)
 {
-	std::function<void()>* callback = static_cast<std::function<void()>*>((void*)dwUser);
-	(*callback)();
+    _handle = (void*) LoadLibraryW(file_path.c_str());
 }
 
-interval_t* sys::set_interval(int ms, const std::function<void()>&& callback_proc)
+dl_handle::dl_handle(dl_handle &&src)
 {
-	return (interval_t*)size_t(timeSetEvent(
-		ms,
-		ms,
-		lp_time_proc,
-		(DWORD_PTR)(new std::function(callback_proc)),
-		TIME_PERIODIC
-	));
+    _handle = src._handle;
+    src._handle = nullptr;
 }
 
-void sys::clear_interval(interval_t* interval)
+dl_handle::~dl_handle()
 {
-	// TODO: memory leak, did not delete std::function userdata
-	// not worth fixing for now because only one interval is ever created
-	MMRESULT id = (MMRESULT)((size_t)interval);
-	timeKillEvent(id);
+    if (_handle)
+        FreeLibrary((HMODULE) _handle);
 }
 
-const char* sys::dl_error()
+void* dl_handle::sym(const char *symbol_name) const
+{
+    assert(_handle);
+    return (void*) GetProcAddress((HMODULE) _handle, symbol_name);
+}
+
+const char* dl_handle::error()
 {
 	return "Win32 error messages unimplemented";
 }
 
-dl_handle sys::dl_open(const char* file_path)
-{
-	return LoadLibrary(file_path);
-}
-
-int sys::dl_close(dl_handle handle)
-{
-	return FreeLibrary((HMODULE) handle);
-}
-
-void* sys::dl_sym(dl_handle handle, const char *symbol_name)
-{
-	return (void*) GetProcAddress((HMODULE) handle, symbol_name);
-}
-
 #else
-#include <thread>
-#include <time.h>
 #include <dlfcn.h>
 
-struct interval_impl
+dl_handle::dl_handle(const std::filesystem::path &file_path)
 {
-	interval_impl(std::function<void(interval_impl* self)>&& callback) : terminate(false) {
-		thread = std::move(std::thread(callback, this));
-	};
-
-	std::thread thread;
-	std::atomic<bool> terminate;
-};
-
-interval_t* sys::set_interval(int ms, const std::function<void()>&& callback_proc)
-{
-	interval_impl* output = new interval_impl([ms, callback_proc](interval_impl* self)
-	{
-		while (!self->terminate)
-		{
-			callback_proc();
-			usleep(ms * 1000);
-		}
-	});
-
-	return (interval_t*) output;
+    static_assert(std::is_same<std::filesystem::path::value_type, char>(), "on non-windows platform, but std::filesystem::path::value_type is not char");
+    _handle = dlopen(file_path.c_str(), RTLD_NOW);
 }
 
-void sys::clear_interval(interval_t* interval)
+dl_handle::dl_handle(dl_handle &&src)
 {
-	interval_impl* impl = (interval_impl*)interval;
-	impl->terminate = true;
-	impl->thread.join();
-	delete impl;
+    _handle = src._handle;
+    src._handle = nullptr;
 }
 
-dl_handle sys::dl_open(const char *file_path)
+dl_handle::~dl_handle()
 {
-	return dlopen(file_path, RTLD_NOW);
+    if (_handle)
+        dlclose(_handle);
 }
 
-int sys::dl_close(dl_handle handle)
+void* dl_handle::sym(const char *symbol_name) const
 {
-	return dlclose(handle);
+    assert(_handle);
+	return dlsym(_handle, symbol_name);
 }
 
-void* sys::dl_sym(dl_handle handle, const char *symbol_name)
-{
-	return dlsym(handle, symbol_name);
-}
-
-const char* sys::dl_error()
+const char* dl_handle::error()
 {
 	return dlerror();
 }

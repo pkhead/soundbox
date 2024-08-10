@@ -17,7 +17,6 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
 #include <math.h>
-#include "sys.h"
 
 #ifdef ENABLE_LV2
 //#include "plugin_hosts/lv2-host/lv2interface.h"
