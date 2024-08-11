@@ -1,5 +1,6 @@
 #include <cassert>
 #include <climits>
+#include <algorithm>
 #include <memory>
 #include <vector>
 #include <module_hosts/internal/modules.hpp>
@@ -619,13 +620,22 @@ void Song::update_instrument_channel(unsigned int channel_index)
     assert(channel_index >= 0 && channel_index < _channels.size());
     auto &ch = _channels[channel_index];
     ch->_is_dirty = true;
-
-    logger::log_debug("queue channel %i update", channel_index);
 }
 
 // TODO: detect beats per bar change
 void Song::update()
 {
+    // if at least one channel is solo'd set solo mode to true
+    bool solo_active = false;
+    for (auto &ch : _channels)
+    {
+        if (ch->solo)
+        {
+            solo_active = true;
+            break;
+        }
+    }
+
     bool dirty_play_state = _was_playing != is_playing || _old_tempo != tempo;
     bool dirty_position = _old_pos != position;
 
@@ -643,6 +653,11 @@ void Song::update()
             );
             continue;
         }
+
+        // set mute state based on currently muted/solod channels
+        bool is_muted = ch->mute || (solo_active && !ch->solo);
+        modx::ModuleRc &fader = ch->output_fader;
+        fader->control_set_value<bool>(hosts::internal::FaderModule::FADER_CONTROL_MUTE, is_muted);
 
         if (ch->_is_dirty)
         {
