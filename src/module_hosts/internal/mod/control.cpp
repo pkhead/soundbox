@@ -3,6 +3,8 @@ Contains implementations for all "control" modules:
  - sbox::midi_in
  - sbox::fader
  - sbox::gain
+ - sbox::mono_to_stereo
+ - sbox::stereo_to_mono
 */
 
 #include <cfloat>
@@ -106,4 +108,50 @@ void GainModule::ui()
 
     if (is_changed)
             set_control_value<float>(0, gain);
+}
+
+//////////////////////////
+// sbox::mono_to_stereo //
+//////////////////////////
+MonoToStereo::MonoToStereo(modules::ModuleCreator &create) :
+    modx::ModuleBase(create)
+{
+    create.add_audio_input(1);
+    create.add_audio_output(2);
+}
+
+void MonoToStereo::process(modules::ModuleProcessor &proc)
+{
+    float *in = proc.audio_input(0);
+    float *out = proc.audio_output(0);
+
+    for (unsigned int i = 0; i < proc.buffer_frame_count; i++)
+    {
+        *out++ = *in;
+        *out++ = *in;
+        in++;
+    }
+}
+
+//////////////////////////
+// sbox::stereo_to_mono //
+//////////////////////////
+StereoToMono::StereoToMono(modules::ModuleCreator &create) :
+    modx::ModuleBase(create)
+{
+    create.add_audio_input(2);
+    create.add_audio_output(1);
+}
+
+void StereoToMono::process(modules::ModuleProcessor &proc)
+{
+    float *in = proc.audio_input(0);
+    float *out = proc.audio_output(0);
+
+    for (unsigned int i = 0; i < proc.buffer_frame_count; i++)
+    {
+        *out = *in++;
+        *out += *in++;
+        out++;
+    }
 }

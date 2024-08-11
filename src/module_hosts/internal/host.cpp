@@ -39,6 +39,8 @@ const std::vector<modules::ModuleInfo> InternalModuleHost::scan_modules()
     list.push_back(mod_info("sbox::fader", "sbox::fader"));
     list.push_back(mod_info("sbox::gain", "Gain"));
     list.push_back(mod_info("sbox::analyzer", "Analyzer"));
+    list.push_back(mod_info("sbox::mono_to_stereo", "Mono -> Stereo"));
+    list.push_back(mod_info("sbox::stereo_to_mono", "Stereo -> Mono"));
     return list;
 }
 
@@ -51,5 +53,7 @@ bool InternalModuleHost::create_module(modules::ModuleCreator &create)
     ASSOC_MODULE("sbox::fader", FaderModule);
     ASSOC_MODULE("sbox::gain", GainModule);
     ASSOC_MODULE("sbox::analyzer", AnalyzerModule);
+    ASSOC_MODULE("sbox::mono_to_stereo", MonoToStereo);
+    ASSOC_MODULE("sbox::stereo_to_mono", StereoToMono);
     return false;
 }

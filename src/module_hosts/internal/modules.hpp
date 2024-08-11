@@ -31,12 +31,30 @@ namespace hosts::internal
     ////////////////
     class GainModule : public modx::ModuleBase
     {
-    private:
-
     public:
         GainModule(modules::ModuleCreator &create);
 
         void process(modules::ModuleProcessor &proc) override;
         void ui() override;
     }; // class GainModule
+
+    //////////////////////////
+    // sbox::mono_to_stereo //
+    //////////////////////////
+    class MonoToStereo : public modx::ModuleBase
+    {
+    public:
+        MonoToStereo(modules::ModuleCreator &create);
+        void process(modules::ModuleProcessor &proc) override;
+    }; // class MonoToStereo
+
+    //////////////////////////
+    // sbox::stereo_to_mono //
+    //////////////////////////
+    class StereoToMono : public modx::ModuleBase
+    {
+    public:
+        StereoToMono(modules::ModuleCreator &create);
+        void process(modules::ModuleProcessor &proc) override;
+    }; // class StereoToMono
 }
