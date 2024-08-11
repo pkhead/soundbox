@@ -46,16 +46,25 @@ ModuleRack::ModuleRack()
 
 static void connect(const modx::ModuleRc &mod_a, const modx::ModuleRc &mod_b)
 {
+    bool s;
     // connect first audio output to first audio input
     if (mod_a->audio_output_count() > 0 && (mod_b->audio_input_count() > 0 || mod_b->class_name() == modules::AudioEngine::MODULE_CLASS_STEREO_MIXER))
     {
-        mod_a->connect_audio(*mod_b, 0, 0);
+        s = mod_a->connect_audio(*mod_b, 0, 0);
+        if (!s)
+        {
+            logger::log_warning("ModuleRack: could not connect %s to %s", mod_a->class_name().c_str(), mod_b->class_name().c_str());
+        }
     }
 
     // connect first message output to first message input
     if (mod_a->message_output_count() > 0 && mod_b->message_input_count() > 0)
     {
-        mod_a->connect_message(*mod_b, 0, 0);
+        s = mod_a->connect_message(*mod_b, 0, 0);
+        if (!s)
+        {
+            logger::log_warning("ModuleRack: could not connect %s to %s", mod_a->class_name().c_str(), mod_b->class_name().c_str());
+        }
     }
 }
 

@@ -60,6 +60,68 @@ void ModuleEditor::module_list_by_host()
     assert(false);
 }
 
+unsigned int get_required_input_connections(ModuleRack &rack, unsigned int index)
+{
+    assert(index < rack.size());
+    modx::ModuleRc &mod = rack.at(index);
+
+    const modx::ModuleRc &in = index == 0 ? rack.input() : rack.at(index-1);
+    assert(in->valid());
+
+    return in->audio_output_channel_count(0);
+}
+
+unsigned int get_required_output_connections(ModuleRack &rack, unsigned int index)
+{
+    assert(index < rack.size());
+    modx::ModuleRc &mod = rack.at(index);
+
+    const modx::ModuleRc &out = index == rack.size() - 1 ? rack.output() : rack.at(index+1);
+    assert(out->valid());
+
+    return out->audio_input_channel_count(0);
+}
+
+std::string channel_count_name(unsigned int count)
+{
+    assert(count > 0);
+    if (count == 1)
+    {
+        return "mono";
+    }
+    else if (count == 2)
+    {
+        return "stereo";
+    }
+    else
+    {
+        return std::to_string(count) + "-channel";
+    }
+}
+
+// for a module that failed to connect with the rest of the rack,
+// display the reason of failure.
+// i.e. the fact that the module is mono
+// trying my best to make it sound like natural english, lol
+void display_error_reason(ModuleRack &rack, unsigned int index)
+{
+    auto &mod = rack.at(index);
+    unsigned int this_in = mod->audio_input_channel_count(0);
+    unsigned int this_out = mod->audio_output_channel_count(0);
+    unsigned other_in = get_required_input_connections(rack, index);
+    unsigned other_out = get_required_output_connections(rack, index);
+    
+    if (this_in != other_in)
+    {
+        ImGui::TextWrapped("Input expects %s audio, but is given %s audio.", channel_count_name(this_in).c_str(), channel_count_name(other_out).c_str());
+    }
+
+    if (this_out != other_out)
+    {
+        ImGui::TextWrapped("Module outputs %s audio, but the next module requires %s audio.", channel_count_name(this_out).c_str(), channel_count_name(other_out).c_str());
+    }
+}
+
 void ModuleEditor::draw()
 {
     float mod_ui_height = ImGui::GetFontSize() * 17.0f;
@@ -118,11 +180,28 @@ void ModuleEditor::draw()
 
                 ImGui::SameLine();
 
+                // check that the module is connected properly...
+                // will not be if the channel counts are mismatched
+                bool connected = true;
+                modules::ModuleID other_mod;
+                unsigned int other_index;
+                if (mod->audio_input_count() > 0)
+                {
+                    mod->engine().get_audio_input_connection(mod->id(), 0, other_mod, other_index);
+                    if (other_mod == 0) connected = false;
+                }
+
+                if (mod->audio_output_count() > 0)
+                {
+                    mod->engine().get_audio_output_connection(mod->id(), 0, other_mod, other_index);
+                    if (other_mod == 0) connected = false;
+                }
+
                 ImGuiChildFlags child_flags = ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_Border;
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetColorU32(ImGuiCol_PopupBg, 0.4f));
+                if (connected) ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetColorU32(ImGuiCol_PopupBg, 0.4f));
                 
                 ImGui::BeginChild("module ui", ImVec2(0.0f, mod_ui_height), child_flags, ImGuiWindowFlags_MenuBar);
-                ImGui::PopStyleColor();
+                if (connected) ImGui::PopStyleColor();
 
                 if (ImGui::BeginMenuBar())
                 {
@@ -150,6 +229,20 @@ void ModuleEditor::draw()
 
                     ImGui::SetCursorPos(start_cursor);
                     ImGui::Text("%s", mod->name().c_str());
+
+                    if (!connected)
+                    {
+                        ImGui::SameLine();
+                        ImGui::TextDisabled("(!)");
+                        if (ImGui::BeginItemTooltip())
+                        {
+                            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 20.0f);
+                            ImGui::TextWrapped("The module could not connect properly!");
+                            display_error_reason(channel.rack, i);
+                            ImGui::PopTextWrapPos();
+                            ImGui::EndTooltip();
+                        }
+                    }
 
                     ImGui::Separator();
 
@@ -187,7 +280,10 @@ void ModuleEditor::draw()
                     ImGui::EndMenuBar();
                 }
 
+                if (!connected) ImGui::BeginDisabled();
                 mod_data->ui();
+                if (!connected) ImGui::EndDisabled();
+
                 ImGui::EndChild();
                 ImGui::PopID();
             }
