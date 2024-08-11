@@ -92,7 +92,7 @@ set(SOURCES
     src/main.cpp
     src/log.cpp
     src/dsp.cpp
-    src/numutil.cpp
+    src/util.cpp
     src/widgets.cpp
     src/winmgr.cpp
     src/sys.cpp
@@ -115,6 +115,7 @@ set(SOURCES
 
 set(TEST_SOURCES
     tests/dsp.cpp
+    tests/utils.cpp
 )
 
 set(LIBRARIES

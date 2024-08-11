@@ -1,7 +1,7 @@
 #include <cfloat>
 #include <imgui.h>
 #include <imgui/misc/cpp/imgui_stdlib.h>
-#include <numutil.hpp>
+#include <util.hpp>
 #include <module_hosts/modules.hpp>
 #include "shortcuts.hpp"
 #include "song.hpp"
@@ -54,6 +54,7 @@ SongEditor::SongEditor(Song &song, ShortcutContext &shortcuts) :
     shortcuts(shortcuts)
 {
     selected_channel = 0;
+    selected_fx_channel = 0;
     selected_bar = 0;
     quantization = 0.25f;
     note_preview = true;
@@ -66,9 +67,10 @@ void SongEditor::draw()
     render_channel_settings();
     render_track_editor();
     render_pattern_editor();
+    render_effect_channels();
 }
 
-void SongEditor::play_note(unsigned int channel, unsigned int key, float velocity, float duration)
+void SongEditor::play_note(unsigned int channel, int key, float velocity, float duration)
 {
     logger::log_error("SongEditor::play_note: NOT IMPLEMENTED!");
 }
@@ -162,208 +164,173 @@ void SongEditor::render_song_settings()
 
 
 
+inline static void left_aligned_label(const char *label)
+{
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("%s", label);
+};
+
+static bool fx_channel_combobox(Song &song, unsigned int *fx_channel_index, unsigned int ignore_channel = (unsigned int)-1)
+{
+    std::string cur_display_name;
+    if (*fx_channel_index == (unsigned int)-1)
+        cur_display_name = "(none)";
+    else
+        cur_display_name = util::format("%u - %s", *fx_channel_index, song.get_effect_channel(*fx_channel_index).name.c_str());
+    
+    bool changed = false;
+
+    if (ImGui::BeginCombo("##channel_fx_target", cur_display_name.c_str()))
+    {
+        // list potential targets
+        for (unsigned int target_i = 0; target_i < song.effect_channel_count(); target_i++)
+        {
+            if (target_i == ignore_channel) continue;
+
+            auto& target_bus = song.get_effect_channel(target_i);
+
+            // write target bus name
+            std::string display_name = util::format("%u - %s", target_i, target_bus.name.c_str());
+
+            bool is_selected = target_i == *fx_channel_index;
+            if (ImGui::Selectable(display_name.c_str(), is_selected))
+            {
+                *fx_channel_index = target_i;
+                changed = true;
+            }
+
+            if (is_selected) ImGui::SetItemDefaultFocus();
+        }
+
+        ImGui::EndCombo();
+    }
+
+    return changed;
+}
+
+static void channel_fader_controls(modx::ModuleRc &fader)
+{
+    // volume slider
+    {
+        const float min_value = -25.0f;
+        const float max_value = 25.0f;
+        float gain = fader->control_get_value<float>(hosts::internal::FaderModule::FADER_CONTROL_GAIN);
+
+        bool changed;
+        if (gain <= min_value)
+            changed = ImGui::SliderFloat("##channel_volume", &gain, min_value, max_value, "-inf dB", ImGuiSliderFlags_AlwaysClamp);
+        else
+            changed = ImGui::SliderFloat("##channel_volume", &gain, min_value, max_value, "%.2f dB", ImGuiSliderFlags_AlwaysClamp);
+
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+        {
+            gain = 0.0f;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            if (gain <= min_value)
+                gain = -FLT_MAX;
+            fader->control_set_value<float>(hosts::internal::FaderModule::FADER_CONTROL_GAIN, gain);
+        }
+    }
+
+    // panning slider
+    {
+        float panning = fader->control_get_value<float>(hosts::internal::FaderModule::FADER_CONTROL_PAN);
+        bool changed = ImGui::SliderFloat("##channel_panning", &panning, -1, 1, "%.2f");
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+        {
+            panning = 0.0f;
+            changed = true;
+        }
+
+        if (changed) fader->control_set_value<float>(hosts::internal::FaderModule::FADER_CONTROL_PAN, panning);
+    }
+}
 
 void SongEditor::render_channel_settings()
 {
-    static char char_buf[64];
-    auto& cur_channel = song.get_channel(selected_channel);    
-
     if (ImGui::Begin("Channel Settings")) {
-        // channel name
-        ImGui::PushItemWidth(-1.0f);
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Name");
-        ImGui::SameLine();
-        ImGui::InputText("##channel_name", &cur_channel.name);
-
-        auto &fader = cur_channel.output_fader;
-
-        // volume slider
+        if (ImGui::BeginTabBar("##tabs"))
         {
-            const float min_value = -25.0f;
-            const float max_value = 25.0f;
-            float gain = fader->control_get_value<float>(hosts::internal::FaderModule::FADER_CONTROL_GAIN);
-
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Volume");
-            ImGui::SameLine();
-
-            bool changed;
-            if (gain <= min_value)
-                changed = ImGui::SliderFloat("##channel_volume", &gain, min_value, max_value, "-inf dB", ImGuiSliderFlags_AlwaysClamp);
-            else
-                changed = ImGui::SliderFloat("##channel_volume", &gain, min_value, max_value, "%.2f dB", ImGuiSliderFlags_AlwaysClamp);
-
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+            if (ImGui::BeginTabItem("Instrument"))
             {
-                gain = 0.0f;
-                changed = true;
-            }
+                auto& cur_channel = song.get_channel(selected_channel); 
 
-            if (changed)
-            {
-                if (gain <= min_value)
-                    gain = -FLT_MAX;
-                fader->control_set_value<float>(hosts::internal::FaderModule::FADER_CONTROL_GAIN, gain);
-            }
-        }
+                // left side: widget labels
+                ImGui::BeginGroup();
+                left_aligned_label("Name");
+                left_aligned_label("Volume");
+                left_aligned_label("Panning");
+                left_aligned_label("Output FX");
+                ImGui::EndGroup();
 
-        // panning slider
-        {
-            float panning = fader->control_get_value<float>(hosts::internal::FaderModule::FADER_CONTROL_PAN);
+                ImGui::SameLine();
 
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Panning");
-            ImGui::SameLine();
-            bool changed = ImGui::SliderFloat("##channel_panning", &panning, -1, 1, "%.2f");
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
-            {
-                panning = 0.0f;
-                changed = true;
-            }
+                ImGui::BeginGroup();
 
-            if (changed) fader->control_set_value<float>(hosts::internal::FaderModule::FADER_CONTROL_PAN, panning);
-        }
+                // channel name
+                ImGui::PushItemWidth(-1.0f);
+                ImGui::InputText("##channel_name", &cur_channel.name);
 
-        {
-            // fx channel combobox
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("FX Channel");
-            ImGui::SameLine();
-
-            // write preview value
-            uint cur_fx_index = cur_channel.effect_channel();
-            auto& cur_fx_bus = song.get_effect_channel(cur_fx_index);
-            snprintf(char_buf, 64, "%i - %s", cur_fx_index, cur_fx_bus.name.c_str());
-
-            if (ImGui::BeginCombo("##channel_fx_target", char_buf))
-            {
-                // list potential targets
-                for (size_t target_i = 0; target_i < song.effect_channel_count(); target_i++)
-                {
-                    auto& target_bus = song.get_effect_channel(target_i);
-
-                    // write target bus name
-                    snprintf(char_buf, 64, "%lu - %s", target_i, target_bus.name.c_str());
-
-                    bool is_selected = target_i == cur_fx_index;
-                    if (ImGui::Selectable(char_buf, is_selected))
-                        song.route_instrument(selected_channel, target_i);
-
-                    if (is_selected) ImGui::SetItemDefaultFocus();
-                }
-
-                ImGui::EndCombo();
-            }
-        }
-
-        ImGui::PopItemWidth();
-        ImGui::NewLine();
-
-        // load instrument
-        /*ImGui::Text("Instrument: %s", cur_channel->synth_mod->module().name.c_str());
-        if (ImGui::Button("Load...", ImVec2(ImGui::GetWindowSize().x / -2.0f, 0.0f)))
-        {
-            ImGui::OpenPopup("load_instrument");
-        }
-        ImGui::SameLine();
-
-        if (ImGui::BeginPopup("load_instrument")) {
-            const char* mod_id = module_selection_popup(editor, true);
-            ImGui::EndPopup();
-
-            if (mod_id)
-            {
-                try {
-                    auto mod = audiomod::create_module(
-                        mod_id,
-                        editor.modctx,
-                        editor.plugin_manager,
-                        editor.song->work_scheduler
-                    );
-
-                    mod->module().song = editor.song.get();
-                    mod->module().parent_name = cur_channel->name;
-                    cur_channel->set_instrument(mod);
-                } catch (plugins::module_create_error& err) {
-                    show_status("Error: %s", err.what());
-                }
-            }
-        }
-
-        // edit loaded instrument
-        if (ImGui::Button("Edit...", ImVec2(-1.0f, 0.0f)))
-        {
-            editor.toggle_module_interface(cur_channel->synth_mod);
-        }
-
-        EffectsInterfaceResult result;
-        switch (effect_rack_ui(&editor, &cur_channel->effects_rack, &result, true))
-        {
-            case EffectsInterfaceAction::Add: {
-                try {
-                    auto mod = audiomod::create_module(
-                        result.module_id,
-                        editor.modctx,
-                        editor.plugin_manager,
-                        editor.song->work_scheduler
-                    );
-                    
-                    mod->module().parent_name = cur_channel->name;
-                    mod->module().song = &song;
-                    cur_channel->effects_rack.insert(mod);
-
-                    // register change
-                    editor.push_change(new change::ChangeAddEffect(
-                        editor.selected_channel,
-                        change::FXRackTargetType::TargetChannel,
-                        result.module_id
-                    ));
-                } catch (plugins::module_create_error& err) {
-                    show_status("Error: %s", err.what());
-                }
+                auto &fader = cur_channel.output_fader;
+                channel_fader_controls(fader);
                 
-                break;
-            }
+                // fx channel combobox
+                unsigned int cur_fx_index = cur_channel.effect_channel();
 
-            case EffectsInterfaceAction::Edit:
-                editor.toggle_module_interface(cur_channel->effects_rack.modules[result.target_index]);
-                break;
-
-            case EffectsInterfaceAction::Delete: {
-                // delete the selected module
-                auto mod = cur_channel->effects_rack.remove(result.target_index);
-                if (mod) {
-                    // register change
-                    editor.push_change(new change::ChangeRemoveEffect(
-                        editor.selected_channel,
-                        change::FXRackTargetType::TargetChannel,
-                        result.target_index,
-                        mod->module()
-                    ));
-
-                    editor.hide_module_interface(mod);
+                if (fx_channel_combobox(song, &cur_fx_index))
+                {
+                    song.route_instrument(selected_channel, cur_fx_index);
                 }
-                break;
+
+                ImGui::PopItemWidth();
+                ImGui::EndGroup();
+                ImGui::EndTabItem();
             }
 
-            case EffectsInterfaceAction::Swapped:
-                editor.push_change(new change::ChangeSwapEffect(
-                    editor.selected_channel,
-                    change::FXRackTargetType::TargetChannel,
-                    result.swap_start,
-                    result.swap_end
-                ));
+            if (ImGui::BeginTabItem("Effect"))
+            {
+                auto& cur_channel = song.get_effect_channel(selected_fx_channel); 
 
-                break;
+                // left side: widget labels
+                ImGui::BeginGroup();
+                left_aligned_label("Name");
+                left_aligned_label("Volume");
+                left_aligned_label("Panning");
+                if (selected_fx_channel != 0) left_aligned_label("Output FX");
+                ImGui::EndGroup();
 
-            case EffectsInterfaceAction::SwapInstrument:
-                std::cout << "TODO: swap instrument\n";
-                break;
+                ImGui::SameLine();
 
-            case EffectsInterfaceAction::Nothing: break;
-        }*/
-        
+                ImGui::BeginGroup();
+
+                // channel name
+                ImGui::PushItemWidth(-1.0f);
+                ImGui::InputText("##channel_name", &cur_channel.name);
+
+                auto &fader = cur_channel.output_fader;
+                channel_fader_controls(fader);
+                
+                // fx channel combobox
+                // don't render fx channel 0 because that's the master channel
+                if (selected_fx_channel != 0)
+                {
+                    unsigned int out_fx_index = cur_channel.output_channel();
+
+                    if (fx_channel_combobox(song, &out_fx_index, selected_fx_channel))
+                        song.route_effect(selected_fx_channel, out_fx_index);
+                }
+
+                ImGui::PopItemWidth();
+                ImGui::EndGroup();
+                ImGui::EndTabItem();
+            }
+
+            ImGui::EndTabBar();
+        }
     } ImGui::End();
 }
 
@@ -445,7 +412,7 @@ void SongEditor::render_track_editor()
             song.position -= song.length() * song.beats_per_bar;
     }
     
-    if (ImGui::Begin("Track Editor")) {
+    if (ImGui::Begin("Track")) {
         // if song length or song channel count changed, then resize content size
         if (last_width != num_bars || last_height != num_channels) {
             Vec2 new_size = Vec2(num_bars, num_channels) * CELL_SIZE + Vec2(CHANNEL_COLUMN_WIDTH, 0.0f);
@@ -666,6 +633,28 @@ void SongEditor::render_track_editor()
 
 
 
+void SongEditor::render_effect_channels()
+{
+    if (ImGui::Begin("Effect Channels"))
+    {
+        for (unsigned int i = 0; i < song.effect_channel_count(); i++)
+        {
+            auto &ch = song.get_effect_channel(i);
+
+            if (ImGui::Selectable(ch.name.c_str(), i == selected_fx_channel))
+            {
+                selected_fx_channel = i;
+            }
+        }
+    } ImGui::End();
+}
+
+
+
+
+
+
+
 constexpr float PIANO_KEY_VELOCITY = 0.8f;
 
 void SongEditor::render_pattern_editor()
@@ -675,7 +664,7 @@ void SongEditor::render_pattern_editor()
     Theme& theme = Application::instance->theme;
     //Tuning* tuning = song.tunings[song.selected_tuning];
 
-    if (ImGui::Begin("Pattern Editor")) {
+    if (ImGui::Begin("Pattern")) {
         // cell size including margin
         const Vec2 CELL_SIZE = Vec2(int((ImGui::GetTextLineHeight() + 2.0f) * 3.125f), int(ImGui::GetTextLineHeight() + 2.0f));
         // empty space inbetween cells

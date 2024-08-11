@@ -21,9 +21,15 @@ Application::Application()
     _audio_engine.register_host(std::make_unique<hosts::internal::InternalModuleHost>());
     _audio_engine.register_host(std::make_unique<hosts::lv1::Lv1ModuleHost>());
     
-    _song = std::make_unique<Song>(4, 4, 4, _audio_engine);
+    // Song(num_channels, length, max_patterns, _audio_engine)
+    _song = std::make_unique<Song>(43, 40, 4, _audio_engine);
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
     _module_editor = std::make_unique<ModuleEditor>(*_song, shortcut_ctx);
+
+    _song->insert_effect_channel(1);
+    _song->insert_effect_channel(2);
+    _song->insert_effect_channel(3);
+    _song->insert_effect_channel(4);
 
     theme.set_imgui_colors();
 }

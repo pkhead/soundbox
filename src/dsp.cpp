@@ -1,6 +1,6 @@
 #include <cstring>
 #include <cmath>
-#include <numutil.hpp>
+#include <util.hpp>
 #include "dsp.hpp"
 
 using namespace dsp;

@@ -10,7 +10,7 @@ Contains implementations for all "control" modules:
 #include <cfloat>
 #include <cmath>
 #include <cassert>
-#include <numutil.hpp>
+#include <util.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <dsp.hpp>

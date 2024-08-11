@@ -1,6 +1,5 @@
 #include <stdexcept>
 
-#include "util.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 

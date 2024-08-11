@@ -1,6 +1,10 @@
 == MINOR REWRITE!!! ==
 - sometimes song playback skips forward a bit
+- combine channel settings and module editor into one window.
+  two different windows for instrument channel settings and fx channel settings
+  they go into the same dock compartment.
 - channel mute/solo keyboard shortcuts
+- replace uses of sprintf, snprintf, vsnprintf with util::format
 - fx channels
   - there are two channel windows: one in the track and another for fx channels
   - in the channel settings window, you can choose to either view the selected

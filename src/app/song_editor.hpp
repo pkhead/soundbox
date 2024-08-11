@@ -1,6 +1,6 @@
 #pragma once
 #include <cmath>
-#include <numutil.hpp>
+#include <util.hpp>
 #include "shortcuts.hpp"
 #include "song.hpp"
 
@@ -12,16 +12,18 @@ namespace sbox
         void render_song_settings();
         void render_channel_settings();
         void render_track_editor();
+        void render_effect_channels();
         void render_pattern_editor();
 
-        void play_note(unsigned int channel, unsigned int key, float velocity, float duration);
+        void play_note(unsigned int channel, int key, float velocity, float duration);
     
     public:
         Song &song;
         ShortcutContext &shortcuts;
 
-        uint selected_channel;
-        uint selected_bar;
+        unsigned int selected_channel;
+        unsigned int selected_fx_channel;
+        unsigned int selected_bar;
         float quantization;
         bool note_preview;
         bool show_all_channels;

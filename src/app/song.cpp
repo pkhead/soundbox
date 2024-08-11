@@ -219,7 +219,7 @@ EffectChannel::EffectChannel(const std::string &name) :
 {
     mute = false;
     solo = false;
-    _output_channel = (uint)-1;
+    _output_channel = 0;
 }
 
 std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::AudioEngine &engine, unsigned int index)
@@ -246,7 +246,7 @@ std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::Audi
 
 std::unique_ptr<EffectChannel> Song::create_effect_channel(modules::AudioEngine &engine, unsigned int name_number)
 {
-    std::string name = name_number == 0 ? "Master" : ("Channel " + std::to_string(name_number));
+    std::string name = name_number == 0 ? "Master" : ("FX " + std::to_string(name_number));
     std::unique_ptr<EffectChannel> channel = std::make_unique<EffectChannel>(name);
 
     channel->input_mixer = modx::create_module(engine, modules::AudioEngine::MODULE_CLASS_STEREO_MIXER);
@@ -509,6 +509,9 @@ void Song::insert_effect_channel(unsigned int index)
         if (fx_ch->output_channel() != (uint)-1 && fx_ch->output_channel() >= index)
             route_effect(i, fx_ch->output_channel() + 1);
     }
+
+    // route newly created effect channel to its desired value (i.e. master)
+    route_effect(index, _fx_channels[index]->output_channel());
 }
 
 void Song::remove_effect_channel(unsigned int index)

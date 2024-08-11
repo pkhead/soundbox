@@ -4,6 +4,7 @@
 #pragma once
 #include <imgui.h>
 #include <cmath>
+#include <string>
 
 // vector2 class fully compatible with ImGui's Vec2
 // this is so i can do vector math easily
@@ -59,6 +60,57 @@ struct Vec2 {
     operator ImVec2() const { return ImVec2(x, y); }
 };
 
+template <typename T = float>
+struct complex_t
+{
+    T real;
+    T imag;
+
+    inline constexpr complex_t()                : real(0.0f), imag(0.0f) {}
+    inline constexpr complex_t(T real)          : real(real), imag(0.0f) {}
+    inline constexpr complex_t(T real, T imag)  : real(real), imag(imag) {}
+
+    inline constexpr complex_t operator+(const complex_t& other) {
+        return complex_t(real + other.real, imag + other.imag);
+    }
+
+    inline constexpr complex_t operator+(const T& scalar) {
+        return complex_t(real + scalar, imag);
+    }
+
+    inline constexpr complex_t operator-(const complex_t& other) {
+        return complex_t(real - other.real, imag - other.imag);
+    }
+
+    inline constexpr complex_t operator-(const T& scalar) {
+        return complex_t(real - scalar, imag);
+    }
+
+    inline constexpr complex_t operator*(const complex_t& other) {
+        return complex_t(
+            real * other.real - imag * other.imag,
+            real * other.imag + imag * other.real
+        );
+    }
+
+    inline constexpr complex_t operator/(const complex_t& other) {
+        T val = other.real * other.real + other.imag * other.imag;
+
+        return complex_t(
+            (real * other.real + imag * other.imag) / val,
+            (imag * other.real - real * other.imag) / val
+        );
+    }
+
+    inline constexpr complex_t operator-() {
+        return complex_t(-real, -imag);
+    }
+
+    inline constexpr complex_t operator==(const complex_t& other) {
+        return real == other.real && imag == other.imag;
+    }
+};
+
 namespace util
 {
     template <typename T>
@@ -100,4 +152,15 @@ namespace util
         if (v < min) return min;
         return v;
     }
+
+    /**
+    * sprintf into std::string
+    **/
+    __attribute__((__format__(__printf__, 1, 2)))
+    std::string format(const char *fmt, ...);
+
+    /**
+    * vsprintf into std::string
+    **/
+    std::string vformat(const char *fmt, va_list va);
 }
