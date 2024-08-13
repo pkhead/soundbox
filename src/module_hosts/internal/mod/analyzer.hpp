@@ -41,6 +41,7 @@ namespace hosts::internal
 
         void process(modules::ModuleProcessor &proc) override;
         void ui() override;
+        void idle();
         bool has_presets() override { return false; };
     }; // class AnalyzerModule
 }

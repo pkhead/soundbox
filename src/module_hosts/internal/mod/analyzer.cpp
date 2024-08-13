@@ -9,6 +9,14 @@
 
 using namespace hosts::internal;
 
+// didn't bother making the ModuleBase automatically assign the idle callback, so
+// doing it manually for now.
+static void idle_callback(modules::AudioEngine &engine, modules::ModuleID id, void *userdata)
+{
+    AnalyzerModule *mod = static_cast<AnalyzerModule*>(userdata);
+    mod->idle();
+}
+
 AnalyzerModule::AnalyzerModule(modules::ModuleCreator& mod) :
     ModuleBase(mod),
     queue_capacity((size_t)(mod.engine.sample_rate() * 0.5f) * 2), // hold 0.5 seconds of audio data
@@ -27,6 +35,8 @@ AnalyzerModule::AnalyzerModule(modules::ModuleCreator& mod) :
 
     memset(ui_state.buf_left, 0, window_buffer_size * sizeof(float));
     memset(ui_state.buf_right, 0, window_buffer_size * sizeof(float));
+
+    mod.idle = idle_callback;
 
     /*complex_left = new fftwf_complex[arr_size];
     complex_right = new fftwf_complex[arr_size];
@@ -146,14 +156,12 @@ static int offset_zero_crossing(float* buf, size_t buf_size, size_t border)
     return 0;
 }
 
-void AnalyzerModule::ui() {
+// need to constantly read queue so that it doesn't run out of space.
+// if it does, it takes a bit for the analyzer ui to display the correct information again.
+void AnalyzerModule::idle()
+{
     auto &state = ui_state;
-
-    // use placeholder if audio process isn't ready to show analysis
-    float placeholder[2] = { 0.0f, 0.0f };
-
-    ImVec2 graph_size = ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f);
-
+    
     // read audio queue
     //if (audio_queue_left.available_for_read() >= window_buffer_size && audio_queue_right.available_for_read() >= window_buffer_size)
     //{
@@ -166,6 +174,11 @@ void AnalyzerModule::ui() {
         //memset(ui_left, 0, frames_per_buffer * sizeof(float));
         //memset(ui_right, 0, frames_per_buffer * sizeof(float));
     //}
+}
+
+void AnalyzerModule::ui() {
+    auto &state = ui_state;
+    ImVec2 graph_size = ImVec2(ImGui::GetTextLineHeight() * 15.0f, ImGui::GetTextLineHeight() * 10.0f);
 
     int offset_left = offset_zero_crossing(state.buf_left, window_buffer_size, window_margin);
     int offset_right = offset_zero_crossing(state.buf_right, window_buffer_size, window_margin);

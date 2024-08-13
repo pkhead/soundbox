@@ -861,14 +861,14 @@ bool AudioEngine::_control_get_ref<bool>(ModuleControl &control, bool** v)
 
 void AudioEngine::update()
 {
-    if (!_is_graph_dirty) return;
-
     // call module idle processes
     for (auto& [ id, inst ] : _modules)
     {
         if (inst->idle == nullptr) continue;
         inst->idle(*this, id, inst->userdata);
     }
+    
+    if (!_is_graph_dirty) return;
 
     // build the entire audio graph starting from the inputs for the AUDIO_OUT module
     // thus, modules that do not contribute to the AUDIO_OUT module do not get processed

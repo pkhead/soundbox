@@ -222,7 +222,7 @@ void ModuleEditor::render_channel_settings(Channel &cur_channel)
     left_aligned_label("Name");
     left_aligned_label("Volume");
     left_aligned_label("Panning");
-    if (selected_channel != 0) left_aligned_label("Output FX");
+    if (channel_type == CHANNEL_TYPE_INSTRUMENT || selected_channel != 0) left_aligned_label("Output FX");
     ImGui::EndGroup();
 
     ImGui::SameLine();
