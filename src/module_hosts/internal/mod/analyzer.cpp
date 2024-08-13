@@ -96,12 +96,8 @@ void AnalyzerModule::process(modules::ModuleProcessor &proc)
         
         if (state.index >= window_buffer_size)
         {
-            if (!audio_queue_left.write(state.buf_left, window_buffer_size))
-                logger::log_warning("SKIP!!!");
-
-            if (!audio_queue_right.write(state.buf_right, window_buffer_size))
-                logger::log_warning("SKIP!!!");
-            
+            audio_queue_left.write(state.buf_left, window_buffer_size);
+            audio_queue_right.write(state.buf_right, window_buffer_size);
             state.index = 0;
         }
     }

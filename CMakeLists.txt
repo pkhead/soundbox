@@ -184,7 +184,7 @@ if (WIN32)
 
     # build application
     target_compile_definitions(soundbox PUBLIC UI_WINDOWS ${COMPILE_FLAGS})
-    target_link_libraries(soundbox dwmapi comctl32.lib ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
+    target_link_libraries(soundbox dwmapi comctl32.lib avrt.lib ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
     set(STATUS_COMPOSITE "No")
 
     # build unit tests

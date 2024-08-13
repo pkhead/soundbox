@@ -10,6 +10,7 @@
 #include <thread>
 #include <imgui.h>
 #include <portaudio.h>
+#include <sys.hpp>
 #include "audio_engine.hpp"
 #include "../log.hpp"
 
@@ -83,7 +84,7 @@ AudioEngine::AudioEngine() :
     out_params.device = output_device;
     out_params.hostApiSpecificStreamInfo = nullptr;
     out_params.sampleFormat = paFloat32;
-    out_params.suggestedLatency = 0.05;
+    out_params.suggestedLatency = 0.08;
     err = Pa_OpenStream(
         &_pa_stream,
         nullptr,
@@ -137,6 +138,9 @@ int AudioEngine::_pa_stream_callback(
     float* out_samples = (float*) output_buffer;
     if (!self->_audio_ring_buffer.read(out_samples, frame_count * self->_output_channels))
     {
+#ifdef DEBUG
+        logger::log_debug("AudioEngine::_pa_stream_callback: not enough audio data to fill buffer");
+#endif
         memset(out_samples, 0, frame_count * self->_output_channels * sizeof(float));
     }
 
@@ -1057,8 +1061,12 @@ void AudioEngine::_s_process_stereo_mixer_node(ModuleProcessor &proc)
 
 void AudioEngine::_thread_process()
 {
+    sys::SleepHandle sleep_handle;
+
     while (_is_engine_runnning)
     {
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
         uint64_t ft = _frame_time;
         while (_audio_ring_buffer.available_for_write() >= _frames_per_buffer * _output_channels)
         {
@@ -1066,7 +1074,6 @@ void AudioEngine::_thread_process()
             {
                 break;
             }*/
-            
             const std::lock_guard<std::mutex> _mutex_lock(_mutex);
 
             // not null if there is an AUDIO_OUT module in the graph
@@ -1086,8 +1093,8 @@ void AudioEngine::_thread_process()
             _frame_time = ft;
         }
 
-        //std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        //std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        //logger::log_info("audio process: %f ms", (float)std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0f);
+        sleep_handle.sleep(5);
     }
 }

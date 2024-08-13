@@ -7,6 +7,7 @@ using namespace sys;
 
 #ifdef _WIN32
 #include <windows.h>
+#include <avrt.h>
 
 dl_handle::dl_handle(const std::filesystem::path &file_path)
 {
@@ -36,8 +37,101 @@ const char* dl_handle::error()
 	return "Win32 error messages unimplemented";
 }
 
+struct SleepHandleInternal
+{
+    HANDLE avrt_api_handle;
+    HANDLE timer;
+};
+
+SleepHandle::SleepHandle()
+{
+    SleepHandleInternal *internal = new SleepHandleInternal;
+
+    DWORD task_index = 0;
+    internal->avrt_api_handle = AvSetMmThreadCharacteristics("Pro Audio", &task_index);
+
+    if (_handle == nullptr)
+    {
+        const char* errmsg = "(unknown error)";
+
+        switch (GetLastError()) {
+            case ERROR_INVALID_TASK_INDEX:
+                errmsg = "ERROR_INVALID_TASK_INDEX";
+                break;
+
+            case ERROR_INVALID_TASK_NAME:
+                errmsg = "ERROR_INVALID_TASK_NAME";
+                break;
+
+            case ERROR_PRIVILEGE_NOT_HELD:
+                errmsg = "ERROR_PRIVILEGE_NOT_HELD";
+                break;
+        }
+
+        throw std::runtime_error(std::string("could not create SleepHandle: ") + errmsg);
+    }
+
+    if (!(internal->timer = CreateWaitableTimer(NULL, true, NULL)))
+    {
+        throw std::runtime_error("could not create SleepHandle");
+    }
+
+    _handle = internal;
+}
+
+SleepHandle::~SleepHandle()
+{
+    assert(_handle != nullptr);
+    SleepHandleInternal *internal = (SleepHandleInternal*) _handle;
+
+    CloseHandle(internal->timer);
+    AvRevertMmThreadCharacteristics(internal->avrt_api_handle);
+    delete internal;
+}
+
+void SleepHandle::sleep(unsigned long ms)
+{
+    assert(_handle != nullptr);
+    SleepHandleInternal *internal = (SleepHandleInternal*) _handle;
+
+    TIMECAPS tc;
+    UINT     wTimerRes;
+
+    if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) != TIMERR_NOERROR) 
+    {
+        throw std::runtime_error("error while sleeping");
+    }
+
+    wTimerRes = min(max(tc.wPeriodMin, 1), tc.wPeriodMax);
+    timeBeginPeriod(wTimerRes); 
+
+    LARGE_INTEGER li;
+    li.QuadPart = -(LONGLONG)(ms * 1e4);
+    if (!SetWaitableTimer(internal->timer, &li, 0, NULL, NULL, FALSE))
+        throw std::runtime_error("error while sleeping");
+
+    WaitForSingleObject(internal->timer, INFINITE);
+
+    timeEndPeriod(wTimerRes);
+}
+
 #else
 #include <dlfcn.h>
+#include <chrono>
+
+// ThreadPriorityHandle is a no-op on linux, because sleep is
+// already accurate enough.
+ThreadPriorityHandle::ThreadPriorityHandle()
+{
+    _handle = nullptr;
+}
+
+ThreadPriorityHandle::~ThreadPriorityHandle() {}
+
+ThreadPriorityHandle::sleep(unsigned long ms)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+}
 
 dl_handle::dl_handle(const std::filesystem::path &file_path)
 {

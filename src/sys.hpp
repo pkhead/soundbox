@@ -3,6 +3,26 @@
 
 namespace sys
 {
+    /**
+     * Provides functionality for high-resolution sleeping.
+     * Only one may exist per thread.
+     */
+    class SleepHandle
+    {
+    private:
+        void* _handle;
+    
+    public:
+        SleepHandle();
+        ~SleepHandle();
+
+        /**
+         * Sleep for the provided number of milliseconds.
+         * @param ms The number of milliseconds to sleep.
+         */
+        void sleep(unsigned long ms);
+    }; // class SleepHandle
+
     class dl_handle
     {
     private:
