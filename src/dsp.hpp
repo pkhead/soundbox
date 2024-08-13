@@ -10,6 +10,9 @@
 
 namespace dsp
 {
+    constexpr double PI = 3.14159265358979323846;
+    constexpr float PIf = 3.14159265358979323846f;
+
     inline float db_to_mult(float db) {
         return powf(10.0f, db / 10.0f);
     }

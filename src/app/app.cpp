@@ -239,19 +239,17 @@ void ShortcutContext::bind(const std::string &name, ShortcutID id, ModKeys mods,
 {
     if (key == ImGuiKey_Backspace) key = ImGuiKey_Delete;
 
-    Binding binding = Binding
-    {
-        .id = id,
-        .name = name,
-        .shortcut_string = generate_shortcut_string(mods, key),
-        .key = key,
-        .mods = mods,
+    Binding binding{};
+    binding.id = id;
+    binding.name = name;
+    binding.shortcut_string = generate_shortcut_string(mods, key);
+    binding.key = key;
+    binding.mods = mods;
 
-        .is_activated = false,
-        .is_deactivated = false,
-        .is_active = false,
-        .allow_repeat = allow_repeat
-    };
+    binding.is_activated = false;
+    binding.is_deactivated = false;
+    binding.is_active = false;
+    binding.allow_repeat = allow_repeat;
 
     _key_shortcuts[id] = binding;
 }

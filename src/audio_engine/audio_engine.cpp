@@ -184,12 +184,11 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
 
         for (unsigned int i = 0; i < 1; i++)
         {
-            instance->input_audio_ports[i] = ModuleAudioPort
-            {
-                .channel_count = (std::uint8_t) _output_channels,
-                .connected_module = 0,
-                .connection_port = 0
-            };
+            instance->input_audio_ports[i] = ModuleAudioPort(
+                (uint8_t) _output_channels,
+                0,
+                0
+            );
         }
 
         instance->userdata = this;
@@ -199,12 +198,11 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     {
         instance->name = "Stereo Mixer";
         instance->output_audio_ports.resize(1);
-        instance->output_audio_ports[0] = ModuleAudioPort
-        {
-            .channel_count = 2,
-            .connected_module = 0,
-            .connection_port = 0
-        };
+        instance->output_audio_ports[0] = ModuleAudioPort(
+            2,
+            0,
+            0
+        );
 
         instance->is_stereo_mixer = true;
         instance->processor = _s_process_stereo_mixer_node;
@@ -321,8 +319,8 @@ void AudioEngine::destroy_module(ModuleID mod_id)
     // sent to the audio process.
     _destroy_queue.push_back(DestroyQueueItem
     {
-        .id = mod_id,
-        .module = std::move(mod)
+        mod_id,
+        std::move(mod)
     });
     _modules.erase(mod_id);
 }
@@ -507,12 +505,11 @@ bool AudioEngine::connect_audio(ModuleID mod_a_id, ModuleID mod_b_id, unsigned i
         mod_a.output_audio_ports[out_index].connected_module = mod_b_id;
         mod_a.output_audio_ports[out_index].connection_port = 0;
 
-        mod_b.input_audio_ports.push_back(ModuleAudioPort
-        {
-            .channel_count = 2,
-            .connected_module = mod_a_id,
-            .connection_port = out_index
-        });
+        mod_b.input_audio_ports.push_back(ModuleAudioPort(
+            2,
+            mod_a_id,
+            out_index
+        ));
     }
     else
     {
@@ -896,22 +893,20 @@ void AudioEngine::update()
                     dep_it = dependencies.end() - 1;
                 }
 
-                node->audio_inputs.push_back(ModuleGraphConnection
-                {
-                    .from_node_index = static_cast<int>(dep_it - dependencies.begin()),
-                    .from_port = it->connection_port,
-                    .to_port = input_port
-                });
+                node->audio_inputs.push_back(ModuleGraphConnection(
+                    static_cast<int>(dep_it - dependencies.begin()),
+                    it->connection_port,
+                    input_port
+                ));
 
             }
             else
             {
-                node->audio_inputs.push_back(ModuleGraphConnection
-                {
-                    .from_node_index = -1,
-                    .from_port = 0,
-                    .to_port = input_port
-                });
+                node->audio_inputs.push_back(ModuleGraphConnection(
+                    -1,
+                    0,
+                    input_port
+                ));
             }
 
             input_port++;
@@ -929,21 +924,19 @@ void AudioEngine::update()
                     dep_it = dependencies.end() - 1;
                 }
 
-                node->message_inputs.push_back(ModuleGraphConnection
-                {
-                    .from_node_index = static_cast<int>(dep_it - dependencies.begin()),
-                    .from_port = it->connection_port,
-                    .to_port = input_port
-                });
+                node->message_inputs.push_back(ModuleGraphConnection(
+                    static_cast<int>(dep_it - dependencies.begin()),
+                    it->connection_port,
+                    input_port
+                ));
             }
             else
             {
-                node->message_inputs.push_back(ModuleGraphConnection
-                {
-                    .from_node_index = -1,
-                    .from_port = 0,
-                    .to_port = input_port
-                });
+                node->message_inputs.push_back(ModuleGraphConnection(
+                    -1,
+                    0,
+                    input_port
+                ));
             }
 
             input_port++;

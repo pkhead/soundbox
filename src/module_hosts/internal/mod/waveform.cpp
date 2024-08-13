@@ -92,7 +92,7 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
 // https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/
 static float poly_blep(float t, float inc)
 {
-    float dt = inc / (2 * M_PI);
+    float dt = inc / (2.0f * dsp::PIf);
     // 0 <= t < 1
     if (t < dt) {
         t /= dt;
@@ -247,7 +247,7 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
                 float r_mult = (osc_data[osc].pan + 1.0f) / 2.0f;
                 float l_mult = 1.0f - r_mult;
 
-                double increment = (2.0f * M_PI * freq) / proc.sample_rate;
+                double increment = (2.0f * dsp::PIf * freq) / proc.sample_rate;
 
                 switch (osc_data[osc].type) {
                     case WAVE_SINE:
@@ -256,9 +256,9 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
 
                     case WAVE_SQUARE:
                     case WAVE_TRIANGLE: // triangle is an integrated square wave
-                        sample = phase < M_PI ? 1.0 : -1.0;
-                        sample += poly_blep(phase / (2.0f * M_PI), increment);
-                        sample -= poly_blep(fmod(phase / (2.0f * M_PI) + 0.5,1.0), increment);
+                        sample = phase < dsp::PIf ? 1.0 : -1.0;
+                        sample += poly_blep(phase / (2.0f * dsp::PIf), increment);
+                        sample -= poly_blep(fmod(phase / (2.0f * dsp::PIf) + 0.5,1.0), increment);
 
                         if (osc_data[osc].type == WAVE_TRIANGLE)
                         {
@@ -279,19 +279,19 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
                     }*/
 
                     case WAVE_SAWTOOTH:
-                        sample = (2.0 * phase / (2.0f * M_PIf)) - 1.0;
-                        sample -= poly_blep(phase / (2.0f * M_PIf), increment);
+                        sample = (2.0 * phase / (2.0f * dsp::PIf)) - 1.0;
+                        sample -= poly_blep(phase / (2.0f * dsp::PIf), increment);
                         break;
 
                     // 25% pulse wave
                     case WAVE_PULSE: {
                         // phase-shift
-                        double mphase = util::mod((phase + M_PI/2.0), 2*M_PIf);
+                        double mphase = util::mod((phase + dsp::PI/2.0), 2*dsp::PIf);
 
-                        double a = phase / M_PIf - 1.0;
-                        a -= poly_blep(phase / (2*M_PIf), increment);
-                        double b = mphase / M_PIf - 1.0;
-                        b -= poly_blep(mphase / (2*M_PIf), increment);
+                        double a = phase / dsp::PIf - 1.0;
+                        a -= poly_blep(phase / (2*dsp::PIf), increment);
+                        double b = mphase / dsp::PIf - 1.0;
+                        b -= poly_blep(mphase / (2*dsp::PIf), increment);
                         sample = a - b;
                         break;
                     }
@@ -304,17 +304,17 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
                 samples[osc][1] = sample * r_mult;
 
                 voice.phase[osc] += increment;
-                if (voice.phase[osc] > 2*M_PI)
-                    voice.phase[osc] -= 2*M_PI;
+                if (voice.phase[osc] > 2*dsp::PI)
+                    voice.phase[osc] -= 2*dsp::PI;
             }
 
             // update vibrato
             if (voice.time >= vibrato_delay)
             {
-                voice.vibrato_phase += (2*M_PI * vibrato_speed) / proc.sample_rate;
+                voice.vibrato_phase += (2*dsp::PIf * vibrato_speed) / proc.sample_rate;
                 
-                if (voice.vibrato_phase > 2*M_PI) {
-                    voice.vibrato_phase -= 2*M_PI;
+                if (voice.vibrato_phase > 2*dsp::PIf) {
+                    voice.vibrato_phase -= 2*dsp::PIf;
                 }
             }
 

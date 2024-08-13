@@ -93,7 +93,7 @@ void FilterIIR2ndOrder::low_pass(float Fs, float f0, float Q)
     // Fs: sample rate
     // f0: frequency
     // Q: peak linear gain
-    float w0 = 2.0f * M_PI * f0 / Fs;
+    float w0 = 2.0f * PIf * f0 / Fs;
     float si = sinf(w0);
     float co = cosf(w0);
 
@@ -110,7 +110,7 @@ void FilterIIR2ndOrder::low_pass(float Fs, float f0, float Q)
 
 void FilterIIR2ndOrder::high_pass(float Fs, float f0, float Q)
 {
-    float w0 = 2.0f * M_PI * f0 / Fs;
+    float w0 = 2.0f * PIf * f0 / Fs;
     float si = sinf(w0);
     float co = cosf(w0);
 
@@ -127,7 +127,7 @@ void FilterIIR2ndOrder::high_pass(float Fs, float f0, float Q)
 
 void FilterIIR2ndOrder::all_pass(float Fs, float f0, float Q)
 {
-    float w0 = 2.0f * M_PI * f0 / Fs;
+    float w0 = 2.0f * PIf * f0 / Fs;
     float si = sinf(w0);
     float co = cosf(w0);
     float alpha = si / (2.0f * Q);
@@ -141,7 +141,7 @@ void FilterIIR2ndOrder::all_pass(float Fs, float f0, float Q)
 void FilterIIR2ndOrder::low_shelf(float Fs, float f0, float gain, float slope)
 {
     float A = sqrtf(powf(10.0f, gain / 40.0f));
-    float w0 = 2.0f * M_PI * f0 / Fs;
+    float w0 = 2.0f * PIf * f0 / Fs;
 
     float si = sinf(w0);
     float co = cosf(w0);
@@ -160,7 +160,7 @@ void FilterIIR2ndOrder::low_shelf(float Fs, float f0, float gain, float slope)
 void FilterIIR2ndOrder::high_shelf(float Fs, float f0, float gain, float slope)
 {
     float A = sqrtf(powf(10.0f, gain / 40.0f));
-    float w0 = 2.0f * M_PI * f0 / Fs;
+    float w0 = 2.0f * PIf * f0 / Fs;
 
     float si = sinf(w0);
     float co = cosf(w0);
@@ -183,7 +183,7 @@ void FilterIIR2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
     // gain: peak linear gain
     // bw: band width
     
-    float w0 = 2.0 * M_PI * f0 / Fs;
+    float w0 = 2.0 * PIf * f0 / Fs;
     float sqrt_gain = sqrtf(powf(10.0f, gain / 40.0f));
     float si = sinf(w0);
     float co = cosf(w0);
@@ -207,7 +207,7 @@ void FilterIIR2ndOrder::peak(float Fs, float f0, float gain, float bw_scale)
 // behind this
 float FilterIIR2ndOrder::attenuation(float hz, float sample_rate)
 {
-    float corner_rad_per_sample = 2.0f * M_PI * hz / sample_rate;
+    float corner_rad_per_sample = 2.0f * PIf * hz / sample_rate;
     float real = cosf(corner_rad_per_sample);
     float imag = sinf(corner_rad_per_sample);
 

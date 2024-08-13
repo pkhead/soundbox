@@ -57,12 +57,29 @@ namespace modules
             uint8_t channel_count;
             ModuleID connected_module;
             unsigned int connection_port;
+
+            inline ModuleAudioPort() : channel_count(0), connected_module(0), connection_port(0)
+            {}
+
+            inline ModuleAudioPort(uint8_t channel_count, ModuleID connected_module, unsigned int connection_port) :
+                channel_count(channel_count),
+                connected_module(connected_module),
+                connection_port(connection_port)
+            {}
         };
 
         struct ModuleMessagePort
         {
             ModuleID connected_module;
             unsigned int connection_port;
+
+            inline ModuleMessagePort() : connected_module(0), connection_port(0)
+            {}
+            
+            inline ModuleMessagePort(ModuleID connected_module, unsigned int connection_port) :
+                connected_module(connected_module),
+                connection_port(connection_port)
+            {}
         };
 
         struct MessageHeader
@@ -129,6 +146,12 @@ namespace modules
             int from_node_index;
             unsigned int from_port;
             unsigned int to_port;
+
+            inline constexpr ModuleGraphConnection(int from_node_index, unsigned int from_port, unsigned int to_port) :
+                from_node_index(from_node_index),
+                from_port(from_port),
+                to_port(to_port)
+            {}
         };
 
         struct ModuleGraphNode

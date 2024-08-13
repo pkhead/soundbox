@@ -506,7 +506,7 @@ void Song::insert_effect_channel(unsigned int index)
     {
         auto &fx_ch = _fx_channels[i];
 
-        if (fx_ch->get_output_channel() != (uint)-1 && fx_ch->get_output_channel() >= index)
+        if (fx_ch->get_output_channel() != (unsigned int)-1 && fx_ch->get_output_channel() >= index)
             route_effect(i, fx_ch->get_output_channel() + 1);
     }
 
@@ -597,7 +597,7 @@ void Song::disconnect_effect(unsigned int channel_index)
 
     auto &fx = _fx_channels[channel_index];
     disconnect_output(fx->output_fader);
-    fx->_effect_channel = (uint)-1;
+    fx->_effect_channel = (unsigned int)-1;
 }
 
 bool Song::is_note_playable(int key)

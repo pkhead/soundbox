@@ -14,6 +14,10 @@ namespace sbox
         {
             std::string name;
             std::vector<modules::ModuleInfo> modules;
+
+            inline ModuleCategory(const std::string &name) :
+                name(name)
+            {}
         };
 
         void module_list_by_host(const std::vector<modules::ModuleInfo> &info_list);

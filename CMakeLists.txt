@@ -23,8 +23,8 @@ option(UNIT_TESTS "Compile unit tests" ON)
 # find packages required for lv2 support on system
 find_package(lilv)
 find_package(suil)
-find_library(FFTW3_LIBRARIES fftw3f REQUIRED)
-find_path(FFTW3_INCLUDE fftw3.h REQUIRED)
+# find_library(FFTW3_LIBRARIES fftw3f REQUIRED)
+# find_path(FFTW3_INCLUDE fftw3.h REQUIRED)
 
 if (SBOX_DISABLE_LV2 OR
     (NOT ${lilv_FOUND}) OR
@@ -124,7 +124,7 @@ set(LIBRARIES
     ${lilv_LIBRARIES}
     ${suil_LIBRARIES}
     ${GTK2_LIBRARIES}
-    ${FFTW3_LIBRARIES}
+    # ${FFTW3_LIBRARIES}
 )
 
 set(INCLUDES
@@ -137,7 +137,7 @@ set(INCLUDES
     deps/nativefiledialog/src/include
     deps/tuning-library/include
     
-    ${FFTW3_INCLUDE}
+    # ${FFTW3_INCLUDE}
     src
 )
 

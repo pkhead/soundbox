@@ -26,30 +26,28 @@ ModuleCreator::ModuleCreator(ModuleID id, AudioEngine& engine, std::string class
 
 void ModuleCreator::add_audio_input(uint8_t channels)
 {
-    instance.input_audio_ports.push_back(AudioEngine::ModuleAudioPort
-    {
-        .channel_count = channels,
-        .connected_module = 0,
-        .connection_port = 0
-    });
+    instance.input_audio_ports.push_back(AudioEngine::ModuleAudioPort(
+        channels,
+        0,
+        0
+    ));
 }
 
 void ModuleCreator::add_audio_output(uint8_t channels)
 {
-    instance.output_audio_ports.push_back(AudioEngine::ModuleAudioPort
-    {
-        .channel_count = channels,
-        .connected_module = 0,
-        .connection_port = 0
-    });
+    instance.output_audio_ports.push_back(AudioEngine::ModuleAudioPort(
+        channels,
+        0,
+        0
+    ));
 }
 
 void ModuleCreator::add_message_input()
 {
     instance.input_message_ports.push_back(AudioEngine::ModuleMessagePort
     {
-        .connected_module = 0,
-        .connection_port = 0
+        0,
+        0
     });
 }
 
@@ -57,64 +55,59 @@ void ModuleCreator::add_message_output()
 {
     instance.output_message_ports.push_back(AudioEngine::ModuleMessagePort
     {
-        .connected_module = 0,
-        .connection_port = 0
+        0,
+        0
     });
 }
 
 template <>
 AudioEngine::ModuleControl ModuleCreator::_create_module_control<float>(const std::string &name, float default_value)
 {
-    return AudioEngine::ModuleControl
-    {
-        .name = name,
-        .data_type = ModuleControlDataType::FLOAT,
-        .float_value = default_value
-    };
+    AudioEngine::ModuleControl ctl;
+    ctl.name = name;
+    ctl.data_type = ModuleControlDataType::FLOAT;
+    ctl.float_value = default_value;
+    return ctl;
 }
 
 template <>
 AudioEngine::ModuleControl ModuleCreator::_create_module_control<double>(const std::string &name, double default_value)
 {
-    return AudioEngine::ModuleControl
-    {
-        .name = name,
-        .data_type = ModuleControlDataType::DOUBLE,
-        .double_value = default_value
-    };
+    AudioEngine::ModuleControl ctl;
+    ctl.name = name;
+    ctl.data_type = ModuleControlDataType::DOUBLE;
+    ctl.double_value = default_value;
+    return ctl;
 }
 
 template <>
 AudioEngine::ModuleControl ModuleCreator::_create_module_control<std::int32_t>(const std::string &name, std::int32_t default_value)
 {
-    return AudioEngine::ModuleControl
-    {
-        .name = name,
-        .data_type = ModuleControlDataType::INT32,
-        .int32_value = default_value
-    };
+    AudioEngine::ModuleControl ctl;
+    ctl.name = name;
+    ctl.data_type = ModuleControlDataType::INT32;
+    ctl.int32_value = default_value;
+    return ctl;
 }
 
 template <>
 AudioEngine::ModuleControl ModuleCreator::_create_module_control<std::int64_t>(const std::string &name, std::int64_t default_value)
 {
-    return AudioEngine::ModuleControl
-    {
-        .name = name,
-        .data_type = ModuleControlDataType::INT64,
-        .int64_value = default_value
-    };
+    AudioEngine::ModuleControl ctl;
+    ctl.name = name;
+    ctl.data_type = ModuleControlDataType::INT64;
+    ctl.int64_value = default_value;
+    return ctl;
 }
 
 template <>
 AudioEngine::ModuleControl ModuleCreator::_create_module_control<bool>(const std::string &name, bool default_value)
 {
-    return AudioEngine::ModuleControl
-    {
-        .name = name,
-        .data_type = ModuleControlDataType::BOOL,
-        .bool_value = default_value
-    };
+    AudioEngine::ModuleControl ctl;
+    ctl.name = name;
+    ctl.data_type = ModuleControlDataType::BOOL;
+    ctl.bool_value = default_value;
+    return ctl;
 }
 
 
@@ -204,10 +197,7 @@ bool ModuleProcessor::send_message(unsigned int index, void *data, unsigned int 
     if (index >= mod.output_message_ports.size()) return false;
     if (data_size == 0) return true;
 
-    AudioEngine::MessageHeader msg_header
-    {
-        .size = data_size
-    };
+    AudioEngine::MessageHeader msg_header { data_size };
     
     auto &queue = mod.audio_data.output_messages[index];
     if (queue.available_for_write() < sizeof(msg_header) + data_size)

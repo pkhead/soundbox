@@ -37,9 +37,7 @@ void ModuleList::module_list_by_author(const std::vector<modules::ModuleInfo> &l
         if (map_it == author_category_map.end())
         {
             author_category_map[modclass.author] = module_list.size();
-            module_list.push_back(ModuleCategory {
-                .name = modclass.author
-            });
+            module_list.push_back(ModuleCategory(modclass.author));
             category = &module_list.back();
         }
         else

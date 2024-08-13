@@ -25,7 +25,7 @@ bool Lv1ModuleHost::initialize()
 {
     // collect search paths
     {
-        std::filesystem::path::string_type paths_str = get_std_path_string();
+        std::filesystem::path::string_type paths_str = std::filesystem::u8path(get_std_path_string()).native();
         std::filesystem::path::string_type path_buf;
 
 #ifdef _WIN32
@@ -34,7 +34,7 @@ bool Lv1ModuleHost::initialize()
         constexpr char path_sep = ':';
 #endif
 
-        for (char &ch : paths_str)
+        for (std::filesystem::path::value_type &ch : paths_str)
         {
             if (ch == path_sep && !path_buf.empty())
             {

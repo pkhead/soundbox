@@ -162,7 +162,7 @@ int main(int argc, char** argv)
 
         double next_time = glfwGetTime();
         double prev_time = next_time;
-        double dt;
+        double dt = 0.0;
 
         sbox::Application app;
 

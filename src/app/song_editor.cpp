@@ -259,8 +259,8 @@ void SongEditor::render_track_editor()
         }
 
         if (last_cursor_x != selected_bar || last_cursor_y != selected_channel) {
-            uint& cursor_x = selected_bar;
-            uint& cursor_y = selected_channel;
+            unsigned int &cursor_x = selected_bar;
+            unsigned int &cursor_y = selected_channel;
 
             Vec2 cursor_pos = Vec2(cursor_x * CELL_SIZE.x + CHANNEL_COLUMN_WIDTH, cursor_y * CELL_SIZE.y);
             Vec2 window_scroll = last_viewport_scroll;
@@ -437,7 +437,7 @@ void SongEditor::render_track_editor()
     {
         for (int k = 0; k < 10; k++) {
             if (ImGui::IsKeyPressed((ImGuiKey)((int)ImGuiKey_0 + k))) {
-                uint& cell = song.get_channel(selected_channel).sequence[selected_bar];
+                unsigned int &cell = song.get_channel(selected_channel).sequence[selected_bar];
                 int old_value = cell;
 
                 pattern_input = (pattern_input * 10) + k;
