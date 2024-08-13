@@ -76,59 +76,64 @@ namespace sbox
 
     class Song;
 
-    class InstrumentChannel
+    /**
+    * Generic channel info.
+    **/
+    class Channel
     {
-    private:
+    protected:
         unsigned int _effect_channel;
-        bool _is_dirty;
-    
+
     public:
         const unsigned int uid;
-        
-        std::string name;
-        std::vector<unsigned int> sequence;
-        std::vector<std::unique_ptr<Pattern>> patterns;
 
-        modx::ModuleRc input_controller;
+        std::string name;
         modx::ModuleRc output_fader;
         ModuleRack rack;
-
-        bool mute, solo;
-
-        inline unsigned int effect_channel() const { return _effect_channel; }
-
-        void send_event(const modx::TrackEvent &event);
-
-        friend class Song;
-
-        InstrumentChannel(const std::string &name);
-    }; // struct InstrumentChannel
-
-    class EffectChannel
-    {
-    private:
-        unsigned int _output_channel;
-    
-    public:
-        const unsigned int uid;
-        std::string name;
-
-        modx::ModuleRc input_mixer;
-        modx::ModuleRc output_fader;
-        ModuleRack rack;
-
         bool mute, solo;
 
         /**
         * Get the effect channel this channel is routed to.
-        * @returns `(unsigned int)-1` if not routed to anything, otherwise the index of the output channel.
+        * @returns `(unsigned int)-1` if not routed to anything, otherwise it returns the index of the output effect channel.
         **/
-        inline unsigned int output_channel() const { return _output_channel; }
+        inline unsigned int get_output_channel() { return _effect_channel; }
+
+        Channel(const std::string &name);
 
         friend class Song;
+    }; // class Channel
+
+    /**
+    * Instrument channel.
+    **/
+    class InstrumentChannel : public Channel
+    {
+    private:
+        bool _is_dirty;
+    
+    public:
+        std::vector<unsigned int> sequence;
+        std::vector<std::unique_ptr<Pattern>> patterns;
+        modx::ModuleRc input_controller;
+
+        InstrumentChannel(const std::string &name);
+        void send_event(const modx::TrackEvent &event);
+
+        friend class Song;
+    }; // class InstrumentChannel
+
+    /**
+    * Effect channel.
+    **/
+    class EffectChannel : public Channel
+    {
+    public:
+        modx::ModuleRc input_mixer;
 
         EffectChannel(const std::string &name);
-    }; // struct EffectChannel
+
+        friend class Song;
+    }; // class EffectChannel
 
     class Song
     {

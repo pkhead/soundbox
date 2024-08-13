@@ -19,7 +19,10 @@ namespace sbox
         modules::AudioEngine _audio_engine;
         std::unique_ptr<Song> _song;
         std::unique_ptr<SongEditor> _song_editor;
-        std::unique_ptr<ModuleEditor> _module_editor;
+
+        ModuleList module_list;
+        std::unique_ptr<ModuleEditor> _inst_editor;
+        std::unique_ptr<ModuleEditor> _fx_editor;
 
         bool _show_imgui_demo_window;
 

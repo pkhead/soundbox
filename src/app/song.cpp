@@ -203,23 +203,23 @@ void ModuleRack::connect_output(const modx::ModuleRc &new_output)
 ////////////////////
 // Song, Channels //
 ////////////////////
-InstrumentChannel::InstrumentChannel(const std::string &name) :
+Channel::Channel(const std::string &name) :
     uid(next_uid++),
     name(name)
 {
     mute = false;
     solo = false;
     _effect_channel = (unsigned int)-1;
+}
+
+InstrumentChannel::InstrumentChannel(const std::string &name) : Channel(name)
+{
     _is_dirty = true;
 }
 
-EffectChannel::EffectChannel(const std::string &name) :
-    uid(next_uid++),
-    name(name)
+EffectChannel::EffectChannel(const std::string &name) : Channel(name)
 {
-    mute = false;
-    solo = false;
-    _output_channel = 0;
+    _effect_channel = 0; // wants to route to master
 }
 
 std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::AudioEngine &engine, unsigned int index)
@@ -498,20 +498,20 @@ void Song::insert_effect_channel(unsigned int index)
     {
         auto &inst_ch = _channels[i];
 
-        if (inst_ch->effect_channel() >= index)
-            route_instrument(i, inst_ch->effect_channel() + 1);
+        if (inst_ch->get_output_channel() >= index)
+            route_instrument(i, inst_ch->get_output_channel() + 1);
     }
 
     for (unsigned int i = 0; i < _fx_channels.size(); i++)
     {
         auto &fx_ch = _fx_channels[i];
 
-        if (fx_ch->output_channel() != (uint)-1 && fx_ch->output_channel() >= index)
-            route_effect(i, fx_ch->output_channel() + 1);
+        if (fx_ch->get_output_channel() != (uint)-1 && fx_ch->get_output_channel() >= index)
+            route_effect(i, fx_ch->get_output_channel() + 1);
     }
 
     // route newly created effect channel to its desired value (i.e. master)
-    route_effect(index, _fx_channels[index]->output_channel());
+    route_effect(index, _fx_channels[index]->get_output_channel());
 }
 
 void Song::remove_effect_channel(unsigned int index)
@@ -537,7 +537,7 @@ void Song::remove_effect_channel(unsigned int index)
     for (unsigned int i = 0; i < _channels.size(); i++)
     {
         auto &inst_ch = _channels[i];
-        if (inst_ch->effect_channel() == index)
+        if (inst_ch->get_output_channel() == index)
             route_instrument(i, 0); // route to master
     }
 
@@ -545,7 +545,7 @@ void Song::remove_effect_channel(unsigned int index)
     {
         auto &fxch = _fx_channels[i];
 
-        if (fxch->output_channel() == index)
+        if (fxch->get_output_channel() == index)
             disconnect_effect(i);
     }
 }
@@ -583,7 +583,7 @@ void Song::route_effect(unsigned int effect_channel_src_index, unsigned int effe
     auto &fx_dst = _fx_channels[effect_channel_dst_index];
 
     connect(fx_src->output_fader, fx_dst->input_mixer);
-    fx_src->_output_channel = effect_channel_dst_index;
+    fx_src->_effect_channel = effect_channel_dst_index;
 }
 
 void Song::disconnect_effect(unsigned int channel_index)
@@ -597,7 +597,7 @@ void Song::disconnect_effect(unsigned int channel_index)
 
     auto &fx = _fx_channels[channel_index];
     disconnect_output(fx->output_fader);
-    fx->_output_channel = (uint)-1;
+    fx->_effect_channel = (uint)-1;
 }
 
 bool Song::is_note_playable(int key)

@@ -20,11 +20,17 @@ Application::Application()
 
     _audio_engine.register_host(std::make_unique<hosts::internal::InternalModuleHost>());
     _audio_engine.register_host(std::make_unique<hosts::lv1::Lv1ModuleHost>());
+    module_list.module_list_by_author(_audio_engine.available_module_classes());
     
     // Song(num_channels, length, max_patterns, _audio_engine)
     _song = std::make_unique<Song>(43, 40, 4, _audio_engine);
+
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
-    _module_editor = std::make_unique<ModuleEditor>(*_song, shortcut_ctx);
+    _inst_editor = std::make_unique<ModuleEditor>(*_song_editor, module_list);
+    _fx_editor = std::make_unique<ModuleEditor>(*_song_editor, module_list);
+
+    _inst_editor->channel_type = ModuleEditor::CHANNEL_TYPE_INSTRUMENT;
+    _fx_editor->channel_type = ModuleEditor::CHANNEL_TYPE_EFFECT;
 
     _song->insert_effect_channel(1);
     _song->insert_effect_channel(2);
@@ -191,9 +197,10 @@ void Application::draw_interface()
 
     _song_editor->draw();
     
-    _module_editor->selected_channel = _song_editor->selected_channel;
-    _module_editor->selected_channel_type = ModuleEditor::CHANNEL_TYPE_INSTRUMENT;
-    _module_editor->draw();
+    _inst_editor->selected_channel = _song_editor->selected_channel;
+    _fx_editor->selected_channel = _song_editor->selected_fx_channel;
+    _inst_editor->draw("Instrument");
+    _fx_editor->draw("Effect Channel");
 
     if (ImGui::IsKeyPressed(ImGuiKey_F1))
     {
