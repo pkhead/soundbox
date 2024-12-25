@@ -211,6 +211,8 @@ namespace modules
 
         template <typename T>
         static bool _control_get_ref(ModuleControl &control, T** v);
+
+        std::atomic<float> _process_time;
     public:
         AudioEngine();
         AudioEngine(const AudioEngine&&) = delete;
@@ -239,6 +241,8 @@ namespace modules
         }
 
         inline unsigned long frame_time() const { return _frame_time; }
+
+        inline float process_time() const { return _process_time; }
 
         /// Register a host.
         /// @returns True if host registration was successful, false if not.

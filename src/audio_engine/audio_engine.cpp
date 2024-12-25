@@ -77,7 +77,6 @@ AudioEngine::AudioEngine() :
     }
 
     _sample_rate = 44100;
-    unsigned int buffer_frames = 256;
 
     PaStreamParameters out_params;
     out_params.channelCount = 2;
@@ -90,7 +89,7 @@ AudioEngine::AudioEngine() :
         nullptr,
         &out_params, // num output channels (stereo)
         _sample_rate, // sample rate
-        paFramesPerBufferUnspecified, // num frames per buffer (am using own buffer so this is not needed)
+        _frames_per_buffer, // num frames per buffer (am using own buffer so this is not needed)
         0, // stream flags
         _pa_stream_callback, // callback function
         (void*)this // user data
@@ -134,6 +133,8 @@ int AudioEngine::_pa_stream_callback(
 )
 {
     AudioEngine* self = (AudioEngine*) userdata;
+
+    //logger::log_debug("available to read: %lu", self->_audio_ring_buffer.available_for_read());
 
     float* out_samples = (float*) output_buffer;
     if (!self->_audio_ring_buffer.read(out_samples, frame_count * self->_output_channels))
@@ -1067,6 +1068,8 @@ void AudioEngine::_thread_process()
     {
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
+        //logger::log_debug("available to write: %lu", _audio_ring_buffer.available_for_write());
+
         uint64_t ft = _frame_time;
         while (_audio_ring_buffer.available_for_write() >= _frames_per_buffer * _output_channels)
         {
@@ -1094,7 +1097,8 @@ void AudioEngine::_thread_process()
         }
 
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        //logger::log_info("audio process: %f ms", (float)std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0f);
-        sleep_handle.sleep(5);
+        _process_time = (float)std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000000.0f;
+
+        sleep_handle.sleep(3);
     }
 }
