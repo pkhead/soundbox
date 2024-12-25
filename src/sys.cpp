@@ -118,19 +118,21 @@ void SleepHandle::sleep(unsigned long ms)
 #else
 #include <dlfcn.h>
 #include <chrono>
+#include <unistd.h>
 
-// ThreadPriorityHandle is a no-op on linux, because sleep is
-// already accurate enough.
-ThreadPriorityHandle::ThreadPriorityHandle()
+SleepHandle::SleepHandle()
 {
     _handle = nullptr;
 }
 
-ThreadPriorityHandle::~ThreadPriorityHandle() {}
-
-ThreadPriorityHandle::sleep(unsigned long ms)
+SleepHandle::~SleepHandle()
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+}
+
+void SleepHandle::sleep(unsigned long ms)
+{
+    usleep(ms * 1000);
 }
 
 dl_handle::dl_handle(const std::filesystem::path &file_path)
@@ -154,7 +156,7 @@ dl_handle::~dl_handle()
 void* dl_handle::sym(const char *symbol_name) const
 {
     assert(_handle);
-	return dlsym(_handle, symbol_name);
+    return dlsym(_handle, symbol_name);
 }
 
 const char* dl_handle::error()

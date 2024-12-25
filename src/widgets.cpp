@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cstdint>
 #include <imgui.h>
 #include <math.h>
 #include <util.hpp>

@@ -1,5 +1,6 @@
 #include <cfloat>
 #include <algorithm>
+#include <stdexcept>
 #include <imgui_internal.h>
 #include <imgui.h>
 #include <imgui/misc/cpp/imgui_stdlib.h>

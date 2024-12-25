@@ -23,7 +23,7 @@ Application::Application()
     module_list.module_list_by_author(_audio_engine.available_module_classes());
     
     // Song(num_channels, length, max_patterns, _audio_engine)
-    _song = std::make_unique<Song>(43, 40, 4, _audio_engine);
+    _song = std::make_unique<Song>(8, 40, 4, _audio_engine);
 
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
     _inst_editor = std::make_unique<ModuleEditor>(*_song_editor, module_list);
@@ -50,10 +50,28 @@ void Application::request_close()
     running = false;
 }
 
+static float peak_process_time = 0.0f;
+static float display_process_time = 0.0f;
+static float time_accum = 0.0f;
+
 void Application::update(float dt)
 {
     shortcut_ctx.update();
     draw_interface();
+
+    {
+        time_accum += dt;
+        float process_time = _audio_engine.process_time();
+        if (process_time > peak_process_time) {
+            peak_process_time = process_time;
+        }
+
+        if (time_accum >= 0.5f) {
+            time_accum = 0.0f;
+            display_process_time = peak_process_time;
+            peak_process_time = 0.0f;
+        }
+    }
 
     handle_shortcuts();
 
@@ -209,6 +227,11 @@ void Application::draw_interface()
 
     if (_show_imgui_demo_window)
         ImGui::ShowDemoWindow(&_show_imgui_demo_window);
+    
+    //if (ImGui::Begin("test")) {
+    //    ImGui::Text("process time: %.3f ms", display_process_time * 1000.0f);
+    //}
+    //ImGui::End();
 }
 
 
@@ -226,8 +249,8 @@ ShortcutContext::ShortcutContext()
     bind("Quit", ShortcutID::QUIT, ModKeys::ALT, ImGuiKey_F4);
 
     bind("Play/Pause", ShortcutID::PLAY_PAUSE, ModKeys::NONE, ImGuiKey_Space);
-    bind("Playhead Next", ShortcutID::PLAYHEAD_NEXT, ModKeys::NONE, ImGuiKey_RightBracket);
-    bind("Playhead Previous", ShortcutID::PLAYHEAD_PREV, ModKeys::NONE, ImGuiKey_LeftBracket);
+    bind("Playhead Next", ShortcutID::PLAYHEAD_NEXT, ModKeys::NONE, ImGuiKey_RightBracket, true);
+    bind("Playhead Previous", ShortcutID::PLAYHEAD_PREV, ModKeys::NONE, ImGuiKey_LeftBracket, true);
 
     bind("Cursor Left", ShortcutID::CURSOR_LEFT, ModKeys::NONE, ImGuiKey_LeftArrow, true);
     bind("Cursor Up", ShortcutID::CURSOR_UP, ModKeys::NONE, ImGuiKey_UpArrow, true);
