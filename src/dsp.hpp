@@ -67,13 +67,15 @@ namespace dsp
         class Instance
         {
         private:
+            static constexpr float MINIMUM_LEVEL = 0.001f;
+
             float value = 0.0f;
             uint8_t stage = 0; // 0 = init, 1 = attack, 2 = decay, 3 = sustain, 4 = release
 
-            float t = 1.0f;
-            float time_scale = 0.0f;
-            float lerp_from = 0.0f;
-            float lerp_to = 0.0f;
+            int samples_remaining = 0;
+            float multiplier = 1.0f;
+            //float lerp_from = 0.0f;
+            //float lerp_to = 0.0f;
 
         public:
             Instance();

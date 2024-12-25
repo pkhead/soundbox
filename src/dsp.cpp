@@ -54,45 +54,73 @@ ADSR::ADSR(float a, float d, float s, float r)
     return false;
 }*/
 
+inline static float compute_multiplier(float start, float end, int release_time) {
+    return 1.0f + logf(end / start) / release_time;
+}
+
 bool ADSR::Instance::compute(int sample_rate, float &out, const ADSR &params) {
-    t += time_scale / sample_rate;
+    if (stage == 4) {
+        //lerp_from = value;
+        //lerp_to = 0.0f;
+        stage = 3;
 
-    if (t >= 1.0f) {
-        t = 0.0f;
+        if (params.release == 0.0f) {
+            samples_remaining = 0;
+            multiplier = 0.0f;
+        } else {
+            multiplier = compute_multiplier(value, MINIMUM_LEVEL, params.release * sample_rate);
+            samples_remaining = params.release * sample_rate;
+        }
+    }
 
+    if (samples_remaining >= 0 && samples_remaining-- == 0) {
         switch (stage) {
             case 0: // start attack
                 if (params.attack > 0.0f) {
-                    lerp_from = 0.0f;
-                    lerp_to = 1.0f;
-                    time_scale = 1.0f / params.attack;
+                    value = MINIMUM_LEVEL;
+                    multiplier = compute_multiplier(MINIMUM_LEVEL, 1.0f, params.attack * sample_rate);
+                    //lerp_from = 0.0f;
+                    //lerp_to = 1.0f;
+                    samples_remaining = params.attack * sample_rate;
                     stage = 1;
                     break;
                 }
             
             case 1: // start decay
                 if (params.decay > 0.0f) {
-                    lerp_from = 1.0f;
-                    lerp_to = params.sustain;
-                    time_scale = 1.0f / params.decay;
+                    value = 1.0f;
+                    multiplier = compute_multiplier(1.0f, util::max(MINIMUM_LEVEL, params.sustain), params.decay * sample_rate);
+                    //lerp_from = 1.0f;
+                    //lerp_to = params.sustain;
+                    samples_remaining = params.decay * sample_rate;
                     stage = 2;
                     break;
                 }
             
             case 2: // sustain
-                lerp_from = params.sustain;
-                lerp_to = params.sustain;
-                time_scale = 0.0f;
+                //lerp_from = params.sustain;
+                //lerp_to = params.sustain;
+                value = params.sustain;
+                multiplier = 1.0f;
+                samples_remaining = -1;
                 stage = 2;
                 break;
             
             case 3: // release finished, note ended
-                t = 1.0f;
+                samples_remaining = 0;
                 return true; 
         }
     }
 
-    out = value = (lerp_to - lerp_from) * t + lerp_from;
+    //value += multiplier * value;
+    value *= multiplier;
+    if (value <= MINIMUM_LEVEL) {
+        out = 0.0f;
+    } else {
+        out = value;
+    }
+    value = util::clamp(MINIMUM_LEVEL, 1.0f, value);
+    //out = value = (lerp_to - lerp_from) * t + lerp_from;
     
     return false;
 }
@@ -101,17 +129,7 @@ bool ADSR::Instance::compute(int sample_rate, float &out, const ADSR &params) {
 // 3 iterations
 void ADSR::Instance::release(const ADSR& params)
 {
-    lerp_from = value;
-    lerp_to = 0.0f;
-    stage = 3;
-
-    if (params.release == 0.0f) {
-        t = 1.0f;
-        time_scale = 0.0f;
-    } else {
-        time_scale = 1.0f / params.release;
-        t = 0.0f;
-    }
+    stage = 4;
 }
 
 /*
