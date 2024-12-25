@@ -11,7 +11,6 @@
 #include <portaudio.h>
 
 #include "ring_buffer.hpp"
-#include "../log.hpp"
 
 namespace modules
 {
@@ -139,32 +138,6 @@ namespace modules
                     delete[] *it;
             }
         };
-
-        /*struct ModuleGraphNode;
-
-        struct ModuleGraphConnection
-        {
-            int from_node_index;
-            unsigned int from_port;
-            unsigned int to_port;
-
-            inline constexpr ModuleGraphConnection(int from_node_index, unsigned int from_port, unsigned int to_port) :
-                from_node_index(from_node_index),
-                from_port(from_port),
-                to_port(to_port)
-            {}
-        };
-
-        struct ModuleGraphNode
-        {
-            std::shared_ptr<ModuleInstance> module;
-            std::vector<std::shared_ptr<ModuleGraphNode>> dependencies;
-            std::vector<std::shared_ptr<ModuleGraphNode>> dependents;
-
-            std::vector<ModuleGraphConnection> audio_inputs;
-            std::vector<ModuleGraphConnection> message_inputs;
-            std::vector<ModuleGraphConnection> message_outputs;
-        };*/
 
         struct GraphConnection {
             int index;

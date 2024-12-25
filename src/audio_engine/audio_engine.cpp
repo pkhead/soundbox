@@ -930,10 +930,6 @@ void AudioEngine::update()
     
     if (!_is_graph_dirty) return;
 
-    // build the entire audio graph starting from the inputs for the AUDIO_OUT module
-    // thus, modules that do not contribute to the AUDIO_OUT module do not get processed
-    // TODO: should i make stray modules be updated anyway?
-    //std::function<std::shared_ptr<ModuleGraphNode>(ModuleID)> build_graph;
     std::function<void(ModuleID, int)> calc_depths;
 
     struct ModuleInfo {
@@ -951,6 +947,9 @@ void AudioEngine::update()
 
     std::unordered_map<ModuleID, ModuleInfo> module_info;
 
+    // build the entire audio graph starting from the inputs for the AUDIO_OUT module
+    // thus, modules that do not contribute to the AUDIO_OUT module do not get processed
+    // TODO: should i make stray modules be updated anyway?
     std::function<void(ModuleID, int)> build_graph;
     build_graph = [&](ModuleID id, int depth) {
         std::vector<ModuleID> dependencies;
@@ -1064,6 +1063,7 @@ void AudioEngine::update()
             output_port++;
         }
 
+        // create module info structure
         module_info[id] = ModuleInfo {
             id,
             depth,
@@ -1076,6 +1076,8 @@ void AudioEngine::update()
         };
         const ModuleInfo &info = module_info[id];
 
+        // recurse, also taking into account module depths to make sure
+        // modules are updated in the correct order
         for (auto &dep_id : info.dependencies) {
             auto it = module_info.find(dep_id);
             if (it == module_info.end() || it->second.depth < info.depth) {
@@ -1083,149 +1085,15 @@ void AudioEngine::update()
             }
         }
     };
-
-    /*build_graph = [&](ModuleID id)
-    {
-        std::vector<ModuleID> dependencies;
-        std::vector<ModuleID> dependents;
-        std::shared_ptr<ModuleGraphNode> node = std::make_shared<ModuleGraphNode>();
-        std::shared_ptr<ModuleInstance>& inst = _modules.at(id);
-
-        node->module = inst;
-
-        // process input audio ports
-        unsigned int input_port = 0;
-        for (auto it = inst->input_audio_ports.begin(); it != inst->input_audio_ports.end(); it++)
-        {
-            if (module_exists(it->connected_module))
-            {
-                // find dependency index of module, adding it to the list
-                // if it doesn't already exist
-                std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
-                if (dep_it == dependencies.end())
-                {
-                    dependencies.push_back(it->connected_module);
-                    dep_it = dependencies.end() - 1;
-                }
-
-                // create graph connection
-                node->audio_inputs.push_back(ModuleGraphConnection(
-                    static_cast<int>(dep_it - dependencies.begin()),
-                    it->connection_port,
-                    input_port
-                ));
-
-            }
-            else
-            {
-                // create null graph connection
-                node->audio_inputs.push_back(ModuleGraphConnection(
-                    -1,
-                    0,
-                    input_port
-                ));
-            }
-
-            input_port++;
-        }
-
-        // process input message ports
-        input_port = 0;
-        for (auto it = inst->input_message_ports.begin(); it != inst->input_message_ports.end(); it++)
-        {
-            if (module_exists(it->connected_module))
-            {
-                // find dependency index of module, adding it to the list
-                // if it doesn't already exist
-                std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
-                if (dep_it == dependencies.end())
-                {
-                    dependencies.push_back(it->connected_module);
-                    dep_it = dependencies.end() - 1;
-                }
-
-                // create graph message connection
-                node->message_inputs.push_back(ModuleGraphConnection(
-                    static_cast<int>(dep_it - dependencies.begin()),
-                    it->connection_port,
-                    input_port
-                ));
-            }
-            else
-            {
-                // create null message connection
-                node->message_inputs.push_back(ModuleGraphConnection(
-                    -1,
-                    0,
-                    input_port
-                ));
-            }
-
-            input_port++;
-        }
-
-        // process output message ports
-        unsigned int output_port = 0;
-        for (auto it = inst->output_message_ports.begin(); it != inst->output_message_ports.end(); it++) {
-            if (module_exists(it->connected_module)) {
-                // find dependent index of module, adding it to the list
-                // if it doesn't already exist
-                auto dep_it = std::find(dependents.begin(), dependents.end(), it->connected_module);
-                if (dep_it == dependents.end()) {
-                    dependents.push_back(it->connected_module);
-                    dep_it = dependents.end() - 1;
-                }
-
-                // create graph message connection
-                node->message_outputs.push_back(ModuleGraphConnection(
-                    static_cast<int>(dep_it - dependents.begin()),
-                    output_port,
-                    it->connection_port
-                ));
-            } else {
-                // create null message connection
-                node->message_outputs.push_back(ModuleGraphConnection(
-                    -1,
-                    output_port,
-                    0
-                ));
-            }
-
-            output_port++;
-        }
-
-        module_info[id] = ModuleInfo { id, dependencies, dependents, -1, node };
-
-        for (ModuleID mod_id : dependencies)
-        {
-            node->dependencies.push_back(build_graph(mod_id));
-        }
-
-        return node;
-    };
-
-    calc_depths = [&](ModuleID id, int depth) {
-        ModuleInfo &info = module_info[id];
-        info.depth = depth;
-
-        for (auto &dep_id : info.dependencies) {
-            ModuleInfo &dep = module_info[dep_id];
-            if (dep.depth < depth) {
-                calc_depths(dep_id, depth + 1);
-            }
-        }
-    };*/
-
-    // calculate module process order
     
     std::unique_ptr<ModuleGraph> new_graph = nullptr;
 
+    // find the AUDIO_OUT class to call build_graph
     for (auto &[ id, inst ] : _modules)
     {
         if (inst->class_name == MODULE_CLASS_AUDIO_OUT)
         {
             build_graph(id, 0);
-            //calc_depths(id, 0);
 
             new_graph = std::make_unique<ModuleGraph>();
             auto &proc_order = new_graph->process_order;
@@ -1251,9 +1119,6 @@ void AudioEngine::update()
                     std::move(info.message_outputs)
                 };
             }
-            
-            //assert(node.unique());
-            //new_graph = std::make_unique<ModuleGraphNode>(*node);
 
             break;
         }
@@ -1284,29 +1149,6 @@ void AudioEngine::update()
 
 void AudioEngine::_process_node(ModuleID id)
 {
-    //for (auto &mod : node.dependencies)
-    //{
-    //    _process_node(*mod);
-    //}
-
-    // // copy output messages of dependencies to input
-    // for (auto &input_data : node.message_inputs)
-    // {
-    //     if (input_data.from_node_index == -1) continue;
-
-    //     ModuleGraphNode &input_node = *node.dependencies[input_data.from_node_index];
-    //     auto &from_queue = input_node.module->audio_data.output_messages[input_data.from_port];
-    //     auto &to_queue = node.module->audio_data.input_messages[input_data.to_port];
-
-    //     size_t available = from_queue.available_for_read();
-    //     if (available > 0)
-    //     {
-    //         static std::byte buf[MESSAGE_PORT_CAPACITY];
-    //         from_queue.read(buf, available);
-    //         to_queue.write(buf, available);
-    //     }
-    // }
-
     auto &node = _current_graph->nodes[id];
 
     // call processor

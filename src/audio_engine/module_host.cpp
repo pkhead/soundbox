@@ -1,4 +1,5 @@
 #include "audio_engine.hpp"
+#include "../log.hpp"
 #include <cassert>
 
 using namespace modules;
@@ -208,7 +209,7 @@ bool ModuleProcessor::send_message(unsigned int index, void *data, unsigned int 
 
     auto &target_module = graph->nodes[node.dependents[cn.index]].module;
     if (target_module == nullptr) {
-        logger::log_debug("ModuleProcessor::send_message : send to module that has no effect!");
+        logger::log_debug("ModuleProcessor::send_message: send to module that has no effect!");
         return false;
     }
 
