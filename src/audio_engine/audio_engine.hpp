@@ -109,6 +109,7 @@ namespace modules
             // i think having to check the class name everytime is a bit inefficient,
             // so i have this instead.
             bool is_stereo_mixer;
+            bool is_message_duplicator;
 
             std::vector<ModuleAudioPort> input_audio_ports;
             std::vector<ModuleAudioPort> output_audio_ports;
@@ -139,7 +140,7 @@ namespace modules
             }
         };
 
-        struct ModuleGraphNode;
+        /*struct ModuleGraphNode;
 
         struct ModuleGraphConnection
         {
@@ -158,9 +159,34 @@ namespace modules
         {
             std::shared_ptr<ModuleInstance> module;
             std::vector<std::shared_ptr<ModuleGraphNode>> dependencies;
+            std::vector<std::shared_ptr<ModuleGraphNode>> dependents;
 
             std::vector<ModuleGraphConnection> audio_inputs;
             std::vector<ModuleGraphConnection> message_inputs;
+            std::vector<ModuleGraphConnection> message_outputs;
+        };*/
+
+        struct GraphConnection {
+            int index;
+            unsigned int from_port;
+            unsigned int to_port;
+        };
+
+        struct ModuleGraphNode {
+            std::shared_ptr<ModuleInstance> module;
+            std::vector<ModuleID> dependencies;
+            std::vector<ModuleID> dependents;
+
+            std::vector<GraphConnection> audio_inputs;
+            std::vector<GraphConnection> audio_outputs;
+            std::vector<GraphConnection> message_inputs;
+            std::vector<GraphConnection> message_outputs;
+        };
+
+        struct ModuleGraph
+        {
+            std::unordered_map<ModuleID, ModuleGraphNode> nodes;
+            std::vector<ModuleID> process_order;
         };
 
         struct DestroyQueueItem
@@ -175,7 +201,7 @@ namespace modules
         std::mutex _mutex;
 
         std::thread _thread;
-        std::unique_ptr<ModuleGraphNode> _current_graph;
+        std::unique_ptr<ModuleGraph> _current_graph;
         std::atomic_bool _is_engine_runnning;
 
         std::unordered_map<std::string, std::unique_ptr<ModuleHost>> _hosts;
@@ -202,12 +228,12 @@ namespace modules
         //static int _rt_audio_callback(void *output_buffer, void *input_buffer, unsigned int n_buffer_frames, double stream_time, RtAudioStreamStatus status, void *userdata);
         
         void _thread_process();
-        void _process_node(ModuleGraphNode& node);
+        void _process_node(ModuleID id);
 
         void _process_audio_out_node(ModuleProcessor& proc);
         static void _s_process_audio_out_node(ModuleProcessor& proc);
-
         static void _s_process_stereo_mixer_node(ModuleProcessor &proc);
+        static void _s_process_message_duplicator_node(ModuleProcessor &proc);
 
         template <typename T>
         static bool _control_get_ref(ModuleControl &control, T** v);
@@ -231,6 +257,14 @@ namespace modules
         * It combines all of the inputs into the singular output signal.
         **/
         static const char* MODULE_CLASS_STEREO_MIXER;
+
+        /**
+        * A special module class that has one message input and one message output.
+        * Multiple modules can connect to the output port.
+        * When a message is sent to this module, it sends the same message to all
+        * connected outputs.
+        **/
+        static const char* MODULE_CLASS_MESSAGE_DUPLICATOR;
 
         inline unsigned int sample_rate() const {
             return _sample_rate;
@@ -397,8 +431,10 @@ namespace modules
     class ModuleProcessor
     {
     private:
-        AudioEngine::ModuleGraphNode* node;
-        ModuleProcessor(size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate, AudioEngine::ModuleGraphNode* node);
+        AudioEngine::ModuleGraph *const graph;
+        AudioEngine::ModuleGraphNode &node;
+
+        ModuleProcessor(size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate, AudioEngine::ModuleGraph *graph, ModuleID id);
 
     public:
         const std::size_t buffer_frame_count;
@@ -428,13 +464,13 @@ namespace modules
 
         unsigned int control_count() const
         {
-            return node->module->controls.size();
+            return node.module->controls.size();
         }
 
         ModuleControlDataType control_type(unsigned int index) const
         {
-            if (index >= node->module->controls.size()) return ModuleControlDataType::UNKNOWN;
-            return node->module->controls[index].data_type;
+            if (index >= node.module->controls.size()) return ModuleControlDataType::UNKNOWN;
+            return node.module->controls[index].data_type;
         }
 
         template <typename T>
@@ -442,10 +478,10 @@ namespace modules
         {
             CHECK_CONTROL_TYPE(T);
 
-            if (index >= node->module->controls.size()) return 0;
+            if (index >= node.module->controls.size()) return 0;
 
             T* ptr;
-            if (!AudioEngine::_control_get_ref(node->module->controls[index], &ptr)) return 0;
+            if (!AudioEngine::_control_get_ref(node.module->controls[index], &ptr)) return 0;
             return *ptr;
         }
 

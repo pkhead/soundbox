@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <cmath>
@@ -11,6 +12,7 @@
 #include <imgui.h>
 #include <portaudio.h>
 #include <sys.hpp>
+#include <unordered_map>
 #include "audio_engine.hpp"
 #include "../log.hpp"
 
@@ -19,6 +21,7 @@ using namespace modules;
 constexpr size_t MESSAGE_PORT_CAPACITY = 512;
 const char* AudioEngine::MODULE_CLASS_AUDIO_OUT = "AUDIO_OUT";
 const char* AudioEngine::MODULE_CLASS_STEREO_MIXER = "STEREO_MIXER";
+const char* AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR = "MESSAGE_DUPLICATOR";
 
 ModuleID AudioEngine::_next_module_id = 1;
 
@@ -178,6 +181,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     instance->class_name = mod_class;
 
     instance->is_stereo_mixer = false;
+    instance->is_message_duplicator = false;
     instance->processor = nullptr;
     instance->idle = nullptr;
     instance->userdata = nullptr;
@@ -211,6 +215,18 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
 
         instance->is_stereo_mixer = true;
         instance->processor = _s_process_stereo_mixer_node;
+    }
+    else if (mod_class == MODULE_CLASS_MESSAGE_DUPLICATOR)
+    {
+        instance->name = "Message Duplicator";
+        instance->input_message_ports.resize(1);
+        instance->input_message_ports[0] = ModuleMessagePort(
+            0,
+            0
+        );
+
+        instance->is_message_duplicator = true;
+        instance->processor = _s_process_message_duplicator_node;
     }
     else
     {
@@ -706,17 +722,32 @@ bool AudioEngine::connect_message(ModuleID mod_a_id, ModuleID mod_b_id, unsigned
     ModuleInstance &mod_a = *it_a->second;
     ModuleInstance &mod_b = *it_b->second;
 
-    if (out_index >= mod_a.output_message_ports.size()) return false;
     if (in_index >= mod_b.input_message_ports.size()) return false;
 
-    disconnect_message_output(mod_a_id, out_index);
-    disconnect_message_input(mod_b_id, in_index);
+    if (mod_a.is_message_duplicator) {
+        if (out_index > 0) return false;
 
-    mod_a.output_message_ports[out_index].connected_module = mod_b_id;
-    mod_a.output_message_ports[out_index].connection_port = in_index;
+        disconnect_message_input(mod_b_id, in_index);
 
-    mod_b.input_message_ports[in_index].connected_module = mod_a_id;
-    mod_b.input_message_ports[in_index].connection_port = out_index;
+        mod_a.output_message_ports.push_back(ModuleMessagePort(
+            mod_b_id,
+            in_index
+        ));
+
+        mod_b.input_message_ports[in_index].connected_module = mod_a_id;
+        mod_b.input_message_ports[in_index].connection_port = 0;
+    } else {
+        if (out_index >= mod_a.output_message_ports.size()) return false;
+
+        disconnect_message_output(mod_a_id, out_index);
+        disconnect_message_input(mod_b_id, in_index);
+
+        mod_a.output_message_ports[out_index].connected_module = mod_b_id;
+        mod_a.output_message_ports[out_index].connection_port = in_index;
+
+        mod_b.input_message_ports[in_index].connected_module = mod_a_id;
+        mod_b.input_message_ports[in_index].connection_port = out_index;
+    }
 
     _is_graph_dirty = true;
     return true;
@@ -728,19 +759,35 @@ bool AudioEngine::disconnect_message_output(ModuleID mod_id, unsigned int out_in
     if (it == _modules.end()) return false;
 
     ModuleInstance &mod = *it->second;
-    if (out_index >= mod.output_message_ports.size()) return false;
 
-    if (mod.output_message_ports[out_index].connected_module != 0)
-    {
-        _is_graph_dirty = true;
-        ModuleInstance &connected = *_modules.at(mod.output_message_ports[out_index].connected_module);
-        unsigned int in_index = mod.output_message_ports[out_index].connection_port;
-        connected.input_message_ports[in_index].connected_module = 0;
-        connected.input_message_ports[in_index].connection_port = 0;
+    if (mod.is_message_duplicator) {
+        if (out_index > 0) return false;
+
+        for (auto &port : mod.output_message_ports) {
+            if (port.connected_module == 0) continue;
+            _is_graph_dirty = true;
+
+            ModuleInstance &connected = *_modules.at(port.connected_module);
+            connected.input_message_ports[port.connection_port].connected_module = 0;
+            connected.input_message_ports[port.connection_port].connection_port = 0;
+        }
+
+        mod.output_message_ports.clear();
+    } else {
+        if (out_index >= mod.output_message_ports.size()) return false;
+
+        if (mod.output_message_ports[out_index].connected_module != 0)
+        {
+            _is_graph_dirty = true;
+            ModuleInstance &connected = *_modules.at(mod.output_message_ports[out_index].connected_module);
+            unsigned int in_index = mod.output_message_ports[out_index].connection_port;
+            connected.input_message_ports[in_index].connected_module = 0;
+            connected.input_message_ports[in_index].connection_port = 0;
+        }
+
+        mod.output_message_ports[out_index].connection_port = 0;
+        mod.output_message_ports[out_index].connected_module = 0;
     }
-
-    mod.output_message_ports[out_index].connection_port = 0;
-    mod.output_message_ports[out_index].connected_module = 0;
 
     return true;
 }
@@ -755,11 +802,22 @@ bool AudioEngine::disconnect_message_input(ModuleID mod_id, unsigned int in_inde
 
     if (mod.input_message_ports[in_index].connected_module != 0)
     {
-        _is_graph_dirty = true;
         ModuleInstance &connected = *_modules.at(mod.input_message_ports[in_index].connected_module);
-        unsigned int out_index = mod.input_message_ports[in_index].connection_port;
-        connected.output_message_ports[out_index].connected_module = 0;
-        connected.output_message_ports[out_index].connection_port = 0;
+
+        if (connected.is_message_duplicator) {
+            for (auto it = connected.output_message_ports.begin(); it != connected.output_message_ports.end(); it++) {
+                if (it->connected_module == mod_id) {
+                    _is_graph_dirty = true;
+                    connected.output_message_ports.erase(it);
+                    break;
+                }
+            }
+        } else {
+            _is_graph_dirty = true;
+            unsigned int out_index = mod.input_message_ports[in_index].connection_port;
+            connected.output_message_ports[out_index].connected_module = 0;
+            connected.output_message_ports[out_index].connection_port = 0;
+        }
     }
 
     mod.input_message_ports[in_index].connection_port = 0;
@@ -875,53 +933,174 @@ void AudioEngine::update()
     // build the entire audio graph starting from the inputs for the AUDIO_OUT module
     // thus, modules that do not contribute to the AUDIO_OUT module do not get processed
     // TODO: should i make stray modules be updated anyway?
-    std::function<std::shared_ptr<ModuleGraphNode>(ModuleID)> build_graph;
-    std::vector<ModuleID> dependencies;
+    //std::function<std::shared_ptr<ModuleGraphNode>(ModuleID)> build_graph;
+    std::function<void(ModuleID, int)> calc_depths;
 
-    build_graph = [&](ModuleID id)
-    {
-        dependencies.clear();
-        std::shared_ptr<ModuleGraphNode> node = std::make_shared<ModuleGraphNode>();
+    struct ModuleInfo {
+        ModuleID id;
+        int depth;
+        std::vector<ModuleID> dependencies;
+        std::vector<ModuleID> dependents;
+
+        std::vector<GraphConnection> audio_inputs;
+        std::vector<GraphConnection> audio_outputs;
+        std::vector<GraphConnection> message_inputs;
+        std::vector<GraphConnection> message_outputs;
+
+    };
+
+    std::unordered_map<ModuleID, ModuleInfo> module_info;
+
+    std::function<void(ModuleID, int)> build_graph;
+    build_graph = [&](ModuleID id, int depth) {
+        std::vector<ModuleID> dependencies;
+        std::vector<ModuleID> dependents;
+        std::vector<GraphConnection> audio_outputs;
+        std::vector<GraphConnection> message_outputs;
+        std::vector<GraphConnection> audio_inputs;
+        std::vector<GraphConnection> message_inputs;
+
         std::shared_ptr<ModuleInstance>& inst = _modules.at(id);
 
-        node->module = inst;
-
+        // parse dependencies
         unsigned int input_port = 0;
-        for (auto it = inst->input_audio_ports.begin(); it != inst->input_audio_ports.end(); it++)
-        {
-            if (module_exists(it->connected_module))
-            {
+        for (auto it = inst->input_audio_ports.begin(); it != inst->input_audio_ports.end(); it++) {
+            if (module_exists(it->connected_module)) {
+                // find dependency index of module, adding it to the list
+                // if it doesn't already exist
                 std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
-                if (dep_it == dependencies.end())
-                {
+                if (dep_it == dependencies.end()) {
                     dependencies.push_back(it->connected_module);
                     dep_it = dependencies.end() - 1;
                 }
 
-                node->audio_inputs.push_back(ModuleGraphConnection(
+                audio_inputs.push_back(GraphConnection {
                     static_cast<int>(dep_it - dependencies.begin()),
                     it->connection_port,
                     input_port
-                ));
-
-            }
-            else
-            {
-                node->audio_inputs.push_back(ModuleGraphConnection(
-                    -1,
-                    0,
-                    input_port
-                ));
+                });
+            } else {
+                audio_inputs.push_back(GraphConnection {
+                    -1, 0, 0
+                });
             }
 
             input_port++;
         }
 
         input_port = 0;
-        for (auto it = inst->input_message_ports.begin(); it != inst->input_message_ports.end(); it++)
+        for (auto it = inst->input_message_ports.begin(); it != inst->input_message_ports.end(); it++) {
+            if (module_exists(it->connected_module)) {
+                // find dependency index of module, adding it to the list
+                // if it doesn't already exist
+                std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
+                if (dep_it == dependencies.end()) {
+                    dependencies.push_back(it->connected_module);
+                    dep_it = dependencies.end() - 1;
+                }
+
+                audio_inputs.push_back(GraphConnection {
+                    static_cast<int>(dep_it - dependencies.begin()),
+                    it->connection_port,
+                    input_port
+                });
+            } else {
+                audio_inputs.push_back(GraphConnection {
+                    -1, 0, 0
+                });
+            }
+
+            input_port++;
+        }
+
+        // parse dependents
+        unsigned int output_port = 0;
+        for (auto it = inst->output_audio_ports.begin(); it != inst->output_audio_ports.end(); it++) {
+            if (module_exists(it->connected_module)) {
+                // find dependency index of module, adding it to the list
+                // if it doesn't already exist
+                std::vector<ModuleID>::iterator dep_it = std::find(dependents.begin(), dependents.end(), it->connected_module);                
+                if (dep_it == dependents.end()) {
+                    dependents.push_back(it->connected_module);
+                    dep_it = dependents.end() - 1;
+                }
+
+                audio_outputs.push_back(GraphConnection {
+                    static_cast<int>(dep_it - dependents.begin()),
+                    output_port,
+                    it->connection_port
+                });
+            } else {
+                audio_outputs.push_back(GraphConnection {
+                    -1, 0, 0
+                });
+            }
+
+            output_port++;
+        }
+
+        output_port = 0;
+        for (auto it = inst->output_message_ports.begin(); it != inst->output_message_ports.end(); it++) {
+            if (module_exists(it->connected_module)) {
+                // find dependency index of module, adding it to the list
+                // if it doesn't already exist
+                std::vector<ModuleID>::iterator dep_it = std::find(dependents.begin(), dependents.end(), it->connected_module);                
+                if (dep_it == dependents.end()) {
+                    dependents.push_back(it->connected_module);
+                    dep_it = dependents.end() - 1;
+                }
+
+                message_outputs.push_back(GraphConnection {
+                    static_cast<int>(dep_it - dependents.begin()),
+                    output_port,
+                    it->connection_port
+                });
+            } else {
+                message_outputs.push_back(GraphConnection {
+                    -1, 0, 0
+                });
+            }
+
+            output_port++;
+        }
+
+        module_info[id] = ModuleInfo {
+            id,
+            depth,
+            std::move(dependencies),
+            std::move(dependents),
+            std::move(audio_inputs),
+            std::move(audio_outputs),
+            std::move(message_inputs),
+            std::move(message_outputs),
+        };
+        const ModuleInfo &info = module_info[id];
+
+        for (auto &dep_id : info.dependencies) {
+            auto it = module_info.find(dep_id);
+            if (it == module_info.end() || it->second.depth < info.depth) {
+                build_graph(dep_id, depth + 1);
+            }
+        }
+    };
+
+    /*build_graph = [&](ModuleID id)
+    {
+        std::vector<ModuleID> dependencies;
+        std::vector<ModuleID> dependents;
+        std::shared_ptr<ModuleGraphNode> node = std::make_shared<ModuleGraphNode>();
+        std::shared_ptr<ModuleInstance>& inst = _modules.at(id);
+
+        node->module = inst;
+
+        // process input audio ports
+        unsigned int input_port = 0;
+        for (auto it = inst->input_audio_ports.begin(); it != inst->input_audio_ports.end(); it++)
         {
             if (module_exists(it->connected_module))
             {
+                // find dependency index of module, adding it to the list
+                // if it doesn't already exist
                 std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
                 if (dep_it == dependencies.end())
                 {
@@ -929,6 +1108,43 @@ void AudioEngine::update()
                     dep_it = dependencies.end() - 1;
                 }
 
+                // create graph connection
+                node->audio_inputs.push_back(ModuleGraphConnection(
+                    static_cast<int>(dep_it - dependencies.begin()),
+                    it->connection_port,
+                    input_port
+                ));
+
+            }
+            else
+            {
+                // create null graph connection
+                node->audio_inputs.push_back(ModuleGraphConnection(
+                    -1,
+                    0,
+                    input_port
+                ));
+            }
+
+            input_port++;
+        }
+
+        // process input message ports
+        input_port = 0;
+        for (auto it = inst->input_message_ports.begin(); it != inst->input_message_ports.end(); it++)
+        {
+            if (module_exists(it->connected_module))
+            {
+                // find dependency index of module, adding it to the list
+                // if it doesn't already exist
+                std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
+                if (dep_it == dependencies.end())
+                {
+                    dependencies.push_back(it->connected_module);
+                    dep_it = dependencies.end() - 1;
+                }
+
+                // create graph message connection
                 node->message_inputs.push_back(ModuleGraphConnection(
                     static_cast<int>(dep_it - dependencies.begin()),
                     it->connection_port,
@@ -937,6 +1153,7 @@ void AudioEngine::update()
             }
             else
             {
+                // create null message connection
                 node->message_inputs.push_back(ModuleGraphConnection(
                     -1,
                     0,
@@ -946,6 +1163,38 @@ void AudioEngine::update()
 
             input_port++;
         }
+
+        // process output message ports
+        unsigned int output_port = 0;
+        for (auto it = inst->output_message_ports.begin(); it != inst->output_message_ports.end(); it++) {
+            if (module_exists(it->connected_module)) {
+                // find dependent index of module, adding it to the list
+                // if it doesn't already exist
+                auto dep_it = std::find(dependents.begin(), dependents.end(), it->connected_module);
+                if (dep_it == dependents.end()) {
+                    dependents.push_back(it->connected_module);
+                    dep_it = dependents.end() - 1;
+                }
+
+                // create graph message connection
+                node->message_outputs.push_back(ModuleGraphConnection(
+                    static_cast<int>(dep_it - dependents.begin()),
+                    output_port,
+                    it->connection_port
+                ));
+            } else {
+                // create null message connection
+                node->message_outputs.push_back(ModuleGraphConnection(
+                    -1,
+                    output_port,
+                    0
+                ));
+            }
+
+            output_port++;
+        }
+
+        module_info[id] = ModuleInfo { id, dependencies, dependents, -1, node };
 
         for (ModuleID mod_id : dependencies)
         {
@@ -954,16 +1203,57 @@ void AudioEngine::update()
 
         return node;
     };
+
+    calc_depths = [&](ModuleID id, int depth) {
+        ModuleInfo &info = module_info[id];
+        info.depth = depth;
+
+        for (auto &dep_id : info.dependencies) {
+            ModuleInfo &dep = module_info[dep_id];
+            if (dep.depth < depth) {
+                calc_depths(dep_id, depth + 1);
+            }
+        }
+    };*/
+
+    // calculate module process order
     
-    std::unique_ptr<ModuleGraphNode> new_graph = nullptr;
+    std::unique_ptr<ModuleGraph> new_graph = nullptr;
 
     for (auto &[ id, inst ] : _modules)
     {
         if (inst->class_name == MODULE_CLASS_AUDIO_OUT)
         {
-            std::shared_ptr<ModuleGraphNode> node = build_graph(id);
-            assert(node.unique());
-            new_graph = std::make_unique<ModuleGraphNode>(*node);
+            build_graph(id, 0);
+            //calc_depths(id, 0);
+
+            new_graph = std::make_unique<ModuleGraph>();
+            auto &proc_order = new_graph->process_order;
+
+            // determine process order from depth values
+            for (auto const &[ id, info ] : module_info) {
+                proc_order.push_back(id);
+            }
+
+            std::sort(proc_order.begin(), proc_order.end(), [&module_info](const ModuleID &a, const ModuleID &b) {
+                return module_info[b].depth < module_info[a].depth;
+            });
+
+            // create ModuleGraphNodes
+            for (auto &[ id, info ] : module_info) {
+                new_graph->nodes[id] = ModuleGraphNode {
+                    _modules.at(id),
+                    std::move(info.dependencies),
+                    std::move(info.dependents),
+                    std::move(info.audio_inputs),
+                    std::move(info.audio_outputs),
+                    std::move(info.message_inputs),
+                    std::move(info.message_outputs)
+                };
+            }
+            
+            //assert(node.unique());
+            //new_graph = std::make_unique<ModuleGraphNode>(*node);
 
             break;
         }
@@ -992,33 +1282,35 @@ void AudioEngine::update()
     _is_graph_dirty = false;
 }
 
-void AudioEngine::_process_node(ModuleGraphNode& node)
+void AudioEngine::_process_node(ModuleID id)
 {
-    for (auto &mod : node.dependencies)
-    {
-        _process_node(*mod);
-    }
+    //for (auto &mod : node.dependencies)
+    //{
+    //    _process_node(*mod);
+    //}
 
-    // copy output messages of dependencies to input
-    for (auto &input_data : node.message_inputs)
-    {
-        if (input_data.from_node_index == -1) continue;
+    // // copy output messages of dependencies to input
+    // for (auto &input_data : node.message_inputs)
+    // {
+    //     if (input_data.from_node_index == -1) continue;
 
-        ModuleGraphNode &input_node = *node.dependencies[input_data.from_node_index];
-        auto &from_queue = input_node.module->audio_data.output_messages[input_data.from_port];
-        auto &to_queue = node.module->audio_data.input_messages[input_data.to_port];
+    //     ModuleGraphNode &input_node = *node.dependencies[input_data.from_node_index];
+    //     auto &from_queue = input_node.module->audio_data.output_messages[input_data.from_port];
+    //     auto &to_queue = node.module->audio_data.input_messages[input_data.to_port];
 
-        size_t available = from_queue.available_for_read();
-        if (available > 0)
-        {
-            static std::byte buf[MESSAGE_PORT_CAPACITY];
-            from_queue.read(buf, available);
-            to_queue.write(buf, available);
-        }
-    }
+    //     size_t available = from_queue.available_for_read();
+    //     if (available > 0)
+    //     {
+    //         static std::byte buf[MESSAGE_PORT_CAPACITY];
+    //         from_queue.read(buf, available);
+    //         to_queue.write(buf, available);
+    //     }
+    // }
+
+    auto &node = _current_graph->nodes[id];
 
     // call processor
-    ModuleProcessor processor(_frames_per_buffer, _frame_time, _sample_rate, &node);
+    ModuleProcessor processor(_frames_per_buffer, _frame_time, _sample_rate, _current_graph.get(), id);
     assert(node.module->processor != nullptr);
     node.module->processor(processor);
 }
@@ -1060,6 +1352,20 @@ void AudioEngine::_s_process_stereo_mixer_node(ModuleProcessor &proc)
     }
 }
 
+void AudioEngine::_s_process_message_duplicator_node(ModuleProcessor &proc)
+{
+    static std::byte buf[MESSAGE_PORT_CAPACITY];
+
+    while (true) {
+        unsigned int msg_size = proc.read_message(0, (void*) buf, MESSAGE_PORT_CAPACITY);
+        if (msg_size == 0) break;
+
+        for (unsigned int i = 0; i < proc.node.module->output_message_ports.size(); i++) {
+            proc.send_message(i, (void*) buf, msg_size);
+        }
+    }
+}
+
 void AudioEngine::_thread_process()
 {
     sys::SleepHandle sleep_handle;
@@ -1082,7 +1388,9 @@ void AudioEngine::_thread_process()
             // not null if there is an AUDIO_OUT module in the graph
             if (_current_graph != nullptr)
             {
-                _process_node(*_current_graph);
+                for (auto &id : _current_graph->process_order) {
+                    _process_node(id);
+                }
             }
 
             // there are no AUDIO_OUT modules in the graph... just upload a dummy array (full of 0s)

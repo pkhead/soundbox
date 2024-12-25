@@ -100,6 +100,9 @@ namespace sbox
 
         Channel(const std::string &name);
 
+        virtual void insert_module(const modx::ModuleRc &module, size_t index);
+        virtual void remove_module(size_t index);
+
         friend class Song;
     }; // class Channel
 
@@ -115,9 +118,12 @@ namespace sbox
         std::vector<unsigned int> sequence;
         std::vector<std::unique_ptr<Pattern>> patterns;
         modx::ModuleRc input_controller;
+        modx::ModuleRc events;
 
         InstrumentChannel(const std::string &name);
         void send_event(const modx::TrackEvent &event);
+        void insert_module(const modx::ModuleRc &module, size_t index) override;
+        void remove_module(size_t index) override;
 
         friend class Song;
     }; // class InstrumentChannel

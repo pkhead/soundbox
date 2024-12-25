@@ -6,6 +6,8 @@
 #include <module_hosts/internal/modules.hpp>
 #include <log.hpp>
 #include "song.hpp"
+#include "audio_engine/audio_engine.hpp"
+#include "module_hosts/modules.hpp"
 
 using namespace sbox;
 
@@ -212,6 +214,14 @@ Channel::Channel(const std::string &name) :
     _effect_channel = (unsigned int)-1;
 }
 
+void Channel::insert_module(const modx::ModuleRc &module, size_t index) {
+    rack.insert(module, index);
+}
+
+void Channel::remove_module(size_t index) {
+    rack.remove(index);
+}
+
 InstrumentChannel::InstrumentChannel(const std::string &name) : Channel(name)
 {
     _is_dirty = true;
@@ -228,7 +238,11 @@ std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::Audi
 
     channel->output_fader = modx::create_module(engine, "sbox::fader");
     channel->input_controller = modx::create_module(engine, "sbox::channel_controller");
-    channel->rack.connect_input(channel->input_controller);
+
+    channel->events = modx::create_module(engine, modules::AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR);
+    channel->input_controller->connect_message(*channel->events, 0, 0);
+    
+    //channel->rack.connect_input(channel->input_controller);
     channel->rack.connect_output(channel->output_fader);
 
     //channel->rack.insert(modx::create_module(engine, "sbox::osc"), 0);
@@ -269,6 +283,20 @@ void InstrumentChannel::send_event(const modx::TrackEvent &event)
     }
 
     control->send_event(event);
+}
+
+void InstrumentChannel::insert_module(const modx::ModuleRc &module, size_t index) {
+    Channel::insert_module(module, index);
+
+    if (module->message_input_count() > 0) {
+        events->connect_message(*module, 0, 0);
+    }
+}
+
+void InstrumentChannel::remove_module(size_t index) {
+    modx::ModuleRc &mod = rack.at(index);
+    mod->disconnect_message_input(0);
+    Channel::remove_module(index);
 }
 
 Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patterns, modules::AudioEngine &audio_engine) :
@@ -478,8 +506,8 @@ unsigned int Song::first_empty_pattern(unsigned int channel_index) const
 
 void Song::insert_effect_channel(unsigned int index)
 {
-    assert(index <= _channels.size());
-    if (index > _channels.size())
+    assert(index <= _fx_channels.size());
+    if (index > _fx_channels.size())
     {
         logger::log_error("Song::insert_effect_channel: index out of range");
         return;
@@ -516,8 +544,8 @@ void Song::insert_effect_channel(unsigned int index)
 
 void Song::remove_effect_channel(unsigned int index)
 {
-    assert(index < _channels.size());
-    if (index >= _channels.size())
+    assert(index < _fx_channels.size());
+    if (index >= _fx_channels.size())
     {
         logger::log_error("Song::remove_effect_channel: index out of range");
         return;

@@ -509,10 +509,10 @@ void ModuleEditor::draw(const char *window_title)
 
             // perform rack-mutating actions after the loop ends
             if (index_of_module_to_add != -1)
-                channel->rack.insert(modx::create_module(editor.song.audio_engine(), module_to_add), index_of_module_to_add);
+                channel->insert_module(modx::create_module(editor.song.audio_engine(), module_to_add), index_of_module_to_add);
 
             if (module_to_delete != -1)
-                channel->rack.remove(module_to_delete);
+                channel->remove_module(module_to_delete);
         }
         ImGui::EndChild();
     } ImGui::End();
