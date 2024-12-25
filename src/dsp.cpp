@@ -10,12 +10,13 @@ using namespace dsp;
 * Attack. Decay. Sustain. Release.
 **/
 ADSR::ADSR() {}
+ADSR::Instance::Instance() {}
 
 ADSR::ADSR(float a, float d, float s, float r)
 :   attack(a), decay(d), sustain(s), release(r)
 {}
 
-bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
+/*bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
 {
     float t;
 
@@ -51,12 +52,66 @@ bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
 
     last_value = out;
     return false;
+}*/
+
+bool ADSR::Instance::compute(int sample_rate, float &out, const ADSR &params) {
+    t += time_scale / sample_rate;
+
+    if (t >= 1.0f) {
+        t = 0.0f;
+
+        switch (stage) {
+            case 0: // start attack
+                if (params.attack > 0.0f) {
+                    lerp_from = 0.0f;
+                    lerp_to = 1.0f;
+                    time_scale = 1.0f / params.attack;
+                    stage = 1;
+                    break;
+                }
+            
+            case 1: // start decay
+                if (params.decay > 0.0f) {
+                    lerp_from = 1.0f;
+                    lerp_to = params.sustain;
+                    time_scale = 1.0f / params.decay;
+                    stage = 2;
+                    break;
+                }
+            
+            case 2: // sustain
+                lerp_from = params.sustain;
+                lerp_to = params.sustain;
+                time_scale = 0.0f;
+                stage = 2;
+                break;
+            
+            case 3: // release finished, note ended
+                t = 1.0f;
+                return true; 
+        }
+    }
+
+    out = value = (lerp_to - lerp_from) * t + lerp_from;
+    
+    return false;
 }
 
-void ADSR::Instance::release(float time, const ADSR& params)
+// multipler = 1.0 + (log(endLevel) - log(startLevel)) / lengthInSamples
+// 3 iterations
+void ADSR::Instance::release(const ADSR& params)
 {
-    release_time = time;
-    release_env = last_value;
+    lerp_from = value;
+    lerp_to = 0.0f;
+    stage = 3;
+
+    if (params.release == 0.0f) {
+        t = 1.0f;
+        time_scale = 0.0f;
+    } else {
+        time_scale = 1.0f / params.release;
+        t = 0.0f;
+    }
 }
 
 /*

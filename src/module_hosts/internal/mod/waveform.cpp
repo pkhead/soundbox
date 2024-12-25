@@ -15,6 +15,7 @@ WaveformModule::Voice::Voice()
 {
     phase[0] = phase[1] = phase[2] = 0.0f;
     last_sample[0] = last_sample[1] = last_sample[2] = 0.0f;
+    filter_freq = -1.0f;
 }
 
 WaveformModule::Voice::Voice(int _key, float _freq, float _volume) :
@@ -130,8 +131,8 @@ void WaveformModule::event(const modx::TrackEvent& ev) {
             Voice& voice = audio_state.voices[i];
 
             if (voice.active && voice.key == ev.note.key && !voice.amp_env.is_released()) {
-                voice.amp_env.release(voice.time, audio_state.amp_env);
-                voice.filt_env.release(voice.time, audio_state.filt_env);
+                voice.amp_env.release(audio_state.amp_env);
+                voice.filt_env.release(audio_state.filt_env);
                 break;
             }
         }
@@ -205,7 +206,7 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
             if (!voice.active) continue;
 
             float amp_env;
-            if (voice.amp_env.compute(voice.time, amp_env, amp_env_params))
+            if (voice.amp_env.compute(proc.sample_rate, amp_env, amp_env_params))
             {
                 // note ended
                 voice.active = false;
@@ -213,22 +214,40 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
             }
 
             float filt_env;
-            voice.filt_env.compute(voice.time, filt_env, filt_env_params);
+            voice.filt_env.compute(proc.sample_rate, filt_env, filt_env_params);
 
             // setup filter
-            float filt_env_min = 40.0f; // going too low on frequency will do... Something
+            float filt_env_min = 5.0f; // going too low on frequency will do... Something
             float filt_freq = util::lerp(ctl_filter_freq, util::lerp(filt_env_min, ctl_filter_freq, filt_env), filt_amount);
+
+            // move filter frequency to target
+            /*{
+                constexpr float HZ_PER_SEC = 150000.f;
+
+                if (voice.filter_freq < 0.0f) {
+                    voice.filter_freq = filt_freq;
+                } else {
+                    float hzSpeed = HZ_PER_SEC / proc.sample_rate;
+                    float delta = filt_freq - voice.filter_freq;
+                    if (fabsf(delta) < hzSpeed) {
+                        voice.filter_freq = filt_freq;
+                    } else {
+                        voice.filter_freq += hzSpeed * util::bsign(delta);
+                    }
+                }
+            }*/
+            voice.filter_freq = filt_freq;
 
             switch (filter_type)
             {
                 case FILTER_LOW_PASS:
-                    voice.filter[0].low_pass(proc.sample_rate, filt_freq, reso_linear);
-                    voice.filter[1].low_pass(proc.sample_rate, filt_freq, reso_linear);
+                    voice.filter[0].low_pass(proc.sample_rate, voice.filter_freq, reso_linear);
+                    voice.filter[1].low_pass(proc.sample_rate, voice.filter_freq, reso_linear);
                     break;
 
                 case FILTER_HIGH_PASS:
-                    voice.filter[0].high_pass(proc.sample_rate, filt_freq, reso_linear);
-                    voice.filter[1].high_pass(proc.sample_rate, filt_freq, reso_linear);
+                    voice.filter[0].high_pass(proc.sample_rate, voice.filter_freq, reso_linear);
+                    voice.filter[1].high_pass(proc.sample_rate, voice.filter_freq, reso_linear);
                     break;
 
                 /*case BandPassFilter:

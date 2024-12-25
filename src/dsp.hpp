@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include <cmath>
 #include <util.hpp>
 
@@ -66,13 +67,19 @@ namespace dsp
         class Instance
         {
         private:
-            float release_time = -1.0f;
-            float release_env = 0.0f;
-            float last_value = 0.0f;
+            float value = 0.0f;
+            uint8_t stage = 0; // 0 = init, 1 = attack, 2 = decay, 3 = sustain, 4 = release
+
+            float t = 1.0f;
+            float time_scale = 0.0f;
+            float lerp_from = 0.0f;
+            float lerp_to = 0.0f;
 
         public:
+            Instance();
+
             inline bool is_released() const {
-                return release_time >= 0.0f;
+                return stage == 3;
             }
 
             /**
@@ -81,12 +88,12 @@ namespace dsp
             * @param out Output envelope value
             * @returns True if the note ended
             **/
-            bool compute(float time, float& out, const ADSR& params);
+            bool compute(int sample_rate, float& out, const ADSR& params);
 
             /**
             * Release the note
             **/
-            void release(float time, const ADSR& params); 
+            void release(const ADSR& params); 
         };
     }; // class ADSR
 

@@ -23,7 +23,7 @@ Application::Application()
     module_list.module_list_by_author(_audio_engine.available_module_classes());
     
     // Song(num_channels, length, max_patterns, _audio_engine)
-    _song = std::make_unique<Song>(8, 40, 4, _audio_engine);
+    _song = std::make_unique<Song>(8, 32, 4, _audio_engine);
 
     _song_editor = std::make_unique<SongEditor>(*_song, shortcut_ctx);
     _inst_editor = std::make_unique<ModuleEditor>(*_song_editor, module_list);
@@ -251,6 +251,8 @@ ShortcutContext::ShortcutContext()
     bind("Play/Pause", ShortcutID::PLAY_PAUSE, ModKeys::NONE, ImGuiKey_Space);
     bind("Playhead Next", ShortcutID::PLAYHEAD_NEXT, ModKeys::NONE, ImGuiKey_RightBracket, true);
     bind("Playhead Previous", ShortcutID::PLAYHEAD_PREV, ModKeys::NONE, ImGuiKey_LeftBracket, true);
+    bind("Playhead to First", ShortcutID::PLAYHEAD_TO_FIRST, ModKeys::NONE, ImGuiKey_F, false);
+    bind("Playhead to Cursor", ShortcutID::PLAYHEAD_TO_CURSOR, ModKeys::NONE, ImGuiKey_H, false);
 
     bind("Cursor Left", ShortcutID::CURSOR_LEFT, ModKeys::NONE, ImGuiKey_LeftArrow, true);
     bind("Cursor Up", ShortcutID::CURSOR_UP, ModKeys::NONE, ImGuiKey_UpArrow, true);

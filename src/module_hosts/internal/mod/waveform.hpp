@@ -28,6 +28,7 @@ namespace hosts::internal
             
             double last_sample[3];
             dsp::FilterIIR2ndOrder filter[2];
+            float filter_freq;
 
             Voice();
             Voice(int key, float freq, float volume);
