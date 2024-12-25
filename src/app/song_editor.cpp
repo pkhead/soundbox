@@ -247,6 +247,16 @@ void SongEditor::render_track_editor()
         while (song.position >= song.length() * song.beats_per_bar)
             song.position -= song.length() * song.beats_per_bar;
     }
+
+    if (shortcuts.is_activated(ShortcutID::PLAYHEAD_TO_FIRST))
+    {
+        song.position = 0;
+    }
+
+    if (shortcuts.is_activated(ShortcutID::PLAYHEAD_TO_CURSOR))
+    {
+        song.position = selected_bar * song.beats_per_bar;
+    }
     
     if (ImGui::Begin("Track")) {
         // if song length or song channel count changed, then resize content size
