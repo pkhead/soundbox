@@ -12,6 +12,7 @@ namespace hosts::internal {
     private:
         dsp::DelayLine<float> delay_line[2];
         modx::TrackEventReader event_reader;
+        float tempo;
 
     public:
         enum ControlIndex {

@@ -90,7 +90,7 @@ namespace modx
             unsigned int control_index,
             int v_min,
             int v_max,
-            const char *fmt = "%.3f",
+            const char *fmt = "%i",
             ImGuiKnobFlags flags = 0,
             float speed = 0.0f,
             ImGuiKnobVariant variant = ImGuiKnobVariant_Dot,
