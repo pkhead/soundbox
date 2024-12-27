@@ -29,6 +29,6 @@ namespace hosts::internal {
 
         void process(modules::ModuleProcessor &proc) override;
         void ui() override;
-        bool has_presets() override { return true; }
+        bool has_presets() override { return false; }
     }; // class DelayModule
 } // namespace hosts::internal

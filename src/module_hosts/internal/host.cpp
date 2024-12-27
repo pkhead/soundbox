@@ -42,7 +42,7 @@ const std::vector<modules::ModuleInfo> InternalModuleHost::scan_modules()
     // effects/audio modules
     DECLARE_AUDIO_MODULE("sbox::gain", "Gain");
     DECLARE_AUDIO_MODULE("sbox::analyzer", "Analyzer");
-    DECLARE_MODULE("sbox::delay", "Delay", 0, 0, 0, -1);
+    DECLARE_MODULE("sbox::delay", "Echo", 0, 0, 0, -1);
 
     DECLARE_AUDIO_MODULE("sbox::mono_to_stereo", "Mono -> Stereo");
     DECLARE_AUDIO_MODULE("sbox::stereo_to_mono", "Stereo -> Mono");
