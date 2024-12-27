@@ -180,4 +180,35 @@ namespace dsp
 
         inline size_t max_size() const { return _max_size; }
     }; // class DelayLine
+
+    class VUMeter {
+    private:
+        static constexpr size_t BUFFER_SIZE = 1024;
+
+        unsigned int sample_rate;
+        float max;
+        float level;
+        float peak;
+
+        size_t bufidx;
+        float *buffer;
+
+        int wait_length;
+
+    public:
+        VUMeter(unsigned int sample_rate, float db_max);
+        ~VUMeter();
+
+        void update(float value);
+
+        /**
+        * Returns current level, mapping [0, db_max] to [0, 1]
+        **/
+        inline float get_level() const { return level; }
+
+        /**
+        * Returns maximum level in the past second, mapping [0, db_max] to [0, 1]
+        **/
+        inline float get_peak() const { return peak; }
+    }; // class VUMeter
 }

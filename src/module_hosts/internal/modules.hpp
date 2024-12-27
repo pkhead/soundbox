@@ -6,6 +6,8 @@
 #include "mod/channel_control.hpp"
 #include "mod/analyzer.hpp"
 #include "mod/waveform.hpp"
+#include "mod/delay.hpp"
+#include "mod/limiter.hpp"
 
 namespace hosts::internal
 {

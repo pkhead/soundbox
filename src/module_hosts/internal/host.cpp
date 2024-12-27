@@ -1,6 +1,5 @@
 #include "host.hpp"
 #include "audio_engine/audio_engine.hpp"
-#include "module_hosts/internal/mod/delay.hpp"
 #include "modules.hpp"
 
 using namespace hosts::internal;
@@ -42,6 +41,7 @@ const std::vector<modules::ModuleInfo> InternalModuleHost::scan_modules()
     // effects/audio modules
     DECLARE_AUDIO_MODULE("sbox::gain", "Gain");
     DECLARE_AUDIO_MODULE("sbox::analyzer", "Analyzer");
+    DECLARE_AUDIO_MODULE("sbox::limiter", "Limiter");
     DECLARE_MODULE("sbox::delay", "Echo", 0, 0, 0, -1);
 
     DECLARE_AUDIO_MODULE("sbox::mono_to_stereo", "Mono -> Stereo");
@@ -65,6 +65,7 @@ bool InternalModuleHost::create_module(modules::ModuleCreator &create)
     ASSOC_MODULE("sbox::waveform", WaveformModule);
     
     ASSOC_MODULE("sbox::gain", GainModule);
+    ASSOC_MODULE("sbox::limiter", LimiterModule);
     ASSOC_MODULE("sbox::analyzer", AnalyzerModule);
     ASSOC_MODULE("sbox::delay", DelayModule);
 

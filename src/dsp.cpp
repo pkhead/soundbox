@@ -16,44 +16,6 @@ ADSR::ADSR(float a, float d, float s, float r)
 :   attack(a), decay(d), sustain(s), release(r)
 {}
 
-/*bool ADSR::Instance::compute(float time, float& out, const ADSR& adsr)
-{
-    float t;
-
-    out = adsr.sustain;
-
-    // if note is in the release state
-    if (is_released())
-    {
-        t = (time - release_time) / adsr.release;
-        if (t > 1.0f) {
-            // time has gone past the release envelope, officially end the note
-            out = 0.0f;
-            return true;
-        }
-
-        out = (1.0f - t) * (1.0f - t) * release_env;
-    }
-
-    // note is in attack state
-    else if (time < adsr.attack)
-    {
-        out = time / adsr.attack;
-        out = 1.0f - (1.0f - out) * (1.0f - out); // quad interpolation
-    }
-
-    // note is in decay state
-    else if (time < adsr.decay + adsr.attack)
-    {
-        t = (time - adsr.attack) / adsr.decay;
-        if (t > 1.0f) t = 1.0f;
-        out = (1.0f - adsr.sustain) * (1.0f - t) * (1.0f - t) + adsr.sustain;
-    }
-
-    last_value = out;
-    return false;
-}*/
-
 inline static float compute_multiplier(float start, float end, int release_time) {
     return 1.0f + logf(end / start) / release_time;
 }
@@ -131,6 +93,14 @@ void ADSR::Instance::release(const ADSR& params)
 {
     stage = 4;
 }
+
+
+
+
+
+
+
+
 
 /*
  Filters
@@ -309,4 +279,51 @@ float FilterIIR2ndOrder::attenuation(float hz, float sample_rate)
     imag = num_i * denom_r - num_r * denom_i;
 
     return sqrtf(real*real + imag*imag) / denom;
+}
+
+
+
+
+
+
+
+
+VUMeter::VUMeter(unsigned int sample_rate, float db_max) :
+    sample_rate(sample_rate)
+{
+    level = 0.0f;
+    peak = 0.0f;
+    max = db_to_mult(db_max);
+    wait_length = 0;
+    buffer = new float[BUFFER_SIZE];
+    bufidx = 0;
+}
+
+VUMeter::~VUMeter() {
+    delete[] buffer;
+}
+
+void VUMeter::update(float value) {
+    // write value to buffer
+    buffer[bufidx] = fabsf(value);
+    bufidx = (bufidx + 1) % BUFFER_SIZE;
+
+    // calculate level from buffer
+    level = 0.0f;
+    for (size_t i = 0; i < BUFFER_SIZE; i++) {
+        if (buffer[i] > level) {
+            level = buffer[i];
+        }
+    }
+    
+    level = util::min(level / max, 1.0f);
+
+    if (level > peak) {
+        peak = level;
+        wait_length = sample_rate;
+    } else if (wait_length > 0) {
+        wait_length--;
+    } else {
+        peak -= 2.0f / sample_rate;
+    }
 }
