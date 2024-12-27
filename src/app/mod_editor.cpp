@@ -478,10 +478,10 @@ void ModuleEditor::draw(const char *window_title)
                                         // and... this is the first module, and this is not a synthesizer
                                         // also, omit modules that don't have audio inputs, except if it's the first module
                                         // and it is required that the first module is a synthesizer.
-                                        if (first_module_instrument)
+                                        if (first_module_instrument && i+1 <= 0)
                                         {
-                                            if (mod_info.midi_input != 0 && i+1 == 0) continue;
-                                            if (mod_info.audio_input != 0 && i+1 > 0) continue;
+                                            //if (mod_info.midi_input != 0 && i+1 == 0) continue;
+                                            if (mod_info.audio_input == 0) continue;
                                         }
                                         else
                                         {

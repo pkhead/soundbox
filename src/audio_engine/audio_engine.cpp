@@ -146,9 +146,9 @@ int AudioEngine::_pa_stream_callback(
     float* out_samples = (float*) output_buffer;
     if (!self->_audio_ring_buffer.read(out_samples, frame_count * self->_output_channels))
     {
-#ifdef DEBUG
-        logger::log_debug("AudioEngine::_pa_stream_callback: not enough audio data to fill buffer");
-#endif
+        // #ifdef DEBUG
+        // logger::log_debug("AudioEngine::_pa_stream_callback: not enough audio data to fill buffer");
+        // #endif
         memset(out_samples, 0, frame_count * self->_output_channels * sizeof(float));
     }
 

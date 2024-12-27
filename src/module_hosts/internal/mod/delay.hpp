@@ -11,6 +11,8 @@ namespace hosts::internal {
     class DelayModule : public modx::ModuleBase {
     private:
         dsp::DelayLine<float> delay_line[2];
+        modx::TrackEventReader event_reader;
+
     public:
         enum ControlIndex {
             CONTROL_FEEDBACK,
@@ -20,7 +22,7 @@ namespace hosts::internal {
             CONTROL_DELAY_SECS_R,
             CONTROL_DELAY_DIV_R,
             CONTROL_USE_TEMPO,
-            CONTROL_STEREO_LOCK,
+            CONTROL_DELAY_SYNC,
         };
 
         DelayModule(modules::ModuleCreator &create);

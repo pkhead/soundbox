@@ -709,7 +709,6 @@ void Song::update()
 
         if (ch->_is_dirty)
         {
-            logger::log_debug("Update channel %i track", i);
             control->set_track(*ch);
             ch->_is_dirty = false;
         }

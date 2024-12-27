@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
@@ -69,7 +70,7 @@ namespace dsp
         private:
             static constexpr float MINIMUM_LEVEL = 0.001f;
 
-            float value = 0.0f;
+            float value = MINIMUM_LEVEL;
             uint8_t stage = 0; // 0 = init, 1 = attack, 2 = decay, 3 = sustain, 4 = release
 
             int samples_remaining = 0;
@@ -117,17 +118,35 @@ namespace dsp
             delay(0)
         {}
 
-        DelayLine(size_t max_size)
-        : DelayLine()
+        DelayLine(size_t max_size) : DelayLine()
         {
             resize(max_size);
         }
 
         ~DelayLine()
         {
-            if (buf) {
-                delete[] buf;
-            }
+            if (buf) delete[] buf;
+        }
+
+        DelayLine(const DelayLine<T> &src) = delete;
+        DelayLine<T> &operator=(const DelayLine<T>&) = delete;
+
+        DelayLine(DelayLine<T> &&src) noexcept :
+            index(src.index),
+            buf(src.buf),
+            _max_size(src.max_size),
+            delay(src.delay)
+        {
+            src.buf = nullptr;
+        }
+
+        DelayLine<T> &operator=(DelayLine<T> &&src) noexcept {
+            index = src.index;
+            _max_size = src._max_size;
+            buf = src.buf;
+            delay = src.delay;
+            src.buf = nullptr;
+            return *this;
         }
 
         void resize(size_t new_capacity)
@@ -149,12 +168,14 @@ namespace dsp
         }
 
         inline float read() {
+            assert(index < _max_size);
             return buf[index];
         }
 
         inline void write(float v) {
+            assert(index < _max_size);
             buf[index++] = v;
-            if (index > delay) index = 0;
+            if (index >= delay) index = 0;
         }
 
         inline size_t max_size() const { return _max_size; }
