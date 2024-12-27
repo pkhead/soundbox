@@ -242,6 +242,15 @@ void Channel::insert_module(const modx::ModuleRc &module, size_t index) {
 
     if (module->message_input_count() > 0) {
         events->connect_message(*module, 0, 0);
+
+        // force controller to send track info, so the newly added module
+        // can access it
+        hosts::internal::ChannelControllerModule* control = dynamic_cast<hosts::internal::ChannelControllerModule*>(
+            modx::ModuleHost::get_module(input_controller->id())
+        );
+        assert(control != nullptr);
+
+        control->force_send_track_info();
     }
 }
 

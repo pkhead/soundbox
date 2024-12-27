@@ -83,6 +83,13 @@ void ChannelControllerModule::read_events(modules::ModuleProcessor &proc)
                 _is_playing = false;
                 break;
             }
+
+            case MESSAGE_SEND_TRACK_INFO:
+            {
+                modx::TrackEvent ev = modx::TrackEvent::init_tempo(_tempo);
+                proc.send_message(0, &ev, sizeof(ev));
+                break;
+            }
             
             case MESSAGE_TRACK_EVENT:
             {
@@ -265,7 +272,12 @@ void ChannelControllerModule::set_playing(bool play_state)
     InputMessage msg{};
     msg.type = play_state ? MESSAGE_PLAY : MESSAGE_STOP;
     input_queue.write(&msg, 1);
+}
 
+void ChannelControllerModule::force_send_track_info() {
+    InputMessage msg{};
+    msg.type = MESSAGE_SEND_TRACK_INFO;
+    input_queue.write(&msg, 1);
 }
 void ChannelControllerModule::send_event(const modx::TrackEvent &event)
 {

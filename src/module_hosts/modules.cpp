@@ -256,7 +256,7 @@ void ModuleBase::save(std::ostream &data) {
 
             case modules::ModuleControlDataType::BOOL: {
                 auto v = engine->control_get_value<bool>(_id, i);
-                util::push_bytes(data, v);
+                util::push_bytes(data, v ? (uint8_t)1 : (uint8_t)0);
                 break;
             }
 
@@ -305,8 +305,8 @@ void ModuleBase::load(std::istream &data) {
             }
 
             case modules::ModuleControlDataType::BOOL: {
-                auto v = util::pull_bytes<bool>(data);
-                if (valid) engine->control_set_value(_id, index, v);
+                auto v = util::pull_bytes<uint8_t>(data);
+                if (valid) engine->control_set_value(_id, index, v != 0);
                 break;
             }
 

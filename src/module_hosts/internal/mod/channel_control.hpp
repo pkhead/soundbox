@@ -29,6 +29,7 @@ namespace hosts::internal
 
             MESSAGE_PLAY,
             MESSAGE_STOP,
+            MESSAGE_SEND_TRACK_INFO,
 
             /**
             * Expects a track event afterward.
@@ -103,6 +104,7 @@ namespace hosts::internal
         void set_position(double position);
         void set_playback_info(float tempo, uint8_t beats_per_bar);
         void set_playing(bool play_state);
+        void force_send_track_info();
         void send_event(const modx::TrackEvent &event);
     }; // class ChannelControllerModule
 } // namespace hosts::internal
