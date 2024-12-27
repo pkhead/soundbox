@@ -4,6 +4,8 @@
 #pragma once
 #include <memory>
 #include <imguiext/imgui-knobs.h>
+#include <ostream>
+#include <istream>
 #include "../audio_engine/audio_engine.hpp"
 
 namespace modx
@@ -43,6 +45,15 @@ namespace modx
         bool disconnect_message_output(unsigned int out_index) { return _engine.disconnect_message_output(_id, out_index); }
         bool disconnect_message_input(unsigned int in_index) { return _engine.disconnect_message_input(_id, in_index); }
         bool connect_message(ModuleHandle &other_module, unsigned int out_index, unsigned int in_index) { return _engine.connect_message(_id, other_module._id, out_index, in_index); }
+
+        inline unsigned int control_count()
+            { return _engine.control_count(_id); }
+
+        inline modules::ModuleControlDataType control_data_type(modules::ModuleID mod_id, unsigned int index) const
+            { return _engine.control_data_type(mod_id, index); }
+
+        inline const std::string control_name(modules::ModuleID mod_id, unsigned int index) const
+            { return _engine.control_name(mod_id, index); }
 
         template <typename T>
         T control_get_value(unsigned int index) { return _engine.control_get_value<T>(_id, index); }
@@ -120,6 +131,9 @@ namespace modx
         virtual void ui() {}
 
         virtual bool has_presets() { return false; } // TODO: actual preset system...
+
+        virtual void save(std::ostream &data);
+        virtual void load(std::istream &data);
     }; // class ModuleBase
 
     /**

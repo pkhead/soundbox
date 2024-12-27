@@ -89,7 +89,7 @@ namespace modules
         struct ModuleControl
         {
             std::string name;
-            ModuleControlDataType data_type;
+            ModuleControlDataType data_type = ModuleControlDataType::UNKNOWN;
             union
             {
                 float float_value;
@@ -312,6 +312,7 @@ namespace modules
         unsigned int control_count(ModuleID mod_id) const;
         ModuleControlDataType control_data_type(ModuleID mod_id, unsigned int index) const;
         const std::string control_name(ModuleID mod_id, unsigned int index) const;
+        bool control_get_index(ModuleID mod_id, const std::string &name, unsigned int &index) const;
 
         /// Get the value of a module's control.
         template <typename T>

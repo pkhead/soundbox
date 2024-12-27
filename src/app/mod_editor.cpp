@@ -1,5 +1,6 @@
 #include <cfloat>
 #include <algorithm>
+#include <fstream>
 #include <stdexcept>
 #include <imgui_internal.h>
 #include <imgui.h>
@@ -10,6 +11,7 @@
 #include <module_hosts/internal/host.hpp>
 #include <module_hosts/internal/modules.hpp>
 #include "mod_editor.hpp"
+#include "module_hosts/modules.hpp"
 #include "shortcuts.hpp"
 
 using namespace sbox;
@@ -212,6 +214,35 @@ static bool fx_channel_combobox(Song &song, unsigned int *fx_channel_index, unsi
     return changed;
 }
 
+static void mod_presets(modx::ModuleBase *const mod_data, modx::ModuleRc &mod) {
+    if (ImGui::BeginMenu("Presets"))
+    {
+        if (ImGui::MenuItem("Save Preset...")) {
+            auto f = std::ofstream("test.bin");
+            if (f.is_open()) {
+                mod_data->save(f);
+            }
+        }
+        
+        if (ImGui::BeginMenu("Load Preset"))
+        {
+            if (ImGui::MenuItem("Button That Does Something")) {
+                auto f = std::ifstream("test.bin");
+                if (f.is_open()) {
+                    mod_data->load(f);
+                }
+            }
+
+            for (int i = 0; i < 30; i++)
+            {
+                ImGui::MenuItem("Preset");
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenu();
+    }
+}
+
 void ModuleEditor::render_channel_settings(Channel &cur_channel)
 {
     Song &song = editor.song;
@@ -411,19 +442,7 @@ void ModuleEditor::draw(const char *window_title)
 
                         if (mod_data->has_presets())
                         {
-                            if (ImGui::BeginMenu("Presets"))
-                            {
-                                ImGui::MenuItem("Save Preset...");
-                                if (ImGui::BeginMenu("Load Preset"))
-                                {
-                                    for (int i = 0; i < 30; i++)
-                                    {
-                                        ImGui::MenuItem("Preset");
-                                    }
-                                    ImGui::EndMenu();
-                                }
-                                ImGui::EndMenu();
-                            }
+                            mod_presets(mod_data, mod);
                         }
 
                         float button_width = ImGui::GetFontSize();

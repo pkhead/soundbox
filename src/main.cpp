@@ -11,8 +11,8 @@
 
 #include <glad/glad.h>
 #include <imgui.h>
+#include "sys.hpp"
 #include "app/app.hpp"
-#include "editor/theme.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
@@ -51,7 +51,7 @@
 //#include "util.h"
 #include "winmgr.h"
 
-bool IS_BIG_ENDIAN;
+bool sys::IS_BIG_ENDIAN;
 
 static void glfw_error_callback(int error, const char *description)
 {
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
             char c[4];
         } static bint = {0x01020304};
 
-        IS_BIG_ENDIAN = bint.c[0] == 1;
+        sys::IS_BIG_ENDIAN = bint.c[0] == 1;
     }
 
     glfwSetErrorCallback(glfw_error_callback);

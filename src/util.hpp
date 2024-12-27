@@ -4,7 +4,9 @@
 #pragma once
 #include <imgui.h>
 #include <cmath>
+#include <istream>
 #include <string>
+#include "sys.hpp"
 
 // vector2 class fully compatible with ImGui's Vec2
 // this is so i can do vector math easily
@@ -157,6 +159,53 @@ namespace util
         if (v > max) return max;
         if (v < min) return min;
         return v;
+    }
+
+    /**
+    * Push bytes into an output stream in little-endian order
+    **/
+    template <typename T>
+    void push_bytes(std::ostream &out, T data) {
+        if (sys::IS_BIG_ENDIAN) {
+            for (size_t i = sizeof(data) - 1; i > 0; i--) {
+                out << ((uint8_t*)(&data)) [i];
+            }
+            out << ((uint8_t*)(&data)) [0];
+        } else {
+            out.write(((char*)(&data)), sizeof(T));
+        }
+    }
+
+    /**
+    * Read bytes from an output stream in little-endian order
+    **/
+    template <typename T>
+    void pull_bytes(std::istream &in, T &out) {
+        if (sys::IS_BIG_ENDIAN) {
+            char next_char;
+            uint8_t bytes[sizeof(T)];
+
+            for (size_t i = sizeof(T) - 1; i > 0; i--) {
+                in.get(next_char);
+                bytes[i] = next_char;
+            }
+
+            in.get(next_char);
+            bytes[0] = next_char;
+
+            out = *((T*)bytes);
+        } else {
+            char bytes[sizeof(T)];
+            in.read(bytes, sizeof(T));
+            out = *((T*)bytes);
+        }
+    }
+
+    template <typename T>
+    T pull_bytes(std::istream &in) {
+        T dat;
+        pull_bytes(in, dat);
+        return dat;
     }
 
     /**

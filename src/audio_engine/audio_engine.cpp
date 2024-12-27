@@ -897,6 +897,22 @@ const std::string AudioEngine::control_name(ModuleID mod_id, unsigned int index)
     return mod.controls[index].name;
 }
 
+bool AudioEngine::control_get_index(ModuleID mod_id, const std::string &name, unsigned int &index) const {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    const ModuleInstance &mod = *it->second;
+
+    index = 0;
+    for (auto it = mod.controls.begin(); it != mod.controls.end(); it++) {
+        if (it->name == name) {
+            return true;
+        }
+        index++;
+    }
+
+    return false;
+}
+
 template <>
 bool AudioEngine::_control_get_ref<float>(ModuleControl &control, float** v)
 {

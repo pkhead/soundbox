@@ -1,5 +1,8 @@
 #include <cassert>
+#include <climits>
 #include <cstdint>
+#include <ostream>
+#include <istream>
 #include <widgets.hpp>
 #include <util.hpp>
 #include "audio_engine/audio_engine.hpp"
@@ -199,4 +202,117 @@ bool ModuleBase::ui_knob_int(
     }
 
     return false;
+}
+
+void ModuleBase::save(std::ostream &data) {
+    // first, get count of valid controls
+    unsigned int count = 0;
+    for (unsigned int i = 0; i < engine->control_count(_id); i++) {
+        if (engine->control_data_type(_id, i) == modules::ModuleControlDataType::UNKNOWN) {
+            logger::log_warning("ModuleBase::save: unknown data type for control %s (%i)", engine->control_name(_id, i).c_str(), i);
+        } else {
+            count++;
+        }
+    }
+
+    util::push_bytes(data, count);
+
+    // then, write controls
+    for (unsigned int i = 0; i < engine->control_count(_id); i++) {
+        const std::string ctl_name = engine->control_name(_id, i);
+        const auto type = engine->control_data_type(_id, i);
+        if (type == modules::ModuleControlDataType::UNKNOWN) continue;
+
+        // push name and data type
+        util::push_bytes(data, (uint8_t)ctl_name.size());
+        data << ctl_name;
+        util::push_bytes(data, type);
+
+        // push data
+        switch (type) {
+            case modules::ModuleControlDataType::FLOAT: {
+                auto v = engine->control_get_value<float>(_id, i);
+                util::push_bytes(data, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::DOUBLE: {
+                auto v = engine->control_get_value<double>(_id, i);
+                util::push_bytes(data, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::INT32: {
+                auto v = engine->control_get_value<int32_t>(_id, i);
+                util::push_bytes(data, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::INT64: {
+                auto v = engine->control_get_value<int64_t>(_id, i);
+                util::push_bytes(data, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::BOOL: {
+                auto v = engine->control_get_value<bool>(_id, i);
+                util::push_bytes(data, v);
+                break;
+            }
+
+            default: break;
+        }
+    }
+}
+
+void ModuleBase::load(std::istream &data) {
+    unsigned int count = util::pull_bytes<unsigned int>(data);
+    for (unsigned int i = 0; i < count; i++) {
+        // read name
+        std::string name;
+        name.resize(util::pull_bytes<uint8_t>(data));
+        data.read(name.data(), name.size());
+
+        // read data type
+        const auto type = util::pull_bytes<modules::ModuleControlDataType>(data);
+
+        unsigned int index;
+        bool valid = engine->control_get_index(_id, name, index);
+
+        switch (type) {
+            case modules::ModuleControlDataType::FLOAT: {
+                auto v = util::pull_bytes<float>(data);
+                if (valid) engine->control_set_value(_id, index, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::DOUBLE: {
+                auto v = util::pull_bytes<double>(data);
+                if (valid) engine->control_set_value(_id, index, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::INT32: {
+                auto v = util::pull_bytes<int32_t>(data);
+                if (valid) engine->control_set_value(_id, index, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::INT64: {
+                auto v = util::pull_bytes<int64_t>(data);
+                if (valid) engine->control_set_value(_id, index, v);
+                break;
+            }
+
+            case modules::ModuleControlDataType::BOOL: {
+                auto v = util::pull_bytes<bool>(data);
+                if (valid) engine->control_set_value(_id, index, v);
+                break;
+            }
+
+            default:
+                logger::log_warning("ModuleBase::load: unkown data type %i", (int)type);
+                break;
+        }
+    }
 }

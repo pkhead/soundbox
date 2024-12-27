@@ -3,6 +3,8 @@
 
 namespace sys
 {
+    extern bool IS_BIG_ENDIAN;
+
     /**
      * Provides functionality for high-resolution sleeping.
      * Only one may exist per thread.

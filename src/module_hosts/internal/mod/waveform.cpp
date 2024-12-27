@@ -73,7 +73,7 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
     create.add_control<int>(CONTROL_FILTER_TYPE, "Filter Type", FILTER_LOW_PASS);
     create.add_control<float>(CONTROL_FILTER_FREQ, "Filter Frequency", (float)create.engine.sample_rate() * 0.35f);
     create.add_control<float>(CONTROL_FILTER_RESO, "Filter Resonance", 1.0f);
-    create.add_control<float>(CONTROL_FILTER_ENV, "Filter Resonance", 0.0f);
+    create.add_control<float>(CONTROL_FILTER_ENV, "Filter Envelope", 0.0f);
 
     create.add_control<float>(CONTROL_VIBRATO_DELAY, "Vibrato Delay", 0.0f);
     create.add_control<float>(CONTROL_VIBRATO_SPEED, "Vibrato Speed", 2.0f);
