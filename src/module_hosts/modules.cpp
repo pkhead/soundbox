@@ -5,6 +5,7 @@
 #include "audio_engine/audio_engine.hpp"
 #include "imguiext/imgui-knobs.h"
 #include "modules.hpp"
+#include "../log.hpp"
 
 using namespace modx;
 

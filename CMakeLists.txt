@@ -108,6 +108,7 @@ set(SOURCES
     src/module_hosts/internal/mod/control.cpp
     src/module_hosts/internal/mod/waveform.cpp
     src/module_hosts/internal/mod/analyzer.cpp
+    src/module_hosts/internal/mod/delay.cpp
     src/module_hosts/internal/mod/channel_control.cpp
 
     src/module_hosts/lv1/host.cpp

@@ -480,12 +480,12 @@ void ModuleEditor::draw(const char *window_title)
                                         // and it is required that the first module is a synthesizer.
                                         if (first_module_instrument)
                                         {
-                                            if (!mod_info.has_midi_input && i+1 == 0) continue;
-                                            if (!mod_info.has_audio_input && i+1 > 0) continue;
+                                            if (mod_info.midi_input != 0 && i+1 == 0) continue;
+                                            if (mod_info.audio_input != 0 && i+1 > 0) continue;
                                         }
                                         else
                                         {
-                                            if (!mod_info.has_audio_input) continue;
+                                            if (mod_info.audio_input != 0) continue;
                                         }
 
                                         if (ImGui::Selectable(mod_info.name.c_str()))

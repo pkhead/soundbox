@@ -26,6 +26,7 @@ namespace modx
 
         const std::string name() const { return _engine.module_name(_id); }
         std::string class_name() const { return _engine.module_class_name(_id); }
+        const modules::ModuleInfo *get_module_info() { return _engine.get_module_info(class_name()); }
 
         unsigned int audio_input_count() const { return _engine.audio_input_count(_id); };
         unsigned int audio_output_count() const { return _engine.audio_output_count(_id); };

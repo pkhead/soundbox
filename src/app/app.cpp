@@ -6,6 +6,7 @@
 #include "mod_editor.hpp"
 #include "shortcuts.hpp"
 #include "app.hpp"
+#include "../log.hpp"
 
 using namespace sbox;
 

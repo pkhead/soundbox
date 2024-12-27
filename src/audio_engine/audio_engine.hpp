@@ -32,10 +32,10 @@ namespace modules
         std::string name;
         std::string author;
 
-        bool has_midi_input;
-        bool has_audio_input;
-
-        ModuleInfo(const std::string &class_name, const std::string &name, bool has_audio_input = true);
+        int audio_input = 0;
+        int audio_output = 0;
+        int midi_input = -1;
+        int midi_output = -1;
     }; // struct ModuleInfo
 
     #define CHECK_CONTROL_TYPE(T) static_assert( \
@@ -269,6 +269,8 @@ namespace modules
         {
             return _available_module_classes;
         }
+
+        const ModuleInfo *get_module_info(const std::string &class_name);
 
         /// Check if a module with a given ID exists.
         /// @param mod_id The ID of the module to check

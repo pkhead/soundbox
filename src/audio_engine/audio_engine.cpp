@@ -23,6 +23,10 @@ const char* AudioEngine::MODULE_CLASS_AUDIO_OUT = "AUDIO_OUT";
 const char* AudioEngine::MODULE_CLASS_STEREO_MIXER = "STEREO_MIXER";
 const char* AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR = "MESSAGE_DUPLICATOR";
 
+static ModuleInfo AUDIO_OUT_INFO { AudioEngine::MODULE_CLASS_AUDIO_OUT, "Audio Output", "", 0, -1, -1, -1 };
+static ModuleInfo STEREO_MIXER_INFO { AudioEngine::MODULE_CLASS_STEREO_MIXER, "Stereo Mixer", "", 0, 0, -1, -1 };
+static ModuleInfo MESSAGE_DUPLICATOR_INFO { AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR, "Message Duplicator", "", -1, -1, 0, 0 };
+
 ModuleID AudioEngine::_next_module_id = 1;
 
 static void pa_panic(PaError err)
@@ -353,6 +357,20 @@ std::vector<ModuleID> AudioEngine::list_modules() const
         modules.push_back(id);
 
     return modules;
+}
+
+const ModuleInfo *AudioEngine::get_module_info(const std::string &modclass) {
+    if (modclass == MODULE_CLASS_AUDIO_OUT) return &AUDIO_OUT_INFO;
+    if (modclass == MODULE_CLASS_STEREO_MIXER) return &STEREO_MIXER_INFO;
+    if (modclass == MODULE_CLASS_MESSAGE_DUPLICATOR) return &MESSAGE_DUPLICATOR_INFO;
+    
+    for (const auto &info : _available_module_classes) {
+        if (info.class_name == modclass) {
+            return &info;
+        }
+    }
+
+    return nullptr;
 }
 
 bool AudioEngine::module_exists(ModuleID mod_id) const

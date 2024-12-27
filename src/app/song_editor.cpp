@@ -6,9 +6,9 @@
 #include "shortcuts.hpp"
 #include "song.hpp"
 #include "song_editor.hpp"
-#include "../module_hosts/internal/modules.hpp"
 #include "app.hpp"
 #include "theme.hpp"
+#include "../log.hpp"
 
 using namespace sbox;
 

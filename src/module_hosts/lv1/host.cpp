@@ -4,7 +4,9 @@
 #include <exception>
 #include <pluginapis/ladspa.h>
 #include "host.hpp"
+#include "audio_engine/audio_engine.hpp"
 #include "instance.hpp"
+#include "../../log.hpp"
 
 using namespace hosts::lv1;
 
@@ -92,21 +94,26 @@ void Lv1ModuleHost::get_plugin_info(std::filesystem::path dlpath, std::vector<mo
 
         // check if plugin has input audio ports
         bool has_audio_input = false;
+        bool has_audio_output = false;
 
         for (int port_i = 0; port_i < plugin_desc->PortCount; port_i++)
         {
             LADSPA_PortDescriptor port_descriptor = plugin_desc->PortDescriptors[port_i];
 
-            if (LADSPA_IS_PORT_INPUT(port_descriptor) && LADSPA_IS_PORT_AUDIO(port_descriptor)) {
-                has_audio_input = true;
-                break;
+            if (LADSPA_IS_PORT_AUDIO(port_descriptor)) {
+                if (LADSPA_IS_PORT_INPUT(port_descriptor)) has_audio_input = true;
+                if (LADSPA_IS_PORT_OUTPUT(port_descriptor)) has_audio_output = true;
             }
         }
 
-        modules::ModuleInfo mod_info(mod_class_name, plugin_desc->Name);
-        mod_info.has_audio_input = has_audio_input;
-        mod_info.has_midi_input = false;
-        mod_info.author = plugin_desc->Maker;
+        modules::ModuleInfo mod_info = {
+            mod_class_name,
+            plugin_desc->Name,
+            plugin_desc->Maker,
+            has_audio_input ? 0 : -1,
+            has_audio_output ? 0 : -1,
+            -1, -1
+        };
 
         out_mod_list.push_back(mod_info);
         assert(_plugin_info.find(mod_class_name) == _plugin_info.end());

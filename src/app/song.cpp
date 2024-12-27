@@ -50,23 +50,40 @@ ModuleRack::ModuleRack()
 static void connect(const modx::ModuleRc &mod_a, const modx::ModuleRc &mod_b)
 {
     bool s;
+    const modules::ModuleInfo *info_a = mod_a->get_module_info();
+    const modules::ModuleInfo *info_b = mod_b->get_module_info();
+
+    if (info_a == nullptr) {
+        logger::log_warning("ModuleRack: could not get info for module %s", mod_a->name().c_str());
+    }
+
+    if (info_b == nullptr) {
+        logger::log_warning("ModuleRack: could not get info for module %s", mod_b->name().c_str());
+    }
+
+    if (info_a == nullptr || info_b == nullptr) return;
+
     // connect first audio output to first audio input
     if (mod_a->audio_output_count() > 0 && (mod_b->audio_input_count() > 0 || mod_b->class_name() == modules::AudioEngine::MODULE_CLASS_STEREO_MIXER))
     {
-        s = mod_a->connect_audio(*mod_b, 0, 0);
-        if (!s)
-        {
-            logger::log_warning("ModuleRack: could not connect %s to %s", mod_a->class_name().c_str(), mod_b->class_name().c_str());
+        if (info_a->audio_output >= 0 && info_b->audio_input >= 0) {
+            s = mod_a->connect_audio(*mod_b, info_a->audio_output, info_b->audio_input);
+            if (!s)
+            {
+                logger::log_warning("ModuleRack: could not connect %s to %s", mod_a->class_name().c_str(), mod_b->class_name().c_str());
+            }
         }
     }
 
     // connect first message output to first message input
     if (mod_a->message_output_count() > 0 && mod_b->message_input_count() > 0)
     {
-        s = mod_a->connect_message(*mod_b, 0, 0);
-        if (!s)
-        {
-            logger::log_warning("ModuleRack: could not connect %s to %s", mod_a->class_name().c_str(), mod_b->class_name().c_str());
+        if (info_a->midi_output >= 0 && info_b->midi_input >= 0) {
+            s = mod_a->connect_message(*mod_b, info_a->midi_output, info_b->midi_input);
+            if (!s)
+            {
+                logger::log_warning("ModuleRack: could not connect %s to %s", mod_a->class_name().c_str(), mod_b->class_name().c_str());
+            }
         }
     }
 }
