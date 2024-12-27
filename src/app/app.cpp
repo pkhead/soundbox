@@ -12,7 +12,8 @@ using namespace sbox;
 
 Application *Application::instance = nullptr;
 
-Application::Application()
+Application::Application() :
+    theme("Soundbox Dark")
 {
     assert(Application::instance == nullptr);
     Application::instance = this;

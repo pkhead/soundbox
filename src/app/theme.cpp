@@ -12,64 +12,6 @@
 
 using namespace sbox;
 
-const char* IMGUI_COLOR_NAMES[] = {
-    "Text",                 
-    "TextDisabled",         
-    "WindowBg",             
-    "ChildBg",              
-    "PopupBg",              
-    "Border",               
-    "BorderShadow",         
-    "FrameBg",              
-    "FrameBgHovered",       
-    "FrameBgActive",        
-    "TitleBg",              
-    "TitleBgActive",        
-    "TitleBgCollapsed",     
-    "MenuBarBg",            
-    "ScrollbarBg",          
-    "ScrollbarGrab",        
-    "ScrollbarGrabHovered", 
-    "ScrollbarGrabActive",  
-    "CheckMark",            
-    "SliderGrab",           
-    "SliderGrabActive",     
-    "Button",               
-    "ButtonHovered",        
-    "ButtonActive",         
-    "Header",               
-    "HeaderHovered",        
-    "HeaderActive",         
-    "Separator",            
-    "SeparatorHovered",     
-    "SeparatorActive",      
-    "ResizeGrip",           
-    "ResizeGripHovered",    
-    "ResizeGripActive",     
-    "Tab",                  
-    "TabHovered",           
-    "TabActive",            
-    "TabUnfocused",         
-    "TabUnfocusedActive",   
-    "DockingPreview",       
-    "DockingEmptyBg",       
-    "PlotLines",            
-    "PlotLinesHovered",     
-    "PlotHistogram",        
-    "PlotHistogramHovered", 
-    "TableHeaderBg",        
-    "TableBorderStrong",    
-    "TableBorderLight",     
-    "TableRowBg",           
-    "TableRowBgAlt",        
-    "TextSelectedBg",       
-    "DragDropTarget",       
-    "NavHighlight",         
-    "NavWindowingHighlight",
-    "NavWindowingDimBg",    
-    "ModalWindowDimBg",     
-};
-
 const char* CUSTOM_COLOR_NAMES[] = {
     "OctaveRow",
     "FifthRow",
@@ -78,66 +20,6 @@ const char* CUSTOM_COLOR_NAMES[] = {
     "PianoKeyOctave"
 };
 constexpr size_t NUM_CUSTOM_COLORS = sizeof(CUSTOM_COLOR_NAMES) / sizeof(*CUSTOM_COLOR_NAMES);
-
-/*
-const ImGuiCol_ IMGUI_COLOR_ENUMS[] = {
-    ImGuiCol_Text,                 
-    ImGuiCol_TextDisabled,         
-    ImGuiCol_WindowBg,             
-    ImGuiCol_ChildBg,              
-    ImGuiCol_PopupBg,              
-    ImGuiCol_Border,               
-    ImGuiCol_BorderShadow,         
-    ImGuiCol_FrameBg,              
-    ImGuiCol_FrameBgHovered,       
-    ImGuiCol_FrameBgActive,        
-    ImGuiCol_TitleBg,              
-    ImGuiCol_TitleBgActive,        
-    ImGuiCol_TitleBgCollapsed,     
-    ImGuiCol_MenuBarBg,            
-    ImGuiCol_ScrollbarBg,          
-    ImGuiCol_ScrollbarGrab,        
-    ImGuiCol_ScrollbarGrabHovered, 
-    ImGuiCol_ScrollbarGrabActive,  
-    ImGuiCol_CheckMark,            
-    ImGuiCol_SliderGrab,           
-    ImGuiCol_SliderGrabActive,     
-    ImGuiCol_Button,               
-    ImGuiCol_ButtonHovered,        
-    ImGuiCol_ButtonActive,         
-    ImGuiCol_Header,               
-    ImGuiCol_HeaderHovered,        
-    ImGuiCol_HeaderActive,         
-    ImGuiCol_Separator,            
-    ImGuiCol_SeparatorHovered,     
-    ImGuiCol_SeparatorActive,      
-    ImGuiCol_ResizeGrip,           
-    ImGuiCol_ResizeGripHovered,    
-    ImGuiCol_ResizeGripActive,     
-    ImGuiCol_Tab,                  
-    ImGuiCol_TabHovered,           
-    ImGuiCol_TabActive,            
-    ImGuiCol_TabUnfocused,         
-    ImGuiCol_TabUnfocusedActive,   
-    ImGuiCol_DockingPreview,       
-    ImGuiCol_DockingEmptyBg,       
-    ImGuiCol_PlotLines,            
-    ImGuiCol_PlotLinesHovered,     
-    ImGuiCol_PlotHistogram,        
-    ImGuiCol_PlotHistogramHovered, 
-    ImGuiCol_TableHeaderBg,        
-    ImGuiCol_TableBorderStrong,    
-    ImGuiCol_TableBorderLight,     
-    ImGuiCol_TableRowBg,           
-    ImGuiCol_TableRowBgAlt,        
-    ImGuiCol_TextSelectedBg,       
-    ImGuiCol_DragDropTarget,       
-    ImGuiCol_NavHighlight,         
-    ImGuiCol_NavWindowingHighlight,
-    ImGuiCol_NavWindowingDimBg,    
-    ImGuiCol_ModalWindowDimBg,     
-};
-*/
 
 static ImVec4 parse_color(const std::string& hex)
 {
@@ -185,9 +67,9 @@ void Theme::_parse_toml(toml::Table* data)
     }
 
     // read ui colors
-    for (size_t i = 0; i < sizeof(IMGUI_COLOR_NAMES) / sizeof(*IMGUI_COLOR_NAMES); i++)
+    for (size_t i = 0; i < ImGuiCol_COUNT; i++)
     {
-        const char* name = IMGUI_COLOR_NAMES[i];
+        const char* name = ImGui::GetStyleColorName(i);
         auto [ok, color_value] = ui_table->getString(name);
 
         if (!ok)
@@ -224,9 +106,9 @@ Theme::Theme()
     ImGui::StyleColorsClassic(&style);
     ImVec4* colors = style.Colors;
 
-    for (int i = 0; i < 55; i++)
+    for (int i = 0; i < ImGuiCol_COUNT; i++)
     {
-        const std::string str = IMGUI_COLOR_NAMES[i];
+        const std::string str = ImGui::GetStyleColorName(i);
         ui_colors[str] = colors[i];
     }
 
@@ -298,9 +180,9 @@ ImVec4 Theme::get_custom_color(CustomColor color) const
 void Theme::set_imgui_colors() const
 {
     ImVec4* style = ImGui::GetStyle().Colors;
-    for (int i = 0; i < 55; i++)
+    for (int i = 0; i < ImGuiCol_COUNT; i++)
     {
-        const std::string str = IMGUI_COLOR_NAMES[i];
+        const std::string str = ImGui::GetStyleColorName(i);
 
         // if ui_colors contains key
         if (ui_colors.find(str) != ui_colors.end())
