@@ -17,8 +17,8 @@ ModuleHandle::ModuleHandle(modules::AudioEngine &engine, const std::string &clas
 {
     _id = _engine.create_module(class_name);
 
-    if (_id != 0)
-        logger::log_debug("create module id %i (class %s)", _id, class_name.c_str());
+    // if (_id != 0)
+    //     logger::log_debug("create module id %i (class %s)", _id, class_name.c_str());
 }
 
 ModuleHandle::~ModuleHandle()

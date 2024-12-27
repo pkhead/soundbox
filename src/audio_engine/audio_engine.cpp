@@ -517,13 +517,13 @@ void AudioEngine::get_audio_output_connection(ModuleID mod_a, unsigned int out_i
 
 bool AudioEngine::connect_audio(ModuleID mod_a_id, ModuleID mod_b_id, unsigned int out_index, unsigned int in_index)
 {
-    logger::log_info(
-        "connect audio %s output %i to %s input %i",
-        module_name(mod_a_id).c_str(),
-        out_index,
-        module_name(mod_b_id).c_str(),
-        in_index
-    );
+    // logger::log_info(
+    //     "connect audio %s output %i to %s input %i",
+    //     module_name(mod_a_id).c_str(),
+    //     out_index,
+    //     module_name(mod_b_id).c_str(),
+    //     in_index
+    // );
 
     const auto &it_a = _modules.find(mod_a_id);
     if (it_a == _modules.end()) return false;
@@ -723,13 +723,13 @@ void AudioEngine::get_message_output_connection(ModuleID mod_a, unsigned int out
 
 bool AudioEngine::connect_message(ModuleID mod_a_id, ModuleID mod_b_id, unsigned int out_index, unsigned int in_index)
 {
-    logger::log_info(
-        "connect msg %s output %i to %s input %i",
-        module_name(mod_a_id).c_str(),
-        out_index,
-        module_name(mod_b_id).c_str(),
-        in_index
-    );
+    // logger::log_info(
+    //     "connect msg %s output %i to %s input %i",
+    //     module_name(mod_a_id).c_str(),
+    //     out_index,
+    //     module_name(mod_b_id).c_str(),
+    //     in_index
+    // );
 
     const auto &it_a = _modules.find(mod_a_id);
     if (it_a == _modules.end()) return false;
@@ -1236,7 +1236,7 @@ void AudioEngine::_s_process_message_duplicator_node(ModuleProcessor &proc)
         unsigned int msg_size = proc.read_message(0, (void*) buf, MESSAGE_PORT_CAPACITY);
         if (msg_size == 0) break;
 
-        for (unsigned int i = 0; i < proc.node.module->output_message_ports.size(); i++) {
+        for (unsigned int i = 0; i < proc.node.message_outputs.size(); i++) {
             proc.send_message(i, (void*) buf, msg_size);
         }
     }

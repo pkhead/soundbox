@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <module_hosts/internal/host.hpp>
 #include <module_hosts/lv1/host.hpp>
+#include <module_hosts/modules.hpp>
 #include "mod_editor.hpp"
 #include "shortcuts.hpp"
 #include "app.hpp"
@@ -38,6 +39,9 @@ Application::Application() :
     _song->insert_effect_channel(2);
     _song->insert_effect_channel(3);
     _song->insert_effect_channel(4);
+
+    // add default limiter to master
+    _song->get_effect_channel(0).insert_module(modx::create_module(_audio_engine, "sbox::limiter"), 0);
 
     theme.set_imgui_colors();
 }
@@ -85,7 +89,6 @@ void Application::handle_shortcuts()
 {
     if (shortcut_ctx.is_activated(ShortcutID::PLAY_PAUSE))
     {
-        logger::log_debug("toggle play/pause");
         _song->is_playing = !_song->is_playing;
     }
 }
