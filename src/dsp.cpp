@@ -318,12 +318,12 @@ void VUMeter::update(float value) {
     
     level = util::min(level / max, 1.0f);
 
-    if (level > peak) {
+    if (level >= peak) {
         peak = level;
         wait_length = sample_rate;
     } else if (wait_length > 0) {
         wait_length--;
     } else {
-        peak -= 2.0f / sample_rate;
+        peak -= 1.5f / sample_rate;
     }
 }

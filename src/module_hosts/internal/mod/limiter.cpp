@@ -5,14 +5,15 @@
 #include "imguiext/imgui-knobs.h"
 #include "module_hosts/modules.hpp"
 #include "util.hpp"
+#include "widgets.hpp"
 
 using namespace hosts::internal;
 
 LimiterModule::LimiterModule(modules::ModuleCreator &create) :
     modx::ModuleBase(create),
     msg_queue(64),
-    vu_in(create.engine.sample_rate(), 0.0f),
-    vu_out(create.engine.sample_rate(), 0.0f)
+    vu_in(create.engine.sample_rate(), 1.0f),
+    vu_out(create.engine.sample_rate(), 1.0f)
 {
     cur_limit[0] = 0.0f;
     cur_limit[1] = 0.0f;
@@ -103,8 +104,18 @@ void LimiterModule::idle_proc(modules::AudioEngine &engine, modules::ModuleID id
 
 void LimiterModule::ui() {
     // draw vu meters
-    ImGui::ProgressBar(cur_analysis.in_level);
-    ImGui::ProgressBar(cur_analysis.out_level);
+    ImGui::BeginGroup();
+    ImGui::Text("In");
+    ImGui::Text("Out");
+    ImGui::EndGroup();
+
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::PushItemWidth(ImGui::GetFontSize() * 8.0f);
+    widgets::horiz_vu_meter(cur_analysis.in_level, cur_analysis.in_peak, 1.0f);
+    widgets::horiz_vu_meter(cur_analysis.out_level, cur_analysis.out_peak, 1.0f);
+    ImGui::PopItemWidth();
+    ImGui::EndGroup();
 
     const char *fmt = "%.3f";
     ControlIndex active_ctl = (ControlIndex) -1;

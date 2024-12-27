@@ -48,4 +48,6 @@ namespace widgets
     };
 
     bool adsr_ui(const std::string &id, ImVec2 size, adsr_ui_struct *data);
+
+    void horiz_vu_meter(float level, float peak, float max_db = 0.0f);
 }

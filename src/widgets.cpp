@@ -6,8 +6,16 @@
 #include <imgui.h>
 #include <math.h>
 #include <util.hpp>
+#include "dsp.hpp"
 #include "imgui_internal.h"
 #include "widgets.hpp"
+
+
+
+
+///////////////////////////////////////////////////
+///////////////////////////////////////////////////
+// KNOB WIDGET
 
 bool widgets::knob(
     const char *label,
@@ -56,6 +64,102 @@ bool widgets::knob_int(
     ImGui::PopStyleVar();
     return changed;
 }
+
+
+
+
+
+
+
+///////////////////////////////////////////////////
+///////////////////////////////////////////////////
+// VU meter
+inline constexpr static ImU32 hex_rgb(unsigned int rgb) noexcept {
+    unsigned int r = (rgb >> 16) & 0xFF;
+    unsigned int g = (rgb >> 8) & 0xFF;
+    unsigned int b = rgb & 0xFF;
+
+    return 0xFF000000 | (b << 16) | (g << 8) | r;
+}
+
+void widgets::horiz_vu_meter(float level, float peak, float max_db) {
+    float max_volt = dsp::db_to_mult(max_db);
+
+    Vec2 frame_size(ImGui::CalcItemWidth(), ImGui::GetFontSize());
+    Vec2 cursor = ImGui::GetCursorScreenPos();
+
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+
+    constexpr ImVec4 color_vec4s[3] = {
+        { 47 / 255.0f, 222 / 255.0f, 55 / 255.0f, 1.0f }, // safe
+        { 1.0f, 1.0f, 0.0f, 1.0f }, // danger
+        { 1.0f, 0.0f, 0.0f, 1.0f }, // clip
+    };
+    const float thresholds[3] = {
+        0.6f / max_volt,
+        0.8f / max_volt,
+        1.0f / max_volt
+    };
+
+    // background
+    draw_list->AddRectFilled(cursor, cursor + frame_size, ImGui::GetColorU32(ImGuiCol_FrameBg));
+
+    // level bar
+    if (level < 1.0f / max_volt) {
+        // draw gradient-type bar
+        draw_list->AddRectFilled(cursor, cursor + Vec2(util::min(level, thresholds[0]) * frame_size.x, frame_size.y), ImGui::GetColorU32(color_vec4s[0]));
+        for (int i = 0; i < 2; i++) {
+            if (level > thresholds[i]) {
+                float a = (level - thresholds[i]) / (thresholds[i+1] - thresholds[i]);
+                a = util::clamp(0.0f, 1.0f, a);
+
+                ImVec4 col;
+                col.x = color_vec4s[i].x * (1.0f - a) + color_vec4s[i+1].x * a;
+                col.y = color_vec4s[i].y * (1.0f - a) + color_vec4s[i+1].y * a;
+                col.z = color_vec4s[i].z * (1.0f - a) + color_vec4s[i+1].z * a;
+                col.w = color_vec4s[i].w * (1.0f - a) + color_vec4s[i+1].w * a;
+
+                ImU32 color_l = ImGui::GetColorU32(color_vec4s[i]);
+                ImU32 color_r = ImGui::GetColorU32(col);
+
+                draw_list->AddRectFilledMultiColor(
+                    cursor + Vec2(thresholds[i] * frame_size.x, 0.0f),
+                    cursor + Vec2(util::min(level, thresholds[i+1]) * frame_size.x, frame_size.y),
+                    color_l, color_r, color_r, color_l
+                );
+            }
+        }
+    
+
+    } else { // oh no, clipping!
+        draw_list->AddRectFilled(cursor, cursor + Vec2(level * frame_size.x, frame_size.y), ImGui::GetColorU32(color_vec4s[2]));
+    }
+    
+    // peak bar
+    Vec2 peak_pos = cursor + Vec2(peak * frame_size.x, 0.0f);
+    draw_list->AddRectFilled(peak_pos, peak_pos + Vec2(1.0f, frame_size.y), ImGui::GetColorU32(ImGuiCol_Text, 0.7f));
+
+    // 0 dB
+    Vec2 zero_pos = cursor + Vec2(1.0f / max_volt * frame_size.x, 0.0f);
+    draw_list->AddRectFilled(zero_pos, zero_pos + Vec2(1.0f, frame_size.y), ImGui::GetColorU32(ImGuiCol_Text, 0.3f));
+
+    ImGui::Dummy(frame_size);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////
+///////////////////////////////////////////////////
+// ADSR envelope
 
 widgets::adsr_ui_struct::adsr_ui_struct(float a, float d, float s, float r)
 {
