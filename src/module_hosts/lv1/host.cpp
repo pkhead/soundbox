@@ -17,7 +17,7 @@ const char* get_std_path_string()
 #ifdef _WIN32
         list_str = ""; // windows has no standard paths for ladspa plugins
 #else
-        list_str = "/usr/lib/ladspa:/usr/local/lib/ladspa";
+        list_str = "/usr/lib/ladspa:/usr/local/lib/ladspa:/usr/lib64/ladspa:/usr/local/lib64/ladspa";
 #endif
 
     return list_str;
