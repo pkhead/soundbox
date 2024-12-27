@@ -92,6 +92,9 @@ namespace sbox
         ModuleRack rack;
         bool mute, solo;
 
+        modx::ModuleRc input_controller;
+        modx::ModuleRc events;
+
         /**
         * Get the effect channel this channel is routed to.
         * @returns `(unsigned int)-1` if not routed to anything, otherwise it returns the index of the output effect channel.
@@ -100,8 +103,9 @@ namespace sbox
 
         Channel(const std::string &name);
 
-        virtual void insert_module(const modx::ModuleRc &module, size_t index);
-        virtual void remove_module(size_t index);
+        void send_event(const modx::TrackEvent &event);
+        void insert_module(const modx::ModuleRc &module, size_t index);
+        void remove_module(size_t index);
 
         friend class Song;
     }; // class Channel
@@ -117,13 +121,7 @@ namespace sbox
     public:
         std::vector<unsigned int> sequence;
         std::vector<std::unique_ptr<Pattern>> patterns;
-        modx::ModuleRc input_controller;
-        modx::ModuleRc events;
-
         InstrumentChannel(const std::string &name);
-        void send_event(const modx::TrackEvent &event);
-        void insert_module(const modx::ModuleRc &module, size_t index) override;
-        void remove_module(size_t index) override;
 
         friend class Song;
     }; // class InstrumentChannel
@@ -161,7 +159,7 @@ namespace sbox
         modx::ModuleRc _audio_out;
 
         std::unique_ptr<InstrumentChannel> create_instrument_channel(modules::AudioEngine &engine, unsigned int index);
-        static std::unique_ptr<EffectChannel> create_effect_channel(modules::AudioEngine &engine, unsigned int name_number);
+        std::unique_ptr<EffectChannel> create_effect_channel(modules::AudioEngine &engine, unsigned int name_number);
 
     public:
         Song(const Song&) = delete; // disable copy

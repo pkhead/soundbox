@@ -1,9 +1,3 @@
-== MINOR REWRITE!!! ==
-- adsr rewrite, but now when i spam notes on keyboard it can make a loud click
-- add analyzer to main fxch, then remove: now you can't hear the song!
-- ability to flag sbox module to connect to channel controller
-- then, make sure that message duplicators work correctly
-
 - channel mute/solo keyboard shortcuts
 - replace uses of sprintf, snprintf, vsnprintf with util::format
 - fx channels

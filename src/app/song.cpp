@@ -7,6 +7,7 @@
 #include <log.hpp>
 #include "song.hpp"
 #include "audio_engine/audio_engine.hpp"
+#include "module_hosts/internal/mod/channel_control.hpp"
 #include "module_hosts/modules.hpp"
 
 using namespace sbox;
@@ -158,11 +159,16 @@ modx::ModuleRc ModuleRack::remove(size_t index)
         disconnect_input(mod);
         disconnect_output(mod);
 
-        if (_modules.size() > 0 && _in)
-            connect(_in, _modules.front());
+        if (_modules.size() == 0 && _in && _out) {
+            connect(_in, _out);
+        } else {
+            if (_modules.size() > 0 && _in)
+                connect(_in, _modules.front());
 
-        if (_modules.size() == 1 && _out)
-            connect(_modules.back(), _out);
+            if (_modules.size() == 1 && _out)
+                connect(_modules.back(), _out);
+        }
+            
 
         return mod;
     }
@@ -233,10 +239,32 @@ Channel::Channel(const std::string &name) :
 
 void Channel::insert_module(const modx::ModuleRc &module, size_t index) {
     rack.insert(module, index);
+
+    if (module->message_input_count() > 0) {
+        events->connect_message(*module, 0, 0);
+    }
 }
 
 void Channel::remove_module(size_t index) {
+    modx::ModuleRc &mod = rack.at(index);
+    mod->disconnect_message_input(0);
     rack.remove(index);
+}
+
+void Channel::send_event(const modx::TrackEvent &event)
+{
+    hosts::internal::ChannelControllerModule* control = dynamic_cast<hosts::internal::ChannelControllerModule*>(
+        modx::ModuleHost::get_module(input_controller->id())
+    );
+
+    assert(control != nullptr);
+    if (control == nullptr)
+    {
+        logger::log_error("Channel::send_event: could not cast module '%s' userdata to ChannelControllerModule", input_controller->class_name().c_str());
+        return;
+    }
+
+    control->send_event(event);
 }
 
 InstrumentChannel::InstrumentChannel(const std::string &name) : Channel(name)
@@ -249,21 +277,34 @@ EffectChannel::EffectChannel(const std::string &name) : Channel(name)
     _effect_channel = 0; // wants to route to master
 }
 
+static void init_channel(Song &song, Channel &channel, modules::AudioEngine &engine) {
+    // create fader
+    channel.output_fader = modx::create_module(engine, "sbox::fader");
+
+    // create input controller and event duplicator
+    channel.input_controller = modx::create_module(engine, "sbox::channel_controller");
+    channel.events = modx::create_module(engine, modules::AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR);
+    channel.input_controller->connect_message(*channel.events, 0, 0);
+    
+    // send initial events to input controller
+    auto controller = dynamic_cast<hosts::internal::ChannelControllerModule*>(modx::ModuleHost::get_module(channel.input_controller->id()));
+    assert(controller != nullptr);
+
+    controller->set_playback_info(song.tempo, song.beats_per_bar);
+    controller->set_position(song.position);
+    controller->set_playing(song.is_playing);
+}
+
 std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::AudioEngine &engine, unsigned int index)
 {
     std::unique_ptr<InstrumentChannel> channel = std::make_unique<InstrumentChannel>("Channel " + std::to_string(index + 1));
 
-    channel->output_fader = modx::create_module(engine, "sbox::fader");
-    channel->input_controller = modx::create_module(engine, "sbox::channel_controller");
-
-    channel->events = modx::create_module(engine, modules::AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR);
-    channel->input_controller->connect_message(*channel->events, 0, 0);
+    init_channel(*this, *channel, engine);
     
-    //channel->rack.connect_input(channel->input_controller);
+    // connect rack to output fader
     channel->rack.connect_output(channel->output_fader);
 
-    //channel->rack.insert(modx::create_module(engine, "sbox::osc"), 0);
-
+    // initialize sequence and patterns
     channel->sequence.resize(_length);
     for (unsigned int j = 0; j < _length; j++)
         channel->sequence[j] = 0;
@@ -272,6 +313,9 @@ std::unique_ptr<InstrumentChannel> Song::create_instrument_channel(modules::Audi
     for (unsigned int j = 0; j < _max_patterns; j++)
         channel->patterns[j] = std::make_unique<Pattern>();
 
+    // insert default instrument
+    channel->insert_module(modx::create_module(engine, "sbox::waveform"), 0);
+
     return channel;
 }
 
@@ -279,41 +323,14 @@ std::unique_ptr<EffectChannel> Song::create_effect_channel(modules::AudioEngine 
 {
     std::string name = name_number == 0 ? "Master" : ("FX " + std::to_string(name_number));
     std::unique_ptr<EffectChannel> channel = std::make_unique<EffectChannel>(name);
+    
+    init_channel(*this, *channel, engine);
 
     channel->input_mixer = modx::create_module(engine, modules::AudioEngine::MODULE_CLASS_STEREO_MIXER);
-    channel->output_fader = modx::create_module(engine, "sbox::fader");
     channel->rack.connect_input(channel->input_mixer);
     channel->rack.connect_output(channel->output_fader);
 
     return channel;
-}
-
-void InstrumentChannel::send_event(const modx::TrackEvent &event)
-{
-    hosts::internal::ChannelControllerModule* control = dynamic_cast<hosts::internal::ChannelControllerModule*>(modx::ModuleHost::get_module(input_controller->id()));
-
-    assert(control != nullptr);
-    if (control == nullptr)
-    {
-        logger::log_error("InstrumentChannel::send_midi: could not cast module '%s' userdata to ChannelControllerModule", input_controller->class_name().c_str());
-        return;
-    }
-
-    control->send_event(event);
-}
-
-void InstrumentChannel::insert_module(const modx::ModuleRc &module, size_t index) {
-    Channel::insert_module(module, index);
-
-    if (module->message_input_count() > 0) {
-        events->connect_message(*module, 0, 0);
-    }
-}
-
-void InstrumentChannel::remove_module(size_t index) {
-    modx::ModuleRc &mod = rack.at(index);
-    mod->disconnect_message_input(0);
-    Channel::remove_module(index);
 }
 
 Song::Song(unsigned int num_channels, unsigned int length, unsigned int max_patterns, modules::AudioEngine &audio_engine) :
@@ -687,8 +704,7 @@ void Song::update()
     bool dirty_play_state = _was_playing != is_playing || _old_tempo != tempo;
     bool dirty_position = _old_pos != position;
 
-    // update channel controllers
-    unsigned int i = 0;
+    // update instrument channel controllers
     for (auto &ch : _channels)
     {        
         auto control = dynamic_cast<hosts::internal::ChannelControllerModule*>(modx::ModuleHost::get_module(ch->input_controller->id()));
@@ -723,7 +739,31 @@ void Song::update()
         }
 
         control->idle();
-        i++;
+    }
+
+    // update effect channel controllers
+    for (auto &ch : _fx_channels) {
+        auto control = dynamic_cast<hosts::internal::ChannelControllerModule*>(modx::ModuleHost::get_module(ch->input_controller->id()));
+        assert(control != nullptr);
+        if (control == nullptr)
+        {
+            logger::log_error(
+                "Song::update: could not cast module '%s' userdata to ChannelControllerModule",
+                ch->input_controller->class_name().c_str()
+            );
+            continue;
+        }
+
+        if (dirty_position || dirty_play_state)
+            control->set_position(position);
+
+        if (dirty_play_state)
+        {
+            control->set_playback_info(tempo, beats_per_bar);
+            control->set_playing(is_playing);
+        }
+
+        control->idle();
     }
 
     uint64_t frame_time = _audio_engine.frame_time();
