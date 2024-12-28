@@ -8,6 +8,7 @@
 #include <atomic>
 #include <concurrent/readerwriterqueue.h>
 #include "module_data.hpp"
+#include "../log.hpp"
 
 #define CHECK_CONTROL_TYPE(T) static_assert( \
         std::is_same<T, float>() || std::is_same<T, double>() || std::is_same<T, std::int32_t>() || std::is_same<T, std::int64_t>() || std::is_same<T, bool>(), \
@@ -26,28 +27,31 @@ namespace modules
     class AudioRenderer
     {
     private:
+        typedef std::unordered_map<ModulatorSourceID, std::shared_ptr<ModuleData::ModulatorSource>> ModulatorSourceList;
+
         struct GraphConnection {
             int index;
             unsigned int from_port;
             unsigned int to_port;
         };
 
-        struct GraphModulationConnection {
-            int index;
-            unsigned int from_port;
-            std::vector<ModuleData::ModulatorControl> targets;
+        struct GraphModulator {
+            // index: control index
+            std::vector<ModulatorSourceID> sources;
+            ModuleData::ModulatorOperation operation;
         };
 
         struct ModuleGraphNode {
             std::shared_ptr<ModuleData::ModuleInstance> module;
             std::vector<ModuleID> dependencies;
             std::vector<ModuleID> dependents;
+            //std::vector<ModulatorSourceID> modu_sources;
 
             std::vector<GraphConnection> audio_inputs;
             std::vector<GraphConnection> audio_outputs;
             std::vector<GraphConnection> message_inputs;
             std::vector<GraphConnection> message_outputs;
-            std::vector<GraphModulationConnection> modulators;
+            std::vector<GraphModulator> *control_modulators;
         };
 
         struct ModuleGraph
@@ -58,37 +62,62 @@ namespace modules
 
         enum InMessageKind : uint8_t {
             MESSAGE_NEW_GRAPH,
-            MESSAGE_UPDATE_MODULATOR_TARGET,
+
+            MESSAGE_UPDATE_MODULATOR_SOURCE_LIST,
+            MESSAGE_UPDATE_MODULE_MODULATORS,
+            //MESSAGE_UPDATE_MODULATOR_TARGET,
+            //MESSAGE_UPDATE_CONTROL_MODOP,
+            MESSAGE_UPDATE_MODULATOR_SOURCE_PARAMS
         };
 
         enum OutMessageKind : uint8_t {
-            MESSAGE_GRAPH_UPDATED
+            MESSAGE_GRAPH_UPDATED,
+            MESSAGE_DISCARD_OBJECT
         };
+
+        enum class ObjectType { Graph, ModulatorSourceParams, ModulatorSourceList, ModuleModulators };
+
+        template <class T>
+        inline static constexpr ObjectType get_object_type();
 
         struct InMessage {
             InMessageKind kind;
 
             union {
                 ModuleGraph *graph;
+
                 union {
                     ModuleID mod_id;
-                    unsigned int modulator;
-                    ModuleData::ModulatorControl params;
-                } modulator_target;
+                    std::vector<GraphModulator> *modulators;
+                } module_modulators;
+                
+                union {
+                    ModulatorSourceID src_id;
+                    ModulatorSourceParams *params;
+                } modulator_source_params;
+
+                ModulatorSourceList *modulator_source_list;
             };
         };
 
         struct OutMessage {
             OutMessageKind kind;
+
+            struct {
+                ObjectType object_type;
+                void *object;
+            } discarded_object;
         };
         
         moodycamel::ReaderWriterQueue<InMessage> in_queue;
         moodycamel::ReaderWriterQueue<OutMessage> out_queue;
+
         ModuleGraph *cur_graph;
+        ModulatorSourceList *modulator_sources;
         
         void _process_node(ModuleID id);
         void _process_audio_out_node(ModuleProcessor& proc);
-        void update_modulator_target(ModuleID mod_id, unsigned int moduidx, const ModuleData::ModulatorControl &params);
+        //void update_modulator_target(ModuleID mod_id, unsigned int moduidx, const ModuleData::ModulatorTarget &params);
 
         std::atomic<float> process_time;
         std::atomic_uint64_t frame_time;
@@ -101,6 +130,19 @@ namespace modules
         inline bool send_message(const InMessage &msg) { return in_queue.try_enqueue(msg); }
         inline bool get_message(OutMessage &msg) { return out_queue.try_dequeue(msg); }
 
+        // audio thread can't do memory allocation/deallocation as it's not a real-time function I guess
+        // so i have this instead.
+        template <class T>
+        void discard_object(T *object) {
+            if (object == nullptr) return;
+            OutMessage msg{};
+            msg.kind = MESSAGE_DISCARD_OBJECT;
+            msg.discarded_object.object_type = get_object_type<T>();
+            msg.discarded_object.object = (void*) object;
+            if (!out_queue.try_enqueue(msg))
+                logger::log_error("could not discard an object!");
+        }
+
         void render(float *buffer);
         inline size_t buffer_size() const { return output_buffer_sz; }
 
@@ -110,7 +152,8 @@ namespace modules
 
         /// call from main thread (AudioEngine) and send to rendering thread
         /// via send_message
-        ModuleGraph* build_graph();
+        static ModuleGraph* build_graph(AudioEngine &engine);
+        static std::vector<GraphModulator>* build_modulator_data(AudioEngine &engine, ModuleID mod_id);
 
         friend class AudioEngine;
         friend class ModuleCreator;
@@ -183,6 +226,22 @@ namespace modules
 
         friend class AudioRenderer;
     }; // class ModuleProcessor
+
+    template <>
+    inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<AudioRenderer::ModuleGraph>()
+        { return ObjectType::Graph; }
+
+    template <>
+    inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<ModulatorSourceParams>()
+        { return ObjectType::ModulatorSourceParams; }
+    
+    template <>
+    inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<AudioRenderer::ModulatorSourceList>()
+        { return ObjectType::ModulatorSourceList; }
+
+    template <>
+    inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<std::vector<AudioRenderer::GraphModulator>>()
+        { return ObjectType::ModuleModulators; }
 } // class modules
 
 #undef CHECK_CONTROL_TYPE

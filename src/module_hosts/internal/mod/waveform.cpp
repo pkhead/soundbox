@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cstdint>
 #include <math.h>
 #include <util.hpp>
 #include <widgets.hpp>

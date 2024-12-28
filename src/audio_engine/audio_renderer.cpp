@@ -4,6 +4,8 @@
 #include "audio_renderer.hpp"
 #include "audio_engine.hpp"
 #include "../log.hpp"
+#include "audio_engine/module_data.hpp"
+#include "dsp.hpp"
 
 using namespace modules;
 
@@ -15,6 +17,7 @@ AudioRenderer::AudioRenderer(AudioEngine &engine) :
     output_buffer_sz = engine._frames_per_buffer * engine._output_channels;
     output_buffer = nullptr;
     cur_graph = nullptr;
+    modulator_sources = new ModulatorSourceList;
 
     process_time = 0;
     frame_time = 0;
@@ -22,6 +25,7 @@ AudioRenderer::AudioRenderer(AudioEngine &engine) :
 
 AudioRenderer::~AudioRenderer() {
     delete cur_graph;
+    delete modulator_sources;
 }
 
 void AudioRenderer::_process_node(ModuleID id)
@@ -86,21 +90,81 @@ void AudioRenderer::process_message_duplicator_node(ModuleProcessor &proc)
     }
 }
 
-void AudioRenderer::update_modulator_target(ModuleID mod_id, unsigned int moduidx, const ModuleData::ModulatorControl &params) {
-    if (cur_graph == nullptr) return;
-
-    auto &node = cur_graph->nodes[mod_id];
-    assert(moduidx < node.modulators.size());
-    
-    for (auto &target : node.modulators[moduidx].targets) {
-        if (target.control_index == params.control_index) {
-            target = params;
-            return;
-        }
-    }
-
-    logger::log_warning("AudioRenderer::update_modulator_target: could not find target for control %i", params.control_index);
+ModuleData::ModulatorInstance ModuleData::ModulatorSource::instantiate() const {
+    ModulatorInstance inst;
+    inst.src = this;
+    inst.cur_level = 0.0f;
+    return inst;
 }
+
+void ModuleData::ModulatorSource::get_params(ModulatorSourceParams &params) const {
+    params.attack = env_params.attack;
+    params.decay = env_params.decay;
+    params.sustain = env_params.sustain;
+    params.release = env_params.release;
+}
+
+void ModuleData::ModulatorSource::apply_params(const ModulatorSourceParams &params) {
+    env_params.attack = params.attack;
+    env_params.decay = params.decay;
+    env_params.sustain = params.sustain;
+    env_params.release = params.release;
+}
+
+void ModuleData::ModulatorSource::next_envelope_sample(ModulatorInstance &inst) const {
+    inst.envelope.compute(sample_rate, inst.cur_level, env_params);
+}
+
+
+
+float ModuleData::EnvelopeModulatorSource::next_sample(ModulatorInstance &inst) const {
+    next_envelope_sample(inst);
+    return inst.cur_level;
+}
+
+
+
+ModuleData::ModulatorInstance ModuleData::LFOModulatorSource::instantiate() const {
+    auto params = ModulatorSource::instantiate();
+    params.phase = 0.0f;
+    return params;
+}
+
+void ModuleData::LFOModulatorSource::get_params(ModulatorSourceParams &params) const {
+    ModulatorSource::get_params(params);
+    params.lfo.wavetype = wavetype;
+    params.lfo.amp = amp;
+    params.lfo.freq = freq;
+}
+
+void ModuleData::LFOModulatorSource::apply_params(const ModulatorSourceParams &params) {
+    ModulatorSource::apply_params(params);
+    wavetype = params.lfo.wavetype;
+    amp = params.lfo.amp;
+    freq = params.lfo.freq;
+}
+
+float ModuleData::LFOModulatorSource::next_sample(ModulatorInstance &inst) const {
+    next_envelope_sample(inst);
+    assert(false);
+    return 0.0f;
+}
+
+// void AudioRenderer::update_modulator_target(ModuleID mod_id, unsigned int moduidx, const ModuleData::ModulatorTarget &params) {
+//     if (cur_graph == nullptr) return;
+
+//     auto &node = cur_graph->nodes[mod_id];
+//     assert(moduidx < node.modulators.size());
+    
+//     for (auto &target : node.modulators[moduidx].targets) {
+//         if (target.control_index == params.control_index) {
+//             target = params;
+//             return;
+//         }
+//     }
+
+//     logger::log_warning("AudioRenderer::update_modulator_target: could not find target for control %i", params.control_index);
+// }
 
 void AudioRenderer::render(float *buf)
 {
@@ -111,7 +175,7 @@ void AudioRenderer::render(float *buf)
     while (in_queue.try_dequeue(in_msg)) {
         switch (in_msg.kind) {
             case InMessageKind::MESSAGE_NEW_GRAPH: {
-                delete cur_graph;
+                discard_object(cur_graph);
                 cur_graph = in_msg.graph;
                 
                 OutMessage out_msg;
@@ -121,9 +185,42 @@ void AudioRenderer::render(float *buf)
                 break;
             }
 
-            case InMessageKind::MESSAGE_UPDATE_MODULATOR_TARGET: {
-                auto &params = in_msg.modulator_target;
-                update_modulator_target(params.mod_id, params.modulator, params.params);
+            case InMessageKind::MESSAGE_UPDATE_MODULATOR_SOURCE_LIST: {
+                discard_object(modulator_sources);
+                modulator_sources = in_msg.modulator_source_list;
+                break;
+            }
+
+            case InMessageKind::MESSAGE_UPDATE_MODULATOR_SOURCE_PARAMS: {
+                ModulatorSourceID id = in_msg.modulator_source_params.src_id;
+                const auto &it = modulator_sources->find(id);
+                assert(it != modulator_sources->end());
+                if (it == modulator_sources->end()) break;
+                //if (it == modulator_sources->end()) {
+                //    logger::log_error("failed to update modulator source params: mod id %i was not synced", id);
+                //    break;
+                //}
+
+                it->second->apply_params(*in_msg.modulator_source_params.params);
+                discard_object(in_msg.modulator_source_params.params);
+            }
+
+            case InMessageKind::MESSAGE_UPDATE_MODULE_MODULATORS: {
+                auto &payload = in_msg.module_modulators;
+
+                assert(cur_graph != nullptr);
+                const auto mod_it = cur_graph->nodes.find(payload.mod_id);
+                assert(mod_it != cur_graph->nodes.end());
+                if (mod_it == cur_graph->nodes.end()) break;
+                //if (mod_it == cur_graph->nodes.end()) {
+                //    logger::log_error("failed to update control modulator params. mod id %i was not synced?", payload.mod_id);
+                //    break;
+                //}
+
+                auto &node = mod_it->second;
+                discard_object(node.control_modulators);
+                node.control_modulators = payload.modulators;
+
                 break;
             }
         }
@@ -146,7 +243,7 @@ void AudioRenderer::render(float *buf)
     frame_time += engine._frames_per_buffer;
 }
 
-AudioRenderer::ModuleGraph* AudioRenderer::build_graph() {
+AudioRenderer::ModuleGraph* AudioRenderer::build_graph(AudioEngine &engine) {
     std::function<void(ModuleID, int)> calc_depths;
 
     struct ModuleInfo {
@@ -333,7 +430,8 @@ AudioRenderer::ModuleGraph* AudioRenderer::build_graph() {
                     std::move(info.audio_inputs),
                     std::move(info.audio_outputs),
                     std::move(info.message_inputs),
-                    std::move(info.message_outputs)
+                    std::move(info.message_outputs),
+                    build_modulator_data(engine, id)
                 };
             }
 
@@ -343,4 +441,27 @@ AudioRenderer::ModuleGraph* AudioRenderer::build_graph() {
 
     logger::log_info("node count: %i", new_graph->process_order.size());
     return new_graph;
+}
+
+std::vector<AudioRenderer::GraphModulator>* AudioRenderer::build_modulator_data(AudioEngine &engine, ModuleID mod_id) {
+    std::vector<AudioRenderer::GraphModulator> list;
+
+    const auto &mod_it = engine._modules.find(mod_id);
+    assert(mod_it != engine._modules.end());
+    if (mod_it == engine._modules.end()) return nullptr;
+    auto &mod = mod_it->second;
+
+    for (auto it = mod->controls.begin(); it != mod->controls.end(); it++) {
+        AudioRenderer::GraphModulator data;
+        data.operation = it->modop;
+        list.push_back(data);
+    }
+
+    for (auto &modu : mod->modulators) {
+        for (auto target : modu.targets) {
+            list[target].sources.push_back(modu.source);
+        }
+    }
+
+    return new std::vector<AudioRenderer::GraphModulator>(std::move(list));
 }

@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <thread>
 #include <portaudio.h>
+#include "audio_engine/module_data.hpp"
 #include "audio_renderer.hpp"
 
 namespace modules
@@ -39,18 +40,38 @@ namespace modules
             unsigned int size;
         };
 
-        struct DestroyQueueItem
+        struct ModuleDestroyQueueItem
         {
             ModuleID id;
             std::shared_ptr<ModuleData::ModuleInstance> module;
         };
 
+        struct ModulatorSourceDestroyQueueItem
+        {
+            ModulatorSourceID id;
+            std::shared_ptr<ModuleData::ModulatorSource> source;
+        };
+
+        struct ModulatorSourceData
+        {
+            ModulatorSourceType type;
+            std::shared_ptr<ModuleData::ModulatorSource> source;
+        };
+
         static ModuleID _next_module_id;
+        static ModulatorSourceID _next_modsrc_id;
+
         std::unordered_map<ModuleID, std::shared_ptr<ModuleData::ModuleInstance>> _modules;
-        std::vector<DestroyQueueItem> _destroy_queue;
+        std::unordered_map<ModulatorSourceID, ModulatorSourceData> _modu_srcs;
+
+        std::vector<ModuleDestroyQueueItem> _destroy_queue;
+        std::vector<ModulatorSourceDestroyQueueItem> _modusrc_destroy_queue;
 
         std::atomic_bool _is_engine_runnning;
         std::unique_ptr<AudioRenderer> renderer;
+        bool _is_graph_dirty;
+        bool _need_resend_modsrcs;
+        std::vector<ModuleID> _dirty_modules; // modulators are dirty
 
         std::unordered_map<std::string, std::unique_ptr<ModuleHost>> _hosts;
         std::vector<ModuleInfo> _available_module_classes;
@@ -59,7 +80,6 @@ namespace modules
         unsigned int _sample_rate;
         unsigned int _output_channels;
         const size_t _frames_per_buffer;
-        bool _is_graph_dirty;
         std::atomic_uint64_t _frame_time;
 
         static int _pa_stream_callback(
@@ -71,7 +91,8 @@ namespace modules
             void* userdata
         );
         
-        static ModuleData::ModulatorControl *modulator_find_control(ModuleData::Modulator &mod, unsigned int ctl);
+        static std::vector<unsigned int>::iterator modulator_get_control(ModuleData::Modulator &mod, unsigned int ctl);
+        void invalidate_module_modulators(ModuleID mod);
 
         void _thread_process();
         std::atomic<double> _process_time;
@@ -211,6 +232,13 @@ namespace modules
             return true;
         }
 
+        ModulatorSourceID create_modsrc(ModulatorSourceType srctype);
+        void destroy_modsrc(ModulatorSourceID modsrc_id);
+
+        ModulatorSourceType get_modsrc_type(ModulatorSourceID modsrc_id) const;
+        bool get_modsrc_params(ModulatorSourceID modsrc_id, ModulatorSourceParams &params) const;
+        bool set_modsrc_params(ModulatorSourceID modsrc_id, const ModulatorSourceParams &params);
+
         /// Create a modulator for a given module.
         bool create_modulator(ModuleID mod_id, unsigned int &out_mod_index);
 
@@ -221,69 +249,34 @@ namespace modules
 
         unsigned int modulator_count(ModuleID mod_id) const;
 
+        bool modulator_set_source(ModuleID mod_id, unsigned int modu_idx, ModulatorSourceID modsrc_id);
+        ModulatorSourceID modulator_get_source(ModuleID mod_id, unsigned int modu_idx) const;
+
         /// Connect a module's audio output to a modulator.
         /// @param mod_id The ID of the module with the modulator.
         /// @param control_module The ID of the module that will control the modulator.
         /// @param out_port The index of the audio output port from the control module that will control the modulator.
         /// @param mod_index The index of the modulator.
         /// @returns True on success, false on failure.
-        bool connect_modulator(ModuleID mod_id, ModuleID control_module, unsigned int out_port, unsigned int mod_index);
+        //bool connect_modulator(ModuleID mod_id, ModuleID control_module, unsigned int out_port, unsigned int mod_index);
 
         /// Disconnect a modulator from its control module.
         /// @param mod_id The ID of the module with the modulator.
         /// @param mod_index The index of the modulator.
         /// @returns True on success, false on failure.
-        bool disconnect_modulator_input(ModuleID mod_id, unsigned int mod_index);
+        //bool disconnect_modulator_input(ModuleID mod_id, unsigned int mod_index);
 
         /// Set the modulator to target a control.
         /// @param mod_id The ID of the module with the modulator.
         /// @param modu The index of the modulator to use.
         /// @param ctl The control port to modulate.
-        template <typename T>
-        bool modulator_target(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl, T min, T max, ModulatorOperator op) {
-            static_assert(!std::is_same<T, bool>(), "modulator_control<bool> invalid, use modulator_bool_control instead.");
-            const auto &it = _modules.find(mod_id);
-            if (it == _modules.end()) return false;
-            auto &mod = *it->second;
-
-            if (modu_idx >= mod.modulators.size()) return false; // modu existence check
-            if (ctl >= mod.controls.size()) return false; // ctl existence check
-            if (mod.controls[ctl].data_type != ctl_data_type<T>()) return false; // type check
-
-            auto &modu = mod.modulators[modu_idx];
-            auto ctl_mod = modulator_find_control(modu, ctl);
-            ctl_mod->optype = op;
-            ctl_mod->min.set(min);
-            ctl_mod->max.set(max);
-
-            return true;
-        }
-
-        /// Set the modulator to modify a boolean control.
-        /// @param mod_id The ID of the module with the modulator.
-        /// @param modu The index of the modulator to use.
-        /// @param ctl The control port to modulate.
-        /// @param threshold If the value is greater than this number, set to true. Otherwise, set to false.
-        template <typename T>
-        bool modulator_target_bool(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl, T threshold) {
-            const auto &it = _modules.find(mod_id);
-            if (it == _modules.end()) return false;
-            auto &mod = *it->second;
-
-            if (modu_idx >= mod.modulators.size()) return false; // modu existence check
-            if (ctl >= mod.controls.size()) return false; // ctl existence check
-            if (mod.controls[ctl].data_type != ModuleControlDataType::BOOL) return false; // type check
-
-            auto &modu = mod.modulators[modu_idx];
-            auto ctl_mod = modulator_find_control(modu, ctl);
-            ctl_mod->optype = ModulatorOperator::BOOLEAN;
-            ctl_mod->threshold.set(threshold);
-
-            return true;
-        }
+        bool modulator_target(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl);
 
         /// @returns True if the control was previously targeted, false if not or if there was an error.
         bool modulator_untarget(ModuleID mod_id, unsigned int modu, unsigned int ctl);
+
+        bool control_set_mod_op(ModuleID mod_id, unsigned int index, ModulatorOperationType optype, float factor);
+        bool control_set_mod_boolop(ModuleID mod_id, unsigned int index, float threshold);
 
         void update();
 
@@ -305,6 +298,8 @@ namespace modules
             ctl.name = name;
             ctl.data_type = ctl_data_type<T>();
             ctl.value.set(default_value);
+            ctl.modop.optype = ModulatorOperationType::ADD;
+            ctl.modop.factor = 0.0f;
             return ctl;
         }
 

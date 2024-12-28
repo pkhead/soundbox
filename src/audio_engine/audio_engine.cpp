@@ -15,6 +15,7 @@
 #include <sys.hpp>
 #include <unordered_map>
 #include "audio_engine.hpp"
+#include "audio_engine/module_data.hpp"
 #include "audio_renderer.hpp"
 #include "../log.hpp"
 
@@ -29,6 +30,7 @@ static ModuleInfo STEREO_MIXER_INFO { AudioEngine::MODULE_CLASS_STEREO_MIXER, "S
 static ModuleInfo MESSAGE_DUPLICATOR_INFO { AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR, "Message Duplicator", "", -1, -1, 0, 0 };
 
 ModuleID AudioEngine::_next_module_id = 1;
+ModulatorSourceID AudioEngine::_next_modsrc_id = 1;
 
 static void pa_panic(PaError err)
 {
@@ -46,6 +48,7 @@ AudioEngine::AudioEngine() :
 {
     _frame_time = 0;
     _is_graph_dirty = true;
+    _need_resend_modsrcs = false;
 
     // initialize port audio
     PaError err = Pa_Initialize();
@@ -357,7 +360,7 @@ void AudioEngine::destroy_module(ModuleID mod_id)
     // defer calling destroy_module until after update has been called
     // and the newly updated audio graph, with the module absent, has been
     // sent to the audio process.
-    _destroy_queue.push_back(DestroyQueueItem
+    _destroy_queue.push_back(ModuleDestroyQueueItem
     {
         mod_id,
         std::move(mod)
@@ -559,7 +562,7 @@ bool AudioEngine::connect_audio(ModuleID mod_a_id, ModuleID mod_b_id, unsigned i
 
         mod_a.output_audio_ports[out_index].connected_module = mod_b_id;
         mod_a.output_audio_ports[out_index].connection_port = 0;
-        mod_a.output_audio_ports[out_index].modulator = false;
+        //mod_a.output_audio_ports[out_index].modulator = false;
 
         mod_b.input_audio_ports.push_back(ModuleData::ModuleAudioPort(
             2,
@@ -577,7 +580,7 @@ bool AudioEngine::connect_audio(ModuleID mod_a_id, ModuleID mod_b_id, unsigned i
 
         mod_a.output_audio_ports[out_index].connected_module = mod_b_id;
         mod_a.output_audio_ports[out_index].connection_port = in_index;
-        mod_a.output_audio_ports[out_index].modulator = true;
+        //mod_a.output_audio_ports[out_index].modulator = true;
 
         mod_b.input_audio_ports[in_index].connected_module = mod_a_id;
         mod_b.input_audio_ports[in_index].connection_port = out_index;
@@ -600,34 +603,28 @@ bool AudioEngine::disconnect_audio_output(ModuleID mod_id, unsigned int out_inde
         _is_graph_dirty = true;
         ModuleData::ModuleInstance &connected = *_modules.at(mod.output_audio_ports[out_index].connected_module);
 
-        if (mod.output_audio_ports[out_index].modulator) {
-            if (connected.is_stereo_mixer)
+        if (connected.is_stereo_mixer)
+        {
+            for (auto it = connected.input_audio_ports.begin(); it != connected.input_audio_ports.end(); it++)
             {
-                for (auto it = connected.input_audio_ports.begin(); it != connected.input_audio_ports.end(); it++)
+                if (it->connected_module == mod_id)
                 {
-                    if (it->connected_module == mod_id)
-                    {
-                        connected.input_audio_ports.erase(it);
-                        break;
-                    }
+                    connected.input_audio_ports.erase(it);
+                    break;
                 }
             }
-            else
-            {
-                unsigned int in_index = mod.output_audio_ports[out_index].connection_port;
-                connected.input_audio_ports[in_index].connected_module = 0;
-                connected.input_audio_ports[in_index].connection_port = 0;
-            }
-        } else {
-            unsigned int mod_index = mod.output_audio_ports[out_index].connection_port;
-            connected.modulators[mod_index].control.connected_module = 0;
-            connected.modulators[mod_index].control.connection_port = 0;
+        }
+        else
+        {
+            unsigned int in_index = mod.output_audio_ports[out_index].connection_port;
+            connected.input_audio_ports[in_index].connected_module = 0;
+            connected.input_audio_ports[in_index].connection_port = 0;
         }
     }
 
     mod.output_audio_ports[out_index].connection_port = 0;
     mod.output_audio_ports[out_index].connected_module = 0;
-    mod.output_audio_ports[out_index].modulator = false;
+    //mod.output_audio_ports[out_index].modulator = false;
 
     return true;
 }
@@ -664,7 +661,7 @@ bool AudioEngine::disconnect_audio_input(ModuleID mod_id, unsigned int in_index)
             unsigned int out_index = mod.input_audio_ports[in_index].connection_port;
             connected.output_audio_ports[out_index].connected_module = 0;
             connected.output_audio_ports[out_index].connection_port = 0;
-            connected.output_audio_ports[out_index].modulator = false;
+            //connected.output_audio_ports[out_index].modulator = false;
         }
 
         mod.input_audio_ports[in_index].connection_port = 0;
@@ -958,7 +955,7 @@ bool AudioEngine::create_modulator(ModuleID mod_id, unsigned int &out_mod_index)
     std::shared_ptr<ModuleData::ModuleInstance>& mod = it->second;
 
     ModuleData::Modulator modu {};
-    modu.control = ModuleData::ModuleAudioPort { 1, 0, 0 };
+    modu.source = 0;
     mod->modulators.push_back(modu);
 
     out_mod_index = mod->modulators.size() - 1;
@@ -982,6 +979,78 @@ unsigned int AudioEngine::modulator_count(ModuleID mod_id) const {
     return mod->modulators.size();
 }
 
+ModulatorSourceID AudioEngine::create_modsrc(ModulatorSourceType srctype) {
+    std::shared_ptr<ModuleData::ModulatorSource> modulator_source;
+
+    switch (srctype) {
+        case modules::ModulatorSourceType::ENVELOPE: {
+            modulator_source = std::make_shared<ModuleData::EnvelopeModulatorSource>(sample_rate());
+            break;   
+        }
+
+        case modules::ModulatorSourceType::LFO: {
+            modulator_source = std::make_shared<ModuleData::LFOModulatorSource>(sample_rate());
+            break;   
+        }
+
+        default:
+            logger::log_error("AudioEngine::create_modsrc: unknown source type %i", srctype);
+            return 0;
+    }
+
+    ModulatorSourceID id = _next_modsrc_id++;
+    _modu_srcs[id] = ModulatorSourceData {
+        srctype,
+        std::move(modulator_source)
+    };
+
+    _need_resend_modsrcs = true;
+    return id;
+}
+
+void AudioEngine::destroy_modsrc(ModulatorSourceID modsrc_id) {
+    const auto &it = _modu_srcs.find(modsrc_id);
+    if (it == _modu_srcs.end()) return;
+
+    _modusrc_destroy_queue.push_back(ModulatorSourceDestroyQueueItem {
+        modsrc_id,
+        std::move(it->second.source)
+    });
+    _modu_srcs.erase(it);
+    _need_resend_modsrcs = true;
+}
+
+ModulatorSourceType AudioEngine::get_modsrc_type(ModulatorSourceID modsrc_id) const {
+    const auto &it = _modu_srcs.find(modsrc_id);
+    if (it == _modu_srcs.end()) return ModulatorSourceType::UNKNOWN;
+
+    return it->second.type;
+}
+
+bool AudioEngine::get_modsrc_params(ModulatorSourceID modsrc_id, ModulatorSourceParams &params) const {
+    const auto &it = _modu_srcs.find(modsrc_id);
+    if (it == _modu_srcs.end()) return false;
+
+    it->second.source->get_params(params);
+    return true;
+}
+
+bool AudioEngine::set_modsrc_params(ModulatorSourceID modsrc_id, const ModulatorSourceParams &params) {
+    const auto &it = _modu_srcs.find(modsrc_id);
+    if (it == _modu_srcs.end()) return false;
+
+    ModulatorSourceParams *params_copy = new ModulatorSourceParams(params);
+
+    AudioRenderer::InMessage msg{};
+    msg.kind = AudioRenderer::MESSAGE_UPDATE_MODULATOR_SOURCE_PARAMS;
+    msg.modulator_source_params.src_id = modsrc_id;
+    msg.modulator_source_params.params = params_copy;
+    renderer->send_message(msg);
+    
+    return true;
+}
+
+/*
 bool AudioEngine::connect_modulator(ModuleID mod_a_id, ModuleID mod_b_id, unsigned int out_index, unsigned int mod_index) {
     const auto &it_a = _modules.find(mod_a_id);
     if (it_a == _modules.end()) return false;
@@ -1034,21 +1103,67 @@ bool AudioEngine::disconnect_modulator_input(ModuleID mod_id, unsigned int mod_i
 
     return true;
 }
+*/
 
-ModuleData::ModulatorControl* AudioEngine::modulator_find_control(ModuleData::Modulator &modu, unsigned int ctl) {
-    ModuleData::ModulatorControl *ctl_mod = nullptr;
-    for (auto &target : modu.targets) {
-        if (target.control_index == ctl) {
-            return &target;
-        }
+std::vector<unsigned int>::iterator AudioEngine::modulator_get_control(ModuleData::Modulator &modu, unsigned int ctl) {
+    for (auto it = modu.targets.begin(); it != modu.targets.end(); it++) {
+        if (*it == ctl) return it;
     }
 
     // if it doesn't exist, create a new target control
-    modu.targets.push_back(ModuleData::ModulatorControl {});
-    ctl_mod = &modu.targets.back();
-    ctl_mod->control_index = ctl;
+    modu.targets.push_back(ctl);
+    return modu.targets.end() - 1;
+}
 
-    return ctl_mod;
+bool AudioEngine::control_set_mod_op(ModuleID mod_id, unsigned int ctl, ModulatorOperationType optype, float factor) {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    auto &mod = *it->second;
+    
+    if (ctl >= mod.controls.size()) return false; // ctl existence check
+
+    // type check
+    if (mod.controls[ctl].data_type == ModuleControlDataType::BOOL) return false;
+    if (optype == ModulatorOperationType::BOOLEAN) return false;
+
+    mod.controls[ctl].modop.optype = optype;
+    mod.controls[ctl].modop.factor = factor;
+    invalidate_module_modulators(mod_id);
+
+    return true;
+}
+
+bool AudioEngine::control_set_mod_boolop(ModuleID mod_id, unsigned int ctl, float threshold) {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    auto &mod = *it->second;
+    
+    if (ctl >= mod.controls.size()) return false; // ctl existence check
+    if (mod.controls[ctl].data_type != ModuleControlDataType::BOOL) return false; // type check
+
+    mod.controls[ctl].modop.optype = ModulatorOperationType::BOOLEAN;
+    mod.controls[ctl].modop.threshold = threshold;
+    invalidate_module_modulators(mod_id);
+
+    return true;
+}
+
+bool AudioEngine::modulator_target(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl) {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    auto &mod = *it->second;
+
+    if (modu_idx >= mod.modulators.size()) return false; // modu existence check
+    if (ctl >= mod.controls.size()) return false; // ctl existence check
+    if (mod.controls[ctl].data_type == ModuleControlDataType::BOOL) return false; // type check
+
+    auto &modu = mod.modulators[modu_idx];
+    if (std::find(modu.targets.begin(), modu.targets.end(), ctl) == modu.targets.end()) {
+        modu.targets.push_back(ctl);
+        invalidate_module_modulators(mod_id);
+    }
+
+    return true;
 }
 
 bool AudioEngine::modulator_untarget(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl) {
@@ -1058,15 +1173,52 @@ bool AudioEngine::modulator_untarget(ModuleID mod_id, unsigned int modu_idx, uns
 
     if (modu_idx >= mod.modulators.size()) return false; // modu existence check
     auto &modu = mod.modulators[modu_idx];
-    
-    for (auto it = modu.targets.begin(); it != modu.targets.end(); it++) {
-        if (it->control_index == ctl) {
-            modu.targets.erase(it);
-            return true;
-        }
+
+    auto target_it = std::find(modu.targets.begin(), modu.targets.end(), ctl);
+    if (target_it != modu.targets.end()) {
+        modu.targets.erase(target_it);
+        invalidate_module_modulators(mod_id);
+        return true;
     }
 
     return false;
+}
+
+bool AudioEngine::modulator_set_source(ModuleID mod_id, unsigned int modu_idx, ModulatorSourceID modsrc_id) {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    auto &mod = it->second;
+
+    // check that this modulator source exists
+    if (modsrc_id != 0 && _modu_srcs.find(modsrc_id) == _modu_srcs.end()) return false;
+
+    // modu_idx bounds check
+    if (modu_idx >= mod->modulators.size()) return false;
+
+    if (mod->modulators[modu_idx].source != modsrc_id) {
+        mod->modulators[modu_idx].source = modsrc_id;
+        invalidate_module_modulators(mod_id);
+    }
+
+    return true;
+}
+
+ModulatorSourceID AudioEngine::modulator_get_source(ModuleID mod_id, unsigned int modu_idx) const {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return 0;
+    auto &mod = it->second;
+
+    // modu_idx bounds check
+    if (modu_idx >= mod->modulators.size()) return 0;
+
+    return mod->modulators[modu_idx].source;
+}
+
+void AudioEngine::invalidate_module_modulators(ModuleID mod_id) {
+    if (std::find(_dirty_modules.begin(), _dirty_modules.end(), mod_id) == _dirty_modules.end()) {
+        _dirty_modules.push_back(mod_id);
+        logger::log_debug("invalidate module %i (%s)", mod_id, module_name(mod_id).c_str());
+    }
 }
 
 #pragma endregion MODULATORS
@@ -1094,12 +1246,42 @@ void AudioEngine::update()
         if (inst->idle == nullptr) continue;
         inst->idle(*this, id, inst->userdata);
     }
+
+    // sync modulator source list
+    if (_need_resend_modsrcs) {
+        AudioRenderer::InMessage msg;
+        msg.kind = AudioRenderer::MESSAGE_UPDATE_MODULATOR_SOURCE_LIST;
+
+        auto list = new std::unordered_map<ModulatorSourceID, std::shared_ptr<ModuleData::ModulatorSource>>;
+        for (auto &[ id, obj ] : _modu_srcs) {
+            (*list)[id] = obj.source;
+        }
+
+        msg.modulator_source_list = list;
+
+        renderer->send_message(msg);
+        _need_resend_modsrcs = false;
+    }
+
+    // sync module modulators
+    for (auto &mod_id : _dirty_modules) {
+        const auto it = _modules.find(mod_id);
+        if (it == _modules.end()) continue;
+
+        AudioRenderer::InMessage msg;
+        msg.kind = AudioRenderer::MESSAGE_UPDATE_MODULE_MODULATORS;
+        msg.module_modulators.mod_id = mod_id;
+        msg.module_modulators.modulators = renderer->build_modulator_data(*this, mod_id);
+        
+        renderer->send_message(msg);
+    }
+    _dirty_modules.clear();
     
-    // make new audio graph
+    // sync audio graph
     if (_is_graph_dirty) {
         AudioRenderer::InMessage msg;
         msg.kind = AudioRenderer::MESSAGE_NEW_GRAPH;
-        msg.graph = renderer->build_graph();
+        msg.graph = renderer->build_graph(*this);
         renderer->send_message(msg);
         _is_graph_dirty = false;
     }
@@ -1113,6 +1295,29 @@ void AudioEngine::update()
             case AudioRenderer::MESSAGE_GRAPH_UPDATED:
                 graph_did_update = true;
                 break;
+            
+            case AudioRenderer::MESSAGE_DISCARD_OBJECT:
+                switch (out_msg.discarded_object.object_type) {
+                    case AudioRenderer::ObjectType::Graph:
+                        logger::log_debug("discard ModuleGraph");
+                        delete (AudioRenderer::ModuleGraph*) out_msg.discarded_object.object;
+                        break;
+
+                    case AudioRenderer::ObjectType::ModulatorSourceParams:
+                        logger::log_debug("discard ModulatorSourceParams");
+                        delete (ModulatorSourceParams*) out_msg.discarded_object.object;
+                        break;
+                    
+                    case AudioRenderer::ObjectType::ModulatorSourceList:
+                        logger::log_debug("discard ModulatorSourceList");
+                        delete (AudioRenderer::ModulatorSourceList*) out_msg.discarded_object.object;
+                        break;
+                    
+                    case AudioRenderer::ObjectType::ModuleModulators:
+                        logger::log_debug("discard ModuleModulators");
+                        delete (std::vector<AudioRenderer::GraphModulator>*) out_msg.discarded_object.object;
+                        break;
+                }
         }
     }
 
@@ -1132,6 +1337,14 @@ void AudioEngine::update()
             host->destroy_module(item.module->class_name, item.id, item.module->userdata);
         }
         _destroy_queue.clear();
+    }
+
+    // clear garbage modulator sources
+    for (int i = _modusrc_destroy_queue.size() - 1; i >= 0; i--) {
+        auto it = _modusrc_destroy_queue.begin() + i;
+        if (it->source.unique()) {
+            _modusrc_destroy_queue.erase(it);
+        }
     }
 }
 

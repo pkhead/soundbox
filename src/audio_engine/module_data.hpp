@@ -2,13 +2,17 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "dsp.hpp"
 #include "ring_buffer.hpp"
 
 namespace modules {
     typedef unsigned int ModuleID;
+    typedef unsigned int ModulatorSourceID;
 
     enum class ModuleControlDataType : uint8_t {FLOAT, DOUBLE, INT32, INT64, BOOL, UNKNOWN = UINT8_MAX };
-    enum class ModulatorOperator : uint8_t { MULT, ADD, SET, BOOLEAN };
+    enum class ModulatorOperationType : uint8_t { MULT, ADD, BOOLEAN };
+    enum class ModulatorSourceType : uint8_t { LFO, ENVELOPE, UNKNOWN = UINT8_MAX };
+    enum class LFOType : uint8_t { SINE, TRIANGLE, SQUARE, SAW, RAMP };
 
     template <typename T>
     inline static constexpr ModuleControlDataType ctl_data_type() noexcept;
@@ -44,6 +48,16 @@ namespace modules {
         int midi_output = -1;
     }; // struct ModuleInfo
 
+    struct ModulatorSourceParams {
+        float attack, decay, sustain, release;
+
+        struct {
+            LFOType wavetype;
+            float freq;
+            float amp;
+        } lfo;
+    };
+
     class AudioEngine;
     class AudioRenderer;
     class ModuleProcessor;
@@ -58,7 +72,7 @@ namespace modules {
             uint8_t channel_count;
             ModuleID connected_module;
             unsigned int connection_port;
-            bool modulator;
+            //bool modulator;
 
             inline ModuleAudioPort() : channel_count(0), connected_module(0), connection_port(0)
             {}
@@ -66,8 +80,8 @@ namespace modules {
             inline ModuleAudioPort(uint8_t channel_count, ModuleID connected_module, unsigned int connection_port) :
                 channel_count(channel_count),
                 connected_module(connected_module),
-                connection_port(connection_port),
-                modulator(false)
+                connection_port(connection_port)
+                //modulator(false)
             {}
         };
 
@@ -99,30 +113,90 @@ namespace modules {
             template <typename T>
             inline constexpr void set(const T v) noexcept;
         };
+        
+        struct ModulatorOperation {
+            ModulatorOperationType optype;
+
+            union {
+                float factor;
+                float threshold;
+            };
+        };
 
         struct ModuleControl
         {
             std::string name;
             ModuleControlDataType data_type = ModuleControlDataType::UNKNOWN;
             Variant value;
+            ModulatorOperation modop;
         };
 
-        struct ModulatorControl {
-            int control_index;
-            ModulatorOperator optype;
+        struct ModulatorSource;
+
+        struct ModulatorInstance {
+            const ModulatorSource *src;
+
+            // adsr envelope
+            dsp::ADSR::Instance envelope;
+            float cur_level;
 
             union {
-                Variant min;
-                Variant threshold;
+                // phase value (for LFO)
+                float phase;
+
+                // sample offset (for sidechaining)
+                uint32_t sample_offset;
             };
 
-            Variant max;
+            inline float next_value() { return src->next_sample(*this); }
+        };
+
+        class ModulatorSource {
+        public:
+            inline bool supports_voices() const { return true; };
+            virtual ModulatorInstance instantiate() const;
+            virtual void get_params(ModulatorSourceParams &params) const;
+            virtual void apply_params(const ModulatorSourceParams &params);
+
+            ModulatorSource(unsigned int sample_rate) : sample_rate(sample_rate) {};
+            ~ModulatorSource() {}
+
+        protected:
+            dsp::ADSR env_params;
+            unsigned int sample_rate;
+
+            void next_envelope_sample(ModulatorInstance &inst) const;
+            virtual float next_sample(ModulatorInstance &inst) const = 0;
+
+            friend struct ModulatorInstance;
+        };
+
+        class LFOModulatorSource : public ModulatorSource {
+        public:
+            ModulatorInstance instantiate() const override;
+            void get_params(ModulatorSourceParams &params) const override;
+            void apply_params(const ModulatorSourceParams &params) override;
+            LFOModulatorSource(unsigned int sample_rate) : ModulatorSource(sample_rate) {}
+
+        protected:
+            LFOType wavetype;
+            float freq, amp;
+
+            float next_sample(ModulatorInstance &inst) const override;
+        };
+
+        class EnvelopeModulatorSource : public ModulatorSource {
+        public:
+            EnvelopeModulatorSource(unsigned int sample_rate) : ModulatorSource(sample_rate) {}
+
+        protected:
+            float next_sample(ModulatorInstance &inst) const override;
         };
 
         struct Modulator
         {
-            ModuleAudioPort control;
-            std::vector<ModulatorControl> targets;
+            ModulatorSourceID source;
+            std::vector<unsigned int> targets;
         };
 
         struct ModuleInstance
