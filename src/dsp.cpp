@@ -297,6 +297,8 @@ VUMeter::VUMeter(unsigned int sample_rate, float db_max) :
     wait_length = 0;
     buffer = new float[BUFFER_SIZE];
     bufidx = 0;
+
+    memset(buffer, 0, BUFFER_SIZE * sizeof(float));
 }
 
 VUMeter::~VUMeter() {

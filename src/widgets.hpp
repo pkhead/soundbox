@@ -7,6 +7,8 @@
 
 namespace widgets
 {
+    void vertical_text(const char *fmt, ...);
+    
     bool knob(
         const char *label,
         float *p_value,

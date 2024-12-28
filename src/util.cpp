@@ -45,6 +45,6 @@ std::string util::vformat(const char* fmt, va_list args)
     assert(str.data()[len] == '\0'); // i'm pretty sure resize appends \0 at the end but maybe not??
 
     // write formatted string into buffer
-    vsnprintf(str.data(), str.size(), fmt, args);
+    vsnprintf(str.data(), str.size() + 1, fmt, args);
     return str;
 }

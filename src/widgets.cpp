@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cstdarg>
 #include <cstdint>
 #include <imgui.h>
 #include <math.h>
@@ -9,6 +10,96 @@
 #include "dsp.hpp"
 #include "imgui_internal.h"
 #include "widgets.hpp"
+
+///////////////////////////////////////////////////
+///////////////////////////////////////////////////
+// VERTICAL TEXT
+
+void widgets::vertical_text(const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    std::string text = util::vformat(fmt, va);
+    va_end(va);
+
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    ImFont *font = ImGui::GetFont();
+
+    float text_size = ImGui::CalcTextSize(text.c_str()).x;
+    Vec2 text_origin = (Vec2)ImGui::GetCursorScreenPos() + Vec2(0.0f, text_size);
+
+    float offset = 0.0f;
+
+    ImTextureID font_tex = ImGui::GetIO().Fonts->TexID;
+
+    const bool push_tex = draw_list->_CmdHeader.TextureId != font_tex;
+    if (push_tex) draw_list->PushTextureID(font_tex);    
+
+    for (auto &ch : text) {
+        const ImFontGlyph *glyph = font->FindGlyph(ch);
+        if (glyph == nullptr) continue;
+
+        if (glyph->Visible) {
+            /*draw_list->AddImage(
+                font_tex,
+                text_origin + Vec2(offset + glyph->X0, glyph->Y0), 
+                text_origin + Vec2(offset + glyph->X1, glyph->Y1),
+                Vec2(glyph->U0, glyph->V0),
+                Vec2(glyph->U1, glyph->V1),
+                IM_COL32_WHITE
+            );*/
+
+            Vec2 glyph_origin = text_origin - Vec2(0.0f, offset);
+
+            draw_list->PrimReserve(6, 4);
+            draw_list->PrimQuadUV(
+                glyph_origin + Vec2(glyph->Y0, -glyph->X0),
+                glyph_origin + Vec2(glyph->Y1, -glyph->X0),
+                glyph_origin + Vec2(glyph->Y1, -glyph->X1),
+                glyph_origin + Vec2(glyph->Y0, -glyph->X1),
+
+                Vec2(glyph->U0, glyph->V0),
+                Vec2(glyph->U0, glyph->V1),
+                Vec2(glyph->U1, glyph->V1),
+                Vec2(glyph->U1, glyph->V0),
+
+                IM_COL32_WHITE
+            );
+            /*draw_list->AddImage(
+                font_tex,
+                glyph_origin + Vec2(font->FontSize - glyph->Y0, glyph->X0),
+                glyph_origin + Vec2(font->FontSize - glyph->Y1, glyph->X1),
+                Vec2(glyph->U0, glyph->V1),
+                Vec2(glyph->U1, glyph->V0),
+                IM_COL32_WHITE
+            );*/
+
+            /*draw_list->AddImage(
+                0, // font texture
+                text_origin + Vec2(glyph->Y1, glyph->X0 + offset),
+                text_origin + Vec2(font->FontSize + glyph->Y0, glyph->X1 + offset),
+                //text_origin + Vec2(font->FontSize + glyph->Y0, glyph->X0 + offset),
+//                text_origin + Vec2(glyph->Y1, glyph->X1 + offset),
+                Vec2(glyph->V1, glyph->U0),
+                Vec2(glyph->V0, glyph->U1)
+            );*/
+        }
+
+
+        offset += glyph->AdvanceX;
+    }
+
+    if (push_tex) draw_list->PopTextureID();
+
+    //ImGui::Dummy(Vec2(offset, font->FontSize));
+    ImGui::Dummy(Vec2(font->FontSize, offset));
+}
+
+
+
+
+
+
+
 
 
 
