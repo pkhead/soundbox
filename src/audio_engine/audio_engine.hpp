@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <mutex>
+#include <type_traits>
 #include <vector>
 #include <unordered_map>
 #include <thread>
@@ -16,7 +17,27 @@ namespace modules
 {
     typedef unsigned int ModuleID;
 
-    enum class ModuleControlDataType : uint8_t { FLOAT, DOUBLE, INT32, INT64, BOOL, UNKNOWN = UINT8_MAX };
+    enum class ModuleControlDataType : uint8_t {FLOAT, DOUBLE, INT32, INT64, BOOL, UNKNOWN = UINT8_MAX };
+    enum class ModulatorOperator : uint8_t { MULT, ADD, SET, BOOLEAN };
+
+    template <typename T>
+    inline static constexpr ModuleControlDataType ctl_data_type() noexcept;
+
+    template <>
+    inline constexpr ModuleControlDataType ctl_data_type<float>() noexcept
+        { return ModuleControlDataType::FLOAT; }
+    template <>
+    inline constexpr ModuleControlDataType ctl_data_type<double>() noexcept
+        { return ModuleControlDataType::DOUBLE; }
+    template <>
+    inline constexpr ModuleControlDataType ctl_data_type<int32_t>() noexcept
+        { return ModuleControlDataType::INT32; }
+    template <>
+    inline constexpr ModuleControlDataType ctl_data_type<int64_t>() noexcept
+        { return ModuleControlDataType::INT64; }
+    template <>
+    inline constexpr ModuleControlDataType ctl_data_type<bool>() noexcept
+        { return ModuleControlDataType::BOOL; }
 
     // TODO: the amount of forward declarations i make is quite stupid.
     class ModuleHost;
@@ -56,6 +77,7 @@ namespace modules
             uint8_t channel_count;
             ModuleID connected_module;
             unsigned int connection_port;
+            bool modulator;
 
             inline ModuleAudioPort() : channel_count(0), connected_module(0), connection_port(0)
             {}
@@ -63,7 +85,8 @@ namespace modules
             inline ModuleAudioPort(uint8_t channel_count, ModuleID connected_module, unsigned int connection_port) :
                 channel_count(channel_count),
                 connected_module(connected_module),
-                connection_port(connection_port)
+                connection_port(connection_port),
+                modulator(false)
             {}
         };
 
@@ -81,6 +104,40 @@ namespace modules
             {}
         };
 
+        union Variant {
+            float f;
+            double d;
+            int32_t i32;
+            int64_t i64;
+            bool b;
+
+            template <typename T>
+            inline constexpr T get() const noexcept;
+            template <>
+            inline constexpr float get<float>() const noexcept { return f; }
+            template <>
+            inline constexpr double get<double>() const noexcept { return d; }
+            template <>
+            inline constexpr int32_t get<int32_t>() const noexcept { return i32; }
+            template <>
+            inline constexpr int64_t get<int64_t>() const noexcept { return i64; }
+            template <>
+            inline constexpr bool get<bool>() const noexcept { return b; }
+
+            template <typename T>
+            inline constexpr void set(T v) noexcept;
+            template <>
+            inline constexpr void set<float>(float v) noexcept { f = v; }
+            template <>
+            inline constexpr void set<double>(double v) noexcept { d = v; }
+            template <>
+            inline constexpr void set<int32_t>(int32_t v) noexcept { i32 = v; }
+            template <>
+            inline constexpr void set<int64_t>(int64_t v) noexcept { i64 = v; }
+            template <>
+            inline constexpr void set<bool>(bool v) noexcept { b = v; }
+        };
+
         struct MessageHeader
         {
             unsigned int size;
@@ -90,14 +147,25 @@ namespace modules
         {
             std::string name;
             ModuleControlDataType data_type = ModuleControlDataType::UNKNOWN;
-            union
-            {
-                float float_value;
-                double double_value;
-                int32_t int32_value;
-                int64_t int64_value;
-                bool bool_value;
+            Variant value;
+        };
+
+        struct ModulatorControl {
+            int control_index;
+            ModulatorOperator optype;
+
+            union {
+                Variant min;
+                Variant threshold;
             };
+
+            Variant max;
+        };
+
+        struct Modulator
+        {
+            ModuleAudioPort control;
+            std::vector<ModulatorControl> targets;
         };
 
         struct ModuleInstance
@@ -117,6 +185,7 @@ namespace modules
             std::vector<ModuleMessagePort> output_message_ports;
 
             std::vector<ModuleControl> controls;
+            std::vector<Modulator> modulators;
 
             void* userdata;
             void (*processor)(ModuleProcessor& processor);
@@ -145,6 +214,14 @@ namespace modules
             unsigned int to_port;
         };
 
+        struct GraphModulationConnection {
+            int index;
+            unsigned int from_port;
+            unsigned int to_modidx;
+            ModulatorControl control;
+
+        };
+
         struct ModuleGraphNode {
             std::shared_ptr<ModuleInstance> module;
             std::vector<ModuleID> dependencies;
@@ -154,6 +231,7 @@ namespace modules
             std::vector<GraphConnection> audio_outputs;
             std::vector<GraphConnection> message_inputs;
             std::vector<GraphConnection> message_outputs;
+            std::vector<GraphModulationConnection> modulators;
         };
 
         struct ModuleGraph
@@ -168,10 +246,26 @@ namespace modules
             std::shared_ptr<ModuleInstance> module;
         };
 
+        struct ThreadMessage {
+            enum Kind {
+                MESSAGE_NEW_GRAPH,
+                MESSAGE_UPDATE_MODULATOR_TARGET
+            };
+
+            union {
+                ModuleGraph *graph;
+                union {
+                    ModuleID mod_id;
+                    unsigned int modulator;
+                    ModulatorControl params;
+                } modulator_target;
+            };
+        };
+
         static ModuleID _next_module_id;
         std::unordered_map<ModuleID, std::shared_ptr<ModuleInstance>> _modules;
         std::vector<DestroyQueueItem> _destroy_queue;
-        std::mutex _mutex;
+        RingBuffer<ThreadMessage> msg_queue;
 
         std::thread _thread;
         std::unique_ptr<ModuleGraph> _current_graph;
@@ -209,7 +303,19 @@ namespace modules
         static void _s_process_message_duplicator_node(ModuleProcessor &proc);
 
         template <typename T>
-        static bool _control_get_ref(ModuleControl &control, T** v);
+        static bool _control_get_ref(ModuleControl &control, T** v) {
+            if (control.data_type != ctl_data_type<T>()) return false;
+            *v = &control.value.get<T>();
+            return true;
+        }
+
+        template <typename T>
+        void _modulator_control(ModuleID mod_id, int modu, unsigned int ctl, T min, T max, ModulatorOperator op);
+
+        template<typename T>
+        void _modulator_bool_control(ModuleID mod_id, int modu, unsigned int ctl, T threshold);
+
+        static ModulatorControl *modulator_find_control(Modulator &mod, unsigned int ctl);
 
         std::atomic<float> _process_time;
     public:
@@ -347,6 +453,80 @@ namespace modules
 
             return true;
         }
+
+        /// Create a modulator for a given module.
+        bool create_modulator(ModuleID mod_id, unsigned int &out_mod_index);
+
+        /// Destroy a modulator.
+        /// @param mod_id The ID of the module.
+        /// @param mod_index The index of the modulator to destroy.
+        void destroy_modulator(ModuleID mod_id, unsigned int mod_index);
+
+        unsigned int modulator_count(ModuleID mod_id) const;
+
+        /// Connect a module's audio output to a modulator.
+        /// @param mod_id The ID of the module with the modulator.
+        /// @param control_module The ID of the module that will control the modulator.
+        /// @param out_port The index of the audio output port from the control module that will control the modulator.
+        /// @param mod_index The index of the modulator.
+        /// @returns True on success, false on failure.
+        bool connect_modulator(ModuleID mod_id, ModuleID control_module, unsigned int out_port, unsigned int mod_index);
+
+        /// Disconnect a modulator from its control module.
+        /// @param mod_id The ID of the module with the modulator.
+        /// @param mod_index The index of the modulator.
+        /// @returns True on success, false on failure.
+        bool disconnect_modulator_input(ModuleID mod_id, unsigned int mod_index);
+
+        /// Set the modulator to target a control.
+        /// @param mod_id The ID of the module with the modulator.
+        /// @param modu The index of the modulator to use.
+        /// @param ctl The control port to modulate.
+        template <typename T>
+        bool modulator_target(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl, T min, T max, ModulatorOperator op) {
+            static_assert(!std::is_same<T, bool>(), "modulator_control<bool> invalid, use modulator_bool_control instead.");
+            const auto &it = _modules.find(mod_id);
+            if (it == _modules.end()) return false;
+            ModuleInstance &mod = *it->second;
+
+            if (modu_idx >= mod.modulators.size()) return false; // modu existence check
+            if (ctl >= mod.controls.size()) return false; // ctl existence check
+            if (mod.controls[ctl].data_type != ctl_data_type<T>()) return false; // type check
+
+            auto &modu = mod.modulators[modu_idx];
+            ModulatorControl *ctl_mod = modulator_find_control(modu, ctl);
+            ctl_mod->optype = op;
+            ctl_mod->min.set(min);
+            ctl_mod->max.set(max);
+
+            return true;
+        }
+
+        /// Set the modulator to modify a boolean control.
+        /// @param mod_id The ID of the module with the modulator.
+        /// @param modu The index of the modulator to use.
+        /// @param ctl The control port to modulate.
+        /// @param threshold If the value is greater than this number, set to true. Otherwise, set to false.
+        template <typename T>
+        bool modulator_target_bool(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl, T threshold) {
+            const auto &it = _modules.find(mod_id);
+            if (it == _modules.end()) return false;
+            ModuleInstance &mod = *it->second;
+
+            if (modu_idx >= mod.modulators.size()) return false; // modu existence check
+            if (ctl >= mod.controls.size()) return false; // ctl existence check
+            if (mod.controls[ctl].data_type != ModuleControlDataType::BOOL) return false; // type check
+
+            auto &modu = mod.modulators[modu_idx];
+            ModulatorControl *ctl_mod = modulator_find_control(modu, ctl);
+            ctl_mod->optype = ModulatorOperator::BOOLEAN;
+            ctl_mod->threshold.set(threshold);
+
+            return true;
+        }
+
+        /// @returns True if the control was previously targeted, false if not or if there was an error.
+        bool modulator_untarget(ModuleID mod_id, unsigned int modu, unsigned int ctl);
 
         void update();
 
