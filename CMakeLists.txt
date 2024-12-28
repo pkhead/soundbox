@@ -85,6 +85,7 @@ set(SOURCES
 
     # audio/module engine
     src/audio_engine/audio_engine.cpp
+    src/audio_engine/audio_renderer.cpp
     src/audio_engine/module_host.cpp
     src/module_hosts/modules.cpp
 
