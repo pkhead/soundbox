@@ -286,9 +286,9 @@ void ShortcutContext::bind(const std::string &name, ShortcutID id, ModKeys mods,
 
 #define HAS_BIT(a, b) (((a) & (b)) != 0)
 
-static int imgui_mod_flags(ModKeys m)
+static unsigned int imgui_mod_flags(ModKeys m)
 {
-    int ret;
+    unsigned int ret = 0;
     if (HAS_BIT((int)m, (int)ModKeys::CTRL)) ret |= ImGuiMod_Ctrl;
     if (HAS_BIT((int)m, (int)ModKeys::SHIFT)) ret |= ImGuiMod_Shift;
     if (HAS_BIT((int)m, (int)ModKeys::ALT)) ret |= ImGuiMod_Alt;
@@ -307,7 +307,8 @@ bool ShortcutContext::is_key_pressed(const Binding &binding)
     else
         kp = ImGui::IsKeyPressed(binding.key, binding.allow_repeat);
     
-    int mod_flags = imgui_mod_flags(binding.mods);
+    unsigned int mod_flags = imgui_mod_flags(binding.mods);
+    
     return kp &&
     (HAS_BIT(mod_flags, ImGuiMod_Ctrl) == ImGui::IsKeyDown(ImGuiKey_ModCtrl)) &&
     (HAS_BIT(mod_flags, ImGuiMod_Shift) == ImGui::IsKeyDown(ImGuiKey_ModShift)) &&
@@ -338,6 +339,9 @@ bool ShortcutContext::is_key_down(const Binding &binding)
 void ShortcutContext::update()
 {
     bool input_disabled = ImGui::GetIO().WantTextInput;
+
+    //logger::log_debug("===");
+    //logger::log_debug("ModCtrl: %i", )
 
     for (auto& [ _, binding ] : _key_shortcuts)
     {

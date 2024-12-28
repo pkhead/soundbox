@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
-#include <portaudio.h>
+#include <atomic>
 #include <concurrent/readerwriterqueue.h>
 #include "module_data.hpp"
 
@@ -90,13 +90,15 @@ namespace modules
         void _process_audio_out_node(ModuleProcessor& proc);
         void update_modulator_target(ModuleID mod_id, unsigned int moduidx, const ModuleData::ModulatorControl &params);
 
-        std::atomic<float> _process_time;
+        std::atomic<float> process_time;
+        std::atomic_uint64_t frame_time;
+
         AudioEngine &engine;
 
         float *output_buffer;
         size_t output_buffer_sz;
 
-        inline bool send_message(const InMessage &msg) { return in_queue.enqueue(msg); }
+        inline bool send_message(const InMessage &msg) { return in_queue.try_enqueue(msg); }
         inline bool get_message(OutMessage &msg) { return out_queue.try_dequeue(msg); }
 
         void render(float *buffer);

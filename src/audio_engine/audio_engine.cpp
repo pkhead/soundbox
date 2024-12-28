@@ -42,8 +42,7 @@ static void pa_panic(PaError err)
 }
 
 AudioEngine::AudioEngine() :
-    _audio_ring_buffer(4096),
-    _frames_per_buffer(256)
+    _frames_per_buffer(512)
 {
     _frame_time = 0;
     _is_graph_dirty = true;
@@ -104,24 +103,19 @@ AudioEngine::AudioEngine() :
     );
     if (err != paNoError) pa_panic(err);
 
-    err = Pa_StartStream(_pa_stream);
-    if (err != paNoError) pa_panic(err);
-
     _output_channels = out_params.channelCount;
     assert(_output_channels == 2);
 
     renderer = std::make_unique<AudioRenderer>(*this);
-    _audio_buffer = std::vector<float>(renderer->buffer_size());
 
+    err = Pa_StartStream(_pa_stream);
+    if (err != paNoError) pa_panic(err);
     _is_engine_runnning = true;
-    _thread = std::thread(&AudioEngine::_thread_process, this);
 }
 
 AudioEngine::~AudioEngine()
 {
     _is_engine_runnning = false;
-    _thread.join();
-
     if (_pa_stream == nullptr) return;
 
     PaError err = Pa_StopStream(_pa_stream);
@@ -144,16 +138,22 @@ int AudioEngine::_pa_stream_callback(
 {
     AudioEngine* self = (AudioEngine*) userdata;
 
+    PaTime start = Pa_GetStreamTime(self->_pa_stream);
+    assert(frame_count == self->frames_per_buffer());
+    self->renderer->render((float*) output_buffer);
+    PaTime end = Pa_GetStreamTime(self->_pa_stream);
+
+    self->_process_time = end - start;
     //logger::log_debug("available to read: %lu", self->_audio_ring_buffer.available_for_read());
 
-    float* out_samples = (float*) output_buffer;
+    /*float* out_samples = (float*) output_buffer;
     if (!self->_audio_ring_buffer.read(out_samples, frame_count * self->_output_channels))
     {
         // #ifdef DEBUG
         // logger::log_debug("AudioEngine::_pa_stream_callback: not enough audio data to fill buffer");
         // #endif
         memset(out_samples, 0, frame_count * self->_output_channels * sizeof(float));
-    }
+    }*/
 
     return 0;
 }
@@ -1132,37 +1132,5 @@ void AudioEngine::update()
             host->destroy_module(item.module->class_name, item.id, item.module->userdata);
         }
         _destroy_queue.clear();
-    }
-}
-
-void AudioEngine::_thread_process()
-{
-    sys::SleepHandle sleep_handle;
-
-    while (_is_engine_runnning)
-    {
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        assert(renderer != nullptr);
-
-        //logger::log_debug("available to write: %lu", _audio_ring_buffer.available_for_write());
-
-        uint64_t ft = _frame_time;
-        while (_audio_ring_buffer.available_for_write() >= _frames_per_buffer * _output_channels)
-        {
-            /*if (_audio_ring_buffer.available_for_write() < _frames_per_buffer * _output_channels)
-            {
-                break;
-            }*/
-            renderer->render(_audio_buffer.data());
-            _audio_ring_buffer.write(_audio_buffer.data(), _frames_per_buffer * _output_channels);
-
-            ft += _frames_per_buffer;
-            _frame_time = ft;
-        }
-
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        _process_time = (float)std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000000.0f;
-
-        sleep_handle.sleep(3);
     }
 }

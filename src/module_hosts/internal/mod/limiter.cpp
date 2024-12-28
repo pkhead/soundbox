@@ -57,7 +57,7 @@ void LimiterModule::process(modules::ModuleProcessor &proc) {
         samples[0] = input[i] * in_factor;
         samples[1] = input[i+1] * in_factor;
 
-        vu_in.update(util::max(samples[0], samples[1]));
+        vu_in.write(util::max(samples[0], samples[1]));
         for (unsigned int c = 0; c < channel_count; c++) {
 
             float v = fabsf(samples[c]);
@@ -75,11 +75,14 @@ void LimiterModule::process(modules::ModuleProcessor &proc) {
 
             samples[c] *= out_factor; // output gain control
         }
-        vu_out.update(util::max(samples[0], samples[1]));
+        vu_out.write(util::max(samples[0], samples[1]));
 
         output[i] = samples[0];
         output[i+1] = samples[1];
     }
+
+    vu_in.update(proc.buffer_frame_count);
+    vu_out.update(proc.buffer_frame_count);
 
     // send vu meter data to ui thread
     MeterData data = {

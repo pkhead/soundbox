@@ -224,18 +224,21 @@ else()
     find_library(LIB_XFIXES Xfixes)
     find_library(LIB_XCOMPOSITE Xcomposite)
 
-    if(SBOX_DISABLE_COMPOSITE OR LIB_XFIXES STREQUAL "LIB_XFIXES-NOTFOUND" OR LIB_XCOMPOSITE STREQUAL "LIB_XCOMPOSITE-NOTFOUND")
-        set(STATUS_COMPOSITE "No")
-        set(LIB_XFIXES "")
-        set(LIB_XCOMPOSITE "")
-    else()
-        set(STATUS_COMPOSITE "Yes")
-        target_compile_definitions(soundbox PUBLIC COMPOSITING)
-
-        if (UNIT_TESTS)
-            target_compile_definitions(soundbox-tests PUBLIC COMPOSITING)
-        endif()
-    endif()
+    set(STATUS_COMPOSITE "No")
+    set(LIB_XFIXES "")
+    set(LIB_XCOMPOSITE "")
+    # if(SBOX_DISABLE_COMPOSITE OR LIB_XFIXES STREQUAL "LIB_XFIXES-NOTFOUND" OR LIB_XCOMPOSITE STREQUAL "LIB_XCOMPOSITE-NOTFOUND")
+    #     set(STATUS_COMPOSITE "No")
+    #     set(LIB_XFIXES "")
+    #     set(LIB_XCOMPOSITE "")
+    # else()
+    #     set(STATUS_COMPOSITE "Yes")
+    #     target_compile_definitions(soundbox PUBLIC COMPOSITING)
+    #
+    #     if (UNIT_TESTS)
+    #         target_compile_definitions(soundbox-tests PUBLIC COMPOSITING)
+    #     endif()
+    # endif()
 
     set(LINUX_LIBRARIES
         ${LIB_XFIXES}

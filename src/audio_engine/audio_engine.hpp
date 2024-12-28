@@ -49,7 +49,6 @@ namespace modules
         std::unordered_map<ModuleID, std::shared_ptr<ModuleData::ModuleInstance>> _modules;
         std::vector<DestroyQueueItem> _destroy_queue;
 
-        std::thread _thread;
         std::atomic_bool _is_engine_runnning;
         std::unique_ptr<AudioRenderer> renderer;
 
@@ -59,8 +58,6 @@ namespace modules
         PaStream* _pa_stream;
         unsigned int _sample_rate;
         unsigned int _output_channels;
-        RingBuffer<float> _audio_ring_buffer;
-        std::vector<float> _audio_buffer;
         const size_t _frames_per_buffer;
         bool _is_graph_dirty;
         std::atomic_uint64_t _frame_time;
@@ -85,8 +82,7 @@ namespace modules
         static ModuleData::ModulatorControl *modulator_find_control(ModuleData::Modulator &mod, unsigned int ctl);
 
         void _thread_process();
-
-        std::atomic<float> _process_time;
+        std::atomic<double> _process_time;
     public:
         AudioEngine();
         AudioEngine(const AudioEngine&&) = delete;
@@ -122,9 +118,9 @@ namespace modules
             return _frames_per_buffer;
         }
 
-        inline unsigned long frame_time() const { return _frame_time; }
-
-        inline float process_time() const { return _process_time; }
+        inline uint64_t frame_time() const { return renderer->frame_time; }
+        inline double process_time() const { return _process_time; }
+        inline double cpu_load() const { return Pa_GetStreamCpuLoad(_pa_stream); };
 
         /// Register a host.
         /// @returns True if host registration was successful, false if not.

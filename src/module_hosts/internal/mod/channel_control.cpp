@@ -8,6 +8,7 @@
 using namespace hosts::internal;
 
 constexpr size_t QUEUE_SIZE = 64;
+constexpr unsigned int MAX_FRAMES_UNPROCESSED = 128;
 
 ChannelControllerModule::ChannelControllerModule(modules::ModuleCreator &create) :
     modx::ModuleBase(create),
@@ -23,6 +24,7 @@ ChannelControllerModule::ChannelControllerModule(modules::ModuleCreator &create)
 
     _old_active_notes = new sbox::Note[MAX_ACTIVE_NOTES];
     _old_active_note_count = 0;
+    frames_unprocessed = 0;
 }
 
 ChannelControllerModule::~ChannelControllerModule()
@@ -132,82 +134,85 @@ void ChannelControllerModule::process(modules::ModuleProcessor &proc)
     float sample_len = 1.0f / proc.sample_rate;
     for (unsigned int frame = 0; frame < proc.buffer_frame_count; frame++)
     {
-        // get the list of active notes
-        sbox::Note cur_active_notes[MAX_ACTIVE_NOTES];
-        unsigned int cur_active_note_count = 0;
-        
-        assert(_position >= 0.0f && _position < _track->sequence.size() * _beats_per_bar);
-        float playhead_in_bar = fmodf(_position, _beats_per_bar);
+        if (frames_unprocessed++ >= MAX_FRAMES_UNPROCESSED) {
+            // get the list of active notes
+            unsigned int cur_active_note_count = 0;
+            
+            assert(_position >= 0.0f && _position < _track->sequence.size() * _beats_per_bar);
+            float playhead_in_bar = fmodf(_position, _beats_per_bar);
 
-        unsigned int pattern_index = _track->sequence[(int)(_position / _beats_per_bar)];
-        if (pattern_index > 0)
-        {
-            auto &pattern = _track->patterns[pattern_index - 1];
-
-            for (auto &note : pattern.notes)
+            unsigned int pattern_index = _track->sequence[(int)(_position / _beats_per_bar)];
+            if (pattern_index > 0)
             {
-                const float note_start = note.time;
-                const float note_end = note_start + note.length;
+                auto &pattern = _track->patterns[pattern_index - 1];
 
-                if (playhead_in_bar >= note_start && playhead_in_bar < note_end)
+                for (auto &note : pattern.notes)
                 {
-                    cur_active_notes[cur_active_note_count++] = note;
-                    if (cur_active_note_count >= MAX_ACTIVE_NOTES) break;
-                }
-            }
-        }
+                    const float note_start = note.time;
+                    const float note_end = note_start + note.length;
 
-        // send released notes
-        for (unsigned int i = 0; i < _old_active_note_count; i++)
-        {
-            auto &old_note = _old_active_notes[i];
-
-            bool is_released = true;
-            for (unsigned int j = 0; j < cur_active_note_count; j++)
-            {
-                auto &new_note = cur_active_notes[j];
-                if (old_note.id == new_note.id)
-                {
-                    is_released = false;
-                    break;
+                    if (playhead_in_bar >= note_start && playhead_in_bar < note_end)
+                    {
+                        cur_active_notes[cur_active_note_count++] = note;
+                        if (cur_active_note_count >= MAX_ACTIVE_NOTES) break;
+                    }
                 }
             }
 
-            if (!is_released) continue;
-
-            modx::TrackEvent ev = modx::TrackEvent::init_note_off(old_note.key, 1.0f);
-            ev.timestamp = frame;
-            proc.send_message(0, &ev, sizeof(ev));
-        }
-
-        // send pressed notes
-        for (unsigned int i = 0; i < cur_active_note_count; i++)
-        {
-            auto &new_note = cur_active_notes[i];
-            bool is_pressed = true;
-
-            for (unsigned int j = 0; j < _old_active_note_count; j++)
+            // send released notes
+            for (unsigned int i = 0; i < _old_active_note_count; i++)
             {
-                auto &old_note = _old_active_notes[j];
-                if (new_note.id == old_note.id)
+                auto &old_note = _old_active_notes[i];
+
+                bool is_released = true;
+                for (unsigned int j = 0; j < cur_active_note_count; j++)
                 {
-                    is_pressed = false;
-                    break;
+                    auto &new_note = cur_active_notes[j];
+                    if (old_note.id == new_note.id)
+                    {
+                        is_released = false;
+                        break;
+                    }
                 }
+
+                if (!is_released) continue;
+
+                modx::TrackEvent ev = modx::TrackEvent::init_note_off(old_note.key, 1.0f);
+                ev.timestamp = frame;
+                proc.send_message(0, &ev, sizeof(ev));
             }
 
-            if (!is_pressed) continue;
+            // send pressed notes
+            for (unsigned int i = 0; i < cur_active_note_count; i++)
+            {
+                auto &new_note = cur_active_notes[i];
+                bool is_pressed = true;
 
-            modx::TrackEvent ev = modx::TrackEvent::init_note_on(new_note.key, 1.0f);
-            ev.timestamp = frame;
-            proc.send_message(0, &ev, sizeof(ev));
+                for (unsigned int j = 0; j < _old_active_note_count; j++)
+                {
+                    auto &old_note = _old_active_notes[j];
+                    if (new_note.id == old_note.id)
+                    {
+                        is_pressed = false;
+                        break;
+                    }
+                }
+
+                if (!is_pressed) continue;
+
+                modx::TrackEvent ev = modx::TrackEvent::init_note_on(new_note.key, 1.0f);
+                ev.timestamp = frame;
+                proc.send_message(0, &ev, sizeof(ev));
+            }
+
+            memcpy(_old_active_notes, cur_active_notes, MAX_ACTIVE_NOTES * sizeof(sbox::Note));
+            _old_active_note_count = cur_active_note_count;
+
+            _position += (_tempo / 60.0f) * sample_len * frames_unprocessed;
+            _position = fmod(_position, _track->sequence.size() * _beats_per_bar);
+
+            frames_unprocessed = 0;
         }
-
-        memcpy(_old_active_notes, cur_active_notes, MAX_ACTIVE_NOTES * sizeof(sbox::Note));
-        _old_active_note_count = cur_active_note_count;
-
-        _position += (_tempo / 60.0f) * sample_len;
-        _position = fmod(_position, _track->sequence.size() * _beats_per_bar);
     }
 }
 

@@ -305,11 +305,15 @@ VUMeter::~VUMeter() {
     delete[] buffer;
 }
 
-void VUMeter::update(float value) {
+void VUMeter::write(float value) {
     // write value to buffer
     buffer[bufidx] = fabsf(value);
-    bufidx = (bufidx + 1) % BUFFER_SIZE;
 
+    static_assert((BUFFER_SIZE & (BUFFER_SIZE - 1)) == 0, "BUFFER_SIZE is not a power of 2");
+    bufidx = (bufidx + 1) & (BUFFER_SIZE-1);
+}
+
+void VUMeter::update(unsigned int dt_frames) {
     // calculate level from buffer
     level = 0.0f;
     for (size_t i = 0; i < BUFFER_SIZE; i++) {
@@ -324,8 +328,9 @@ void VUMeter::update(float value) {
         peak = level;
         wait_length = sample_rate;
     } else if (wait_length > 0) {
-        wait_length--;
+        wait_length -= dt_frames;
     } else {
-        peak -= 1.5f / sample_rate;
+        peak -= 1.5f / sample_rate * dt_frames;
+        if (peak < 0.0f) peak = 0.0f;
     }
 }

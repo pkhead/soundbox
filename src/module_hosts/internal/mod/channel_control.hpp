@@ -80,6 +80,8 @@ namespace hosts::internal
         RingBuffer<OutputMessage> output_queue;
 
         static constexpr size_t MAX_ACTIVE_NOTES = 64;
+        sbox::Note cur_active_notes[MAX_ACTIVE_NOTES];
+        unsigned int frames_unprocessed;
 
         TrackInfo *_track;
         double _position;

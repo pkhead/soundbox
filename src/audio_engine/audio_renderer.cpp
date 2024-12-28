@@ -7,10 +7,17 @@
 
 using namespace modules;
 
-AudioRenderer::AudioRenderer(AudioEngine &engine) : engine(engine) {
+AudioRenderer::AudioRenderer(AudioEngine &engine) :
+    engine(engine),
+    in_queue(32),
+    out_queue(32)
+{
     output_buffer_sz = engine._frames_per_buffer * engine._output_channels;
     output_buffer = nullptr;
     cur_graph = nullptr;
+
+    process_time = 0;
+    frame_time = 0;
 }
 
 AudioRenderer::~AudioRenderer() {
@@ -109,7 +116,7 @@ void AudioRenderer::render(float *buf)
                 
                 OutMessage out_msg;
                 out_msg.kind = OutMessageKind::MESSAGE_GRAPH_UPDATED;
-                out_queue.enqueue(out_msg);
+                out_queue.try_enqueue(out_msg);
 
                 break;
             }
@@ -135,9 +142,8 @@ void AudioRenderer::render(float *buf)
     {
         memset(output_buffer, 0, output_buffer_sz * sizeof(float));
     }
-
-    //ft += _frames_per_buffer;
-    //_frame_time = ft;
+    
+    frame_time += engine._frames_per_buffer;
 }
 
 AudioRenderer::ModuleGraph* AudioRenderer::build_graph() {
@@ -335,5 +341,6 @@ AudioRenderer::ModuleGraph* AudioRenderer::build_graph() {
         }
     }
 
+    logger::log_info("node count: %i", new_graph->process_order.size());
     return new_graph;
 }
