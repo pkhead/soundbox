@@ -11,6 +11,7 @@
 #include <module_hosts/internal/host.hpp>
 #include <module_hosts/internal/modules.hpp>
 #include "mod_editor.hpp"
+#include "app/song.hpp"
 #include "module_hosts/modules.hpp"
 #include "shortcuts.hpp"
 
@@ -243,6 +244,136 @@ static void mod_presets(modx::ModuleBase *const mod_data, modx::ModuleRc &mod) {
     }
 }
 
+static void mod_ui(
+    modx::ModuleBase *const mod_data, modx::ModuleRc &mod,
+    Channel *const channel, int module_index,
+    modules::ModuleID &hovered_module_ui, bool &do_delete_module
+) {
+    const float mod_ui_height = ImGui::GetFontSize() * 17.0f;
+    do_delete_module = false;
+
+    // check that the module is connected properly...
+    // will not be if the channel counts are mismatched
+    bool connected = true;
+    modules::ModuleID other_mod;
+    unsigned int other_index;
+    if (mod->audio_input_count() > 0)
+    {
+        mod->engine().get_audio_input_connection(mod->id(), 0, other_mod, other_index);
+        if (other_mod == 0) connected = false;
+    }
+
+    if (mod->audio_output_count() > 0)
+    {
+        mod->engine().get_audio_output_connection(mod->id(), 0, other_mod, other_index);
+        if (other_mod == 0) connected = false;
+    }
+
+    ImGuiChildFlags child_flags = ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_Border;
+    if (connected) ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetColorU32(ImGuiCol_PopupBg, 0.4f));
+    
+    ImGui::BeginChild("module ui", ImVec2(0.0f, mod_ui_height), child_flags, ImGuiWindowFlags_MenuBar);
+    if (connected) ImGui::PopStyleColor();
+
+    bool popup_modulators = false;
+
+    if (ImGui::BeginMenuBar())
+    {
+        ImVec2 start_cursor = ImGui::GetCursorPos();
+
+        ImGui::SetNextItemAllowOverlap();
+        ImVec2 drag_area_size = ImGui::GetContentRegionAvail();
+        drag_area_size.x = util::max(drag_area_size.x, 2.0f);
+
+        if (drag_area_size.x > 0.0f && drag_area_size.y > 0.0f)
+        {
+            ImGui::InvisibleButton("##DragArea", drag_area_size);
+
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                hovered_module_ui = mod->id();
+            }
+
+            if (ImGui::IsItemActivated())
+            {
+                logger::log_debug("begin module drag");
+            }
+        }
+
+        ImGui::SetCursorPos(start_cursor);
+
+        if (ImGui::BeginMenu(mod->name().c_str())) {
+            if (mod_data->has_presets())
+                mod_presets(mod_data, mod);
+                
+            if (ImGui::MenuItem("Modulators"))
+                popup_modulators = true;
+
+            ImGui::EndMenu();
+        }
+
+        if (!connected)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled("(!)");
+            if (ImGui::BeginItemTooltip())
+            {
+                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 20.0f);
+                ImGui::TextWrapped("The module could not connect properly!");
+                display_error_reason(channel->rack, module_index);
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            }
+        }
+
+        //ImGui::Separator();
+
+        float button_width = ImGui::GetFontSize();
+        ImGui::Dummy(ImVec2(button_width * 2.0f, ImGui::GetFrameHeight()));
+
+        ImGui::SameLine(ImGui::GetWindowWidth() - button_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
+        do_delete_module = ImGui::CloseButton(
+            ImGui::GetID("X"),
+            Vec2(ImGui::GetCursorScreenPos()) + Vec2(0.0f, (ImGui::GetFrameHeight() - ImGui::GetFontSize()) / 2.0f)
+        );
+
+        //ImGui::Button("X", ImVec2(button_width, 0.0f));
+
+        //ImGui::SetCursorPos(start_cursor);
+
+        ImGui::EndMenuBar();
+    }
+
+    if (popup_modulators) {
+        ImGui::OpenPopup("Modulators");
+    }
+
+    if (ImGui::BeginPopup("Modulators")) {
+        if (ImGui::BeginTabBar("Modulators", ImGuiTabBarFlags_Reorderable)) {
+            constexpr const char *tab_names[3] = { "Tab 1", "Tab 2", "Tab 3 "};
+
+            for (int i = 0; i < 3; i++) {
+                if (ImGui::BeginTabItem(tab_names[i])) {
+                    ImGui::Text("test");
+                    ImGui::EndTabItem();
+                }
+            }
+
+            ImGui::TabItemButton("+");
+            
+            ImGui::EndTabBar();
+        }
+        ImGui::EndPopup();
+    }
+
+    if (!connected) ImGui::BeginDisabled();
+    mod_data->ui();
+    if (!connected) ImGui::EndDisabled();
+
+    ImGui::EndChild();
+}
+
 void ModuleEditor::render_channel_settings(Channel &cur_channel)
 {
     Song &song = editor.song;
@@ -291,7 +422,6 @@ void ModuleEditor::render_channel_settings(Channel &cur_channel)
 
 void ModuleEditor::draw(const char *window_title)
 {
-    float mod_ui_height = ImGui::GetFontSize() * 17.0f;
     modules::ModuleID hovered_module_ui = 0;
 
     //ImGui::SetNextWindowSizeConstraints(ImVec2(0.0fmod_ui_width, 0.0f), ImVec2(mod_ui_width, FLT_MAX));
@@ -374,99 +504,10 @@ void ModuleEditor::draw(const char *window_title)
 
                     ImGui::SameLine();
 
-                    // check that the module is connected properly...
-                    // will not be if the channel counts are mismatched
-                    bool connected = true;
-                    modules::ModuleID other_mod;
-                    unsigned int other_index;
-                    if (mod->audio_input_count() > 0)
-                    {
-                        mod->engine().get_audio_input_connection(mod->id(), 0, other_mod, other_index);
-                        if (other_mod == 0) connected = false;
-                    }
-
-                    if (mod->audio_output_count() > 0)
-                    {
-                        mod->engine().get_audio_output_connection(mod->id(), 0, other_mod, other_index);
-                        if (other_mod == 0) connected = false;
-                    }
-
-                    ImGuiChildFlags child_flags = ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AlwaysAutoResize | ImGuiChildFlags_Border;
-                    if (connected) ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetColorU32(ImGuiCol_PopupBg, 0.4f));
+                    bool delete_module;
+                    mod_ui(mod_data, mod, channel, i, hovered_module_ui, delete_module);
+                    if (delete_module) module_to_delete = i;
                     
-                    ImGui::BeginChild("module ui", ImVec2(0.0f, mod_ui_height), child_flags, ImGuiWindowFlags_MenuBar);
-                    if (connected) ImGui::PopStyleColor();
-
-                    if (ImGui::BeginMenuBar())
-                    {
-                        ImVec2 start_cursor = ImGui::GetCursorPos();
-
-                        ImGui::SetNextItemAllowOverlap();
-                        ImVec2 drag_area_size = ImGui::GetContentRegionAvail();
-                        drag_area_size.x = util::max(drag_area_size.x, 2.0f);
-
-                        if (drag_area_size.x > 0.0f && drag_area_size.y > 0.0f)
-                        {
-                            ImGui::InvisibleButton("##DragArea", drag_area_size);
-
-                            if (ImGui::IsItemHovered())
-                            {
-                                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-                                hovered_module_ui = mod->id();
-                            }
-
-                            if (ImGui::IsItemActivated())
-                            {
-                                logger::log_debug("begin module drag");
-                            }
-                        }
-
-                        ImGui::SetCursorPos(start_cursor);
-                        ImGui::Text("%s", mod->name().c_str());
-
-                        if (!connected)
-                        {
-                            ImGui::SameLine();
-                            ImGui::TextDisabled("(!)");
-                            if (ImGui::BeginItemTooltip())
-                            {
-                                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 20.0f);
-                                ImGui::TextWrapped("The module could not connect properly!");
-                                display_error_reason(channel->rack, i);
-                                ImGui::PopTextWrapPos();
-                                ImGui::EndTooltip();
-                            }
-                        }
-
-                        ImGui::Separator();
-
-                        if (mod_data->has_presets())
-                        {
-                            mod_presets(mod_data, mod);
-                        }
-
-                        float button_width = ImGui::GetFontSize();
-                        ImGui::Dummy(ImVec2(button_width, ImGui::GetFrameHeight()));
-
-                        ImGui::SameLine(ImGui::GetWindowWidth() - button_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
-                        bool delete_module = ImGui::CloseButton(
-                            ImGui::GetID("X"),
-                            Vec2(ImGui::GetCursorScreenPos()) + Vec2(0.0f, (ImGui::GetFrameHeight() - ImGui::GetFontSize()) / 2.0f)
-                        );
-
-                        if (delete_module) module_to_delete = i;
-                        //ImGui::Button("X", ImVec2(button_width, 0.0f));
-
-                        //ImGui::SetCursorPos(start_cursor);
-
-                        ImGui::EndMenuBar();
-                    }
-
-                    if (!connected) ImGui::BeginDisabled();
-                    mod_data->ui();
-                    if (!connected) ImGui::EndDisabled();
-
-                    ImGui::EndChild();
                     ImGui::PopID();
                 }
 
