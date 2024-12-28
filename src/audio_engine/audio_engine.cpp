@@ -15,11 +15,11 @@
 #include <sys.hpp>
 #include <unordered_map>
 #include "audio_engine.hpp"
+#include "audio_renderer.hpp"
 #include "../log.hpp"
 
 using namespace modules;
 
-constexpr size_t MESSAGE_PORT_CAPACITY = 512;
 const char* AudioEngine::MODULE_CLASS_AUDIO_OUT = "AUDIO_OUT";
 const char* AudioEngine::MODULE_CLASS_STEREO_MIXER = "STEREO_MIXER";
 const char* AudioEngine::MODULE_CLASS_MESSAGE_DUPLICATOR = "MESSAGE_DUPLICATOR";
@@ -42,9 +42,7 @@ static void pa_panic(PaError err)
 }
 
 AudioEngine::AudioEngine() :
-    _audio_ring_buffer(4096),
-    _frames_per_buffer(256),
-    msg_queue(128)
+    _frames_per_buffer(512)
 {
     _frame_time = 0;
     _is_graph_dirty = true;
@@ -105,24 +103,19 @@ AudioEngine::AudioEngine() :
     );
     if (err != paNoError) pa_panic(err);
 
-    err = Pa_StartStream(_pa_stream);
-    if (err != paNoError) pa_panic(err);
-
     _output_channels = out_params.channelCount;
     assert(_output_channels == 2);
 
-    _audio_buffer = std::vector<float>(_frames_per_buffer * _output_channels);
+    renderer = std::make_unique<AudioRenderer>(*this);
+
+    err = Pa_StartStream(_pa_stream);
+    if (err != paNoError) pa_panic(err);
     _is_engine_runnning = true;
-    _thread = std::thread(&AudioEngine::_thread_process, this);
 }
 
 AudioEngine::~AudioEngine()
 {
     _is_engine_runnning = false;
-    _thread.join();
-
-    delete _current_graph;
-
     if (_pa_stream == nullptr) return;
 
     PaError err = Pa_StopStream(_pa_stream);
@@ -145,16 +138,22 @@ int AudioEngine::_pa_stream_callback(
 {
     AudioEngine* self = (AudioEngine*) userdata;
 
+    PaTime start = Pa_GetStreamTime(self->_pa_stream);
+    assert(frame_count == self->frames_per_buffer());
+    self->renderer->render((float*) output_buffer);
+    PaTime end = Pa_GetStreamTime(self->_pa_stream);
+
+    self->_process_time = end - start;
     //logger::log_debug("available to read: %lu", self->_audio_ring_buffer.available_for_read());
 
-    float* out_samples = (float*) output_buffer;
+    /*float* out_samples = (float*) output_buffer;
     if (!self->_audio_ring_buffer.read(out_samples, frame_count * self->_output_channels))
     {
         // #ifdef DEBUG
         // logger::log_debug("AudioEngine::_pa_stream_callback: not enough audio data to fill buffer");
         // #endif
         memset(out_samples, 0, frame_count * self->_output_channels * sizeof(float));
-    }
+    }*/
 
     return 0;
 }
@@ -197,7 +196,7 @@ static std::string get_host_id(const std::string &mod_class)
 ModuleID AudioEngine::create_module(const std::string &mod_class)
 {
     ModuleID this_id = _next_module_id;
-    std::shared_ptr<ModuleInstance> instance = std::make_shared<ModuleInstance>();
+    std::shared_ptr<ModuleData::ModuleInstance> instance = std::make_shared<ModuleData::ModuleInstance>();
     instance->class_name = mod_class;
 
     instance->is_stereo_mixer = false;
@@ -213,40 +212,40 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
 
         for (unsigned int i = 0; i < 1; i++)
         {
-            instance->input_audio_ports[i] = ModuleAudioPort(
+            instance->input_audio_ports[i] = ModuleData::ModuleAudioPort(
                 (uint8_t) _output_channels,
                 0,
                 0
             );
         }
 
-        instance->userdata = this;
-        instance->processor = _s_process_audio_out_node;
+        instance->userdata = renderer.get();
+        instance->processor = AudioRenderer::process_audio_out_node;
     }
     else if (mod_class == MODULE_CLASS_STEREO_MIXER)
     {
         instance->name = "Stereo Mixer";
         instance->output_audio_ports.resize(1);
-        instance->output_audio_ports[0] = ModuleAudioPort(
+        instance->output_audio_ports[0] = ModuleData::ModuleAudioPort(
             2,
             0,
             0
         );
 
         instance->is_stereo_mixer = true;
-        instance->processor = _s_process_stereo_mixer_node;
+        instance->processor = AudioRenderer::process_stereo_mixer_node;
     }
     else if (mod_class == MODULE_CLASS_MESSAGE_DUPLICATOR)
     {
         instance->name = "Message Duplicator";
         instance->input_message_ports.resize(1);
-        instance->input_message_ports[0] = ModuleMessagePort(
+        instance->input_message_ports[0] = ModuleData::ModuleMessagePort(
             0,
             0
         );
 
         instance->is_message_duplicator = true;
-        instance->processor = _s_process_message_duplicator_node;
+        instance->processor = AudioRenderer::process_message_duplicator_node;
     }
     else
     {
@@ -343,7 +342,7 @@ void AudioEngine::destroy_module(ModuleID mod_id)
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return;
 
-    std::shared_ptr<ModuleInstance>& mod = it->second;
+    std::shared_ptr<ModuleData::ModuleInstance>& mod = it->second;
 
     for (std::size_t i = 0; i < mod->input_audio_ports.size(); i++)
     {
@@ -404,7 +403,7 @@ const std::string& AudioEngine::module_class_name(ModuleID mod_id) const
     if (it == _modules.end())
         return EMPTY_STRING;
     
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     return mod.class_name;
 }
 
@@ -414,7 +413,7 @@ const std::string& AudioEngine::module_name(ModuleID mod_id) const
     if (it == _modules.end())
         return EMPTY_STRING;
     
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     return mod.name;
 }
 
@@ -435,7 +434,7 @@ unsigned int AudioEngine::audio_input_count(ModuleID mod_id) const
     if (it == _modules.end())
         return 0;
     
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     return mod.input_audio_ports.size();
 }
 
@@ -445,7 +444,7 @@ unsigned int AudioEngine::audio_output_count(ModuleID mod_id) const
     if (it == _modules.end())
         return 0;
     
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     return mod.output_audio_ports.size();
 }
 
@@ -455,7 +454,7 @@ std::uint8_t AudioEngine::audio_input_channel_count(ModuleID mod_id, unsigned in
     if (it == _modules.end())
         return 0;
 
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
 
     // from outsider's perspectives, the stereo mixer module only has one input port. 
     if (mod.is_stereo_mixer && index > 0) return 0;
@@ -472,7 +471,7 @@ std::uint8_t AudioEngine::audio_output_channel_count(ModuleID mod_id, unsigned i
     if (it == _modules.end())
         return 0;
 
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     if (index >= mod.output_audio_ports.size())
         return 0;
 
@@ -489,7 +488,7 @@ void AudioEngine::get_audio_input_connection(ModuleID mod_a, unsigned int in_ind
         return;
     }
 
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     
     // stereo mixers may have more than one connected into its input port...
     if (mod.is_stereo_mixer)
@@ -520,7 +519,7 @@ void AudioEngine::get_audio_output_connection(ModuleID mod_a, unsigned int out_i
         return;
     }
 
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     if (out_index >= mod.output_audio_ports.size())
     {
         mod_b = 0;
@@ -548,8 +547,8 @@ bool AudioEngine::connect_audio(ModuleID mod_a_id, ModuleID mod_b_id, unsigned i
     const auto &it_b = _modules.find(mod_b_id);
     if (it_b == _modules.end()) return false;
 
-    ModuleInstance &mod_a = *it_a->second;
-    ModuleInstance &mod_b = *it_b->second;
+    ModuleData::ModuleInstance &mod_a = *it_a->second;
+    ModuleData::ModuleInstance &mod_b = *it_b->second;
 
     if (out_index >= mod_a.output_audio_ports.size()) return false;
 
@@ -562,7 +561,7 @@ bool AudioEngine::connect_audio(ModuleID mod_a_id, ModuleID mod_b_id, unsigned i
         mod_a.output_audio_ports[out_index].connection_port = 0;
         mod_a.output_audio_ports[out_index].modulator = false;
 
-        mod_b.input_audio_ports.push_back(ModuleAudioPort(
+        mod_b.input_audio_ports.push_back(ModuleData::ModuleAudioPort(
             2,
             mod_a_id,
             out_index
@@ -593,13 +592,13 @@ bool AudioEngine::disconnect_audio_output(ModuleID mod_id, unsigned int out_inde
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
 
-    ModuleInstance &mod = *it->second;
+    ModuleData::ModuleInstance &mod = *it->second;
     if (out_index >= mod.output_audio_ports.size()) return false;
 
     if (mod.output_audio_ports[out_index].connected_module != 0)
     {
         _is_graph_dirty = true;
-        ModuleInstance &connected = *_modules.at(mod.output_audio_ports[out_index].connected_module);
+        ModuleData::ModuleInstance &connected = *_modules.at(mod.output_audio_ports[out_index].connected_module);
 
         if (mod.output_audio_ports[out_index].modulator) {
             if (connected.is_stereo_mixer)
@@ -638,7 +637,7 @@ bool AudioEngine::disconnect_audio_input(ModuleID mod_id, unsigned int in_index)
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
 
-    ModuleInstance &mod = *it->second;
+    ModuleData::ModuleInstance &mod = *it->second;
 
     if (mod.is_stereo_mixer)
     {
@@ -647,7 +646,7 @@ bool AudioEngine::disconnect_audio_input(ModuleID mod_id, unsigned int in_index)
         for (auto &cn : mod.input_audio_ports)
         {
             _is_graph_dirty = true;
-            ModuleInstance &connected = *_modules.at(cn.connected_module);
+            ModuleData::ModuleInstance &connected = *_modules.at(cn.connected_module);
             connected.output_audio_ports[cn.connection_port].connected_module = 0;
             connected.output_audio_ports[cn.connection_port].connection_port = 0;
         }
@@ -661,7 +660,7 @@ bool AudioEngine::disconnect_audio_input(ModuleID mod_id, unsigned int in_index)
         if (mod.input_audio_ports[in_index].connected_module != 0)
         {
             _is_graph_dirty = true;
-            ModuleInstance &connected = *_modules.at(mod.input_audio_ports[in_index].connected_module);
+            ModuleData::ModuleInstance &connected = *_modules.at(mod.input_audio_ports[in_index].connected_module);
             unsigned int out_index = mod.input_audio_ports[in_index].connection_port;
             connected.output_audio_ports[out_index].connected_module = 0;
             connected.output_audio_ports[out_index].connection_port = 0;
@@ -692,7 +691,7 @@ unsigned int AudioEngine::message_input_count(ModuleID mod_id) const
     if (it == _modules.end())
         return 0;
     
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     return mod.input_message_ports.size();
 }
 
@@ -702,7 +701,7 @@ unsigned int AudioEngine::message_output_count(ModuleID mod_id) const
     if (it == _modules.end())
         return 0;
 
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     return mod.output_message_ports.size();
 }
 
@@ -716,7 +715,7 @@ void AudioEngine::get_message_input_connection(ModuleID mod_a, unsigned int in_i
         return;
     }
 
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     if (in_index >= mod.input_message_ports.size())
     {
         mod_b = 0;
@@ -738,7 +737,7 @@ void AudioEngine::get_message_output_connection(ModuleID mod_a, unsigned int out
         return;
     }
 
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     if (out_index >= mod.output_message_ports.size())
     {
         mod_b = 0;
@@ -766,8 +765,8 @@ bool AudioEngine::connect_message(ModuleID mod_a_id, ModuleID mod_b_id, unsigned
     const auto &it_b = _modules.find(mod_b_id);
     if (it_b == _modules.end()) return false;
 
-    ModuleInstance &mod_a = *it_a->second;
-    ModuleInstance &mod_b = *it_b->second;
+    ModuleData::ModuleInstance &mod_a = *it_a->second;
+    ModuleData::ModuleInstance &mod_b = *it_b->second;
 
     if (in_index >= mod_b.input_message_ports.size()) return false;
 
@@ -776,7 +775,7 @@ bool AudioEngine::connect_message(ModuleID mod_a_id, ModuleID mod_b_id, unsigned
 
         disconnect_message_input(mod_b_id, in_index);
 
-        mod_a.output_message_ports.push_back(ModuleMessagePort(
+        mod_a.output_message_ports.push_back(ModuleData::ModuleMessagePort(
             mod_b_id,
             in_index
         ));
@@ -805,7 +804,7 @@ bool AudioEngine::disconnect_message_output(ModuleID mod_id, unsigned int out_in
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
 
-    ModuleInstance &mod = *it->second;
+    ModuleData::ModuleInstance &mod = *it->second;
 
     if (mod.is_message_duplicator) {
         if (out_index > 0) return false;
@@ -814,7 +813,7 @@ bool AudioEngine::disconnect_message_output(ModuleID mod_id, unsigned int out_in
             if (port.connected_module == 0) continue;
             _is_graph_dirty = true;
 
-            ModuleInstance &connected = *_modules.at(port.connected_module);
+            ModuleData::ModuleInstance &connected = *_modules.at(port.connected_module);
             connected.input_message_ports[port.connection_port].connected_module = 0;
             connected.input_message_ports[port.connection_port].connection_port = 0;
         }
@@ -826,7 +825,7 @@ bool AudioEngine::disconnect_message_output(ModuleID mod_id, unsigned int out_in
         if (mod.output_message_ports[out_index].connected_module != 0)
         {
             _is_graph_dirty = true;
-            ModuleInstance &connected = *_modules.at(mod.output_message_ports[out_index].connected_module);
+            ModuleData::ModuleInstance &connected = *_modules.at(mod.output_message_ports[out_index].connected_module);
             unsigned int in_index = mod.output_message_ports[out_index].connection_port;
             connected.input_message_ports[in_index].connected_module = 0;
             connected.input_message_ports[in_index].connection_port = 0;
@@ -844,12 +843,12 @@ bool AudioEngine::disconnect_message_input(ModuleID mod_id, unsigned int in_inde
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
 
-    ModuleInstance &mod = *it->second;
+    ModuleData::ModuleInstance &mod = *it->second;
     if (in_index >= mod.input_message_ports.size()) return false;
 
     if (mod.input_message_ports[in_index].connected_module != 0)
     {
-        ModuleInstance &connected = *_modules.at(mod.input_message_ports[in_index].connected_module);
+        ModuleData::ModuleInstance &connected = *_modules.at(mod.input_message_ports[in_index].connected_module);
 
         if (connected.is_message_duplicator) {
             for (auto it = connected.output_message_ports.begin(); it != connected.output_message_ports.end(); it++) {
@@ -899,7 +898,7 @@ unsigned int AudioEngine::control_count(ModuleID mod_id) const
 {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
 
     return mod.controls.size();
 }
@@ -908,7 +907,7 @@ ModuleControlDataType AudioEngine::control_data_type(ModuleID mod_id, unsigned i
 {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return ModuleControlDataType::UNKNOWN;
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
 
     if (index >= mod.controls.size()) return ModuleControlDataType::UNKNOWN;
     return mod.controls[index].data_type;
@@ -918,7 +917,7 @@ const std::string AudioEngine::control_name(ModuleID mod_id, unsigned int index)
 {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return "";
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
     if (index >= mod.controls.size()) return "";
 
     return mod.controls[index].name;
@@ -927,7 +926,7 @@ const std::string AudioEngine::control_name(ModuleID mod_id, unsigned int index)
 bool AudioEngine::control_get_index(ModuleID mod_id, const std::string &name, unsigned int &index) const {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
-    const ModuleInstance &mod = *it->second;
+    const ModuleData::ModuleInstance &mod = *it->second;
 
     index = 0;
     for (auto it = mod.controls.begin(); it != mod.controls.end(); it++) {
@@ -956,10 +955,10 @@ bool AudioEngine::control_get_index(ModuleID mod_id, const std::string &name, un
 bool AudioEngine::create_modulator(ModuleID mod_id, unsigned int &out_mod_index) {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
-    std::shared_ptr<ModuleInstance>& mod = it->second;
+    std::shared_ptr<ModuleData::ModuleInstance>& mod = it->second;
 
-    Modulator modu {};
-    modu.control = ModuleAudioPort { 1, 0, 0 };
+    ModuleData::Modulator modu {};
+    modu.control = ModuleData::ModuleAudioPort { 1, 0, 0 };
     mod->modulators.push_back(modu);
 
     out_mod_index = mod->modulators.size() - 1;
@@ -969,7 +968,7 @@ bool AudioEngine::create_modulator(ModuleID mod_id, unsigned int &out_mod_index)
 void AudioEngine::destroy_modulator(ModuleID mod_id, unsigned int mod_index) {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return;
-    std::shared_ptr<ModuleInstance>& mod = it->second;
+    std::shared_ptr<ModuleData::ModuleInstance>& mod = it->second;
 
     if (mod_index >= mod->modulators.size()) return;
     mod->modulators.erase(mod->modulators.begin() + mod_index);
@@ -978,7 +977,7 @@ void AudioEngine::destroy_modulator(ModuleID mod_id, unsigned int mod_index) {
 unsigned int AudioEngine::modulator_count(ModuleID mod_id) const {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return 0;
-    const std::shared_ptr<ModuleInstance>& mod = it->second;
+    const std::shared_ptr<ModuleData::ModuleInstance>& mod = it->second;
 
     return mod->modulators.size();
 }
@@ -990,8 +989,8 @@ bool AudioEngine::connect_modulator(ModuleID mod_a_id, ModuleID mod_b_id, unsign
     const auto &it_b = _modules.find(mod_b_id);
     if (it_b == _modules.end()) return false;
 
-    ModuleInstance &mod_a = *it_a->second;
-    ModuleInstance &mod_b = *it_b->second;
+    ModuleData::ModuleInstance &mod_a = *it_a->second;
+    ModuleData::ModuleInstance &mod_b = *it_b->second;
 
     if (out_index >= mod_a.output_audio_ports.size()) return false;
 
@@ -1016,14 +1015,14 @@ bool AudioEngine::connect_modulator(ModuleID mod_a_id, ModuleID mod_b_id, unsign
 bool AudioEngine::disconnect_modulator_input(ModuleID mod_id, unsigned int mod_index) {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
-    ModuleInstance &mod = *it->second;
+    ModuleData::ModuleInstance &mod = *it->second;
     
     if (mod_index >= mod.modulators.size()) return false;
 
     if (mod.modulators[mod_index].control.connected_module != 0)
     {
         _is_graph_dirty = true;
-        ModuleInstance &connected = *_modules.at(mod.modulators[mod_index].control.connected_module);
+        ModuleData::ModuleInstance &connected = *_modules.at(mod.modulators[mod_index].control.connected_module);
         unsigned int out_index = mod.modulators[mod_index].control.connection_port;
         connected.output_audio_ports[out_index].connected_module = 0;
         connected.output_audio_ports[out_index].connection_port = 0;
@@ -1036,8 +1035,8 @@ bool AudioEngine::disconnect_modulator_input(ModuleID mod_id, unsigned int mod_i
     return true;
 }
 
-AudioEngine::ModulatorControl* AudioEngine::modulator_find_control(AudioEngine::Modulator &modu, unsigned int ctl) {
-    ModulatorControl *ctl_mod = nullptr;
+ModuleData::ModulatorControl* AudioEngine::modulator_find_control(ModuleData::Modulator &modu, unsigned int ctl) {
+    ModuleData::ModulatorControl *ctl_mod = nullptr;
     for (auto &target : modu.targets) {
         if (target.control_index == ctl) {
             return &target;
@@ -1045,7 +1044,7 @@ AudioEngine::ModulatorControl* AudioEngine::modulator_find_control(AudioEngine::
     }
 
     // if it doesn't exist, create a new target control
-    modu.targets.push_back(ModulatorControl {});
+    modu.targets.push_back(ModuleData::ModulatorControl {});
     ctl_mod = &modu.targets.back();
     ctl_mod->control_index = ctl;
 
@@ -1055,7 +1054,7 @@ AudioEngine::ModulatorControl* AudioEngine::modulator_find_control(AudioEngine::
 bool AudioEngine::modulator_untarget(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl) {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
-    ModuleInstance &mod = *it->second;
+    ModuleData::ModuleInstance &mod = *it->second;
 
     if (modu_idx >= mod.modulators.size()) return false; // modu existence check
     auto &modu = mod.modulators[modu_idx];
@@ -1087,8 +1086,6 @@ bool AudioEngine::modulator_untarget(ModuleID mod_id, unsigned int modu_idx, uns
 ////////////////
 // PROCESSING //
 ////////////////
-#pragma region PROCESSING
-
 void AudioEngine::update()
 {
     // call module idle processes
@@ -1098,328 +1095,43 @@ void AudioEngine::update()
         inst->idle(*this, id, inst->userdata);
     }
     
-    if (!_is_graph_dirty) return;
-
-    std::function<void(ModuleID, int)> calc_depths;
-
-    struct ModuleInfo {
-        ModuleID id;
-        int depth;
-        std::vector<ModuleID> dependencies;
-        std::vector<ModuleID> dependents;
-
-        std::vector<GraphConnection> audio_inputs;
-        std::vector<GraphConnection> audio_outputs;
-        std::vector<GraphConnection> message_inputs;
-        std::vector<GraphConnection> message_outputs;
-
-    };
-
-    std::unordered_map<ModuleID, ModuleInfo> module_info;
-
-    // build the entire audio graph starting from the inputs for the AUDIO_OUT module
-    // thus, modules that do not contribute to the AUDIO_OUT module do not get processed
-    // TODO: should i make stray modules be updated anyway?
-    std::function<void(ModuleID, int)> build_graph;
-    build_graph = [&](ModuleID id, int depth) {
-        std::vector<ModuleID> dependencies;
-        std::vector<ModuleID> dependents;
-        std::vector<GraphConnection> audio_outputs;
-        std::vector<GraphConnection> message_outputs;
-        std::vector<GraphConnection> audio_inputs;
-        std::vector<GraphConnection> message_inputs;
-
-        std::shared_ptr<ModuleInstance>& inst = _modules.at(id);
-
-        // parse dependencies
-        unsigned int input_port = 0;
-        for (auto it = inst->input_audio_ports.begin(); it != inst->input_audio_ports.end(); it++) {
-            if (module_exists(it->connected_module)) {
-                // find dependency index of module, adding it to the list
-                // if it doesn't already exist
-                std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
-                if (dep_it == dependencies.end()) {
-                    dependencies.push_back(it->connected_module);
-                    dep_it = dependencies.end() - 1;
-                }
-
-                audio_inputs.push_back(GraphConnection {
-                    static_cast<int>(dep_it - dependencies.begin()),
-                    it->connection_port,
-                    input_port
-                });
-            } else {
-                audio_inputs.push_back(GraphConnection {
-                    -1, 0, 0
-                });
-            }
-
-            input_port++;
-        }
-
-        input_port = 0;
-        for (auto it = inst->input_message_ports.begin(); it != inst->input_message_ports.end(); it++) {
-            if (module_exists(it->connected_module)) {
-                // find dependency index of module, adding it to the list
-                // if it doesn't already exist
-                std::vector<ModuleID>::iterator dep_it = std::find(dependencies.begin(), dependencies.end(), it->connected_module);                
-                if (dep_it == dependencies.end()) {
-                    dependencies.push_back(it->connected_module);
-                    dep_it = dependencies.end() - 1;
-                }
-
-                audio_inputs.push_back(GraphConnection {
-                    static_cast<int>(dep_it - dependencies.begin()),
-                    it->connection_port,
-                    input_port
-                });
-            } else {
-                audio_inputs.push_back(GraphConnection {
-                    -1, 0, 0
-                });
-            }
-
-            input_port++;
-        }
-
-        // parse dependents
-        unsigned int output_port = 0;
-        for (auto it = inst->output_audio_ports.begin(); it != inst->output_audio_ports.end(); it++) {
-            if (module_exists(it->connected_module)) {
-                // find dependency index of module, adding it to the list
-                // if it doesn't already exist
-                std::vector<ModuleID>::iterator dep_it = std::find(dependents.begin(), dependents.end(), it->connected_module);                
-                if (dep_it == dependents.end()) {
-                    dependents.push_back(it->connected_module);
-                    dep_it = dependents.end() - 1;
-                }
-
-                audio_outputs.push_back(GraphConnection {
-                    static_cast<int>(dep_it - dependents.begin()),
-                    output_port,
-                    it->connection_port
-                });
-            } else {
-                audio_outputs.push_back(GraphConnection {
-                    -1, 0, 0
-                });
-            }
-
-            output_port++;
-        }
-
-        output_port = 0;
-        for (auto it = inst->output_message_ports.begin(); it != inst->output_message_ports.end(); it++) {
-            if (module_exists(it->connected_module)) {
-                // find dependency index of module, adding it to the list
-                // if it doesn't already exist
-                std::vector<ModuleID>::iterator dep_it = std::find(dependents.begin(), dependents.end(), it->connected_module);                
-                if (dep_it == dependents.end()) {
-                    dependents.push_back(it->connected_module);
-                    dep_it = dependents.end() - 1;
-                }
-
-                message_outputs.push_back(GraphConnection {
-                    static_cast<int>(dep_it - dependents.begin()),
-                    output_port,
-                    it->connection_port
-                });
-            } else {
-                message_outputs.push_back(GraphConnection {
-                    -1, 0, 0
-                });
-            }
-
-            output_port++;
-        }
-
-        // create module info structure
-        module_info[id] = ModuleInfo {
-            id,
-            depth,
-            std::move(dependencies),
-            std::move(dependents),
-            std::move(audio_inputs),
-            std::move(audio_outputs),
-            std::move(message_inputs),
-            std::move(message_outputs),
-        };
-        const ModuleInfo &info = module_info[id];
-
-        // recurse, also taking into account module depths to make sure
-        // modules are updated in the correct order
-        for (auto &dep_id : info.dependencies) {
-            auto it = module_info.find(dep_id);
-            if (it == module_info.end() || it->second.depth < info.depth) {
-                build_graph(dep_id, depth + 1);
-            }
-        }
-    };
-    
-    std::unique_ptr<ModuleGraph> new_graph = nullptr;
-
-    // find the AUDIO_OUT class to call build_graph
-    for (auto &[ id, inst ] : _modules)
-    {
-        if (inst->class_name == MODULE_CLASS_AUDIO_OUT)
-        {
-            build_graph(id, 0);
-
-            new_graph = std::make_unique<ModuleGraph>();
-            auto &proc_order = new_graph->process_order;
-
-            // determine process order from depth values
-            for (auto const &[ id, info ] : module_info) {
-                proc_order.push_back(id);
-            }
-
-            std::sort(proc_order.begin(), proc_order.end(), [&module_info](const ModuleID &a, const ModuleID &b) {
-                return module_info[b].depth < module_info[a].depth;
-            });
-
-            // create ModuleGraphNodes
-            for (auto &[ id, info ] : module_info) {
-                new_graph->nodes[id] = ModuleGraphNode {
-                    _modules.at(id),
-                    std::move(info.dependencies),
-                    std::move(info.dependents),
-                    std::move(info.audio_inputs),
-                    std::move(info.audio_outputs),
-                    std::move(info.message_inputs),
-                    std::move(info.message_outputs)
-                };
-            }
-
-            break;
-        }
+    // make new audio graph
+    if (_is_graph_dirty) {
+        AudioRenderer::InMessage msg;
+        msg.kind = AudioRenderer::MESSAGE_NEW_GRAPH;
+        msg.graph = renderer->build_graph();
+        renderer->send_message(msg);
+        _is_graph_dirty = false;
     }
 
-    _mutex.lock();
-    _current_graph = std::move(new_graph);
-    _mutex.unlock();
+    // read out messages
+    AudioRenderer::OutMessage out_msg;
+    bool graph_did_update = false;
 
-    // flush destroy queue
-    for (auto &item : _destroy_queue)
-    {
-        std::string host_id = get_host_id(item.module->class_name);
-        const auto &host_it = _hosts.find(host_id);
-        if (host_it == _hosts.end())
-        {
-            logger::log_warning("module %s could not be destroyed: could not find host", item.module->class_name.c_str());
-            continue;
-        }
-
-        std::unique_ptr<ModuleHost> &host = host_it->second;
-        host->destroy_module(item.module->class_name, item.id, item.module->userdata);
-    }
-    _destroy_queue.clear();
-
-    _is_graph_dirty = false;
-}
-
-void AudioEngine::_process_node(ModuleID id)
-{
-    auto &node = _current_graph->nodes[id];
-
-    // call processor
-    ModuleProcessor processor(_frames_per_buffer, _frame_time, _sample_rate, _current_graph.get(), id);
-    assert(node.module->processor != nullptr);
-    node.module->processor(processor);
-}
-
-void AudioEngine::_s_process_audio_out_node(ModuleProcessor& process)
-{
-    AudioEngine* self = (AudioEngine*) process.userdata;
-    self->_process_audio_out_node(process);
-}
-
-void AudioEngine::_process_audio_out_node(ModuleProcessor& process)
-{
-    float* input_buffer = process.audio_input(0);
-    assert(process.audio_input_channels(0) == _output_channels);
-    assert(_audio_buffer.size() % _output_channels == 0);
-    assert(_audio_buffer.size() == process.buffer_frame_count * process.audio_input_channels(0));
-
-    // copy input of the AUDIO_OUT module to the output audio ring buffer
-    memcpy(_audio_buffer.data(), input_buffer, process.buffer_frame_count * _output_channels * sizeof(float));
-    _audio_ring_buffer.write(_audio_buffer.data(), _audio_buffer.size());
-}
-
-void AudioEngine::_s_process_stereo_mixer_node(ModuleProcessor &proc)
-{
-    assert(proc.audio_output_channels(0) == 2);
-    float *out = proc.audio_output(0);
-    memset(out, 0, proc.buffer_frame_count * 2 * sizeof(float));
-
-    unsigned int input_index = 0;
-    while (true)
-    {
-        float *in = proc.audio_input(input_index++);
-        if (in == nullptr) break;
-
-        for (unsigned int i = 0; i < proc.buffer_frame_count * 2; i++)
-        {
-            out[i] += *in++;
-        }
-    }
-}
-
-void AudioEngine::_s_process_message_duplicator_node(ModuleProcessor &proc)
-{
-    static std::byte buf[MESSAGE_PORT_CAPACITY];
-
-    while (true) {
-        unsigned int msg_size = proc.read_message(0, (void*) buf, MESSAGE_PORT_CAPACITY);
-        if (msg_size == 0) break;
-
-        for (unsigned int i = 0; i < proc.node.message_outputs.size(); i++) {
-            proc.send_message(i, (void*) buf, msg_size);
-        }
-    }
-}
-
-void AudioEngine::_thread_process()
-{
-    sys::SleepHandle sleep_handle;
-
-    while (_is_engine_runnning)
-    {
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
-        //logger::log_debug("available to write: %lu", _audio_ring_buffer.available_for_write());
-
-        uint64_t ft = _frame_time;
-        while (_audio_ring_buffer.available_for_write() >= _frames_per_buffer * _output_channels)
-        {
-            /*if (_audio_ring_buffer.available_for_write() < _frames_per_buffer * _output_channels)
-            {
+    while (renderer->get_message(out_msg)) {
+        switch (out_msg.kind) {
+            case AudioRenderer::MESSAGE_GRAPH_UPDATED:
+                graph_did_update = true;
                 break;
-            }*/
-            const std::lock_guard<std::mutex> _mutex_lock(_mutex);
-
-            // not null if there is an AUDIO_OUT module in the graph
-            if (_current_graph != nullptr)
-            {
-                for (auto &id : _current_graph->process_order) {
-                    _process_node(id);
-                }
-            }
-
-            // there are no AUDIO_OUT modules in the graph... just upload a dummy array (full of 0s)
-            else
-            {
-                std::memset(_audio_buffer.data(), 0, _audio_buffer.size() * sizeof(float));
-                _audio_ring_buffer.write(_audio_buffer.data(), _audio_buffer.size());
-            }
-
-            ft += _frames_per_buffer;
-            _frame_time = ft;
         }
+    }
 
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        _process_time = (float)std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000000.0f;
+    // flush destroy queue when graph is updated
+    if (graph_did_update) {
+        for (auto &item : _destroy_queue)
+        {
+            std::string host_id = get_host_id(item.module->class_name);
+            const auto &host_it = _hosts.find(host_id);
+            if (host_it == _hosts.end())
+            {
+                logger::log_warning("module %s could not be destroyed: could not find host", item.module->class_name.c_str());
+                continue;
+            }
 
-        sleep_handle.sleep(3);
+            std::unique_ptr<ModuleHost> &host = host_it->second;
+            host->destroy_module(item.module->class_name, item.id, item.module->userdata);
+        }
+        _destroy_queue.clear();
     }
 }
 

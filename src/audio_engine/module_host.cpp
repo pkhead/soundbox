@@ -1,4 +1,5 @@
 #include "audio_engine.hpp"
+#include "audio_renderer.hpp"
 #include "../log.hpp"
 #include <cassert>
 
@@ -8,13 +9,13 @@ using namespace modules;
 // MODULE CREATOR HANDLE //
 ///////////////////////////
 
-ModuleCreator::ModuleCreator(ModuleID id, AudioEngine& engine, std::string class_name, AudioEngine::ModuleInstance& instance) :
+ModuleCreator::ModuleCreator(ModuleID id, AudioEngine& engine, std::string class_name, ModuleData::ModuleInstance& instance) :
     instance(instance), engine(engine), id(id), class_name(class_name), name(instance.name)
 {}
 
 void ModuleCreator::add_audio_input(uint8_t channels)
 {
-    instance.input_audio_ports.push_back(AudioEngine::ModuleAudioPort(
+    instance.input_audio_ports.push_back(ModuleData::ModuleAudioPort(
         channels,
         0,
         0
@@ -23,7 +24,7 @@ void ModuleCreator::add_audio_input(uint8_t channels)
 
 void ModuleCreator::add_audio_output(uint8_t channels)
 {
-    instance.output_audio_ports.push_back(AudioEngine::ModuleAudioPort(
+    instance.output_audio_ports.push_back(ModuleData::ModuleAudioPort(
         channels,
         0,
         0
@@ -32,7 +33,7 @@ void ModuleCreator::add_audio_output(uint8_t channels)
 
 void ModuleCreator::add_message_input()
 {
-    instance.input_message_ports.push_back(AudioEngine::ModuleMessagePort
+    instance.input_message_ports.push_back(ModuleData::ModuleMessagePort
     {
         0,
         0
@@ -41,61 +42,11 @@ void ModuleCreator::add_message_input()
 
 void ModuleCreator::add_message_output()
 {
-    instance.output_message_ports.push_back(AudioEngine::ModuleMessagePort
+    instance.output_message_ports.push_back(ModuleData::ModuleMessagePort
     {
         0,
         0
     });
-}
-
-template <>
-AudioEngine::ModuleControl ModuleCreator::_create_module_control<float>(const std::string &name, float default_value)
-{
-    AudioEngine::ModuleControl ctl;
-    ctl.name = name;
-    ctl.data_type = ModuleControlDataType::FLOAT;
-    ctl.float_value = default_value;
-    return ctl;
-}
-
-template <>
-AudioEngine::ModuleControl ModuleCreator::_create_module_control<double>(const std::string &name, double default_value)
-{
-    AudioEngine::ModuleControl ctl;
-    ctl.name = name;
-    ctl.data_type = ModuleControlDataType::DOUBLE;
-    ctl.double_value = default_value;
-    return ctl;
-}
-
-template <>
-AudioEngine::ModuleControl ModuleCreator::_create_module_control<std::int32_t>(const std::string &name, std::int32_t default_value)
-{
-    AudioEngine::ModuleControl ctl;
-    ctl.name = name;
-    ctl.data_type = ModuleControlDataType::INT32;
-    ctl.int32_value = default_value;
-    return ctl;
-}
-
-template <>
-AudioEngine::ModuleControl ModuleCreator::_create_module_control<std::int64_t>(const std::string &name, std::int64_t default_value)
-{
-    AudioEngine::ModuleControl ctl;
-    ctl.name = name;
-    ctl.data_type = ModuleControlDataType::INT64;
-    ctl.int64_value = default_value;
-    return ctl;
-}
-
-template <>
-AudioEngine::ModuleControl ModuleCreator::_create_module_control<bool>(const std::string &name, bool default_value)
-{
-    AudioEngine::ModuleControl ctl;
-    ctl.name = name;
-    ctl.data_type = ModuleControlDataType::BOOL;
-    ctl.bool_value = default_value;
-    return ctl;
 }
 
 
@@ -111,7 +62,7 @@ AudioEngine::ModuleControl ModuleCreator::_create_module_control<bool>(const std
 
 ModuleProcessor::ModuleProcessor(
     size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate,
-    AudioEngine::ModuleGraph *graph, ModuleID id
+    AudioRenderer::ModuleGraph *graph, ModuleID id
 ) :
     graph(graph),
     node(graph->nodes[id]),
@@ -159,7 +110,7 @@ std::uint8_t ModuleProcessor::audio_output_channels(unsigned int index) const
 
 unsigned int ModuleProcessor::read_message(unsigned int index, void *buffer, unsigned int max_length)
 {
-    AudioEngine::ModuleInstance &mod = *node.module;
+    auto &mod = *node.module;
 
     assert(index < mod.input_message_ports.size());
     if (index >= mod.input_message_ports.size()) return 0;
@@ -183,7 +134,7 @@ unsigned int ModuleProcessor::read_message(unsigned int index, void *buffer, uns
 
 bool ModuleProcessor::send_message(unsigned int index, void *data, unsigned int data_size)
 {
-    AudioEngine::ModuleInstance &mod = *node.module;
+    auto &mod = *node.module;
     assert(index < node.message_outputs.size());
     if (index >= node.message_outputs.size()) return false;
 

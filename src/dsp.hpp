@@ -199,7 +199,8 @@ namespace dsp
         VUMeter(unsigned int sample_rate, float db_max);
         ~VUMeter();
 
-        void update(float value);
+        void write(float value);
+        void update(unsigned int dt_frames);
 
         /**
         * Returns current level, mapping [0, db_max] to [0, 1]

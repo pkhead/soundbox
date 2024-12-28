@@ -155,6 +155,32 @@ void SongEditor::render_song_settings()
         // project notes
         ImGui::Text("Project Notes");
         ImGui::InputTextMultiline("###project_notes", &song.project_notes, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 16.0f));
+
+        // analytics
+        {
+            static double peak_proctime = 0.0;
+            static double peak_cpu = 0.0;
+            static double display_proctime = 0.0;
+            static double display_cpu = 0.0;
+            static double next_display = 0.0;
+
+            if (ImGui::GetTime() > next_display) {
+                next_display = ImGui::GetTime() + 0.5;
+                display_cpu = peak_cpu;
+                display_proctime = peak_proctime;
+                peak_cpu = 0.0;
+                peak_proctime = 0.0;
+            }
+
+            double proctime = song.audio_engine().process_time();
+            double cpu = song.audio_engine().cpu_load();
+
+            if (proctime > peak_proctime) peak_proctime = proctime;
+            if (cpu > peak_cpu) cpu = peak_cpu;
+
+            ImGui::TextDisabled("%.3f ms", (1000.0 * display_proctime));
+            ImGui::TextDisabled("cpu: %.3f%%", (100.0 * display_cpu));
+        }
     } ImGui::End();
 }
 

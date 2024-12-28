@@ -4,60 +4,20 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <mutex>
 #include <type_traits>
 #include <vector>
 #include <unordered_map>
 #include <thread>
 #include <portaudio.h>
-
-#include "ring_buffer.hpp"
+#include "audio_renderer.hpp"
 
 namespace modules
 {
-    typedef unsigned int ModuleID;
-
-    enum class ModuleControlDataType : uint8_t {FLOAT, DOUBLE, INT32, INT64, BOOL, UNKNOWN = UINT8_MAX };
-    enum class ModulatorOperator : uint8_t { MULT, ADD, SET, BOOLEAN };
-
-    template <typename T>
-    inline static constexpr ModuleControlDataType ctl_data_type() noexcept;
-
-    template <>
-    inline constexpr ModuleControlDataType ctl_data_type<float>() noexcept
-        { return ModuleControlDataType::FLOAT; }
-    template <>
-    inline constexpr ModuleControlDataType ctl_data_type<double>() noexcept
-        { return ModuleControlDataType::DOUBLE; }
-    template <>
-    inline constexpr ModuleControlDataType ctl_data_type<int32_t>() noexcept
-        { return ModuleControlDataType::INT32; }
-    template <>
-    inline constexpr ModuleControlDataType ctl_data_type<int64_t>() noexcept
-        { return ModuleControlDataType::INT64; }
-    template <>
-    inline constexpr ModuleControlDataType ctl_data_type<bool>() noexcept
-        { return ModuleControlDataType::BOOL; }
-
     // TODO: the amount of forward declarations i make is quite stupid.
     class ModuleHost;
     class ModuleCreator;
     class ModuleProcessor;
-
-    /**
-    * Holds information about a module class.
-    **/
-    struct ModuleInfo
-    {
-        std::string class_name;
-        std::string name;
-        std::string author;
-
-        int audio_input = 0;
-        int audio_output = 0;
-        int midi_input = -1;
-        int midi_output = -1;
-    }; // struct ModuleInfo
+    class AudioRenderer;
 
     #define CHECK_CONTROL_TYPE(T) static_assert( \
         std::is_same<T, float>() || std::is_same<T, double>() || std::is_same<T, std::int32_t>() || std::is_same<T, std::int64_t>() || std::is_same<T, bool>(), \
@@ -72,204 +32,25 @@ namespace modules
     class AudioEngine
     {
     private:
-        struct ModuleAudioPort
-        {
-            uint8_t channel_count;
-            ModuleID connected_module;
-            unsigned int connection_port;
-            bool modulator;
-
-            inline ModuleAudioPort() : channel_count(0), connected_module(0), connection_port(0)
-            {}
-
-            inline ModuleAudioPort(uint8_t channel_count, ModuleID connected_module, unsigned int connection_port) :
-                channel_count(channel_count),
-                connected_module(connected_module),
-                connection_port(connection_port),
-                modulator(false)
-            {}
-        };
-
-        struct ModuleMessagePort
-        {
-            ModuleID connected_module;
-            unsigned int connection_port;
-
-            inline ModuleMessagePort() : connected_module(0), connection_port(0)
-            {}
-            
-            inline ModuleMessagePort(ModuleID connected_module, unsigned int connection_port) :
-                connected_module(connected_module),
-                connection_port(connection_port)
-            {}
-        };
-
-        union Variant {
-            float f;
-            double d;
-            int32_t i32;
-            int64_t i64;
-            bool b;
-
-            template <typename T>
-            inline constexpr T get() const noexcept;
-            template <>
-            inline constexpr float get<float>() const noexcept { return f; }
-            template <>
-            inline constexpr double get<double>() const noexcept { return d; }
-            template <>
-            inline constexpr int32_t get<int32_t>() const noexcept { return i32; }
-            template <>
-            inline constexpr int64_t get<int64_t>() const noexcept { return i64; }
-            template <>
-            inline constexpr bool get<bool>() const noexcept { return b; }
-
-            template <typename T>
-            inline constexpr void set(T v) noexcept;
-            template <>
-            inline constexpr void set<float>(float v) noexcept { f = v; }
-            template <>
-            inline constexpr void set<double>(double v) noexcept { d = v; }
-            template <>
-            inline constexpr void set<int32_t>(int32_t v) noexcept { i32 = v; }
-            template <>
-            inline constexpr void set<int64_t>(int64_t v) noexcept { i64 = v; }
-            template <>
-            inline constexpr void set<bool>(bool v) noexcept { b = v; }
-        };
+        static constexpr size_t MESSAGE_PORT_CAPACITY = 512;
 
         struct MessageHeader
         {
             unsigned int size;
         };
 
-        struct ModuleControl
-        {
-            std::string name;
-            ModuleControlDataType data_type = ModuleControlDataType::UNKNOWN;
-            Variant value;
-        };
-
-        struct ModulatorControl {
-            int control_index;
-            ModulatorOperator optype;
-
-            union {
-                Variant min;
-                Variant threshold;
-            };
-
-            Variant max;
-        };
-
-        struct Modulator
-        {
-            ModuleAudioPort control;
-            std::vector<ModulatorControl> targets;
-        };
-
-        struct ModuleInstance
-        {
-            std::string name;
-            std::string class_name;
-
-            // i think having to check the class name everytime is a bit inefficient,
-            // so i have this instead.
-            bool is_stereo_mixer;
-            bool is_message_duplicator;
-
-            std::vector<ModuleAudioPort> input_audio_ports;
-            std::vector<ModuleAudioPort> output_audio_ports;
-
-            std::vector<ModuleMessagePort> input_message_ports;
-            std::vector<ModuleMessagePort> output_message_ports;
-
-            std::vector<ModuleControl> controls;
-            std::vector<Modulator> modulators;
-
-            void* userdata;
-            void (*processor)(ModuleProcessor& processor);
-            void (*idle)(AudioEngine &engine, ModuleID id, void *userdata);
-
-            struct
-            {
-                float* input_dummy_buffer;
-                std::vector<float*> output_audio_buffers;
-                std::vector<RingBuffer<std::byte>> input_messages;
-                std::vector<RingBuffer<std::byte>> output_messages;
-            } audio_data;
-
-            ~ModuleInstance()
-            {
-                delete[] audio_data.input_dummy_buffer;
-
-                for (auto it = audio_data.output_audio_buffers.begin(); it != audio_data.output_audio_buffers.end(); it++)
-                    delete[] *it;
-            }
-        };
-
-        struct GraphConnection {
-            int index;
-            unsigned int from_port;
-            unsigned int to_port;
-        };
-
-        struct GraphModulationConnection {
-            int index;
-            unsigned int from_port;
-            unsigned int to_modidx;
-            ModulatorControl control;
-
-        };
-
-        struct ModuleGraphNode {
-            std::shared_ptr<ModuleInstance> module;
-            std::vector<ModuleID> dependencies;
-            std::vector<ModuleID> dependents;
-
-            std::vector<GraphConnection> audio_inputs;
-            std::vector<GraphConnection> audio_outputs;
-            std::vector<GraphConnection> message_inputs;
-            std::vector<GraphConnection> message_outputs;
-            std::vector<GraphModulationConnection> modulators;
-        };
-
-        struct ModuleGraph
-        {
-            std::unordered_map<ModuleID, ModuleGraphNode> nodes;
-            std::vector<ModuleID> process_order;
-        };
-
         struct DestroyQueueItem
         {
             ModuleID id;
-            std::shared_ptr<ModuleInstance> module;
-        };
-
-        struct ThreadMessage {
-            enum Kind {
-                MESSAGE_NEW_GRAPH,
-                MESSAGE_UPDATE_MODULATOR_TARGET
-            };
-
-            union {
-                ModuleGraph *graph;
-                union {
-                    ModuleID mod_id;
-                    unsigned int modulator;
-                    ModulatorControl params;
-                } modulator_target;
-            };
+            std::shared_ptr<ModuleData::ModuleInstance> module;
         };
 
         static ModuleID _next_module_id;
-        std::unordered_map<ModuleID, std::shared_ptr<ModuleInstance>> _modules;
+        std::unordered_map<ModuleID, std::shared_ptr<ModuleData::ModuleInstance>> _modules;
         std::vector<DestroyQueueItem> _destroy_queue;
-        RingBuffer<ThreadMessage> msg_queue;
 
-        std::thread _thread;
-        std::unique_ptr<ModuleGraph> _current_graph;
         std::atomic_bool _is_engine_runnning;
+        std::unique_ptr<AudioRenderer> renderer;
 
         std::unordered_map<std::string, std::unique_ptr<ModuleHost>> _hosts;
         std::vector<ModuleInfo> _available_module_classes;
@@ -277,8 +58,6 @@ namespace modules
         PaStream* _pa_stream;
         unsigned int _sample_rate;
         unsigned int _output_channels;
-        RingBuffer<float> _audio_ring_buffer;
-        std::vector<float> _audio_buffer;
         const size_t _frames_per_buffer;
         bool _is_graph_dirty;
         std::atomic_uint64_t _frame_time;
@@ -291,33 +70,11 @@ namespace modules
             PaStreamCallbackFlags status_flags,
             void* userdata
         );
-
-        //static int _rt_audio_callback(void *output_buffer, void *input_buffer, unsigned int n_buffer_frames, double stream_time, RtAudioStreamStatus status, void *userdata);
         
+        static ModuleData::ModulatorControl *modulator_find_control(ModuleData::Modulator &mod, unsigned int ctl);
+
         void _thread_process();
-        void _process_node(ModuleID id);
-
-        void _process_audio_out_node(ModuleProcessor& proc);
-        static void _s_process_audio_out_node(ModuleProcessor& proc);
-        static void _s_process_stereo_mixer_node(ModuleProcessor &proc);
-        static void _s_process_message_duplicator_node(ModuleProcessor &proc);
-
-        template <typename T>
-        static bool _control_get_ref(ModuleControl &control, T** v) {
-            if (control.data_type != ctl_data_type<T>()) return false;
-            *v = &control.value.get<T>();
-            return true;
-        }
-
-        template <typename T>
-        void _modulator_control(ModuleID mod_id, int modu, unsigned int ctl, T min, T max, ModulatorOperator op);
-
-        template<typename T>
-        void _modulator_bool_control(ModuleID mod_id, int modu, unsigned int ctl, T threshold);
-
-        static ModulatorControl *modulator_find_control(Modulator &mod, unsigned int ctl);
-
-        std::atomic<float> _process_time;
+        std::atomic<double> _process_time;
     public:
         AudioEngine();
         AudioEngine(const AudioEngine&&) = delete;
@@ -353,9 +110,9 @@ namespace modules
             return _frames_per_buffer;
         }
 
-        inline unsigned long frame_time() const { return _frame_time; }
-
-        inline float process_time() const { return _process_time; }
+        inline uint64_t frame_time() const { return renderer->frame_time; }
+        inline double process_time() const { return _process_time; }
+        inline double cpu_load() const { return Pa_GetStreamCpuLoad(_pa_stream); };
 
         /// Register a host.
         /// @returns True if host registration was successful, false if not.
@@ -428,11 +185,11 @@ namespace modules
 
             const auto &it = _modules.find(mod_id);
             if (it == _modules.end()) return 0;
-            const ModuleInstance &mod = *it->second;
+            const ModuleData::ModuleInstance &mod = *it->second;
             if (index >= mod.controls.size()) return 0;
             
             T* ptr;
-            if (!_control_get_ref<T>((ModuleControl&) mod.controls[index], &ptr)) return 0;
+            if (!ModuleData::_control_get_ref<T>((ModuleData::ModuleControl&) mod.controls[index], &ptr)) return 0;
             return *ptr;
         }
 
@@ -444,11 +201,11 @@ namespace modules
 
             const auto &it = _modules.find(mod_id);
             if (it == _modules.end()) return false;
-            ModuleInstance &mod = *it->second;
+            ModuleData::ModuleInstance &mod = *it->second;
             if (index >= mod.controls.size()) return false;
 
             T* ptr;
-            if (!_control_get_ref<T>(mod.controls[index], &ptr)) return false;
+            if (!ModuleData::_control_get_ref<T>(mod.controls[index], &ptr)) return false;
             *ptr = value;
 
             return true;
@@ -487,14 +244,14 @@ namespace modules
             static_assert(!std::is_same<T, bool>(), "modulator_control<bool> invalid, use modulator_bool_control instead.");
             const auto &it = _modules.find(mod_id);
             if (it == _modules.end()) return false;
-            ModuleInstance &mod = *it->second;
+            auto &mod = *it->second;
 
             if (modu_idx >= mod.modulators.size()) return false; // modu existence check
             if (ctl >= mod.controls.size()) return false; // ctl existence check
             if (mod.controls[ctl].data_type != ctl_data_type<T>()) return false; // type check
 
             auto &modu = mod.modulators[modu_idx];
-            ModulatorControl *ctl_mod = modulator_find_control(modu, ctl);
+            auto ctl_mod = modulator_find_control(modu, ctl);
             ctl_mod->optype = op;
             ctl_mod->min.set(min);
             ctl_mod->max.set(max);
@@ -511,14 +268,14 @@ namespace modules
         bool modulator_target_bool(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl, T threshold) {
             const auto &it = _modules.find(mod_id);
             if (it == _modules.end()) return false;
-            ModuleInstance &mod = *it->second;
+            auto &mod = *it->second;
 
             if (modu_idx >= mod.modulators.size()) return false; // modu existence check
             if (ctl >= mod.controls.size()) return false; // ctl existence check
             if (mod.controls[ctl].data_type != ModuleControlDataType::BOOL) return false; // type check
 
             auto &modu = mod.modulators[modu_idx];
-            ModulatorControl *ctl_mod = modulator_find_control(modu, ctl);
+            auto ctl_mod = modulator_find_control(modu, ctl);
             ctl_mod->optype = ModulatorOperator::BOOLEAN;
             ctl_mod->threshold.set(threshold);
 
@@ -532,17 +289,24 @@ namespace modules
 
         friend class ModuleCreator;
         friend class ModuleProcessor;
+        friend class AudioRenderer;
     }; // class AudioEngine
 
     /// Helper class given to the module host for the instantiation of modules.
     class ModuleCreator
     {
     private:
-        AudioEngine::ModuleInstance& instance;
-        ModuleCreator(ModuleID id, AudioEngine& engine, std::string class_name, AudioEngine::ModuleInstance& instance);
+        ModuleData::ModuleInstance& instance;
+        ModuleCreator(ModuleID id, AudioEngine& engine, std::string class_name, ModuleData::ModuleInstance& instance);
 
         template <typename T>
-        AudioEngine::ModuleControl _create_module_control(const std::string &name, const T default_value);
+        ModuleData::ModuleControl _create_module_control(const std::string &name, const T default_value) {
+            ModuleData::ModuleControl ctl;
+            ctl.name = name;
+            ctl.data_type = ctl_data_type<T>();
+            ctl.value.set(default_value);
+            return ctl;
+        }
 
     public:
         AudioEngine &engine;
@@ -582,67 +346,6 @@ namespace modules
 
         friend class AudioEngine;
     }; // class ModuleCreator
-
-    /// Data passed to the module run function to handle processing I/O
-    class ModuleProcessor
-    {
-    private:
-        AudioEngine::ModuleGraph *const graph;
-        AudioEngine::ModuleGraphNode &node;
-
-        ModuleProcessor(size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate, AudioEngine::ModuleGraph *graph, ModuleID id);
-
-    public:
-        const std::size_t buffer_frame_count;
-        const unsigned int sample_rate;
-        const unsigned long frame_time;
-        const char* const class_name;
-        void* const userdata;
-
-        float* audio_input(unsigned int index) const;
-        float* audio_output(unsigned int index) const;
-        uint8_t audio_input_channels(unsigned int index) const;
-        uint8_t audio_output_channels(unsigned int index) const;
-
-        /// Read a singular message from a message port.
-        /// @param index The index of the message input port to read from.
-        /// @param buffer The destination to copy the message data to.
-        /// @param max_length The maximum length of the message, in bytes.
-        /// @returns The size of the message, in bytes. If 0, there were no messages to read, or there was a failure.
-        unsigned int read_message(unsigned int index, void *buffer, unsigned int max_length);
-
-        /// Send a message to a message port.
-        /// @param index The index of the message output port to write to.
-        /// @param data Pointer to the first byte of the data to send.
-        /// @param data_size The size of the data to send.
-        /// @returns True on success, and false if the given port did not exist or if there was not enough space to send the message.
-        bool send_message(unsigned int index, void *data, unsigned int data_size);
-
-        unsigned int control_count() const
-        {
-            return node.module->controls.size();
-        }
-
-        ModuleControlDataType control_type(unsigned int index) const
-        {
-            if (index >= node.module->controls.size()) return ModuleControlDataType::UNKNOWN;
-            return node.module->controls[index].data_type;
-        }
-
-        template <typename T>
-        T get_control_value(unsigned int index) const
-        {
-            CHECK_CONTROL_TYPE(T);
-
-            if (index >= node.module->controls.size()) return 0;
-
-            T* ptr;
-            if (!AudioEngine::_control_get_ref(node.module->controls[index], &ptr)) return 0;
-            return *ptr;
-        }
-
-        friend class AudioEngine;
-    }; // class ModuleProcessor
 
     /// Abstract class for a module host.
     class ModuleHost
