@@ -97,6 +97,7 @@ namespace modules
 
         void _thread_process();
         std::atomic<double> _process_time;
+        double _cpu_load;
     public:
         AudioEngine();
         AudioEngine(const AudioEngine&&) = delete;
@@ -134,7 +135,7 @@ namespace modules
 
         inline uint64_t frame_time() const { return renderer->frame_time; }
         inline double process_time() const { return _process_time; }
-        inline double cpu_load() const { return Pa_GetStreamCpuLoad(_pa_stream); };
+        inline double cpu_load() const { return _cpu_load; };
 
         /// Register a host.
         /// @returns True if host registration was successful, false if not.

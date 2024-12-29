@@ -172,13 +172,14 @@ void SongEditor::render_song_settings()
                 peak_proctime = 0.0;
             }
 
-            double proctime = song.audio_engine().process_time();
+            //double proctime = song.audio_engine().process_time();
+            double proctime = 0.0;
             double cpu = song.audio_engine().cpu_load();
 
             if (proctime > peak_proctime) peak_proctime = proctime;
-            if (cpu > peak_cpu) cpu = peak_cpu;
+            if (cpu > peak_cpu) peak_cpu = cpu;
 
-            ImGui::TextDisabled("%.3f ms", (1000.0 * display_proctime));
+            //ImGui::TextDisabled("%.3f ms", (1000.0 * display_proctime));
             ImGui::TextDisabled("cpu: %.3f%%", (100.0 * display_cpu));
         }
     } ImGui::End();

@@ -49,6 +49,7 @@ AudioEngine::AudioEngine() :
     _frame_time = 0;
     _is_graph_dirty = true;
     _need_resend_modsrcs = false;
+    _cpu_load = 0.0;
 
     // initialize port audio
     PaError err = Pa_Initialize();
@@ -141,12 +142,12 @@ int AudioEngine::_pa_stream_callback(
 {
     AudioEngine* self = (AudioEngine*) userdata;
 
-    PaTime start = Pa_GetStreamTime(self->_pa_stream);
+    //PaTime start = Pa_GetStreamTime(self->_pa_stream);
     assert(frame_count == self->frames_per_buffer());
     self->renderer->render((float*) output_buffer);
-    PaTime end = Pa_GetStreamTime(self->_pa_stream);
+    //PaTime end = Pa_GetStreamTime(self->_pa_stream);
 
-    self->_process_time = end - start;
+    //self->_process_time = end - start;
     //logger::log_debug("available to read: %lu", self->_audio_ring_buffer.available_for_read());
 
     /*float* out_samples = (float*) output_buffer;
@@ -1257,6 +1258,8 @@ void AudioEngine::invalidate_module_modulators(ModuleID mod_id) {
 ////////////////
 void AudioEngine::update()
 {
+    _cpu_load = Pa_GetStreamCpuLoad(_pa_stream);
+
     // call module idle processes
     for (auto& [ id, inst ] : _modules)
     {
