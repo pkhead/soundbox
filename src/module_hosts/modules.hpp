@@ -24,6 +24,11 @@ namespace modx
         ModuleHandle(modules::AudioEngine &engine, const std::string &class_name);
         ~ModuleHandle();
 
+        ModuleHandle(const ModuleHandle&) = delete;
+        ModuleHandle& operator=(const ModuleHandle&) = delete;
+        ModuleHandle(ModuleHandle&&) noexcept;
+        ModuleHandle& operator=(ModuleHandle&&) noexcept;
+
         inline bool valid() const { return _id != 0; }
 
         const std::string name() const { return _engine.module_name(_id); }
@@ -80,11 +85,13 @@ namespace modx
             { return _engine.modulator_get_targets(_id, modu_idx, out_targets); }
         }
 
+        inline bool control_can_modulate(unsigned int index) const
+            { return _engine.control_can_modulate(_id, index); }
         inline bool control_set_mod_op(unsigned int index, modules::ModulatorOperationType optype, float factor)
             { return _engine.control_set_mod_op(_id, index, optype, factor); }
         inline bool control_set_mod_boolop(unsigned int index, float threshold)
             { return _engine.control_set_mod_boolop(_id, index, threshold); }
-        inline auto control_get_mod_op(unsigned int index, modules::ModulatorOperationType &out_optype, float &out_factor)
+        inline bool control_get_mod_op(unsigned int index, modules::ModulatorOperationType &out_optype, float &out_factor) const
             { return _engine.control_get_mod_op(_id, index, out_optype, out_factor); }
 
         inline modules::AudioEngine& engine() const { return _engine; }

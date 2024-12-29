@@ -21,6 +21,18 @@ ModuleHandle::ModuleHandle(modules::AudioEngine &engine, const std::string &clas
     //     logger::log_debug("create module id %i (class %s)", _id, class_name.c_str());
 }
 
+ModuleHandle::ModuleHandle(ModuleHandle &&mod) noexcept : _engine(mod._engine) {
+    _id = mod._id;
+    mod._id = 0;
+}
+
+ModuleHandle& ModuleHandle::operator=(ModuleHandle &&mod) noexcept {
+    assert(&_engine == &mod._engine);
+    _id = mod._id;
+    mod._id = 0;
+    return *this;
+}
+
 ModuleHandle::~ModuleHandle()
 {
     if (_id == 0) return;

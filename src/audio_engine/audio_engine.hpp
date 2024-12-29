@@ -279,9 +279,10 @@ namespace modules
 
         bool modulator_get_targets(ModuleID mod_id, unsigned int modu_idx, std::vector<unsigned int> &out_targets) const;
 
+        bool control_can_modulate(ModuleID mod_id, unsigned int index) const;
         bool control_set_mod_op(ModuleID mod_id, unsigned int index, ModulatorOperationType optype, float factor);
         bool control_set_mod_boolop(ModuleID mod_id, unsigned int index, float threshold);
-        bool control_get_mod_op(ModuleID mod_id, unsigned int index, ModulatorOperationType &out_optype, float &out_factor);
+        bool control_get_mod_op(ModuleID mod_id, unsigned int index, ModulatorOperationType &out_optype, float &out_factor) const;
 
         void update();
 
@@ -305,6 +306,7 @@ namespace modules
             ctl.value.set(default_value);
             ctl.modop.optype = ModulatorOperationType::ADD;
             ctl.modop.factor = 0.0f;
+            ctl.can_modulate = true;
             return ctl;
         }
 
@@ -343,6 +345,8 @@ namespace modules
 
             instance.controls[index] = _create_module_control<T>(name, default_value);
         }
+
+        void control_set_modulatable(unsigned int index, bool can_modulate);
 
         friend class AudioEngine;
     }; // class ModuleCreator

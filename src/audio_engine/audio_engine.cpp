@@ -1122,6 +1122,15 @@ std::vector<unsigned int>::iterator AudioEngine::modulator_get_control(ModuleDat
     return modu.targets.end() - 1;
 }
 
+bool AudioEngine::control_can_modulate(ModuleID mod_id, unsigned int ctl) const {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    auto &mod = *it->second;
+
+    if (ctl >= mod.controls.size()) return false; // ctl existence check
+    return mod.controls[ctl].can_modulate;
+}
+
 bool AudioEngine::control_set_mod_op(ModuleID mod_id, unsigned int ctl, ModulatorOperationType optype, float factor) {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
@@ -1155,7 +1164,7 @@ bool AudioEngine::control_set_mod_boolop(ModuleID mod_id, unsigned int ctl, floa
     return true;
 }
 
-bool AudioEngine::control_get_mod_op(ModuleID mod_id, unsigned int ctl, ModulatorOperationType &out_optype, float &out_factor) {
+bool AudioEngine::control_get_mod_op(ModuleID mod_id, unsigned int ctl, ModulatorOperationType &out_optype, float &out_factor) const {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
     auto &mod = *it->second;
@@ -1175,6 +1184,7 @@ bool AudioEngine::modulator_target(ModuleID mod_id, unsigned int modu_idx, unsig
     if (modu_idx >= mod.modulators.size()) return false; // modu existence check
     if (ctl >= mod.controls.size()) return false; // ctl existence check
     if (mod.controls[ctl].data_type == ModuleControlDataType::BOOL) return false; // type check
+    if (!mod.controls[ctl].can_modulate) return false; // modulatable check
 
     auto &modu = mod.modulators[modu_idx];
     if (std::find(modu.targets.begin(), modu.targets.end(), ctl) == modu.targets.end()) {

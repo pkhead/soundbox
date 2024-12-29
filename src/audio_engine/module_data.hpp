@@ -131,6 +131,7 @@ namespace modules {
             std::string name;
             ModuleControlDataType data_type = ModuleControlDataType::UNKNOWN;
             Variant value;
+            bool can_modulate;
             ModulatorOperation modop;
         };
 

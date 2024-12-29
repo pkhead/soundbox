@@ -49,6 +49,13 @@ void ModuleCreator::add_message_output()
     });
 }
 
+void ModuleCreator::control_set_modulatable(unsigned int index, bool can_modulate) {
+    assert(index < instance.controls.size());
+    if (index >= instance.controls.size()) return;
+
+    instance.controls[index].can_modulate = can_modulate;
+}
+
 
 
 

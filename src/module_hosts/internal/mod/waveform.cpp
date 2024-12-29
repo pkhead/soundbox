@@ -47,6 +47,7 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
         // osc type
         sprintf(buf, "Oscillator %i Type", display_index);
         create.add_control<int>(control_start + CONTROL_OSC_TYPE, buf, WAVE_SINE);
+        create.control_set_modulatable(control_start + CONTROL_OSC_TYPE, false);
 
         // osc vol
         sprintf(buf, "Oscillator %i Volume", display_index);
@@ -76,6 +77,7 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
     create.add_control<float>(CONTROL_FILTER_RELEASE, "Filter Envelope Release", 0.0f);
 
     create.add_control<int>(CONTROL_FILTER_TYPE, "Filter Type", FILTER_LOW_PASS);
+    create.control_set_modulatable(CONTROL_FILTER_TYPE, false);
     create.add_control<float>(CONTROL_FILTER_FREQ, "Filter Frequency", (float)create.engine.sample_rate() * 0.35f);
     create.add_control<float>(CONTROL_FILTER_RESO, "Filter Resonance", 1.0f);
     create.add_control<float>(CONTROL_FILTER_ENV, "Filter Envelope", 0.0f);

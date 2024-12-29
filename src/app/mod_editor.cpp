@@ -395,6 +395,8 @@ static void mod_ui(
 
                     if (ImGui::BeginCombo("##Target", target_name.c_str())) {
                         for (unsigned int ctl_idx = 0; ctl_idx < mod->control_count(); ctl_idx++) {
+                            if (!mod->control_can_modulate(ctl_idx)) continue;
+                            
                             std::string nm = mod->control_name(ctl_idx);
 
                             if (ImGui::Selectable(nm.c_str(), has_target && ctl_idx == targets[0])) {
