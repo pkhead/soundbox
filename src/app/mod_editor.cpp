@@ -12,8 +12,10 @@
 #include <module_hosts/internal/modules.hpp>
 #include "mod_editor.hpp"
 #include "app/song.hpp"
+#include "audio_engine/module_data.hpp"
 #include "module_hosts/modules.hpp"
 #include "shortcuts.hpp"
+#include "widgets.hpp"
 
 using namespace sbox;
 
@@ -353,14 +355,97 @@ static void mod_ui(
         if (ImGui::BeginTabBar("Modulators", ImGuiTabBarFlags_Reorderable)) {
             constexpr const char *tab_names[3] = { "Tab 1", "Tab 2", "Tab 3 "};
 
-            for (int i = 0; i < 3; i++) {
-                if (ImGui::BeginTabItem(tab_names[i])) {
+            for (int i = 0; i < mod->modulator_count(); i++) {
+                auto modsrc = mod->modulator_get_source(i);
+                assert(modsrc != 0);
+                auto type = mod->engine().get_modsrc_type(modsrc);
+
+                const char *tab_name;
+                switch (type) {
+                    case modules::ModulatorSourceType::ENVELOPE:
+                        tab_name = "Env";
+                        break;
+
+                    case modules::ModulatorSourceType::LFO:
+                        tab_name = "LFO";
+                        break;
+
+                    case modules::ModulatorSourceType::UNKNOWN:
+                        tab_name = "Unknown";
+                        break;
+                }
+
+                ImGui::PushID(modsrc);
+                if (ImGui::BeginTabItem(tab_name)) {
+                    // target combobox
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::Text("Target");
+                    ImGui::SameLine();
+                    
+                    std::vector<unsigned int> targets;
+                    bool s = mod->modulator_get_targets(i, targets);
+                    assert(s);
+                    assert(targets.size() < 2);
+
+                    std::string target_name = "(none)";
+                    bool has_target = targets.size() == 1;
+                    if (has_target) {
+                        target_name = mod->control_name(targets[0]);
+                    }
+
+                    if (ImGui::BeginCombo("##Target", target_name.c_str())) {
+                        for (unsigned int ctl_idx = 0; ctl_idx < mod->control_count(); ctl_idx++) {
+                            std::string nm = mod->control_name(ctl_idx);
+
+                            if (ImGui::Selectable(nm.c_str(), has_target && ctl_idx == targets[0])) {
+                                if (has_target) mod->modulator_untarget(i, targets[0]);
+                                mod->modulator_target(i, ctl_idx);
+                            }
+                        }
+
+                        ImGui::EndCombo();
+                    }
+
+                    //mod->control_name(unsigned int index)
+
+                    auto modsrc = mod->modulator_get_source(i);
+                    assert(modsrc != 0);
+
+                    // envelope parameters
+                    modules::ModulatorSourceParams params;
+                    s = mod->engine().get_modsrc_params(modsrc, params);
+                    assert(s);
+
+                    widgets::adsr_ui_struct adsr_data(params.attack, params.decay, params.sustain, params.release);
+                    if (widgets::adsr_ui("Envelope", ImVec2(ImGui::GetFontSize() * 12.0f, 0.0f), &adsr_data)) {
+                        params.attack = adsr_data.attack;
+                        params.decay = adsr_data.decay;
+                        params.sustain = adsr_data.sustain;
+                        params.release = adsr_data.release;
+                        mod->engine().set_modsrc_params(modsrc, params);
+                    }
+
                     ImGui::Text("test");
                     ImGui::EndTabItem();
                 }
+                ImGui::PopID();
             }
 
-            ImGui::TabItemButton("+");
+            if (ImGui::TabItemButton("+")) {
+                
+                try {
+                    unsigned int mod_index;
+                    if (!mod->create_modulator(mod_index)) throw;
+
+                    auto modsrc = mod->engine().create_modsrc(modules::ModulatorSourceType::ENVELOPE);
+                    if (modsrc == 0) throw;
+
+                    if (!mod->modulator_set_source(mod_index, modsrc)) throw;
+                } catch(...) {
+                    logger::log_error("could not create modulator");
+                }
+
+            }
             
             ImGui::EndTabBar();
         }
