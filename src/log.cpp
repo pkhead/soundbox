@@ -9,11 +9,13 @@
     fprintf(stderr, "\n"); \
     va_end(args);
 
+#ifdef DEBUG
 void logger::log_debug(const char* fmt, ...)
 {
     fprintf(stderr, "[DBG] ");
     WRITE_MSG(fmt);
 }
+#endif
 
 void logger::log_info(const char* fmt, ...)
 {
