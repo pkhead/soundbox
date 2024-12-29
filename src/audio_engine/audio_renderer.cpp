@@ -11,8 +11,8 @@ using namespace modules;
 
 AudioRenderer::AudioRenderer(AudioEngine &engine) :
     engine(engine),
-    in_queue(32),
-    out_queue(32)
+    in_queue(128),
+    out_queue(128)
 {
     output_buffer_sz = engine._frames_per_buffer * engine._output_channels;
     output_buffer = nullptr;
@@ -192,7 +192,9 @@ void AudioRenderer::render(float *buf)
             }
 
             case InMessageKind::MESSAGE_UPDATE_MODULATOR_SOURCE_PARAMS: {
-                ModulatorSourceID id = in_msg.modulator_source_params.src_id;
+                auto &payload = in_msg.modulator_source_params;
+
+                ModulatorSourceID id = payload.src_id;
                 const auto &it = modulator_sources->find(id);
                 assert(it != modulator_sources->end());
                 if (it == modulator_sources->end()) break;
@@ -201,8 +203,8 @@ void AudioRenderer::render(float *buf)
                 //    break;
                 //}
 
-                it->second->apply_params(*in_msg.modulator_source_params.params);
-                discard_object(in_msg.modulator_source_params.params);
+                it->second->apply_params(payload.params);
+                break; // fuck it took me two hours to notice I forgot this
             }
 
             case InMessageKind::MESSAGE_UPDATE_MODULE_MODULATORS: {

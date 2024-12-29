@@ -55,6 +55,7 @@ namespace modules
         struct ModulatorSourceData
         {
             ModulatorSourceType type;
+            ModulatorSourceParams params;
             std::shared_ptr<ModuleData::ModulatorSource> source;
         };
 
@@ -274,6 +275,8 @@ namespace modules
 
         /// @returns True if the control was previously targeted, false if not or if there was an error.
         bool modulator_untarget(ModuleID mod_id, unsigned int modu, unsigned int ctl);
+
+        bool modulator_get_targets(ModuleID mod_id, unsigned int modu_idx, std::vector<unsigned int> &out_targets) const;
 
         bool control_set_mod_op(ModuleID mod_id, unsigned int index, ModulatorOperationType optype, float factor);
         bool control_set_mod_boolop(ModuleID mod_id, unsigned int index, float threshold);

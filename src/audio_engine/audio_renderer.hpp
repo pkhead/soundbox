@@ -75,7 +75,7 @@ namespace modules
             MESSAGE_DISCARD_OBJECT
         };
 
-        enum class ObjectType { Graph, ModulatorSourceParams, ModulatorSourceList, ModuleModulators };
+        enum class ObjectType : uint8_t { Graph, ModulatorSourceList, ModuleModulators };
 
         template <class T>
         inline static constexpr ObjectType get_object_type();
@@ -86,14 +86,14 @@ namespace modules
             union {
                 ModuleGraph *graph;
 
-                union {
+                struct {
                     ModuleID mod_id;
                     std::vector<GraphModulator> *modulators;
                 } module_modulators;
                 
-                union {
+                struct {
                     ModulatorSourceID src_id;
-                    ModulatorSourceParams *params;
+                    ModulatorSourceParams params;
                 } modulator_source_params;
 
                 ModulatorSourceList *modulator_source_list;
@@ -230,10 +230,6 @@ namespace modules
     template <>
     inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<AudioRenderer::ModuleGraph>()
         { return ObjectType::Graph; }
-
-    template <>
-    inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<ModulatorSourceParams>()
-        { return ObjectType::ModulatorSourceParams; }
     
     template <>
     inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<AudioRenderer::ModulatorSourceList>()

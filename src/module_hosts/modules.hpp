@@ -49,17 +49,41 @@ namespace modx
         inline unsigned int control_count()
             { return _engine.control_count(_id); }
 
-        inline modules::ModuleControlDataType control_data_type(modules::ModuleID mod_id, unsigned int index) const
-            { return _engine.control_data_type(mod_id, index); }
+        inline modules::ModuleControlDataType control_data_type(unsigned int index) const
+            { return _engine.control_data_type(_id, index); }
 
-        inline const std::string control_name(modules::ModuleID mod_id, unsigned int index) const
-            { return _engine.control_name(mod_id, index); }
+        inline const std::string control_name(unsigned int index) const
+            { return _engine.control_name(_id, index); }
 
         template <typename T>
         T control_get_value(unsigned int index) { return _engine.control_get_value<T>(_id, index); }
         
         template <typename T>
         bool control_set_value(unsigned int index, T value) { return _engine.control_set_value(_id, index, value); }
+
+        inline bool create_modulator(unsigned int &out_mod_index)
+            { return _engine.create_modulator(_id, out_mod_index); }
+        inline void destroy_modulator(unsigned int mod_index)
+            { return _engine.destroy_modulator(_id, mod_index); }
+        inline unsigned int modulator_count() const
+            { return _engine.modulator_count(_id); }
+        inline bool modulator_set_source(unsigned int modu_idx, modules::ModulatorSourceID modsrc_id)
+            { return _engine.modulator_set_source(_id, modu_idx, modsrc_id); }
+        inline modules::ModulatorSourceID modulator_get_source(unsigned int modu_idx) const
+            { return _engine.modulator_get_source(_id, modu_idx); }
+        
+        inline bool modulator_target(unsigned int modu_idx, unsigned int ctl)
+            { return _engine.modulator_target(_id, modu_idx, ctl); }
+        inline bool modulator_untarget(unsigned int modu, unsigned int ctl)
+            { return _engine.modulator_untarget(_id, modu, ctl); }
+        inline bool modulator_get_targets(unsigned int modu_idx, std::vector<unsigned int> &out_targets) const {
+            { return _engine.modulator_get_targets(_id, modu_idx, out_targets); }
+        }
+
+        inline bool control_set_mod_op(unsigned int index, modules::ModulatorOperationType optype, float factor)
+            { return _engine.control_set_mod_op(_id, index, optype, factor); }
+        inline bool control_set_mod_boolop(unsigned int index, float threshold)
+            { return _engine.control_set_mod_boolop(_id, index, threshold); }
 
         inline modules::AudioEngine& engine() const { return _engine; }
         inline modules::ModuleID id() const { return _id; }

@@ -337,6 +337,8 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
     }
 
     _modules[this_id] = instance;
+
+    logger::log_debug("create module %i (class %s)", this_id, mod_class.c_str());
     return this_id;
 }
 
@@ -998,9 +1000,13 @@ ModulatorSourceID AudioEngine::create_modsrc(ModulatorSourceType srctype) {
             return 0;
     }
 
+    ModulatorSourceParams params;
+    modulator_source->get_params(params);
+
     ModulatorSourceID id = _next_modsrc_id++;
     _modu_srcs[id] = ModulatorSourceData {
         srctype,
+        params,
         std::move(modulator_source)
     };
 
@@ -1030,21 +1036,21 @@ ModulatorSourceType AudioEngine::get_modsrc_type(ModulatorSourceID modsrc_id) co
 bool AudioEngine::get_modsrc_params(ModulatorSourceID modsrc_id, ModulatorSourceParams &params) const {
     const auto &it = _modu_srcs.find(modsrc_id);
     if (it == _modu_srcs.end()) return false;
+    params = it->second.params;
 
-    it->second.source->get_params(params);
     return true;
 }
 
 bool AudioEngine::set_modsrc_params(ModulatorSourceID modsrc_id, const ModulatorSourceParams &params) {
     const auto &it = _modu_srcs.find(modsrc_id);
     if (it == _modu_srcs.end()) return false;
+    it->second.params = params;
 
-    ModulatorSourceParams *params_copy = new ModulatorSourceParams(params);
-
+    // send params to renderer thread
     AudioRenderer::InMessage msg{};
     msg.kind = AudioRenderer::MESSAGE_UPDATE_MODULATOR_SOURCE_PARAMS;
     msg.modulator_source_params.src_id = modsrc_id;
-    msg.modulator_source_params.params = params_copy;
+    msg.modulator_source_params.params = params;
     renderer->send_message(msg);
     
     return true;
@@ -1184,6 +1190,17 @@ bool AudioEngine::modulator_untarget(ModuleID mod_id, unsigned int modu_idx, uns
     return false;
 }
 
+bool AudioEngine::modulator_get_targets(ModuleID mod_id, unsigned int modu_idx, std::vector<unsigned int> &out_size) const {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    auto &mod = *it->second;
+
+    if (modu_idx >= mod.modulators.size()) return false; // modu existence check
+
+    out_size = mod.modulators[modu_idx].targets;
+    return true;
+}
+
 bool AudioEngine::modulator_set_source(ModuleID mod_id, unsigned int modu_idx, ModulatorSourceID modsrc_id) {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;
@@ -1264,7 +1281,7 @@ void AudioEngine::update()
     }
 
     // sync module modulators
-    for (auto &mod_id : _dirty_modules) {
+    for (auto mod_id : _dirty_modules) {
         const auto it = _modules.find(mod_id);
         if (it == _modules.end()) continue;
 
@@ -1298,15 +1315,22 @@ void AudioEngine::update()
             
             case AudioRenderer::MESSAGE_DISCARD_OBJECT:
                 switch (out_msg.discarded_object.object_type) {
-                    case AudioRenderer::ObjectType::Graph:
+                    case AudioRenderer::ObjectType::Graph: {
                         logger::log_debug("discard ModuleGraph");
-                        delete (AudioRenderer::ModuleGraph*) out_msg.discarded_object.object;
-                        break;
 
-                    case AudioRenderer::ObjectType::ModulatorSourceParams:
+                        auto graph = (AudioRenderer::ModuleGraph*) out_msg.discarded_object.object;
+                        for (auto &[id, node] : graph->nodes) {
+                            delete node.control_modulators;
+                        }
+
+                        delete graph;
+                        break;
+                    }
+
+                    /*case AudioRenderer::ObjectType::ModulatorSourceParams:
                         logger::log_debug("discard ModulatorSourceParams");
                         delete (ModulatorSourceParams*) out_msg.discarded_object.object;
-                        break;
+                        break;*/
                     
                     case AudioRenderer::ObjectType::ModulatorSourceList:
                         logger::log_debug("discard ModulatorSourceList");
