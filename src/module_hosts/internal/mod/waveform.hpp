@@ -1,4 +1,5 @@
 #pragma once
+#include "audio_engine/audio_renderer.hpp"
 #include <module_hosts/modules.hpp>
 #include <dsp.hpp>
 
@@ -23,6 +24,8 @@ namespace hosts::internal
             float vibrato_phase = 0.0f;
             double time = 0.0f;
 
+            modules::ControlValue<float> vol_mod[3];
+
             dsp::ADSR::Instance amp_env;
             dsp::ADSR::Instance filt_env;
             
@@ -31,7 +34,7 @@ namespace hosts::internal
             float filter_freq;
 
             Voice();
-            Voice(int key, float freq, float volume);
+            Voice(modules::ModuleProcessor &proc, int key, float freq, float volume);
         };
 
         struct
@@ -44,10 +47,10 @@ namespace hosts::internal
         int ui_selected_osc;
         modx::TrackEventReader event_reader;
 
-        void event(const modx::TrackEvent &ev);
+        void event(modules::ModuleProcessor &proc, const modx::TrackEvent &ev);
     public:
         static constexpr unsigned int OSC_CONTROL_COUNT = 5;
-        const unsigned int OSC_CONTROL_START[OSC_CONTROL_COUNT] = {
+        static constexpr unsigned int OSC_CONTROL_START[OSC_CONTROL_COUNT] = {
             0 * OSC_CONTROL_COUNT,
             1 * OSC_CONTROL_COUNT,
             2 * OSC_CONTROL_COUNT,

@@ -355,8 +355,8 @@ static void mod_ui(
         if (ImGui::BeginTabBar("Modulators", ImGuiTabBarFlags_Reorderable)) {
             constexpr const char *tab_names[3] = { "Tab 1", "Tab 2", "Tab 3 "};
 
-            for (int i = 0; i < mod->modulator_count(); i++) {
-                auto modsrc = mod->modulator_get_source(i);
+            for (int modidx = 0; modidx < mod->modulator_count(); modidx++) {
+                auto modsrc = mod->modulator_get_source(modidx);
                 assert(modsrc != 0);
                 auto type = mod->engine().get_modsrc_type(modsrc);
 
@@ -383,7 +383,7 @@ static void mod_ui(
                     ImGui::SameLine();
                     
                     std::vector<unsigned int> targets;
-                    bool s = mod->modulator_get_targets(i, targets);
+                    bool s = mod->modulator_get_targets(modidx, targets);
                     assert(s);
                     assert(targets.size() < 2);
 
@@ -398,17 +398,58 @@ static void mod_ui(
                             std::string nm = mod->control_name(ctl_idx);
 
                             if (ImGui::Selectable(nm.c_str(), has_target && ctl_idx == targets[0])) {
-                                if (has_target) mod->modulator_untarget(i, targets[0]);
-                                mod->modulator_target(i, ctl_idx);
+                                if (has_target) mod->modulator_untarget(modidx, targets[0]);
+                                mod->modulator_target(modidx, ctl_idx);
                             }
                         }
 
                         ImGui::EndCombo();
                     }
 
+                    // modulation operator params
+                    if (has_target) {
+                        int ctl = targets[0];
+
+                        modules::ModulatorOperationType optype;
+                        float factor;
+                        s = mod->control_get_mod_op(ctl, optype, factor);
+                        assert(s);
+
+                        const char *label = "<error>";
+                        switch (optype) {
+                            case modules::ModulatorOperationType::ADD:
+                                label = "Add ";
+                                break;
+
+                            case modules::ModulatorOperationType::MULT:
+                                label = "Mult";
+                                break;
+                            
+                            case modules::ModulatorOperationType::BOOLEAN:
+                                label = "Thrs";
+                                break;
+                        }
+
+                        ImGui::Text("%s", label);
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::SameLine();
+                        if (ImGui::SliderFloat("##Factor/Threshold", &factor, 0.0f, 1.0f)) {
+                            switch (optype) {
+                                case modules::ModulatorOperationType::ADD:
+                                case modules::ModulatorOperationType::MULT:
+                                    mod->control_set_mod_op(ctl, optype, factor);
+                                    break;
+                                
+                                case modules::ModulatorOperationType::BOOLEAN:
+                                    mod->control_set_mod_boolop(ctl, factor);
+                                    break;
+                            }
+                        }
+                    }
+
                     //mod->control_name(unsigned int index)
 
-                    auto modsrc = mod->modulator_get_source(i);
+                    auto modsrc = mod->modulator_get_source(modidx);
                     assert(modsrc != 0);
 
                     // envelope parameters

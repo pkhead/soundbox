@@ -84,6 +84,8 @@ namespace modx
             { return _engine.control_set_mod_op(_id, index, optype, factor); }
         inline bool control_set_mod_boolop(unsigned int index, float threshold)
             { return _engine.control_set_mod_boolop(_id, index, threshold); }
+        inline auto control_get_mod_op(unsigned int index, modules::ModulatorOperationType &out_optype, float &out_factor)
+            { return _engine.control_get_mod_op(_id, index, out_optype, out_factor); }
 
         inline modules::AudioEngine& engine() const { return _engine; }
         inline modules::ModuleID id() const { return _id; }

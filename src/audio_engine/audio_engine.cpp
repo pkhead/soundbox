@@ -1155,6 +1155,18 @@ bool AudioEngine::control_set_mod_boolop(ModuleID mod_id, unsigned int ctl, floa
     return true;
 }
 
+bool AudioEngine::control_get_mod_op(ModuleID mod_id, unsigned int ctl, ModulatorOperationType &out_optype, float &out_factor) {
+    const auto &it = _modules.find(mod_id);
+    if (it == _modules.end()) return false;
+    auto &mod = *it->second;
+    
+    if (ctl >= mod.controls.size()) return false; // ctl existence check
+
+    out_optype = mod.controls[ctl].modop.optype;
+    out_factor = mod.controls[ctl].modop.threshold;
+    return true;
+}
+
 bool AudioEngine::modulator_target(ModuleID mod_id, unsigned int modu_idx, unsigned int ctl) {
     const auto &it = _modules.find(mod_id);
     if (it == _modules.end()) return false;

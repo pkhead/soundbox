@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <atomic>
 #include <concurrent/readerwriterqueue.h>
+#include <cassert>
 #include "module_data.hpp"
 #include "../log.hpp"
 
@@ -166,14 +167,73 @@ namespace modules
         ~AudioRenderer();
     }; // class AudioEngine
 
+    template <typename T>
+    class ControlValue {
+    private:
+        static constexpr size_t MAX_CONTROLLER_COUNT = 8;
+
+        T base_value;
+        ModuleData::ModulatorOperation op;
+        ModuleData::ModulatorInstance controllers[MAX_CONTROLLER_COUNT];
+        uint8_t controller_count;
+
+        ControlValue(T base_value, const ModuleData::ModulatorOperation &op, uint8_t controller_count) :
+            base_value(base_value),
+            op(op),
+            controller_count(controller_count)
+        {}
+
+    public:
+        ControlValue() {
+            base_value = 0;
+            op.optype = ModulatorOperationType::ADD;
+            op.factor = 1.0f;
+            controller_count = 0;
+        }
+
+        T next_value() {
+            assert((op.optype != ModulatorOperationType::BOOLEAN || std::is_same<T, bool>()));
+            float level;
+
+            switch (op.optype) {
+                case modules::ModulatorOperationType::ADD:
+                    level = 0.0f;
+                    for (uint8_t i = 0; i < controller_count; i++) {
+                        level += controllers[i].next_value();
+                    }
+                    return (T)(base_value + level * op.factor);
+                
+                case modules::ModulatorOperationType::MULT:
+                    level = 1.0f;
+                    for (uint8_t i = 0; i < controller_count; i++) {
+                        level *= controllers[i].next_value();
+                    }
+                    return (T)(base_value * level);
+                
+                case modules::ModulatorOperationType::BOOLEAN:
+                    level = 0.0f;
+                    for (uint8_t i = 0; i < controller_count; i++) {
+                        level += controllers[i].next_value();
+                    }
+                    
+                    return level >= op.threshold;
+            }
+
+            assert("unreachable code");
+            return 0;
+        }
+
+        friend class ModuleProcessor;
+    }; // class ControlValue
+
     /// Data passed to the module run function to handle processing I/O
     class ModuleProcessor
     {
     private:
-        AudioRenderer::ModuleGraph *const graph;
+        AudioRenderer *const renderer;
         AudioRenderer::ModuleGraphNode &node;
 
-        ModuleProcessor(size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate, AudioRenderer::ModuleGraph *graph, ModuleID id);
+        ModuleProcessor(size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate, AudioRenderer *const renderer, ModuleID id);
 
     public:
         const std::size_t buffer_frame_count;
@@ -222,6 +282,39 @@ namespace modules
             T* ptr;
             if (!ModuleData::_control_get_ref(node.module->controls[index], &ptr)) return 0;
             return *ptr;
+        }
+
+        template <typename T>
+        ControlValue<T> get_control(unsigned int index) {
+            CHECK_CONTROL_TYPE(T);
+
+            assert(renderer->modulator_sources != nullptr);
+
+            if (index >= node.module->controls.size()) return ControlValue<T>();
+            assert(index < node.control_modulators->size());
+
+            auto &mod_data = (*node.control_modulators)[index];
+
+            float base_value = get_control_value<T>(index);
+            uint8_t controller_count = mod_data.sources.size();
+            assert(controller_count < ControlValue<T>::MAX_CONTROLLER_COUNT);
+
+            ControlValue<T> control(base_value, mod_data.operation, 0);
+
+            for (uint8_t i = 0; i < controller_count; i++) {
+                const auto &it = renderer->modulator_sources->find(mod_data.sources[i]);
+                assert(it != renderer->modulator_sources->end());
+                if (it == renderer->modulator_sources->end())
+                    continue;
+
+                control.controllers[control.controller_count++] = it->second->instantiate();
+            }
+
+            return control;
+
+            //ControlValue<T> control;
+            //control.base_value = get_control_value<T>(index);
+            //control.controller_count = mod_data.sources.size();
         }
 
         friend class AudioRenderer;

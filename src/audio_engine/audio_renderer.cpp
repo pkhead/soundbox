@@ -33,7 +33,7 @@ void AudioRenderer::_process_node(ModuleID id)
     auto &node = cur_graph->nodes[id];
 
     // call processor
-    ModuleProcessor processor(engine._frames_per_buffer, engine._frame_time, engine._sample_rate, cur_graph, id);
+    ModuleProcessor processor(engine._frames_per_buffer, engine._frame_time, engine._sample_rate, this, id);
     assert(node.module->processor != nullptr);
     node.module->processor(processor);
 }

@@ -1,3 +1,15 @@
+== MODULATION ==
+
+- memory management for modulation state:
+    each module stores the maximum number of voices it has,
+    as well as the max number of modulators that may affect each voice.
+    This is so that the UI thread can pre-allocate an array of ModulatorInstances
+    that will be used for each voice, with a size dependent on multi-targeting needs,
+    instead of what is currently being done where it stores a fixed number of
+    ModulatorInstances in the module's Voice structure.
+
+================
+
 - channel mute/solo keyboard shortcuts
 - replace uses of sprintf, snprintf, vsnprintf with util::format
 - fx channels

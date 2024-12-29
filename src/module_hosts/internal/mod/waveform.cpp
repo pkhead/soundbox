@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdint>
 #include <math.h>
 #include <util.hpp>
 #include <widgets.hpp>
@@ -18,13 +17,17 @@ WaveformModule::Voice::Voice()
     filter_freq = -1.0f;
 }
 
-WaveformModule::Voice::Voice(int _key, float _freq, float _volume) :
+WaveformModule::Voice::Voice(modules::ModuleProcessor &proc, int _key, float _freq, float _volume) :
     Voice()
 {
     key = _key;
     freq = _freq;
     volume = _volume;
     active = true;
+
+    vol_mod[0] = proc.get_control<float>(OSC_CONTROL_START[0] + CONTROL_OSC_VOL);
+    vol_mod[1] = proc.get_control<float>(OSC_CONTROL_START[1] + CONTROL_OSC_VOL);
+    vol_mod[2] = proc.get_control<float>(OSC_CONTROL_START[2] + CONTROL_OSC_VOL);
 }
 
 WaveformModule::WaveformModule(modules::ModuleCreator &create) :
@@ -39,25 +42,26 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
     {
         char buf[64];
         unsigned int control_start = OSC_CONTROL_START[i];
+        int display_index = i + 1;
 
         // osc type
-        sprintf(buf, "Oscillator %i Type", i);
+        sprintf(buf, "Oscillator %i Type", display_index);
         create.add_control<int>(control_start + CONTROL_OSC_TYPE, buf, WAVE_SINE);
 
         // osc vol
-        sprintf(buf, "Oscillator %i Volume", i);
+        sprintf(buf, "Oscillator %i Volume", display_index);
         create.add_control<float>(control_start + CONTROL_OSC_VOL, buf, i == 0 ? 0.5f : 0.0f);
 
         // osc pan
-        sprintf(buf, "Oscillator %i Panning", i);
+        sprintf(buf, "Oscillator %i Panning", display_index);
         create.add_control<float>(control_start + CONTROL_OSC_PAN, buf, 0.0f);
 
         // osc coarse
-        sprintf(buf, "Oscillator %i Coarse Detune", i);
+        sprintf(buf, "Oscillator %i Coarse Detune", display_index);
         create.add_control<int>(control_start + CONTROL_OSC_COARSE, buf, 0);
 
         // osc fine
-        sprintf(buf, "Oscillator %i Fine Detune", i);
+        sprintf(buf, "Oscillator %i Fine Detune", display_index);
         create.add_control<float>(control_start + CONTROL_OSC_FINE, buf, 0.0f);
     }
     
@@ -108,7 +112,7 @@ static float poly_blep(float t, float inc)
     else return 0.0;
 }
 
-void WaveformModule::event(const modx::TrackEvent& ev) {
+void WaveformModule::event(modules::ModuleProcessor &proc, const modx::TrackEvent& ev) {
     if (ev.event_kind == modx::TrackEvent::NOTE_ON) {
         // create new voice in first found empty slot
         // if there are no empty slots, replace the first voice in memory
@@ -124,7 +128,7 @@ void WaveformModule::event(const modx::TrackEvent& ev) {
         }
 
         float key_freq = powf(2.0f, (float)(ev.note.key - 57) / 12.0f) * 440.0f;;
-        *voice = Voice(ev.note.key, key_freq, (float)ev.note.velocity / 127.0f);
+        *voice = Voice(proc, ev.note.key, key_freq, (float)ev.note.velocity / 127.0f);
     
     } else if (ev.event_kind == modx::TrackEvent::NOTE_OFF) {
         for (size_t i = 0; i < MAX_VOICES; i++) {
@@ -195,7 +199,7 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
     for (size_t i = 0; i < proc.buffer_frame_count * channel_count; i += channel_count) {
         modx::TrackEvent event;
         while (event_reader.read(&event))
-            this->event(event);
+            this->event(proc, event);
 
         // set both channels to zero
         for (size_t ch = 0; ch < channel_count; ch++) output[i + ch] = 0.0f;
@@ -318,7 +322,8 @@ void WaveformModule::process(modules::ModuleProcessor &proc)
                     // a pulse wave: value[w] = (2.0f * _modf(phase / M_2PI + 0.5f, 1.3f) - 1.0f) > 0.0f ? 1.0f : -1.0f;
                 }
 
-                sample *= amp_env * voice.volume * osc_data[osc].vol;
+                // osc_data[osc].vol
+                sample *= amp_env * voice.volume * voice.vol_mod[osc].next_value();
                 samples[osc][0] = sample * l_mult;
                 samples[osc][1] = sample * r_mult;
 

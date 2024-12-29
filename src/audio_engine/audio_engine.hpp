@@ -281,6 +281,7 @@ namespace modules
 
         bool control_set_mod_op(ModuleID mod_id, unsigned int index, ModulatorOperationType optype, float factor);
         bool control_set_mod_boolop(ModuleID mod_id, unsigned int index, float threshold);
+        bool control_get_mod_op(ModuleID mod_id, unsigned int index, ModulatorOperationType &out_optype, float &out_factor);
 
         void update();
 

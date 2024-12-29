@@ -62,10 +62,10 @@ void ModuleCreator::add_message_output()
 
 ModuleProcessor::ModuleProcessor(
     size_t buffer_frame_count, unsigned long frame_time, unsigned int sample_rate,
-    AudioRenderer::ModuleGraph *graph, ModuleID id
+    AudioRenderer *const renderer, ModuleID id
 ) :
-    graph(graph),
-    node(graph->nodes[id]),
+    renderer(renderer),
+    node(renderer->cur_graph->nodes[id]),
     buffer_frame_count(buffer_frame_count),
     frame_time(frame_time),
     sample_rate(sample_rate),
@@ -86,7 +86,7 @@ float* ModuleProcessor::audio_input(unsigned int index) const
         return node.module->audio_data.input_dummy_buffer;
     }
 
-    return graph->nodes[node.dependencies[cn.index]].module->audio_data.output_audio_buffers[cn.from_port];
+    return renderer->cur_graph->nodes[node.dependencies[cn.index]].module->audio_data.output_audio_buffers[cn.from_port];
 }
 
 float* ModuleProcessor::audio_output(unsigned int index) const
@@ -145,7 +145,7 @@ bool ModuleProcessor::send_message(unsigned int index, void *data, unsigned int 
 
     AudioEngine::MessageHeader msg_header { data_size };
 
-    auto &target_module = graph->nodes[node.dependents[cn.index]].module;
+    auto &target_module = renderer->cur_graph->nodes[node.dependents[cn.index]].module;
     if (target_module == nullptr) {
         logger::log_debug("ModuleProcessor::send_message: send to module that has no effect!");
         return false;

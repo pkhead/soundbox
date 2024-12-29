@@ -63,6 +63,9 @@ namespace modules {
     class ModuleProcessor;
     class ModuleCreator;
 
+    template <typename T>
+    class ControlValue;
+
     class ModuleData {
     private:
         static constexpr size_t MESSAGE_PORT_CAPACITY = 512;
@@ -250,6 +253,9 @@ namespace modules {
         friend class AudioRenderer;
         friend class ModuleCreator;
         friend class ModuleProcessor;
+
+        template <typename T>
+        friend class ControlValue;
     }; // class ModuleData
 
     template <>
