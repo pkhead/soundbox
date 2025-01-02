@@ -101,6 +101,7 @@ int main(int argc, char** argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifdef __APPLE__
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GL_FALSE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
@@ -124,7 +125,13 @@ int main(int argc, char** argv)
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 
     float screen_xscale, screen_yscale;
+
+#ifdef __APPLE__
+    screen_xscale = 1.0f;
+    screen_yscale = 1.0f;
+#else
     glfwGetWindowContentScale(draw_window, &screen_xscale, &screen_yscale);
+#endif
 
     // setup dear imgui
     IMGUI_CHECKVERSION();
