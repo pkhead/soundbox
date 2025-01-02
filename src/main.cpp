@@ -51,8 +51,6 @@
 //#include "util.h"
 #include "winmgr.h"
 
-bool sys::IS_BIG_ENDIAN;
-
 static void glfw_error_callback(int error, const char *description)
 {
     std::cerr << "GLFW error " << error << ": " << description << "\n";
@@ -92,15 +90,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int
 
 int main(int argc, char** argv)
 {
-    { // record endianness
-        union {
-            uint32_t i;
-            char c[4];
-        } static bint = {0x01020304};
-
-        sys::IS_BIG_ENDIAN = bint.c[0] == 1;
-    }
-
+    sys::query_endianness();
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;

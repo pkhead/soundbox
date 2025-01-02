@@ -64,12 +64,17 @@ private:
 
     static void _glfw_resize_callback(GLFWwindow* win, int w, int h);
 
+#ifdef COMPOSITING
     native_window last_focused_window = 0;
+#endif
 
 public:
     WindowManager(int width, int height, const char* name);
     ~WindowManager();
+
+#ifdef COMPOSITING
     native_window focused_window = 0;
+#endif
 
     inline bool can_composite() const { return _can_composite; };
 

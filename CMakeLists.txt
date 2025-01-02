@@ -197,6 +197,42 @@ if (WIN32)
         target_link_libraries(soundbox-tests ${LIBRARIES} ${GLFW_LIBRARIES} ${OPENGL_LIBRARIES})
     endif()
 
+elseif (APPLE)
+    # append platform-specific files for nativefiledialog sources
+    # set(SOURCES ${SOURCES}
+    #     deps/nativefiledialog/src/nfd_zenity.c
+    # )
+
+    add_executable(soundbox ${SOURCES} src/main.cpp)
+
+    if (UNIT_TESTS)
+        add_executable(soundbox-tests ${SOURCES} ${TEST_SOURCES} deps/catch2/catch_amalgamated.cpp)
+    endif()
+
+    find_package(OpenGL REQUIRED)
+
+    if (NOT OPENGL_FOUND)
+        message(FATAL_ERROR "Could not find library GL")
+    endif()
+
+    set(STATUS_COMPOSITE "No")
+
+    set(MACOS_LIBRARIES
+        ${LIBRARIES}
+        ${GLFW_LIBRARIES}
+        ${OPENGL_LIBRARIES}
+    )
+    mark_as_advanced(MACOS_LIBRARIES)
+
+    target_compile_definitions(soundbox PUBLIC ${COMPILE_FLAGS})
+    target_link_libraries(soundbox ${MACOS_LIBRARIES})
+
+    # build unit tests
+    if (UNIT_TESTS)
+        target_compile_definitions(soundbox-tests PUBLIC UNIT_TESTS ${COMPILE_FLAGS})
+        target_link_libraries(soundbox-tests ${MACOS_LIBRARIES})
+    endif()
+
 # Linux
 else()
     # append platform-specific files for nativefiledialog sources

@@ -5,6 +5,17 @@
 
 using namespace sys;
 
+bool sys::IS_BIG_ENDIAN;
+
+void sys::query_endianness() {
+    union {
+        uint32_t i;
+        char c[4];
+    } static bint = {0x01020304};
+
+    sys::IS_BIG_ENDIAN = bint.c[0] == 1;
+}
+
 #ifdef _WIN32
 #include <windows.h>
 #include <avrt.h>

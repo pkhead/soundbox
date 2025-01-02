@@ -5,6 +5,8 @@ namespace sys
 {
     extern bool IS_BIG_ENDIAN;
 
+    void query_endianness();
+
     /**
      * Provides functionality for high-resolution sleeping.
      * Only one may exist per thread.

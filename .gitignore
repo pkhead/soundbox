@@ -12,3 +12,6 @@
 
 # soundbox preferences file
 /user.toml
+
+# misc files
+.DS_Store
