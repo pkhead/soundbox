@@ -8,6 +8,9 @@
     instead of what is currently being done where it stores a fixed number of
     ModulatorInstances in the module's Voice structure.
 
+    fuck nevermind I don't think this is possible because the audio thread needs to
+    copy each ModulatorInstance without allocating memory ofc, but if the module graph is updated
+
 ================
 
 - channel mute/solo keyboard shortcuts

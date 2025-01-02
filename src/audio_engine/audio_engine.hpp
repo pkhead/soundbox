@@ -14,6 +14,8 @@
 
 namespace modules
 {
+    enum ControlModulationType { MODULATION_NONE, MODULATION_STATIC, MODULATION_VOICE };
+
     // TODO: the amount of forward declarations i make is quite stupid.
     class ModuleHost;
     class ModuleCreator;
@@ -306,7 +308,8 @@ namespace modules
             ctl.value.set(default_value);
             ctl.modop.optype = ModulatorOperationType::ADD;
             ctl.modop.factor = 0.0f;
-            ctl.can_modulate = true;
+            ctl.can_modulate = false;
+            ctl.mod_per_voice = false;
             return ctl;
         }
 
@@ -316,6 +319,7 @@ namespace modules
         const std::string class_name;
         std::string &name;
         void* userdata = nullptr;
+        uint8_t max_voices;
 
         /**
         * Process input audio and/or generate audio buffers.
@@ -335,7 +339,7 @@ namespace modules
         void add_message_output();
 
         template <typename T>
-        void add_control(unsigned int index, const std::string &name, const T default_value)
+        void add_control(unsigned int index, const std::string &name, const T default_value, ControlModulationType type = MODULATION_STATIC)
         {
             CHECK_CONTROL_TYPE(T);
 
@@ -344,9 +348,14 @@ namespace modules
                 instance.controls.resize(index + 1);
 
             instance.controls[index] = _create_module_control<T>(name, default_value);
-        }
 
-        void control_set_modulatable(unsigned int index, bool can_modulate);
+            if (type != MODULATION_NONE) {
+                instance.controls[index].can_modulate = true;
+                if (type == MODULATION_VOICE) {
+                    instance.controls[index].mod_per_voice = true;
+                }
+            }
+        }
 
         friend class AudioEngine;
     }; // class ModuleCreator

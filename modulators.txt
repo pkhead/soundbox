@@ -1,0 +1,118 @@
+I will have three types of modulators:
+1. LFOs
+2. Envelopes
+3. Audio source (will not work per-voice)
+
+
+// this can be plugged into each voice for a modulator that supports voice
+struct ModulationInstance {
+private:
+    ModulationSource *mod_src;
+
+    // adsr envelope
+    float value;
+    float multiplier;
+    int samples_remaining;
+    uint8_t stage;
+
+    union {
+        // phase value (For LFOs)
+        float phase;
+
+        // sample offset (for audio source side-chaining)
+        uint32_t sample_offset;
+    }
+
+public:
+    inline float next_value() { mod_src->next_sample(*this); }
+}
+
+// this structure is created by the ui thread
+class ModulationSource {
+public:
+    bool supports_voices() const;
+    ModulationInstance instantiate();
+
+protected:
+    float attack, decay, sustain, release;
+
+    void next_envelope_sample(ModulationInstance &instance);
+    virtual void next_sample(ModulationInstance &instance) const;
+
+    friend class ModulationInstance;
+}
+
+class EnvelopeModulator : public Modulator;
+class LfoModulator : public Modulator;
+
+
+
+enum ModulatorType : uint8_t { MODULATOR_LFO, MODULATOR_ENVELOPE, MODULATOR_MODULE, UNKNOWN = UINT8_MAX };
+
+struct ModulationSourceParams {
+    float attack, decay, sustain, release;
+
+    union {
+        struct {
+            unsigned int wave_type;
+            float freq;
+            float amplitude;
+        } lfo;
+
+        struct {
+            ModuleID src_module;
+            int connection_port;
+        } module;
+    }
+}
+
+    ==== ModuleProcessor FUNCTIONS ====
+
+class ControlValue<T, OperationType optype> {
+private:
+    T base_value;
+    ModuleInstance controllers[8];
+    unsigned short num_controllers;
+
+public:
+    T next_value() const {
+        switch (optype) {
+            case OP_ADD:
+                float level = 0.0f;
+                for (int i = 0; i < num_controllers; i++) {
+                    cur_level += controllers[i].next_value();
+                }
+
+                return base_level + level * op.factor;
+
+            case OP_MUL: {
+                float level = 1.0f;
+                for (int i = 0; i < num_controllers; i++) {
+                    cur_level *= controllers[i].next_value();
+                }
+
+                return base_level * level;
+            }
+
+            case OP_BOOLEAN: {
+                static_assert(std::is_same<T, bool>());
+
+            }
+        }
+    }
+};
+
+ControlValue<T> ModuleProcessor::get_control<T>(unsigned int control_index);
+
+
+    ==== AUDIO ENGINE FUNCTIONS ====
+// 0 = null
+unsigned int AudioEngine::create_modsrc(ModulatorType mod_type);
+AudioEngine::destroy_modsrc(unsigned int modsrc_id);
+
+ModulatorType AudioEngine::get_modsrc_type(unsigned int modsrc_id);
+bool AudioEngine::get_modsrc_params(unsigned int modsrc_id, ModulationSourceParams &env_params);
+bool AudioEngine::set_modsrc_params(unsigned int modsrc_id, const ModulationSourceParams &env_params);
+
+bool AudioEngine::modulation_set_source(ModuleID id, unsigned int moduidx, unsigned int modsrc_id);
+unsigned int AudioEngine::modulation_get_source(ModuleID id, unsigned int moduidx)

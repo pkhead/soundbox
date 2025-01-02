@@ -53,6 +53,7 @@ namespace modules
             std::vector<GraphConnection> message_inputs;
             std::vector<GraphConnection> message_outputs;
             std::vector<GraphModulator> *control_modulators;
+            std::vector<ModuleData::ModulatorInstance> *voice_modinst_bank;
         };
 
         struct ModuleGraph
@@ -76,7 +77,7 @@ namespace modules
             MESSAGE_DISCARD_OBJECT
         };
 
-        enum class ObjectType : uint8_t { Graph, ModulatorSourceList, ModuleModulators };
+        enum class ObjectType : uint8_t { Graph, ModulatorSourceList, ModuleModulators, ModulatorInstanceBank };
 
         template <class T>
         inline static constexpr ObjectType get_object_type();
@@ -155,6 +156,7 @@ namespace modules
         /// via send_message
         static ModuleGraph* build_graph(AudioEngine &engine);
         static std::vector<GraphModulator>* build_modulator_data(AudioEngine &engine, ModuleID mod_id);
+        static std::vector<ModuleData::ModulatorInstance>* build_modinst_bank(AudioEngine &engine, ModuleID mod_id);
 
         friend class AudioEngine;
         friend class ModuleCreator;
@@ -331,6 +333,10 @@ namespace modules
     template <>
     inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<std::vector<AudioRenderer::GraphModulator>>()
         { return ObjectType::ModuleModulators; }
+    
+    template <>
+    inline constexpr AudioRenderer::ObjectType AudioRenderer::get_object_type<std::vector<ModuleData::ModulatorInstance>>()
+        { return ObjectType::ModulatorInstanceBank; }
 } // class modules
 
 #undef CHECK_CONTROL_TYPE

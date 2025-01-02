@@ -7,6 +7,7 @@
 #include <imguiext/imgui-knobs.h>
 #include <module_hosts/modules.hpp>
 #include "waveform.hpp"
+#include "audio_engine/audio_engine.hpp"
 
 using namespace hosts::internal;
 
@@ -34,6 +35,8 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
     modx::ModuleBase(create),
     event_reader(0)
 {
+    create.max_voices = MAX_VOICES;
+
     // setup module i/o and controls    
     create.add_message_input();
     create.add_audio_output(2);
@@ -46,45 +49,43 @@ WaveformModule::WaveformModule(modules::ModuleCreator &create) :
 
         // osc type
         sprintf(buf, "Oscillator %i Type", display_index);
-        create.add_control<int>(control_start + CONTROL_OSC_TYPE, buf, WAVE_SINE);
-        create.control_set_modulatable(control_start + CONTROL_OSC_TYPE, false);
+        create.add_control<int>(control_start + CONTROL_OSC_TYPE, buf, WAVE_SINE, modules::MODULATION_NONE);
 
         // osc vol
         sprintf(buf, "Oscillator %i Volume", display_index);
-        create.add_control<float>(control_start + CONTROL_OSC_VOL, buf, i == 0 ? 0.5f : 0.0f);
+        create.add_control<float>(control_start + CONTROL_OSC_VOL, buf, i == 0 ? 0.5f : 0.0f, modules::MODULATION_VOICE);
 
         // osc pan
         sprintf(buf, "Oscillator %i Panning", display_index);
-        create.add_control<float>(control_start + CONTROL_OSC_PAN, buf, 0.0f);
+        create.add_control<float>(control_start + CONTROL_OSC_PAN, buf, 0.0f, modules::MODULATION_VOICE);
 
         // osc coarse
         sprintf(buf, "Oscillator %i Coarse Detune", display_index);
-        create.add_control<int>(control_start + CONTROL_OSC_COARSE, buf, 0);
+        create.add_control<int>(control_start + CONTROL_OSC_COARSE, buf, 0, modules::MODULATION_VOICE);
 
         // osc fine
         sprintf(buf, "Oscillator %i Fine Detune", display_index);
-        create.add_control<float>(control_start + CONTROL_OSC_FINE, buf, 0.0f);
+        create.add_control<float>(control_start + CONTROL_OSC_FINE, buf, 0.0f, modules::MODULATION_VOICE);
     }
     
-    create.add_control<float>(CONTROL_AMP_ATTACK, "Amplitude Envelope Attack", 0.0f);
-    create.add_control<float>(CONTROL_AMP_SUSTAIN, "Amplitude Envelope Sustain", 1.0f);
-    create.add_control<float>(CONTROL_AMP_DECAY, "Amplitude Envelope Decay", 0.0f);
-    create.add_control<float>(CONTROL_AMP_RELEASE, "Amplitude Envelope Release", 0.0f);
+    create.add_control<float>(CONTROL_AMP_ATTACK, "Amplitude Envelope Attack", 0.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_AMP_SUSTAIN, "Amplitude Envelope Sustain", 1.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_AMP_DECAY, "Amplitude Envelope Decay", 0.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_AMP_RELEASE, "Amplitude Envelope Release", 0.0f, modules::MODULATION_VOICE);
 
-    create.add_control<float>(CONTROL_FILTER_ATTACK, "Filter Envelope Attack", 0.0f);
-    create.add_control<float>(CONTROL_FILTER_SUSTAIN, "Filter Envelope Sustain", 1.0f);
-    create.add_control<float>(CONTROL_FILTER_DECAY, "Filter Envelope Decay", 0.0f);
-    create.add_control<float>(CONTROL_FILTER_RELEASE, "Filter Envelope Release", 0.0f);
+    create.add_control<float>(CONTROL_FILTER_ATTACK, "Filter Envelope Attack", 0.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_FILTER_SUSTAIN, "Filter Envelope Sustain", 1.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_FILTER_DECAY, "Filter Envelope Decay", 0.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_FILTER_RELEASE, "Filter Envelope Release", 0.0f, modules::MODULATION_VOICE);
 
-    create.add_control<int>(CONTROL_FILTER_TYPE, "Filter Type", FILTER_LOW_PASS);
-    create.control_set_modulatable(CONTROL_FILTER_TYPE, false);
-    create.add_control<float>(CONTROL_FILTER_FREQ, "Filter Frequency", (float)create.engine.sample_rate() * 0.35f);
-    create.add_control<float>(CONTROL_FILTER_RESO, "Filter Resonance", 1.0f);
-    create.add_control<float>(CONTROL_FILTER_ENV, "Filter Envelope", 0.0f);
+    create.add_control<int>(CONTROL_FILTER_TYPE, "Filter Type", FILTER_LOW_PASS, modules::MODULATION_NONE);
+    create.add_control<float>(CONTROL_FILTER_FREQ, "Filter Frequency", (float)create.engine.sample_rate() * 0.35f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_FILTER_RESO, "Filter Resonance", 1.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_FILTER_ENV, "Filter Envelope", 0.0f, modules::MODULATION_VOICE);
 
-    create.add_control<float>(CONTROL_VIBRATO_DELAY, "Vibrato Delay", 0.0f);
-    create.add_control<float>(CONTROL_VIBRATO_SPEED, "Vibrato Speed", 2.0f);
-    create.add_control<float>(CONTROL_VIBRATO_AMOUNT, "Vibrato Amount", 0.0f);
+    create.add_control<float>(CONTROL_VIBRATO_DELAY, "Vibrato Delay", 0.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_VIBRATO_SPEED, "Vibrato Speed", 2.0f, modules::MODULATION_VOICE);
+    create.add_control<float>(CONTROL_VIBRATO_AMOUNT, "Vibrato Amount", 0.0f, modules::MODULATION_VOICE);
 
     // setup internal module state
     for (int i = 0; i < MAX_VOICES; i++)

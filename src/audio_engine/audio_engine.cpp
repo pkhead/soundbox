@@ -205,6 +205,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
 
     instance->is_stereo_mixer = false;
     instance->is_message_duplicator = false;
+    instance->max_voices = 0;
     instance->processor = nullptr;
     instance->idle = nullptr;
     instance->userdata = nullptr;
@@ -296,6 +297,7 @@ ModuleID AudioEngine::create_module(const std::string &mod_class)
             return 0;
         }
 
+        instance->max_voices = creator.max_voices;
         instance->userdata = creator.userdata;
         instance->processor = creator.processor;
         instance->idle = creator.idle;
@@ -358,6 +360,15 @@ void AudioEngine::destroy_module(ModuleID mod_id)
     for (std::size_t i = 0; i < mod->output_audio_ports.size(); i++)
     {
         disconnect_audio_output(mod_id, i);
+    }
+
+    // destroy connected modulator sources
+    for (std::size_t i = 0; i < mod->modulators.size(); i++) {
+        ModulatorSourceID modsrc_id = it->second->modulators[i].source;
+        if (modsrc_id != 0) {
+            modulator_set_source(mod_id, i, 0);
+            destroy_modsrc(modsrc_id);
+        }
     }
 
     // defer calling destroy_module until after update has been called
@@ -1339,11 +1350,13 @@ void AudioEngine::update()
                 break;
             
             case AudioRenderer::MESSAGE_DISCARD_OBJECT:
+                void *discarded_obj = out_msg.discarded_object.object;
+
                 switch (out_msg.discarded_object.object_type) {
                     case AudioRenderer::ObjectType::Graph: {
                         logger::log_debug("discard ModuleGraph");
 
-                        auto graph = (AudioRenderer::ModuleGraph*) out_msg.discarded_object.object;
+                        auto graph = (AudioRenderer::ModuleGraph*) discarded_obj;
                         for (auto &[id, node] : graph->nodes) {
                             delete node.control_modulators;
                         }
@@ -1359,12 +1372,17 @@ void AudioEngine::update()
                     
                     case AudioRenderer::ObjectType::ModulatorSourceList:
                         logger::log_debug("discard ModulatorSourceList");
-                        delete (AudioRenderer::ModulatorSourceList*) out_msg.discarded_object.object;
+                        delete (AudioRenderer::ModulatorSourceList*) discarded_obj;
                         break;
                     
                     case AudioRenderer::ObjectType::ModuleModulators:
                         logger::log_debug("discard ModuleModulators");
-                        delete (std::vector<AudioRenderer::GraphModulator>*) out_msg.discarded_object.object;
+                        delete (std::vector<AudioRenderer::GraphModulator>*) discarded_obj;
+                        break;
+                    
+                    case AudioRenderer::ObjectType::ModulatorInstanceBank:
+                        logger::log_debug("discard ModulatorInstanceBank");
+                        delete (std::vector<ModuleData::ModulatorInstance>*) discarded_obj;
                         break;
                 }
         }

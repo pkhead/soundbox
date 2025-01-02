@@ -131,7 +131,7 @@ namespace modules {
             std::string name;
             ModuleControlDataType data_type = ModuleControlDataType::UNKNOWN;
             Variant value;
-            bool can_modulate;
+            bool can_modulate, mod_per_voice;
             ModulatorOperation modop;
         };
 
@@ -221,6 +221,8 @@ namespace modules {
 
             std::vector<ModuleControl> controls;
             std::vector<Modulator> modulators;
+
+            uint8_t max_voices;
 
             void* userdata;
             void (*processor)(ModuleProcessor& processor);

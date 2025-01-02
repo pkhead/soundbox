@@ -467,3 +467,29 @@ std::vector<AudioRenderer::GraphModulator>* AudioRenderer::build_modulator_data(
 
     return new std::vector<AudioRenderer::GraphModulator>(std::move(list));
 }
+
+std::vector<ModuleData::ModulatorInstance>* AudioRenderer::build_modinst_bank(AudioEngine &engine, ModuleID mod_id) {
+    const auto &mod_it = engine._modules.find(mod_id);
+    assert(mod_it != engine._modules.end());
+    if (mod_it == engine._modules.end()) return nullptr;
+    auto &mod = mod_it->second;
+
+    // calculate the number of sources per per-voice control
+    std::vector<unsigned int> sources_per_control(mod->controls.size(), 0);
+    for (auto &modu : mod->modulators) {
+        for (auto target : modu.targets) {
+            assert(mod->controls[target].can_modulate);
+
+            if (mod->controls[target].mod_per_voice)
+                sources_per_control[target]++;
+        }
+    }
+
+    // get maximum number of sources per control
+    unsigned int max = 0;
+    for (auto n : sources_per_control) {
+        if (n > max) max = n;
+    }
+
+    return new std::vector<ModuleData::ModulatorInstance>(mod->max_voices * max);
+}
